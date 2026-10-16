@@ -183,6 +183,25 @@ body.layout-auto .nav[aria-current="page"]{background:var(--accent);color:var(--
 body.layout-auto .nav[aria-current="page"] svg{color:var(--accent-ink)}
 body.layout-auto main{padding:16px 18px}
 body.layout-auto .view{max-width:none}
+/* Transições entre menus: só transform e opacidade, leves para o browser do Tesla */
+@keyframes viewIn{from{opacity:0;transform:translate3d(calc(var(--vdir,1) * 36px),0,0) scale(.985)}to{opacity:1;transform:none}}
+@keyframes cardIn{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
+body.fx .view.enter{animation:viewIn .32s cubic-bezier(.2,.8,.2,1) both}
+body.fx .view.enter > .panel, body.fx .view.enter > div > .panel, body.fx .view.enter .hcard, body.fx .view.enter .ltile, body.fx .view.enter .apptile{animation:cardIn .36s cubic-bezier(.2,.8,.2,1) both}
+body.fx .view.enter :is(.panel,.hcard,.ltile,.apptile):nth-child(2){animation-delay:.04s}
+body.fx .view.enter :is(.panel,.hcard,.ltile,.apptile):nth-child(3){animation-delay:.08s}
+body.fx .view.enter :is(.panel,.hcard,.ltile,.apptile):nth-child(4){animation-delay:.12s}
+body.fx .view.enter :is(.panel,.hcard,.ltile,.apptile):nth-child(n+5){animation-delay:.16s}
+body.fx .nav{transition:background-color .2s, color .2s, transform .15s}
+body.fx .nav:active{transform:scale(.94)}
+body.fx .nav[aria-current="page"] svg{animation:navPop .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes navPop{0%{transform:scale(.8)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){ body.fx .view.enter, body.fx .view.enter *{animation:none!important} }
+.view.webview{max-width:none;gap:12px;height:calc(100vh - 120px)}
+body.layout-auto .view.webview{height:calc(100vh - 32px)}
+.webbar{flex-wrap:nowrap}
+#webFrame{flex:1;width:100%;min-height:0;border:0;border-radius:18px;background:#0b0f16}
+@media (max-width:900px){ .webbar{flex-wrap:wrap} #webHint{display:none} }
 .home{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:auto auto auto;gap:16px;min-height:calc(100vh - 32px)}
 .hcard{border-radius:26px;background:var(--panel);border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .hcard h2{font-size:14px}
@@ -603,7 +622,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 
     <!-- APPS -->
     <section class="view" id="v-apps" hidden>
-      <div class="row"><h1>Apps</h1><span class="spacer"></span><label class="row small"><input type="checkbox" id="appsFs"> Abrir em ecrã inteiro (truque do YouTube no Tesla)</label></div>
+      <div class="row"><h1>Apps</h1><span class="spacer"></span><label class="row small"><input type="checkbox" id="appsIn"> Abrir dentro do Cockpit</label><label class="row small"><input type="checkbox" id="appsFs"> Fora: em ecrã inteiro (truque do YouTube)</label></div>
       <div class="apps">
         <button class="apptile" data-app="waze">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 19-7-4-7 4z"/></svg></span>
@@ -622,6 +641,20 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <p class="small muted" style="margin:0">“Enviar para o Tesla” põe o destino na navegação do próprio carro, através da Tessie. Também podes dizer: “leva-me ao Algarve Shopping” ou “navega para Faro no Waze”.</p>
         <div class="list" id="navRecent" style="max-height:none"></div>
       </div>
+    </section>
+
+    <!-- APP DENTRO DO COCKPIT (Waze, Google Maps, NOS TV) -->
+    <section class="view webview" id="v-web" hidden>
+      <div class="row webbar">
+        <button class="btn" id="webBack">◀ Voltar</button>
+        <h1 id="webTitle" style="margin:0;font-size:24px">App</h1>
+        <span class="spacer"></span>
+        <span class="small muted" id="webHint"></span>
+        <button class="btn primary" id="webSend" hidden>Enviar para o Tesla</button>
+        <button class="btn" id="webReload">Recarregar</button>
+        <button class="btn" id="webOut">Abrir fora</button>
+      </div>
+      <iframe id="webFrame" title="App" allow="geolocation; encrypted-media; fullscreen; autoplay; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
     </section>
 
     <!-- EMAIL -->
@@ -717,6 +750,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
             <button class="layoutopt" data-layout="classic" aria-pressed="false"><span class="lprev lp-classic"><i></i><i></i><i></i></span><b>Clássico</b><span class="small muted">Menu com texto e painéis</span></button>
             <button class="layoutopt" data-layout="auto" aria-pressed="false"><span class="lprev lp-auto"><i></i><i></i><i></i><i></i></span><b>Condução</b><span class="small muted">Inspirado no Android Auto: ícones grandes e ecrã de início</span></button>
           </div>
+          <label class="row small"><input type="checkbox" id="setFx"> Efeitos de transição entre menus</label>
           <h2>Esquema de cores</h2>
           <div class="schemes" id="schemes" role="group" aria-label="Esquema de cores"></div>
         </div>
@@ -920,8 +954,14 @@ function show(view){
   }
   if(view==="settings") fillSettings();
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
+  if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
+  const order = ["home","car","energy","voice","tv","media","apps","web","notes","mail","net","settings","launcher"];
+  const prev = currentView, changed = prev !== view;
+  document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
   document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "v-"+view);
+  const vEl = $("v-"+view);
+  if(vEl && changed && cfg.fx !== false){ vEl.classList.remove("enter"); void vEl.offsetWidth; vEl.classList.add("enter"); clearTimeout(vEl._fxT); vEl._fxT = setTimeout(()=>vEl.classList.remove("enter"), 700); }
   document.querySelectorAll(".nav").forEach(b => b.setAttribute("aria-current", b.dataset.view===view ? "page" : "false"));
   LS.set("view", view);
   if(view==="net") renderNet();
@@ -2084,7 +2124,13 @@ async function growattFetch(force){
   if(!(cfg.gwToken && cfg.gwPlant)) return null;
   if(!force && pvState && Date.now() - pvState.t < 60e3) return pvState;
   if(!cfg.proxy) throw new Error("a Growatt precisa do proxy configurado");
-  const r = await fetch(px(`https://openapi.growatt.com/v1/plant/data?plant_id=${encodeURIComponent(cfg.gwPlant)}`), {headers:{"X-Fwd-token":cfg.gwToken}});
+  let r;
+  try{ r = await fetch(px(`https://openapi.growatt.com/v1/plant/data?plant_id=${encodeURIComponent(cfg.gwPlant)}`), {headers:{"X-Fwd-token":cfg.gwToken}}); }
+  catch(e){
+    // O proxy antigo não aceita o cabeçalho com o token da Growatt e o browser bloqueia o pedido.
+    const ok = await fetch(cfg.proxy.replace(/\/+$/,"") + "/?k=" + encodeURIComponent(cfg.pkey||"")).then(x=>x.ok).catch(()=>false);
+    throw new Error(ok ? "o proxy da Cloudflare está desatualizado. Volta a colar o código novo do proxy-worker.js e faz Deploy." : "não consegui ligar ao proxy.");
+  }
   const j = await r.json().catch(()=>({}));
   if(j.error_code && j.error_code !== 0){
     if(/frequent/i.test(j.error_msg||"") && pvState) return pvState; // limite da Growatt: usa o último valor
@@ -2377,6 +2423,51 @@ const APPS = {
   google_maps: {name:"Google Maps", url:"https://www.google.com/maps"},
   nos_tv: {name:"NOS TV", url:"https://nostv.pt/"}
 };
+if(cfg.appsIn === undefined) cfg.appsIn = true;
+$("appsIn").checked = !!cfg.appsIn;
+$("appsIn").onchange = e => { cfg.appsIn = e.target.checked; saveCfg(); };
+/* Posição do carro (Tessie) para centrar os mapas; sem ela, centra em Portugal. */
+function carPos(){
+  const d = car?.drive_state || {};
+  return isFinite(d.latitude) && isFinite(d.longitude) && (d.latitude || d.longitude) ? {lat:+d.latitude, lon:+d.longitude, z:14} : {lat:39.4, lon:-8.2, z:7};
+}
+/* Converte uma morada em coordenadas (OpenStreetMap), para pôr o destino no mapa do Waze. */
+async function geocode(q){
+  const u = "https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=pt&q=" + encodeURIComponent(q);
+  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+    try{ const r = await fetch(url); if(r.ok){ const j = await r.json(); if(j[0]) return {lat:+j[0].lat, lon:+j[0].lon, name:j[0].display_name}; } }catch(e){}
+  }
+  return null;
+}
+let webPrev = "apps", webCtx = null;
+/* Abre uma app dentro do Cockpit. Waze e Google Maps usam as versões próprias para embutir; a NOS TV tenta a página normal. */
+function openInApp(title, url, outUrl, opts={}){
+  if(currentView !== "web") webPrev = currentView || "apps";
+  webCtx = {title, url, outUrl, dest:opts.dest || ""};
+  $("webTitle").textContent = title;
+  $("webHint").textContent = opts.hint || "";
+  $("webSend").hidden = !opts.dest || !!cfg.passenger;
+  $("webFrame").src = url;
+  show("web");
+}
+$("webBack").onclick = ()=> show(webPrev && webPrev !== "web" ? webPrev : "apps");
+$("webReload").onclick = ()=>{ if(webCtx){ $("webFrame").src = "about:blank"; setTimeout(()=>{ $("webFrame").src = webCtx.url; }, 50); } };
+$("webOut").onclick = ()=>{ if(webCtx) openExt(webCtx.outUrl); };
+$("webSend").onclick = ()=>{ if(webCtx?.dest) navigateTo(webCtx.dest, "tesla"); };
+function wazeEmbed(lat, lon, z, pin){ return `https://embed.waze.com/pt-PT/iframe?zoom=${z}&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}${pin ? "&pin=1" : ""}`; }
+function gmapsEmbed(q){
+  const p = carPos();
+  if(!q) return `https://maps.google.com/maps?ll=${p.lat},${p.lon}&z=${p.z}&t=m&hl=pt-PT&output=embed`;
+  const from = p.z > 7 ? `saddr=${p.lat},${p.lon}&` : "";
+  return `https://maps.google.com/maps?${from}daddr=${encodeURIComponent(q)}&dirflg=d&hl=pt-PT&output=embed`;
+}
+async function openWazeIn(dest){
+  if(!dest){ const p = carPos(); return openInApp("Waze", wazeEmbed(p.lat, p.lon, p.z, p.z > 7), APPS.waze.url, {hint:"Trânsito e alertas em tempo real"}); }
+  const g = await geocode(dest);
+  const out = `https://www.waze.com/ul?q=${encodeURIComponent(dest)}&navigate=yes`;
+  if(!g){ toast("Não encontrei “" + dest + "” no mapa. A abrir o Waze com a pesquisa.", true); return openExt(out); }
+  openInApp("Waze · " + dest, wazeEmbed(g.lat, g.lon, 15, true), out, {dest, hint:"Trânsito no destino"});
+}
 if(cfg.fsApps === undefined) cfg.fsApps = true;
 $("appsFs").checked = !!cfg.fsApps;
 $("appsFs").onchange = e => { cfg.fsApps = e.target.checked; saveCfg(); };
@@ -2385,7 +2476,14 @@ function openExt(url){
   a.href = cfg.fsApps ? "https://www.youtube.com/redirect?q=" + encodeURIComponent(url) : url;
   a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
 }
-function openApp(id){ const a = APPS[id]; if(!a) return false; openExt(a.url); return true; }
+function openApp(id){
+  const a = APPS[id]; if(!a) return false;
+  if(!cfg.appsIn){ openExt(a.url); return true; }
+  if(id === "waze") openWazeIn("");
+  else if(id === "google_maps") openInApp("Google Maps", gmapsEmbed(""), a.url, {hint:"Mapa à volta do carro"});
+  else openInApp(a.name, a.url, a.url, {hint:"Se ficar em branco, toca em “Abrir fora”"});
+  return true;
+}
 document.querySelectorAll("[data-app]").forEach(b => b.onclick = () => openApp(b.dataset.app));
 let navRecent = LS.get("navRecent", []);
 function renderNavRecent(){
@@ -2399,8 +2497,12 @@ async function navigateTo(dest, app="tesla"){
   dest = String(dest||"").trim(); if(!dest) return false;
   navRecent = [dest, ...navRecent.filter(x=>x.toLowerCase()!==dest.toLowerCase())].slice(0, 8); LS.set("navRecent", navRecent); renderNavRecent();
   const q = encodeURIComponent(dest);
-  if(app==="waze"){ openExt(`https://www.waze.com/ul?q=${q}&navigate=yes`); return true; }
-  if(app==="google_maps" || app==="google"){ openExt(`https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`); return true; }
+  if(app==="waze"){ cfg.appsIn ? openWazeIn(dest) : openExt(`https://www.waze.com/ul?q=${q}&navigate=yes`); return true; }
+  if(app==="google_maps" || app==="google"){
+    const out = `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`;
+    cfg.appsIn ? openInApp("Google Maps · " + dest, gmapsEmbed(dest), out, {dest, hint:"Percurso desde o carro"}) : openExt(out);
+    return true;
+  }
   return doCmd("share", {value:dest, locale:"pt-PT"}, "Destino enviado: " + dest);
 }
 $("navForm").onsubmit = e => { e.preventDefault(); navigateTo($("navDest").value, "tesla"); };
@@ -2419,6 +2521,9 @@ document.querySelectorAll(".layoutopt").forEach(b=>b.onclick=()=>{
   if(cfg.layout === "auto") show(cfg.passenger ? "tv" : "home"); else if(["home","launcher"].includes(currentView)) show("car");
 });
 $("tbMic").onclick = startListening;
+function applyFx(){ document.body.classList.toggle("fx", cfg.fx !== false); $("setFx").checked = cfg.fx !== false; }
+$("setFx").onchange = e => { cfg.fx = e.target.checked; saveCfg(); applyFx(); };
+applyFx();
 function buildLauncher(){
   const allowed = v => !cfg.passenger || ["tv","media","apps"].includes(v);
   const views = [...document.querySelectorAll(".rail .nav")].filter(n=>!["launcher","home"].includes(n.dataset.view) && allowed(n.dataset.view))
@@ -2476,6 +2581,8 @@ setInterval(()=>{ if(!document.hidden && currentView === "home"){ loadState(); i
 /* ---------- Interface em PT / EN / FR ---------- */
 const I18N_PAIRS = [
 // [português, english, français]
+["Efeitos de transição entre menus","Transition effects between menus","Effets de transition entre les menus"],
+["◀ Voltar","◀ Back","◀ Retour"],["Recarregar","Reload","Recharger"],["Abrir fora","Open outside","Ouvrir à l'extérieur"],["Abrir dentro do Cockpit","Open inside Cockpit","Ouvrir dans Cockpit"],["Fora: em ecrã inteiro (truque do YouTube)","Outside: full screen (YouTube trick)","À l'extérieur : plein écran (astuce YouTube)"],["Trânsito e alertas em tempo real","Live traffic and alerts","Trafic et alertes en direct"],["Mapa à volta do carro","Map around the car","Carte autour de la voiture"],["Percurso desde o carro","Route from the car","Itinéraire depuis la voiture"],["Trânsito no destino","Traffic at destination","Trafic à destination"],["Se ficar em branco, toca em “Abrir fora”","If it stays blank, tap “Open outside”","Si la page reste vide, touche « Ouvrir à l'extérieur »"],
 ["Início","Home","Accueil"],["Todas as apps","All apps","Toutes les apps"],["Navegação","Navigation","Navigation"],["Para onde vamos?","Where to?","On va où ?"],["Ir","Go","Aller"],["Mais apps","More apps","Plus d'apps"],["A tocar","Now playing","En cours"],["Abrir","Open","Ouvrir"],["Nada a tocar","Nothing playing","Rien en lecture"],["Escolhe uma rádio ou um canal","Pick a radio or a channel","Choisis une radio ou une chaîne"],["■ Parar","■ Stop","■ Arrêter"],["Sol e carga","Sun and charging","Soleil et recharge"],["Solar agora","Solar now","Solaire maintenant"],["Carga","Charging","Recharge"],["Layout","Layout","Disposition"],["Clássico","Classic","Classique"],["Condução","Driving","Conduite"],["Menu com texto e painéis","Text menu and panels","Menu texte et panneaux"],["Inspirado no Android Auto: ícones grandes e ecrã de início","Inspired by Android Auto: big icons and a home screen","Inspiré d'Android Auto : grandes icônes et écran d'accueil"],["Os destinos recentes aparecem aqui.","Recent destinations show up here.","Les destinations récentes s'affichent ici."],["Rádio","Radio","Radio"],["TV só áudio","TV audio only","TV audio seul"],
 ["Carro","Car","Voiture"],["Voz","Voice","Voix"],["Notas","Notes","Notes"],["Rede","Network","Réseau"],["Definições","Settings","Réglages"],
 ["Secções","Sections","Sections"],["Falar comando","Speak a command","Dire une commande"],["Demonstração","Demo","Démo"],["Online","Online","En ligne"],["Bloquear","Lock app","Verrouiller l'app"],
@@ -2668,7 +2775,7 @@ if(passengerImport()) show("tv");
 else if(mailHandleRedirect()) show("mail");
 else if(cfg.passenger) show("tv");
 else if(cfg.layout==="auto") show("home");
-else { const v = LS.get("view","car"); show((v==="settings" || v==="mail") && PIN.isSet() ? "car" : v); }
+else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings" || v==="mail") && PIN.isSet() ? "car" : v); }
 loadState(); loadIptv(false);
 setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
 </script>
