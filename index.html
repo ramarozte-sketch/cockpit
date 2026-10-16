@@ -135,6 +135,17 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .banner{padding:12px 16px;border-radius:12px;border:1px dashed var(--warn);color:var(--warn);font-size:15px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px}
 .kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+
+/* PIN */
+.pinwrap{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
+.pinbox{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px;align-items:center;width:min(360px,100%)}
+.pindots{display:flex;gap:12px;min-height:22px}
+.pindots i{width:16px;height:16px;border-radius:50%;background:var(--accent)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.keys button{min-height:68px;border-radius:14px;border:1px solid var(--line);background:var(--panel-2);font:600 26px var(--f-display)}
+.keys button.ok{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:20px}
+.keys button.del{font-size:16px}
+.lockbtn{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:6px 14px;min-height:40px;font-size:14px}
 </style>
 </head>
 <body>
@@ -154,6 +165,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
     <div class="clock" id="clock">--:--</div>
     <span class="chip" id="chipCar"><i class="dot"></i><span>Carro</span></span>
     <span class="chip" id="chipNet"><i class="dot"></i><span>Rede</span></span>
+    <button class="lockbtn" id="lockNow" hidden>Bloquear</button>
     <div class="spacer"></div>
     <div class="heard" id="heard"></div>
     <button class="mic" id="micBtn" aria-label="Falar comando"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
@@ -315,6 +327,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
       <h1>Definições</h1>
       <div class="grid2">
         <div class="panel">
+          <h2>PIN de proteção</h2>
+          <p class="small muted" id="pinState" style="margin:0"></p>
+          <div class="row"><button class="btn primary" id="btnSetPin">Definir PIN</button><button class="btn danger" id="btnDelPin" hidden>Remover PIN</button></div>
           <h2>Tesla via Tessie</h2>
           <label class="f">Token da API Tessie (tessie.com › Settings › API)<input type="password" id="setToken" autocomplete="off"></label>
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
@@ -347,6 +362,20 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
   </main>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="pinwrap" id="pinPad" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="pinbox">
+    <h2 id="pinTitle">Introduz o PIN</h2>
+    <div class="pindots" id="pinDots" aria-live="polite"></div>
+    <p class="small muted" id="pinMsg" style="margin:0;text-align:center"></p>
+    <div class="keys" id="pinKeys">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="del" class="del">Apagar</button><button data-k="0">0</button><button data-k="ok" class="ok">OK</button>
+    </div>
+    <button class="btn" id="pinCancel" style="width:100%">Cancelar</button>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -361,7 +390,7 @@ const IDB = {
   async get(k){ if(!this.db && !(await this.open())) return null; return new Promise(res=>{ try{ const q=this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result??null); q.onerror=()=>res(null);}catch(e){res(null)} }); },
   async set(k,v){ if(!this.db && !(await this.open())) return; return new Promise(res=>{ try{ const t=this.db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>res();}catch(e){res()} }); }
 };
-const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:""}, LS.get("cfg", {}));
+const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:""}, LS.get("cfg", {}));
 const saveCfg = () => LS.set("cfg", cfg);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -372,7 +401,56 @@ applyTheme();
 
 /* ---------- navegação ---------- */
 let currentView = "car";
+
+/* ---------- PIN ---------- */
+const PIN = { until:0, fails:0, blockedUntil:0,
+  isSet(){ return !!cfg.pinHash; },
+  isOpen(){ return !this.isSet() || Date.now() < this.until; },
+  open(){ this.until = Date.now() + 10*60e3; renderLock(); },
+  lock(){ this.until = 0; clearSettingsFields(); renderLock(); if(currentView==="settings") show("car"); }
+};
+async function hashPin(pin){
+  const data = new TextEncoder().encode(cfg.pinSalt + ":" + pin);
+  if(window.crypto && crypto.subtle){ const h = await crypto.subtle.digest("SHA-256", data); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  let x = 2166136261; for(const b of data){ x ^= b; x = Math.imul(x, 16777619) >>> 0; } return "f" + x.toString(16);
+}
+function askPin(title, msg=""){
+  return new Promise(resolve => {
+    let val = "";
+    const pad=$("pinPad"), dots=$("pinDots");
+    $("pinTitle").textContent = title; $("pinMsg").textContent = msg;
+    const draw = () => dots.innerHTML = "<i></i>".repeat(val.length);
+    const done = r => { pad.hidden = true; document.removeEventListener("keydown", onKey); resolve(r); };
+    const press = k => { if(k==="del") val = val.slice(0,-1); else if(k==="ok"){ if(val.length>=4) done(val); else $("pinMsg").textContent="O PIN tem 4 a 8 dígitos."; return; } else if(val.length<8) val += k; draw(); };
+    const onKey = e => { if(/^\d$/.test(e.key)) press(e.key); else if(e.key==="Backspace") press("del"); else if(e.key==="Enter") press("ok"); else if(e.key==="Escape") done(null); };
+    $("pinKeys").querySelectorAll("button").forEach(b => b.onclick = () => press(b.dataset.k));
+    $("pinCancel").onclick = () => done(null);
+    document.addEventListener("keydown", onKey);
+    draw(); pad.hidden = false;
+  });
+}
+async function requirePin(reason){
+  if(PIN.isOpen()){ if(PIN.isSet()) PIN.open(); return true; }
+  if(Date.now() < PIN.blockedUntil){ toast("Demasiadas tentativas. Espera "+Math.ceil((PIN.blockedUntil-Date.now())/1000)+" s.", true); return false; }
+  const p = await askPin(reason || "Introduz o PIN"); if(p==null) return false;
+  if(await hashPin(p) === cfg.pinHash){ PIN.fails=0; PIN.open(); return true; }
+  PIN.fails++; if(PIN.fails>=5){ PIN.blockedUntil = Date.now()+60e3; PIN.fails=0; }
+  toast("PIN errado.", true); return false;
+}
+function renderLock(){
+  $("lockNow").hidden = !(PIN.isSet() && PIN.isOpen());
+  $("pinState").textContent = PIN.isSet() ? "PIN ativo. Protege as Definições e o destrancar. Bloqueia sozinho após 10 minutos." : "Sem PIN. Qualquer pessoa neste browser vê as Definições e pode destrancar o carro.";
+  $("btnSetPin").textContent = PIN.isSet() ? "Mudar PIN" : "Definir PIN";
+  $("btnDelPin").hidden = !PIN.isSet();
+}
+setInterval(()=>{ if(PIN.isSet() && PIN.until && !PIN.isOpen()) PIN.lock(); }, 15000);
+
 function show(view){
+  if(view==="settings" && !PIN.isOpen()){
+    requirePin("PIN para abrir as Definições").then(ok => { if(ok) show("settings"); });
+    return;
+  }
+  if(view==="settings") fillSettings();
   currentView = view;
   document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "v-"+view);
   document.querySelectorAll(".nav").forEach(b => b.setAttribute("aria-current", b.dataset.view===view ? "page" : "false"));
@@ -482,7 +560,9 @@ function buildActions(){
 }
 async function runAction(id, btn){
   const a = ACTIONS.find(x=>x.id===id); if(!a) return false;
-  if(a.confirm && btn && !btn.classList.contains("armed")){
+  if(a.confirm && PIN.isSet()){
+    if(!(await requirePin("PIN para destrancar"))) return false;
+  } else if(a.confirm && btn && !btn.classList.contains("armed")){
     btn.classList.add("armed"); btn.querySelector("b").textContent="Toca para confirmar";
     setTimeout(()=>{ btn.classList.remove("armed"); btn.querySelector("b").textContent=a.label; }, 4000);
     return false;
@@ -533,7 +613,7 @@ let pendingUnlock = 0;
 /* Ordem importa: o primeiro padrão que corresponde ganha. */
 const VOICE = [
   {d:{pt:"confirmar", en:"confirm", fr:"confirmer"}, re:[/\b(confirmar|confirmo|confirm|confirmer)\b/], run:async()=>{ if(Date.now()-pendingUnlock<15000){ pendingUnlock=0; return doCmd("unlock",{}, "Destrancar"); } return null; }},
-  {d:{pt:"destrancar o carro", en:"unlock the car", fr:"déverrouiller la voiture"}, re:[/destranc|\bunlock|deverrouill/], run:async()=>{ pendingUnlock=Date.now(); return "ask"; }},
+  {d:{pt:"destrancar o carro", en:"unlock the car", fr:"déverrouiller la voiture"}, re:[/destranc|\bunlock|deverrouill/], run:async()=>{ if(PIN.isSet()){ const ok = await requirePin("PIN para destrancar"); return ok ? doCmd("unlock",{}, "Destrancar") : false; } pendingUnlock=Date.now(); return "ask"; }},
   {d:{pt:"trancar o carro", en:"lock the car", fr:"verrouiller la voiture"}, re:[/\btranc|fech\w* (o )?carro|\block\b|verrouill/], run:()=>doCmd("lock",{}, "Trancar")},
   {d:{pt:"abre a mala da frente", en:"open the frunk", fr:"ouvre le coffre avant"}, re:[/mala (da )?frente|frunk|mala dianteira|capo|front trunk|coffre avant/], run:()=>doCmd("activate_front_trunk",{}, "Mala dianteira")},
   {d:{pt:"abre a mala", en:"open the trunk", fr:"ouvre le coffre"}, re:[/\bmala\b|\btrunk\b|\bcoffre\b/], run:()=>doCmd("activate_rear_trunk",{}, "Mala traseira")},
@@ -840,13 +920,30 @@ $("setLang").onchange = e=>{ cfg.lang=e.target.value; $("voiceLang").value=cfg.l
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 $("setLight").onchange = e=>{ cfg.light=e.target.checked; saveCfg(); applyTheme(); };
 $("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; saveCfg(); loadIptv(true); };
-$("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token nem palavra-passe)"), ()=>{}); }catch(e){} };
-$("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp}; Object.assign(cfg,d.cfg); if(!cfg.token) cfg.token=keep.token; if(!cfg.xp) cfg.xp=keep.xp; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
+$("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
+$("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
 
 /* ---------- arranque ---------- */
-buildActions(); fillSettings(); renderCmdList(); renderNotes(); renderFavs(); netChip();
+function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
+$("btnSetPin").onclick = async ()=>{
+  if(!(await requirePin("PIN atual"))) return;
+  const a = await askPin("Novo PIN", "Escolhe 4 a 8 dígitos."); if(a==null) return;
+  const b = await askPin("Repete o novo PIN"); if(b==null) return;
+  if(a!==b){ toast("Os PIN não coincidem. Tenta outra vez.", true); return; }
+  const salt = new Uint8Array(16); crypto.getRandomValues(salt);
+  cfg.pinSalt = [...salt].map(x=>x.toString(16).padStart(2,"0")).join("");
+  cfg.pinHash = await hashPin(a); saveCfg(); PIN.open(); toast("PIN guardado ✓");
+};
+$("btnDelPin").onclick = async ()=>{
+  PIN.until = 0;
+  if(!(await requirePin("PIN atual para remover"))){ PIN.open(); return; }
+  cfg.pinHash=""; cfg.pinSalt=""; saveCfg(); renderLock(); toast("PIN removido");
+};
+$("lockNow").onclick = ()=>{ PIN.lock(); toast("Bloqueado"); };
+
+buildActions(); $("voiceLang").value=cfg.lang; renderCmdList(); renderNotes(); renderFavs(); netChip(); renderLock();
 if(notes[0]) openNote(notes[0].id);
-show(LS.get("view","car"));
+{ const v = LS.get("view","car"); show(v==="settings" && PIN.isSet() ? "car" : v); }
 loadState(); loadIptv(false);
 setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
 </script>
