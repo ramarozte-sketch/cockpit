@@ -912,7 +912,8 @@ function playChannel(c, slot=tvTarget){
       if(!d.fatal) return;
       const code = d.response?.code || 0;
       // Só tenta MPEG-TS quando o servidor respondeu mas a lista HLS não serve; um 4xx/5xx não se resolve a mudar de formato.
-      if(live && !retried && /\/live\//.test(c.url) && !(code>=400)){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 1200); return; }
+      const tsWorth = !(code>=400) || /^(frag|level)/.test(d.details||""); // segmentos recusados: o TS usa uma só ligação contínua
+      if(live && !retried && /\/live\//.test(c.url) && tsWorth){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 1200); return; }
       fail("HLS", d.details + (code ? " "+code : ""));
     });
   } else { v.src = px(c.url); v.onerror = ()=>fail("vídeo", "o browser pode não suportar este formato (ex.: .mkv)"); }
@@ -985,6 +986,7 @@ async function diagnoseStream(url){
   const txt = (last.snippet||"").toLowerCase();
   if(last.error) res.why = "O proxy não consegue chegar ao servidor de vídeo. Pode ser uma porta que a Cloudflare não permite (usa 80, 8080, 8880, 443 ou 8443).";
   else if(/max.*conn|connection limit|too many|limit reached/.test(txt) || last.status===458 || last.status===509 || last.status===429) res.why = "O servidor diz que atingiste o limite de ligações. Fecha o IPTV noutros aparelhos e tenta outra vez daqui a 1 minuto.";
+  else if(/error code: 1003/.test(txt)) res.why = "O proxy na Cloudflare ainda é a versão antiga, que não consegue aceder a endereços IP diretos. Atualiza o código do proxy.";
   else if(/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt)) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy).";
   else if((last.status===401 || last.status===403) && hops.length>1) res.why = "O servidor principal aceitou, mas o servidor de vídeo para onde redireciona recusou. Os fornecedores fazem isto para bloquear endereços de datacenters, como os da Cloudflare, só no vídeo.";
   else if(last.status===401 || last.status===403) res.why = "O servidor IPTV recusa o vídeo pedido a partir da Cloudflare, embora aceite a lista. É um bloqueio a endereços de datacenters.";
