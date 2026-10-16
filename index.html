@@ -337,6 +337,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
           <h2>Voz e aparência</h2>
           <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
+          <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
           <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
           <label class="row small"><input type="checkbox" id="setLight"> Tema claro</label>
         </div>
@@ -390,7 +391,7 @@ const IDB = {
   async get(k){ if(!this.db && !(await this.open())) return null; return new Promise(res=>{ try{ const q=this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result??null); q.onerror=()=>res(null);}catch(e){res(null)} }); },
   async set(k,v){ if(!this.db && !(await this.open())) return; return new Promise(res=>{ try{ const t=this.db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>res();}catch(e){res()} }); }
 };
-const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:""}, LS.get("cfg", {}));
+const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:"", stt:"auto", srBroken:false}, LS.get("cfg", {}));
 const saveCfg = () => LS.set("cfg", cfg);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -664,21 +665,80 @@ function renderCmdList(){ $("cmdList").innerHTML = VOICE.map(c=>`<div class="cmd
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec=null, listening=false;
+/* Dois motores: o do browser (envia o áudio para a Google; no Tesla falha com "network")
+   e o da Cloudflare (Whisper no teu proxy). "auto" muda sozinho para a Cloudflare se o do browser falhar. */
+function sttEngine(){ if(cfg.stt==="browser") return "browser"; if(cfg.stt==="cloud") return "cloud"; return (!SR || cfg.srBroken) ? "cloud" : "browser"; }
+function setListeningUi(on, label){ listening=on; $("micBtn").classList.toggle("live", on); $("micBtn2").textContent = on ? (label||"A ouvir… toca para parar") : "Começar a ouvir"; }
 function startListening(){
-  if(!SR){ toast("Este browser não suporta reconhecimento de voz. Usa a caixa de texto.", true); show("voice"); return; }
+  if(sttEngine()==="cloud") return cloudListen();
   if(listening){ rec && rec.stop(); return; }
   rec = new SR(); rec.lang = cfg.lang; rec.interimResults = true; rec.maxAlternatives = 1;
-  rec.onstart = ()=>{ listening=true; $("micBtn").classList.add("live"); $("micBtn2").textContent="A ouvir… toca para parar"; };
-  rec.onend = ()=>{ listening=false; $("micBtn").classList.remove("live"); $("micBtn2").textContent="Começar a ouvir"; };
-  rec.onerror = e=>{ if(e.error==="not-allowed") toast("Microfone bloqueado. Autoriza o microfone para este site.", true); else if(e.error!=="no-speech" && e.error!=="aborted") toast("Erro de voz: "+e.error, true); };
+  rec.onstart = ()=>setListeningUi(true);
+  rec.onend = ()=>setListeningUi(false);
+  rec.onerror = e=>{
+    if(e.error==="network" || e.error==="service-not-allowed" || e.error==="language-not-supported"){
+      if(cfg.stt!=="browser"){ cfg.srBroken=true; saveCfg(); toast("O reconhecimento do browser não funciona aqui. A usar o da Cloudflare."); setTimeout(cloudListen, 300); }
+      else toast("Erro de voz do browser: "+e.error+". Em Definições escolhe o reconhecimento “Cloudflare”.", true);
+    } else if(e.error==="not-allowed") toast("Microfone bloqueado. Autoriza o microfone para este site.", true);
+    else if(e.error!=="no-speech" && e.error!=="aborted") toast("Erro de voz: "+e.error, true);
+  };
   rec.onresult = e=>{ let fin="", tmp=""; for(const r of e.results){ if(r.isFinal) fin+=r[0].transcript; else tmp+=r[0].transcript; } $("heard").textContent = fin||tmp; if(fin) handleCommand(fin); };
   try{ rec.start(); }catch(e){ toast("Não foi possível ativar o microfone.", true); }
+}
+
+/* Gravação → WAV 16 kHz → proxy /stt (Whisper) */
+let recState = null;
+async function cloudListen(){
+  if(recState){ recState.stop(); return; }
+  if(!cfg.proxy){ toast("A voz pela Cloudflare precisa do proxy configurado em Definições.", true); return; }
+  if(!navigator.mediaDevices?.getUserMedia){ toast("Este browser não dá acesso ao microfone. Usa a caixa de texto.", true); return; }
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){ toast(e.name==="NotAllowedError" ? "Microfone bloqueado. Autoriza o microfone para este site." : "Não consegui abrir o microfone ("+e.name+").", true); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; const ctx = new AC();
+  const src = ctx.createMediaStreamSource(stream); const proc = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks=[]; const t0=performance.now(); let lastVoice=0, heardVoice=false, stopped=false;
+  const stop = async ()=>{
+    if(stopped) return; stopped=true; recState=null;
+    proc.disconnect(); src.disconnect(); stream.getTracks().forEach(t=>t.stop()); ctx.close().catch(()=>{});
+    setListeningUi(false);
+    if(!heardVoice){ $("heard").textContent=""; return; }
+    $("heard").textContent = "A reconhecer…";
+    try{
+      const wav = encodeWav(chunks, ctx.sampleRate, 16000);
+      const base = cfg.proxy.replace(/\/+$/,"");
+      const r = await fetch(`${base}/stt?${cfg.pkey?"k="+encodeURIComponent(cfg.pkey)+"&":""}lang=${cfg.lang.slice(0,2)}`, {method:"POST", headers:{"Content-Type":"audio/wav"}, body:wav});
+      if(r.status===501) throw new Error("falta ligar o Workers AI ao proxy (binding AI)");
+      if(r.status===403) throw new Error("chave do proxy errada");
+      if(!r.ok) throw new Error((await r.text()).slice(0,120) || "HTTP "+r.status);
+      const j = await r.json();
+      if(j.text) handleCommand(j.text); else { $("heard").textContent=""; toast("Não percebi. Tenta outra vez.", true); }
+    }catch(e){ $("heard").textContent=""; toast("Voz: "+e.message, true); }
+  };
+  proc.onaudioprocess = ev => {
+    const d = ev.inputBuffer.getChannelData(0); chunks.push(new Float32Array(d));
+    let s=0; for(let i=0;i<d.length;i++) s+=d[i]*d[i]; const rms=Math.sqrt(s/d.length); const now=performance.now();
+    if(rms>0.02){ heardVoice=true; lastVoice=now; }
+    if((heardVoice && now-lastVoice>1200) || now-t0>8000 || (!heardVoice && now-t0>5000)) stop();
+  };
+  src.connect(proc); proc.connect(ctx.destination);
+  recState = {stop}; setListeningUi(true, "A ouvir (Cloudflare)… toca para parar");
+}
+function encodeWav(chunks, inRate, outRate){
+  const len = chunks.reduce((a,c)=>a+c.length,0); const all = new Float32Array(len); let o=0; for(const c of chunks){ all.set(c,o); o+=c.length; }
+  const ratio = inRate/outRate, n = Math.floor(len/ratio), pcm = new Int16Array(n);
+  for(let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,all[Math.floor(i*ratio)])); pcm[i]= s<0 ? s*0x8000 : s*0x7FFF; }
+  const buf = new ArrayBuffer(44+pcm.length*2), v = new DataView(buf);
+  const w = (p,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(p+i,s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+pcm.length*2,true); w(8,"WAVE"); w(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,outRate,true); v.setUint32(28,outRate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,pcm.length*2,true);
+  new Int16Array(buf,44).set(pcm); return new Blob([buf],{type:"audio/wav"});
 }
 $("micBtn").onclick = startListening;
 $("micBtn2").onclick = startListening;
 $("typeForm").onsubmit = e => { e.preventDefault(); handleCommand($("typeCmd").value); $("typeCmd").value=""; };
 $("voiceLang").onchange = e => { cfg.lang=e.target.value; $("setLang").value=cfg.lang; saveCfg(); renderCmdList(); };
-$("voiceSupport").textContent = SR ? "Reconhecimento de voz disponível. Nos Tesla com processador Intel o browser pode não o suportar; nesse caso usa a caixa de texto." : "Este browser não tem reconhecimento de voz. Os comandos escritos funcionam na mesma.";
+$("voiceSupport").textContent = "Toca no microfone e diz o comando. No Tesla a voz passa pelo teu proxy na Cloudflare; se não funcionar, usa a caixa de texto.";
 
 /* ---------- IPTV ---------- */
 let channels = [];      // {name, logo, group, id, url, kind}
@@ -733,8 +793,11 @@ async function loadXtream(){
   ]);
   const cat = list => Object.fromEntries((Array.isArray(list)?list:[]).map(c=>[String(c.category_id), c.category_name]));
   const lcm=cat(lc), vcm=cat(vc), scm=cat(sc), b=xBase(), u=encodeURIComponent(cfg.xu), p=encodeURIComponent(cfg.xp);
+  const fmts = auth?.user_info?.allowed_output_formats || [];
+  const ext = (!fmts.length || fmts.includes("m3u8")) ? "m3u8" : "ts";
+  LS.set("xfmts", fmts);
   const out = [];
-  (Array.isArray(ls)?ls:[]).forEach(s=>out.push({name:s.name, logo:s.stream_icon||"", group:lcm[s.category_id]||"Sem categoria", id:s.epg_channel_id||"", url:`${b}/live/${u}/${p}/${s.stream_id}.m3u8`, kind:"live"}));
+  (Array.isArray(ls)?ls:[]).forEach(s=>out.push({name:s.name, logo:s.stream_icon||"", group:lcm[s.category_id]||"Sem categoria", id:s.epg_channel_id||"", url:`${b}/live/${u}/${p}/${s.stream_id}.${ext}`, kind:"live"}));
   (Array.isArray(vs)?vs:[]).forEach(s=>out.push({name:s.name, logo:s.stream_icon||"", group:vcm[s.category_id]||"Sem categoria", id:"", url:`${b}/movie/${u}/${p}/${s.stream_id}.${s.container_extension||"mp4"}`, kind:"movie"}));
   (Array.isArray(ss)?ss:[]).forEach(s=>out.push({name:s.name, logo:s.cover||"", group:scm[s.category_id]||"Sem categoria", id:"", url:`series:${s.series_id}`, sid:s.series_id, kind:"series"}));
   return out;
@@ -819,17 +882,85 @@ function playChannel(c, slot=tvTarget){
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
-  const src = px(c.url);
-  const isHls = /\.m3u8(\?|$)/i.test(c.url) || c.kind==="live";
-  if(isHls && window.Hls && Hls.isSupported()){
-    const h = new Hls({maxBufferLength:30}); h.loadSource(src); h.attachMedia(v); hlsInst[slot]=h;
-    h.on(Hls.Events.ERROR, (ev, d)=>{ if(d.fatal){ toast("Não foi possível reproduzir "+c.name+". "+(cfg.proxy?"O canal pode estar offline.":fetchErrorHelp(c.url, new Error(""))), true); } });
-  } else { v.src = src; v.onerror = ()=>toast("Não foi possível reproduzir "+c.name+". O formato (ex.: .mkv) pode não ser suportado pelo browser.", true); }
+  stopSlot(slot);
+  const live = c.kind==="live";
+  const isTs = /\.ts(\?|$)/i.test(c.url);
+  const isHls = /\.m3u8(\?|$)/i.test(c.url) || (live && !isTs);
+  const fail = async (stage, extra) => {
+    const why = await diagnoseStream(c.url);
+    toast(`Não foi possível reproduzir ${c.name}. ${why}`, true);
+    $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="muted small">Falhou (${esc(stage)}${extra?": "+esc(extra):""}). ${esc(why)}</div>`;
+  };
+  const tryTs = async () => {
+    const tsUrl = c.url.replace(/\.m3u8(\?|$)/i, ".ts$1");
+    const ok = await playTs(v, px(tsUrl), slot, () => fail("MPEG-TS"));
+    if(!ok) fail("MPEG-TS", "biblioteca de vídeo indisponível");
+  };
+  if(isTs && live){ tryTs(); }
+  else if(isHls && window.Hls && Hls.isSupported()){
+    const h = new Hls({maxBufferLength:30, manifestLoadingMaxRetry:2, levelLoadingMaxRetry:2}); h.loadSource(px(c.url)); h.attachMedia(v); hlsInst[slot]=h;
+    let retried = false;
+    h.on(Hls.Events.ERROR, (ev, d)=>{
+      if(!d.fatal) return;
+      if(live && !retried && /\/live\//.test(c.url)){ retried = true; stopSlot(slot); tryTs(); return; }
+      fail("HLS", d.details + (d.response?.code ? " "+d.response.code : ""));
+    });
+  } else { v.src = px(c.url); v.onerror = ()=>fail("vídeo", "o browser pode não suportar este formato (ex.: .mkv)"); }
   v.muted = slot!==audioSlot;
   v.play().catch(()=>{});
   const nn = nowNext(c.id);
   $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>` + (nn ? `<div class="muted">Agora: ${hm(nn.now.start)} ${esc(nn.now.title)}${nn.next?` · A seguir: ${hm(nn.next.start)} ${esc(nn.next.title)}`:""}</div>` : "");
   if(currentView!=="tv") show("tv");
+}
+const tsInst = [null, null];
+function stopSlot(slot){
+  if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
+  if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
+  const v=$("vid"+slot); v.onerror=null; v.removeAttribute("src"); v.load();
+}
+let mpegtsLoading = null;
+function loadMpegts(){
+  if(window.mpegts) return Promise.resolve(true);
+  if(mpegtsLoading) return mpegtsLoading;
+  const urls = ["https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js", "https://unpkg.com/mpegts.js@1.7.3/dist/mpegts.js"];
+  mpegtsLoading = (async ()=>{
+    for(const u of urls){
+      const ok = await new Promise(res=>{ const s=document.createElement("script"); s.src=u; s.onload=()=>res(!!window.mpegts); s.onerror=()=>res(false); document.head.appendChild(s); });
+      if(ok) return true;
+    }
+    mpegtsLoading = null; return false;
+  })();
+  return mpegtsLoading;
+}
+async function playTs(v, url, slot, onFail){
+  if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
+  const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, {enableWorker:true, liveBufferLatencyChasing:true, lazyLoad:false});
+  p.attachMediaElement(v); p.load(); tsInst[slot]=p;
+  p.on(mpegts.Events.ERROR, ()=>{ onFail(); });
+  v.play().catch(()=>{});
+  return true;
+}
+/* Pergunta ao servidor (através do proxy) porque é que o canal não toca. */
+async function diagnoseStream(url){
+  if(!cfg.proxy) return fetchErrorHelp(url, new Error(""));
+  try{
+    const ctl = new AbortController(); setTimeout(()=>ctl.abort(), 8000);
+    const r = await fetch(px(url), {headers:{Range:"bytes=0-1023"}, signal:ctl.signal});
+    const ct = r.headers.get("content-type")||"";
+    let head = "";
+    try{ const rd = r.body.getReader(); const {value} = await rd.read(); head = new TextDecoder().decode((value||new Uint8Array()).slice(0,300)); rd.cancel().catch(()=>{}); }catch(e){}
+    try{ ctl.abort(); }catch(e){}
+    if(r.status===403 && /Chave do proxy/.test(head)) return "A chave do proxy está errada.";
+    if(r.status===401 || r.status===403) return `O servidor IPTV recusou (HTTP ${r.status}). Pode ser o limite de ligações da tua conta (outro aparelho a ver ao mesmo tempo) ou o servidor bloqueia os endereços da Cloudflare.`;
+    if(r.status===404) return "O servidor diz que este canal não existe (HTTP 404). Recarrega a lista em Definições.";
+    if(r.status===458 || r.status===509 || r.status===429) return `Limite de ligações atingido (HTTP ${r.status}). Fecha o IPTV noutros aparelhos e tenta outra vez.`;
+    if(r.status===502 && /Não consegui ligar/.test(head)) return "O proxy não chega ao servidor IPTV: "+head;
+    if(r.status>=500) return `O servidor IPTV deu erro (HTTP ${r.status}). O canal pode estar em baixo.`;
+    if(/text\/html/i.test(ct)) return "O servidor devolveu uma página em vez de vídeo (provável bloqueio ou conta expirada).";
+    if(r.ok && /#EXTM3U/.test(head) && !/#EXT-X-/.test(head)) return "O servidor devolveu uma lista vazia para este canal.";
+    if(r.ok) return `O servidor respondeu (${ct||"sem tipo"}), mas o browser não conseguiu descodificar o vídeo. Experimenta a versão SD ou outro canal.`;
+    return `Resposta inesperada do servidor (HTTP ${r.status}).`;
+  }catch(e){ return e.name==="AbortError" ? "O servidor IPTV não respondeu em 8 segundos." : "Não consegui contactar o proxy."; }
 }
 function playByName(name){ const q=norm(name); const c = channels.find(x=>x.kind==="live" && norm(x.name)===q) || channels.find(x=>x.kind==="live" && norm(x.name).includes(q)) || channels.find(x=>norm(x.name).includes(q)); if(c){ playChannel(c); return true; } return false; }
 document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
@@ -909,7 +1040,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setLight").checked=cfg.light; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; }
+function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setLight").checked=cfg.light; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -917,6 +1048,7 @@ $("btnFindVin").onclick = async ()=>{
   catch(e){ toast("Não consegui contactar a Tessie: "+e.message, true); }
 };
 $("setLang").onchange = e=>{ cfg.lang=e.target.value; $("voiceLang").value=cfg.lang; saveCfg(); renderCmdList(); };
+$("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 $("setLight").onchange = e=>{ cfg.light=e.target.checked; saveCfg(); applyTheme(); };
 $("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; saveCfg(); loadIptv(true); };
