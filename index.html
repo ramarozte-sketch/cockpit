@@ -136,6 +136,22 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px}
 .kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
 
+/* Leitor: barra de canais e modo cinema */
+.cinebar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.cinename{font:600 18px var(--f-display);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app.cinema{grid-template-columns:1fr}
+.app.cinema .rail{display:none}
+.app.cinema main{padding:10px 16px}
+#v-tv.cinema{max-width:none}
+#v-tv.cinema .tvwrap{grid-template-columns:1fr}
+#v-tv.cinema .tvwrap>.panel:first-child{display:none}
+#v-tv.cinema .tvwrap>.panel:last-child{padding:10px;border:0;background:none}
+#v-tv.cinema .stage{width:min(100%, calc((100vh - 330px) * 16 / 9));margin:0 auto}
+#v-tv.cinema #tvEmpty{display:none}
+#teslaFs{color:inherit}
+#v-tv.cinema .cinebar .btn{min-height:64px;font-size:18px;padding-inline:26px}
+#btnCinema[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
 /* PIN */
 .pinwrap{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
 .pinbox{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px;align-items:center;width:min(360px,100%)}
@@ -166,6 +182,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
     <span class="chip" id="chipCar"><i class="dot"></i><span>Carro</span></span>
     <span class="chip" id="chipNet"><i class="dot"></i><span>Rede</span></span>
     <button class="lockbtn" id="lockNow" hidden>Bloquear</button>
+    <a class="lockbtn" id="teslaFs" style="text-decoration:none;display:inline-flex;align-items:center" title="Abre a app em ecrã inteiro no browser do Tesla">⛶ Ecrã inteiro Tesla</a>
     <div class="spacer"></div>
     <div class="heard" id="heard"></div>
     <button class="mic" id="micBtn" aria-label="Falar comando"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
@@ -234,6 +251,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
           <button class="tab" data-mode="split" aria-selected="false">50 / 50</button>
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
+        <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnFull">Ecrã inteiro</button>
       </div>
       <div class="banner" id="tvEmpty" hidden>Ainda não há lista. Em Definições, coloca o link M3U ou os dados Xtream do teu fornecedor IPTV. Esta app não fornece canais nem subscrições.</div>
@@ -254,6 +272,11 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
           <div class="stage single" id="stage">
             <div class="slot s1 active" data-slot="0"><span class="lbl">USER 1</span><video id="vid0" playsinline controls></video></div>
             <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><video id="vid1" playsinline controls muted></video></div>
+          </div>
+          <div class="cinebar">
+            <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
+            <div class="cinename" id="chName">Escolhe um canal</div>
+            <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
             <div class="tabs" role="tablist" aria-label="Ecrã de destino">
@@ -452,6 +475,7 @@ function show(view){
     return;
   }
   if(view==="settings") fillSettings();
+  if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   currentView = view;
   document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "v-"+view);
   document.querySelectorAll(".nav").forEach(b => b.setAttribute("aria-current", b.dataset.view===view ? "page" : "false"));
@@ -638,6 +662,9 @@ const VOICE = [
   {d:{pt:"nota comprar pão", en:"note buy bread", fr:"note acheter du pain"}, re:[/^(?:nova )?nota (.+)|^(?:new )?note (.+)|^(?:nouvelle )?note (.+)/], run:(m, raw)=>{ const txt = raw.trim().replace(/^(nova\s+|new\s+|nouvelle\s+)?(nota|note)\s*:?\s*/i,"") || (m[1]||m[2]||m[3]); addNote(txt.charAt(0).toUpperCase()+txt.slice(1), ""); return true; }},
   {d:{pt:"youtube receitas", en:"youtube recipes", fr:"youtube recettes"}, re:[/youtube (.+)|(?:procura|pesquisa) (.+) no youtube/], run:(m)=>{ openYoutube(m[1]||m[2]); return true; }},
   {d:{pt:"teste de velocidade", en:"speed test", fr:"test de débit"}, re:[/teste de velocidade|speed ?test|test de (debit|vitesse)/], run:()=>{ show("net"); speedTest(); return true; }},
+  {d:{pt:"canal seguinte", en:"next channel", fr:"chaîne suivante"}, re:[/(canal )?(seguinte|proximo)( canal)?$|next channel|chaine suivante/], run:()=>zap(1)},
+  {d:{pt:"canal anterior", en:"previous channel", fr:"chaîne précédente"}, re:[/canal anterior|previous channel|chaine precedente/], run:()=>zap(-1)},
+  {d:{pt:"modo cinema", en:"cinema mode", fr:"mode cinéma"}, re:[/^(modo )?cinema$|^cinema mode$|^mode cinema$/], run:()=>{ show("tv"); setCinema(!$("v-tv").classList.contains("cinema")); return true; }},
   {d:{pt:"canal RTP 1", en:"channel BBC One", fr:"chaîne TF1"}, re:[/^(?:canal|poe|mete|po|channel|play|chaine|mets) (.+)/], run:(m)=>{ const ok = playByName(m[1]); return ok ? true : false; }},
   {d:{pt:"abre a TV / notas / rede", en:"open TV / notes / network", fr:"ouvre la TV / notes / réseau"}, re:[/\b(tv|televisao|television|iptv)\b|\bnotas?\b|\bnotes\b|\brede\b|network|reseau|\bmedia\b|definicoes|settings|parametres|\bcarro\b|\bcar\b|voiture/], run:(m, raw)=>{ const n=norm(raw); const v = /tv|televis|iptv/.test(n)?"tv":/nota|note/.test(n)?"notes":/rede|network|reseau/.test(n)?"net":/media/.test(n)?"media":/definic|setting|parametre/.test(n)?"settings":"car"; show(v); return true; }}
 ];
@@ -890,6 +917,14 @@ function playChannel(c, slot=tvTarget){
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
     stopSlot(slot);
+    if(/HEVC/.test(extra||"")){
+      const msg = "Este canal usa vídeo HEVC (H.265), que o browser do Tesla não descodifica. Escolhe a versão HD ou SD do mesmo canal (as UHD/FHD costumam ser HEVC).";
+      toast(msg, true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`; return;
+    }
+    if(/descodificar|formato/.test(extra||"")){
+      const msg = "O browser não consegue descodificar este vídeo. Experimenta a versão HD ou SD do canal.";
+      toast(msg, true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`; return;
+    }
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="muted small">A analisar o problema…</div>`;
     await new Promise(r=>setTimeout(r, 1500)); // deixa o servidor libertar a ligação anterior
     if(playId !== playSeq[slot]) return;
@@ -906,26 +941,79 @@ function playChannel(c, slot=tvTarget){
   };
   if(isTs && live){ tryTs(); }
   else if(isHls && window.Hls && Hls.isSupported()){
-    const h = new Hls({maxBufferLength:30, manifestLoadingMaxRetry:2, levelLoadingMaxRetry:2}); h.loadSource(px(c.url)); h.attachMedia(v); hlsInst[slot]=h;
-    let retried = false;
-    h.on(Hls.Events.ERROR, (ev, d)=>{
-      if(!d.fatal) return;
-      const code = d.response?.code || 0;
-      // Só tenta MPEG-TS quando o servidor respondeu mas a lista HLS não serve; um 4xx/5xx não se resolve a mudar de formato.
-      const tsWorth = !(code>=400) || /^(frag|level)/.test(d.details||""); // segmentos recusados: o TS usa uma só ligação contínua
-      if(live && !retried && /\/live\//.test(c.url) && tsWorth){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 1200); return; }
-      fail("HLS", d.details + (code ? " "+code : ""));
-    });
+    // Afinado para o browser do Tesla: pouca memória, qualidade ajustada ao tamanho do ecrã, muitas tentativas de rede.
+    const mk = () => {
+      const h = new Hls({
+        enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true,
+        maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:15, maxBufferSize:40*1000*1000,
+        liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
+        manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
+        levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
+        fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
+      });
+      h.loadSource(px(c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+    };
+    let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
+    const wire = h => {
+      h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
+        const lv = data.levels || [];
+        const bad = lv.filter(l => /^(hvc1|hev1)/i.test(l.videoCodec||"") && !(window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`)));
+        if(lv.length && bad.length===lv.length){ fail("HLS", "vídeo em HEVC/H.265"); return; }
+        v.play().catch(()=>{});
+      });
+      h.on(Hls.Events.ERROR, (ev, d)=>{
+        if(!d.fatal || playId!==playSeq[slot]) return;
+        const code = d.response?.code || 0;
+        if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
+          if(mediaFixes===0){ mediaFixes++; h.recoverMediaError(); return; }
+          if(mediaFixes===1){ mediaFixes++; h.swapAudioCodec(); h.recoverMediaError(); return; }
+          fail("HLS", "o browser não consegue descodificar este vídeo"); return;
+        }
+        // Falhas momentâneas (502/503/504 ou ligação cortada): volta a pedir tudo, até 2 vezes.
+        if(d.type===Hls.ErrorTypes.NETWORK_ERROR && (code===0 || code>=500) && reloads<2){
+          reloads++; h.destroy();
+          setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 1200*reloads);
+          return;
+        }
+        const tsWorth = !(code>=400) || /^(frag|level)/.test(d.details||"");
+        if(live && !retried && /\/live\//.test(c.url) && tsWorth){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 1200); return; }
+        fail("HLS", d.details + (code ? " "+code : ""));
+      });
+    };
+    wire(h);
+    if(live) watchStall(slot, v, () => { const cur = hlsInst[slot]; if(cur){ cur.stopLoad(); cur.startLoad(-1); } });
   } else { v.src = px(c.url); v.onerror = ()=>fail("vídeo", "o browser pode não suportar este formato (ex.: .mkv)"); }
   v.muted = slot!==audioSlot;
   v.play().catch(()=>{});
+  lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
+  updateCinemaBar(); keepAwake(true);
   const nn = nowNext(c.id);
   $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>` + (nn ? `<div class="muted">Agora: ${hm(nn.now.start)} ${esc(nn.now.title)}${nn.next?` · A seguir: ${hm(nn.next.start)} ${esc(nn.next.title)}`:""}</div>` : "");
   if(currentView!=="tv") show("tv");
 }
 const tsInst = [null, null];
 const playSeq = [0, 0];
+const lastPlayed = [null, null];
+const stallTimers = [null, null];
+/* Se o direto parar (imagem congelada) durante 12 s, volta a puxar o vídeo. */
+function watchStall(slot, v, fix){
+  clearInterval(stallTimers[slot]);
+  let lastT = -1, still = 0;
+  stallTimers[slot] = setInterval(()=>{
+    if(v.paused || v.readyState===0){ still = 0; return; }
+    if(v.currentTime === lastT){ still += 3; if(still >= 12){ still = 0; fix(); } } else { still = 0; lastT = v.currentTime; }
+  }, 3000);
+}
+let wakeLock = null;
+async function keepAwake(on){
+  try{
+    if(on && !wakeLock && navigator.wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", ()=>wakeLock=null); }
+    if(!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){}
+}
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && (lastPlayed[0]||lastPlayed[1])) keepAwake(true); });
 function stopSlot(slot){
+  clearInterval(stallTimers[slot]);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
   const v=$("vid"+slot); v.onerror=null; v.removeAttribute("src"); v.load();
@@ -986,8 +1074,9 @@ async function diagnoseStream(url){
   const txt = (last.snippet||"").toLowerCase();
   if(last.error) res.why = "O proxy não consegue chegar ao servidor de vídeo. Pode ser uma porta que a Cloudflare não permite (usa 80, 8080, 8880, 443 ou 8443).";
   else if(/max.*conn|connection limit|too many|limit reached/.test(txt) || last.status===458 || last.status===509 || last.status===429) res.why = "O servidor diz que atingiste o limite de ligações. Fecha o IPTV noutros aparelhos e tenta outra vez daqui a 1 minuto.";
+  else if(last.status>=200 && last.status<300) res.why = "Agora o servidor respondeu bem ao teste. Foi uma falha momentânea: a app já tentou outra vez sozinha. Toca no canal de novo; se falhar sempre, experimenta a versão HD ou SD.";
   else if(/error code: 1003/.test(txt)) res.why = "O proxy na Cloudflare ainda é a versão antiga, que não consegue aceder a endereços IP diretos. Atualiza o código do proxy.";
-  else if(/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt)) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy).";
+  else if(last.status>=400 && (/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt))) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy).";
   else if((last.status===401 || last.status===403) && hops.length>1) res.why = "O servidor principal aceitou, mas o servidor de vídeo para onde redireciona recusou. Os fornecedores fazem isto para bloquear endereços de datacenters, como os da Cloudflare, só no vídeo.";
   else if(last.status===401 || last.status===403) res.why = "O servidor IPTV recusa o vídeo pedido a partir da Cloudflare, embora aceite a lista. É um bloqueio a endereços de datacenters.";
   else if(last.status===404) res.why = "O servidor diz que este canal não existe (HTTP 404). Recarrega a lista em Definições.";
@@ -997,11 +1086,37 @@ async function diagnoseStream(url){
   else res.why = `Resposta inesperada do servidor (HTTP ${last.status}).`;
   return res;
 }
+function updateCinemaBar(){
+  const c = lastPlayed[tvTarget];
+  $("chName").textContent = c ? c.name : "Escolhe um canal";
+  const has = !!(c && neighbours(c).length > 1);
+  $("chPrev").disabled = !has; $("chNext").disabled = !has;
+}
+function neighbours(c){ return channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"); }
+function zap(dir){
+  const c = lastPlayed[tvTarget]; if(!c) return false;
+  const list = neighbours(c); if(list.length < 2) return false;
+  const i = list.findIndex(x => x.url===c.url);
+  playChannel(list[(i + dir + list.length) % list.length]); return true;
+}
+function setCinema(on){
+  document.querySelector(".app").classList.toggle("cinema", on);
+  $("v-tv").classList.toggle("cinema", on);
+  $("btnCinema").setAttribute("aria-pressed", on ? "true" : "false");
+  $("btnCinema").textContent = on ? "Sair do cinema" : "Modo cinema";
+  LS.set("cinema", on);
+}
+$("btnCinema").onclick = () => setCinema(!$("v-tv").classList.contains("cinema"));
+$("chPrev").onclick = () => zap(-1);
+$("chNext").onclick = () => zap(1);
+document.addEventListener("keydown", e => { if(currentView==="tv" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||"")){ if(e.key==="ArrowUp"||e.key==="PageUp"){ zap(-1); e.preventDefault(); } if(e.key==="ArrowDown"||e.key==="PageDown"){ zap(1); e.preventDefault(); } } });
+// Truque do Tesla: abrir um site através de youtube.com/redirect põe o browser em ecrã inteiro.
+$("teslaFs").href = "https://www.youtube.com/redirect?q=" + encodeURIComponent(location.href.split("#")[0]);
 function playByName(name){ const q=norm(name); const c = channels.find(x=>x.kind==="live" && norm(x.name)===q) || channels.find(x=>x.kind==="live" && norm(x.name).includes(q)) || channels.find(x=>norm(x.name).includes(q)); if(c){ playChannel(c); return true; } return false; }
 document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
 function setTarget(t){ tvTarget=t; document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
-document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>setTarget(+b.dataset.target));
+document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>{ setTarget(+b.dataset.target); updateCinemaBar(); });
 document.querySelectorAll(".slot").forEach(s=>s.addEventListener("click", ()=>setTarget(+s.dataset.slot)));
 $("btnSwapAudio").onclick = ()=>{ audioSlot = audioSlot?0:1; $("vid0").muted = audioSlot!==0; $("vid1").muted = audioSlot!==1; $("btnSwapAudio").textContent = "Som: USER "+(audioSlot+1); };
 $("btnFull").onclick = ()=>{ const s=$("stage"); (s.requestFullscreen||s.webkitRequestFullscreen||function(){}).call(s); };
