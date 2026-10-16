@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cockpit</title>
+<meta name="theme-color" content="#0d131c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<style>
+/* Layout: rail de navegação à esquerda, barra de estado no topo, painel de trabalho à direita — pensado para o ecrã horizontal do Tesla, com alvos de toque grandes. */
+:root{
+  --bg:#0d131c; --panel:#141c28; --panel-2:#1b2535; --line:#263246;
+  --fg:#e6edf6; --muted:#8c9bb0; --accent:#7cc4ff; --accent-ink:#06213a;
+  --ok:#5fd39a; --warn:#f2b45a; --bad:#ff6b6b;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:14px; color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#eef2f7; --panel:#ffffff; --panel-2:#f3f6fa; --line:#d5dde8;
+  --fg:#121a26; --muted:#5b6b80; --accent:#1268b3; --accent-ink:#ffffff;
+  --ok:#1b8f5a; --warn:#b46d00; --bad:#c62f2f; color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 var(--f-body);-webkit-tap-highlight-color:transparent;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:104px 1fr;grid-template-rows:64px 1fr;height:100%}
+.rail{grid-row:1/3;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;padding:12px 8px;overflow-y:auto}
+.brand{font:700 15px var(--f-display);letter-spacing:.12em;text-align:center;color:var(--accent);padding:6px 0 14px}
+.nav{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border:0;background:none;border-radius:12px;color:var(--muted);font:600 12px var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.nav svg{width:28px;height:28px}
+.nav[aria-current="page"]{background:var(--panel-2);color:var(--fg)}
+.nav[aria-current="page"] svg{color:var(--accent)}
+
+.top{display:flex;align-items:center;gap:16px;padding:0 20px;border-bottom:1px solid var(--line);min-width:0}
+.clock{font:600 26px var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);font-size:14px;white-space:nowrap}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip.ok .dot{background:var(--ok)} .chip.warn .dot{background:var(--warn)} .chip.bad .dot{background:var(--bad)}
+.spacer{flex:1}
+.mic{width:52px;height:52px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.mic svg{width:26px;height:26px}
+.mic.live{animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}100%{box-shadow:0 0 0 18px transparent}}
+@media (prefers-reduced-motion:reduce){.mic.live{animation:none;outline:3px solid var(--accent)}}
+.heard{font-size:15px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:40vw}
+
+main{overflow-y:auto;padding:20px;min-width:0}
+.view{display:flex;flex-direction:column;gap:18px;max-width:1500px}
+h1{font:700 28px var(--f-display);letter-spacing:.03em;margin:0}
+h2{font:600 15px var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}.app{grid-template-columns:76px 1fr}.nav span{font-size:10px}}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.mono{font-family:var(--f-mono)}
+
+.btn{border:1px solid var(--line);background:var(--panel-2);border-radius:12px;padding:12px 18px;font-weight:600;min-height:52px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--bad)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5}
+input[type=text],input[type=url],input[type=password],input[type=search],select,textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:50px;width:100%}
+textarea{min-height:200px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted);min-width:0}
+input[type=range]{width:100%;accent-color:var(--accent);height:36px}
+
+/* Carro */
+.gauge{display:flex;align-items:flex-end;gap:14px}
+.big{font:700 72px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.bar{height:14px;border-radius:7px;background:var(--panel-2);overflow:hidden;border:1px solid var(--line)}
+.bar>i{display:block;height:100%;background:var(--ok);transition:width .4s}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.stat{background:var(--panel-2);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font:600 22px var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.actions{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.act{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:104px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);text-align:left}
+.act svg{width:30px;height:30px;color:var(--accent)}
+.act b{font-weight:600}
+.act.busy{opacity:.55}
+.act.armed{border-color:var(--warn);color:var(--warn)}
+.act.on{border-color:var(--accent)}
+
+/* TV */
+.tvwrap{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:18px;min-height:0}
+@media (max-width:1000px){.tvwrap{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column;gap:4px;max-height:62vh;overflow-y:auto}
+.item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:0;background:none;text-align:left;width:100%;min-height:56px}
+.item:hover,.item.sel{background:var(--panel-2)}
+.item img,.item .ph{width:44px;height:32px;object-fit:contain;flex:none;border-radius:4px;background:var(--panel-2)}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .t span{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.star{border:0;background:none;font-size:22px;color:var(--muted);padding:6px;min-width:44px}
+.star.on{color:var(--warn)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:none;border-radius:999px;padding:8px 16px;min-height:44px;font-weight:600}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.stage{position:relative;background:#000;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-width:100%;display:grid}
+.stage video{width:100%;height:100%;background:#000;object-fit:contain}
+.stage.single .s2{display:none}
+.stage.pip .s2{position:absolute;right:14px;bottom:14px;width:32%;height:auto;aspect-ratio:16/9;border:2px solid var(--accent);border-radius:8px;z-index:2}
+.stage.split{grid-template-columns:1fr 1fr;gap:2px}
+.stage.splitv{grid-template-rows:1fr 1fr;gap:2px}
+.slot{position:relative;min-width:0;min-height:0;display:grid}
+.slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
+.slot.active .lbl{background:var(--accent);color:var(--accent-ink)}
+.epg{font-size:14px}
+
+/* Notas */
+.notes{display:grid;grid-template-columns:minmax(240px,340px) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.notes{grid-template-columns:1fr}}
+
+/* Voz */
+.cmds{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.cmd{background:var(--panel-2);border-radius:10px;padding:10px 12px;font-size:14px}
+.cmd b{display:block;margin-bottom:2px}
+.log{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;font-size:15px}
+.log div{padding:8px 12px;border-radius:10px;background:var(--panel-2)}
+.log .me{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--line);padding:12px 20px;border-radius:12px;z-index:50;max-width:80vw;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.toast.bad{border-color:var(--bad)}
+.banner{padding:12px 16px;border-radius:12px;border:1px dashed var(--warn);color:var(--warn);font-size:15px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Secções">
+    <div class="brand">COCKPIT</div>
+    <button class="nav" data-view="car"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 16v-4l2-5h10l2 5v4M3 16h18v3H3zM7 19v1M17 19v1M5 12h14"/></svg><span>Carro</span></button>
+    <button class="nav" data-view="voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Voz</span></button>
+    <button class="nav" data-view="tv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M9 2l3 3 3-3"/></svg><span>TV</span></button>
+    <button class="nav" data-view="media"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg><span>Media</span></button>
+    <button class="nav" data-view="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg><span>Notas</span></button>
+    <button class="nav" data-view="net"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg><span>Rede</span></button>
+    <button class="nav" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9.7 4.4V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 20.6 9H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 2z"/></svg><span>Definições</span></button>
+  </nav>
+
+  <header class="top">
+    <div class="clock" id="clock">--:--</div>
+    <span class="chip" id="chipCar"><i class="dot"></i><span>Carro</span></span>
+    <span class="chip" id="chipNet"><i class="dot"></i><span>Rede</span></span>
+    <div class="spacer"></div>
+    <div class="heard" id="heard"></div>
+    <button class="mic" id="micBtn" aria-label="Falar comando"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  </header>
+
+  <main id="main">
+    <!-- CARRO -->
+    <section class="view" id="v-car">
+      <div class="row"><h1 id="carName">O meu Tesla</h1><span class="spacer"></span>
+        <button class="btn" id="btnRefresh">Atualizar</button><button class="btn" id="btnWake">Acordar carro</button></div>
+      <div class="banner" id="demoBanner" hidden>Modo demonstração: os dados são de exemplo e os comandos não chegam ao carro. Cola o teu token Tessie em Definições para ligar o teu Tesla.</div>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Bateria</h2>
+          <div class="gauge"><div class="big" id="batPct">--</div><div class="muted" style="padding-bottom:10px">% · <span id="batKm">--</span> km</div></div>
+          <div class="bar"><i id="batBar" style="width:0"></i></div>
+          <div class="stats">
+            <div class="stat"><span>Estado</span><b id="stCharge">--</b></div>
+            <div class="stat"><span>Limite</span><b id="stLimit">--</b></div>
+            <div class="stat"><span>Interior</span><b id="stIn">--</b></div>
+            <div class="stat"><span>Exterior</span><b id="stOut">--</b></div>
+            <div class="stat"><span>Portas</span><b id="stLock">--</b></div>
+            <div class="stat"><span>Sentinela</span><b id="stSentry">--</b></div>
+          </div>
+          <label class="f">Temperatura do habitáculo: <b id="tempVal">21 °C</b><input type="range" id="tempRange" min="15" max="28" step="0.5" value="21"></label>
+          <button class="btn" id="btnTemp">Definir temperatura</button>
+          <label class="f">Limite de carga: <b id="limVal">80 %</b><input type="range" id="limRange" min="50" max="100" step="1" value="80"></label>
+          <button class="btn" id="btnLimit">Definir limite</button>
+          <h2>Localização</h2>
+          <p class="small" id="locText" style="margin:0">Toca em “Localizar” para ver onde está o carro.</p>
+          <div class="row"><button class="btn" id="btnLocate">Localizar</button><a class="btn" id="locMap" target="_blank" rel="noopener" hidden style="text-decoration:none;display:inline-flex;align-items:center">Abrir no mapa</a></div>
+        </div>
+        <div class="panel">
+          <h2>Comandos</h2>
+          <div class="actions" id="actions"></div>
+          <p class="small muted" style="margin:0">Destrancar pede um segundo toque para confirmar. Os comandos acordam o carro se estiver a dormir, o que pode demorar até 30 segundos.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- VOZ -->
+    <section class="view" id="v-voice" hidden>
+      <h1>Comandos por voz</h1>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Falar ou escrever</h2>
+          <div class="row"><button class="btn primary" id="micBtn2">Começar a ouvir</button>
+            <select id="voiceLang" style="width:auto"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></div>
+          <form id="typeForm" class="row" style="flex-wrap:nowrap"><input type="text" id="typeCmd" placeholder="Ex.: abre a mala" autocomplete="off"><button class="btn">Enviar</button></form>
+          <p class="small muted" id="voiceSupport" style="margin:0"></p>
+          <div class="log" id="voiceLog"></div>
+        </div>
+        <div class="panel">
+          <h2>O que podes dizer</h2>
+          <div class="cmds" id="cmdList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TV -->
+    <section class="view" id="v-tv" hidden>
+      <div class="row"><h1>TV</h1><span class="spacer"></span>
+        <div class="tabs" role="tablist" aria-label="Modo de ecrã">
+          <button class="tab" data-mode="single" aria-selected="true">Um ecrã</button>
+          <button class="tab" data-mode="pip" aria-selected="false">PIP</button>
+          <button class="tab" data-mode="split" aria-selected="false">50 / 50</button>
+          <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
+        </div>
+        <button class="btn" id="btnFull">Ecrã inteiro</button>
+      </div>
+      <div class="banner" id="tvEmpty" hidden>Ainda não há lista. Em Definições, coloca o link M3U ou os dados Xtream do teu fornecedor IPTV. Esta app não fornece canais nem subscrições.</div>
+      <div class="tvwrap">
+        <div class="panel">
+          <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
+            <button class="tab" data-kind="live" aria-selected="true">Live</button>
+            <button class="tab" data-kind="movie" aria-selected="false">Filmes</button>
+            <button class="tab" data-kind="series" aria-selected="false">Séries</button>
+            <button class="tab" data-kind="fav" aria-selected="false">★ Favoritos</button>
+          </div>
+          <select id="tvGroup" aria-label="Categoria"></select>
+          <input type="search" id="tvSearch" placeholder="Procurar canal ou título" aria-label="Procurar">
+          <div class="list" id="tvList"></div>
+          <p class="small muted" id="tvCount" style="margin:0"></p>
+        </div>
+        <div class="panel">
+          <div class="stage single" id="stage">
+            <div class="slot s1 active" data-slot="0"><span class="lbl">USER 1</span><video id="vid0" playsinline controls></video></div>
+            <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><video id="vid1" playsinline controls muted></video></div>
+          </div>
+          <div class="row"><span class="muted small">Próximo canal vai para:</span>
+            <div class="tabs" role="tablist" aria-label="Ecrã de destino">
+              <button class="tab" data-target="0" aria-selected="true">USER 1</button>
+              <button class="tab" data-target="1" aria-selected="false">USER 2</button>
+            </div>
+            <button class="btn" id="btnSwapAudio">Som: USER 1</button>
+          </div>
+          <div class="epg" id="epgBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEDIA -->
+    <section class="view" id="v-media" hidden>
+      <h1>Media</h1>
+      <div class="grid2">
+        <div class="panel">
+          <h2>YouTube</h2>
+          <form id="ytForm" class="row" style="flex-wrap:nowrap"><input type="search" id="ytQ" placeholder="Procurar no YouTube"><button class="btn primary">Procurar</button></form>
+          <label class="row small"><input type="checkbox" id="fsTrick" checked> Abrir em ecrã inteiro (truque do YouTube no Tesla)</label>
+          <h2>Vídeo ou música por link</h2>
+          <form id="urlForm" class="row" style="flex-wrap:nowrap"><input type="url" id="mediaUrl" placeholder="https://…/video.mp4 ou .m3u8 ou .mp3"><button class="btn">Tocar</button></form>
+          <video id="mediaVid" controls playsinline style="width:100%;border-radius:12px;background:#000;aspect-ratio:16/9" hidden></video>
+        </div>
+        <div class="panel">
+          <div class="row"><h2>Favoritos</h2><span class="spacer"></span><button class="btn" id="btnAddFav">Adicionar</button></div>
+          <form id="favForm" class="row" hidden><input type="text" id="favName" placeholder="Nome" style="flex:1;min-width:140px"><input type="url" id="favUrl" placeholder="https://" style="flex:2;min-width:200px"><button class="btn primary">Guardar</button></form>
+          <div class="list" id="favList" style="max-height:none"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTAS -->
+    <section class="view" id="v-notes" hidden>
+      <div class="row"><h1>Notas</h1><span class="spacer"></span><button class="btn primary" id="btnNewNote">Nova nota</button></div>
+      <div class="notes">
+        <div class="panel"><input type="search" id="noteSearch" placeholder="Procurar notas"><div class="list" id="noteList"></div></div>
+        <div class="panel">
+          <input type="text" id="noteTitle" placeholder="Título">
+          <textarea id="noteBody" placeholder="Escreve aqui…"></textarea>
+          <div class="row"><span class="small muted" id="noteSaved"></span><span class="spacer"></span><button class="btn danger" id="btnDelNote">Eliminar</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REDE -->
+    <section class="view" id="v-net" hidden>
+      <h1>Rede</h1>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Estado da ligação</h2>
+          <dl class="kv" id="netInfo"></dl>
+          <button class="btn" id="btnIp">Ver IP público</button>
+        </div>
+        <div class="panel">
+          <h2>Teste de velocidade</h2>
+          <div class="stats">
+            <div class="stat"><span>Latência</span><b id="spPing">--</b></div>
+            <div class="stat"><span>Download</span><b id="spDown">--</b></div>
+            <div class="stat"><span>Upload</span><b id="spUp">--</b></div>
+          </div>
+          <button class="btn primary" id="btnSpeed">Iniciar teste</button>
+          <p class="small muted" id="spNote" style="margin:0">Usa os servidores da Cloudflare. Gasta cerca de 30 MB de dados.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DEFINIÇÕES -->
+    <section class="view" id="v-settings" hidden>
+      <h1>Definições</h1>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Tesla via Tessie</h2>
+          <label class="f">Token da API Tessie (tessie.com › Settings › API)<input type="password" id="setToken" autocomplete="off"></label>
+          <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
+          <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
+          <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
+          <h2>Voz e aparência</h2>
+          <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
+          <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
+          <label class="row small"><input type="checkbox" id="setLight"> Tema claro</label>
+        </div>
+        <div class="panel">
+          <h2>IPTV — a tua lista</h2>
+          <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
+          <p class="small muted" style="margin:0">ou Xtream Codes:</p>
+          <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
+          <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
+          <h2>Proxy</h2>
+          <p class="small muted" style="margin:0">Necessário para a maioria dos servidores Xtream (http:// e sem CORS). Usa o teu Cloudflare Worker; também serve para a Tessie e para o vídeo.</p>
+          <label class="f">Endereço do proxy<input type="url" id="setProxy" placeholder="https://cockpit-proxy.<conta>.workers.dev"></label>
+          <label class="f">Chave do proxy<input type="password" id="setPkey" autocomplete="off"></label>
+          <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
+          <p class="small muted" id="iptvStatus" style="margin:0"></p>
+          <h2>Cópia de segurança</h2>
+          <div class="row"><button class="btn" id="btnExport">Exportar definições e notas</button><button class="btn" id="btnImport">Importar</button></div>
+          <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+"use strict";
+/* ---------- armazenamento ---------- */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem("ck_"+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("ck_"+k, JSON.stringify(v)); }catch(e){} }
+};
+const IDB = {
+  db:null,
+  open(){ return new Promise(res=>{ try{ const r = indexedDB.open("cockpit",1); r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>{this.db=r.result;res(true)}; r.onerror=()=>res(false);}catch(e){res(false)} }); },
+  async get(k){ if(!this.db && !(await this.open())) return null; return new Promise(res=>{ try{ const q=this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result??null); q.onerror=()=>res(null);}catch(e){res(null)} }); },
+  async set(k,v){ if(!this.db && !(await this.open())) return; return new Promise(res=>{ try{ const t=this.db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>res();}catch(e){res()} }); }
+};
+const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:""}, LS.get("cfg", {}));
+const saveCfg = () => LS.set("cfg", cfg);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(msg, bad){ const t=$("toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, 3500); }
+function applyTheme(){ if(cfg.light) document.documentElement.setAttribute("data-theme","light"); else document.documentElement.removeAttribute("data-theme"); }
+applyTheme();
+
+/* ---------- navegação ---------- */
+let currentView = "car";
+function show(view){
+  currentView = view;
+  document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "v-"+view);
+  document.querySelectorAll(".nav").forEach(b => b.setAttribute("aria-current", b.dataset.view===view ? "page" : "false"));
+  LS.set("view", view);
+  if(view==="net") renderNet();
+  if(view==="tv") renderTvList();
+}
+document.querySelectorAll(".nav").forEach(b => b.onclick = () => show(b.dataset.view));
+
+/* ---------- relógio ---------- */
+function tick(){ const d=new Date(); $("clock").textContent = d.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"}); }
+tick(); setInterval(tick, 10000);
+
+/* ---------- Tessie ---------- */
+const MI = 1.60934;
+const demo = () => !cfg.token || !cfg.vin;
+let car = null;
+const demoState = {
+  display_name:"Tesla (exemplo)",
+  charge_state:{battery_level:72, battery_range:205, charging_state:"Disconnected", charge_limit_soc:80},
+  climate_state:{inside_temp:19.5, outside_temp:16, is_climate_on:false, driver_temp_setting:21},
+  vehicle_state:{locked:true, sentry_mode:false},
+  drive_state:{latitude:37.29, longitude:-8.27}
+};
+async function tessie(path, {method="GET", params={}}={}){
+  if(demo()) { await new Promise(r=>setTimeout(r,500)); return demoCommand(path, params); }
+  const qs = new URLSearchParams(params).toString();
+  const url = "https://api.tessie.com/"+path+(qs?"?"+qs:"");
+  let r;
+  try{ r = await fetch(px(url), {method, headers:{Authorization:"Bearer "+cfg.token}}); }
+  catch(e){ throw new Error("Sem ligação à API Tessie (rede ou bloqueio do browser)."); }
+  if(r.status===401 || r.status===403) throw new Error("Token Tessie inválido ou sem permissão.");
+  if(!r.ok) throw new Error("Tessie respondeu "+r.status+".");
+  return r.json();
+}
+function demoCommand(path, p){
+  const s = demoState;
+  const c = path.split("/").pop();
+  const map = {
+    lock:()=>s.vehicle_state.locked=true, unlock:()=>s.vehicle_state.locked=false,
+    start_climate:()=>s.climate_state.is_climate_on=true, stop_climate:()=>s.climate_state.is_climate_on=false,
+    set_temperatures:()=>s.climate_state.driver_temp_setting=+p.temperature,
+    set_charge_limit:()=>s.charge_state.charge_limit_soc=+p.percent,
+    start_charging:()=>s.charge_state.charging_state="Charging", stop_charging:()=>s.charge_state.charging_state="Stopped",
+    enable_sentry:()=>s.vehicle_state.sentry_mode=true, disable_sentry:()=>s.vehicle_state.sentry_mode=false
+  };
+  if(c==="state") return JSON.parse(JSON.stringify(s));
+  if(c==="location") return {latitude:37.29, longitude:-8.27, address:"Localização de exemplo"};
+  if(c==="vehicles") return {results:[]};
+  if(map[c]) map[c]();
+  return {result:true};
+}
+async function cmd(name, params={}){
+  return tessie(cfg.vin+"/command/"+name, {method:"POST", params:Object.assign({wait_for_completion:true}, params)});
+}
+async function loadState(){
+  try{
+    car = await tessie((demo()?"x":cfg.vin)+"/state");
+    renderCar(); setChip("chipCar", demo()?"warn":"ok", demo()?"Demonstração":(car.display_name||"Ligado"));
+  }catch(e){ setChip("chipCar","bad","Carro: erro"); toast(e.message, true); }
+}
+function setChip(id, cls, text){ const c=$(id); c.className="chip "+cls; c.querySelector("span").textContent=text; }
+const chargeLabel = s => ({Charging:"A carregar", Complete:"Completo", Disconnected:"Desligado", Stopped:"Parado", NoPower:"Sem energia", Starting:"A iniciar"}[s] || s || "--");
+function renderCar(){
+  if(!car) return;
+  const cs=car.charge_state||{}, cl=car.climate_state||{}, vs=car.vehicle_state||{};
+  $("demoBanner").hidden = !demo();
+  $("carName").textContent = car.display_name || "O meu Tesla";
+  const pct = Math.round(cs.battery_level ?? 0);
+  $("batPct").textContent = pct;
+  $("batKm").textContent = cs.battery_range!=null ? Math.round(cs.battery_range*MI) : "--";
+  const bar=$("batBar"); bar.style.width = pct+"%"; bar.style.background = pct<20?"var(--bad)":pct<35?"var(--warn)":"var(--ok)";
+  $("stCharge").textContent = chargeLabel(cs.charging_state);
+  $("stLimit").textContent = cs.charge_limit_soc!=null ? cs.charge_limit_soc+" %" : "--";
+  $("stIn").textContent = cl.inside_temp!=null ? cl.inside_temp.toFixed(1)+" °C" : "--";
+  $("stOut").textContent = cl.outside_temp!=null ? cl.outside_temp.toFixed(1)+" °C" : "--";
+  $("stLock").textContent = vs.locked ? "Trancadas" : "Destrancadas";
+  $("stSentry").textContent = vs.sentry_mode ? "Ligada" : "Desligada";
+  if(cl.driver_temp_setting){ $("tempRange").value = cl.driver_temp_setting; $("tempVal").textContent = cl.driver_temp_setting+" °C"; }
+  if(cs.charge_limit_soc){ $("limRange").value = cs.charge_limit_soc; $("limVal").textContent = cs.charge_limit_soc+" %"; }
+  document.querySelectorAll(".act[data-state]").forEach(b => {
+    const on = {climate:cl.is_climate_on, sentry:vs.sentry_mode, lock:vs.locked, charge:cs.charging_state==="Charging"}[b.dataset.state];
+    b.classList.toggle("on", !!on);
+  });
+}
+const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ACTIONS = [
+  {id:"lock", label:"Trancar", c:"lock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', state:"lock"},
+  {id:"unlock", label:"Destrancar", c:"unlock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>', confirm:true},
+  {id:"trunk", label:"Mala traseira", c:"activate_rear_trunk", icon:'<path d="M4 15h16v4H4zM6 15l2-6h8l2 6"/><path d="M12 9V4"/>'},
+  {id:"frunk", label:"Mala dianteira", c:"activate_front_trunk", icon:'<path d="M4 9h16v4H4zM6 13l2 6h8l2-6"/><path d="M12 9V4"/>'},
+  {id:"vent", label:"Ventilar vidros", c:"vent_windows", icon:'<path d="M4 20V8l8-4 8 4v12zM8 12h8M8 16h8"/>'},
+  {id:"closew", label:"Fechar vidros", c:"close_windows", icon:'<path d="M4 20V8l8-4 8 4v12z"/><path d="M9 14l2 2 4-4"/>'},
+  {id:"climate", label:"Clima", toggle:["start_climate","stop_climate"], state:"climate", icon:'<path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/>'},
+  {id:"defrost", label:"Descongelar", c:"start_max_defrost", icon:'<path d="M3 10c3-2 6 2 9 0s6 2 9 0M3 15c3-2 6 2 9 0s6 2 9 0"/>'},
+  {id:"charge", label:"Carregamento", toggle:["start_charging","stop_charging"], state:"charge", icon:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'},
+  {id:"port", label:"Porta de carga", c:"open_charge_port", icon:'<circle cx="12" cy="12" r="8"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><circle cx="12" cy="15" r="1"/>'},
+  {id:"homelink", label:"HomeLink", c:"trigger_homelink", icon:'<path d="M3 11l9-7 9 7v9H3z"/><path d="M8 20v-6h8v6"/>'},
+  {id:"sentry", label:"Sentinela", toggle:["enable_sentry","disable_sentry"], state:"sentry", icon:'<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/>'},
+  {id:"flash", label:"Piscar luzes", c:"flash", icon:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/>'},
+  {id:"honk", label:"Buzina", c:"honk", icon:'<path d="M3 10v4h4l5 4V6L7 10zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>'},
+  {id:"boombox", label:"Som localizar", c:"remote_boombox", params:{sound:2000}, icon:'<circle cx="12" cy="12" r="2"/><path d="M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8"/>'}
+];
+function buildActions(){
+  $("actions").innerHTML = ACTIONS.map(a => `<button class="act" data-id="${a.id}" ${a.state?`data-state="${a.state}"`:""}>${I(a.icon)}<b>${a.label}</b></button>`).join("");
+  $("actions").querySelectorAll(".act").forEach(b => b.onclick = () => runAction(b.dataset.id, b));
+}
+async function runAction(id, btn){
+  const a = ACTIONS.find(x=>x.id===id); if(!a) return false;
+  if(a.confirm && btn && !btn.classList.contains("armed")){
+    btn.classList.add("armed"); btn.querySelector("b").textContent="Toca para confirmar";
+    setTimeout(()=>{ btn.classList.remove("armed"); btn.querySelector("b").textContent=a.label; }, 4000);
+    return false;
+  }
+  let name = a.c;
+  if(a.toggle){
+    const st = car ? {climate:car.climate_state?.is_climate_on, sentry:car.vehicle_state?.sentry_mode, charge:car.charge_state?.charging_state==="Charging"}[a.state] : false;
+    name = st ? a.toggle[1] : a.toggle[0];
+  }
+  return doCmd(name, a.params||{}, a.label, btn);
+}
+async function doCmd(name, params, label, btn){
+  if(btn){ btn.classList.add("busy"); btn.classList.remove("armed"); }
+  try{
+    const r = await cmd(name, params);
+    if(r && r.result===false) throw new Error(label+": o carro não confirmou.");
+    toast(label+" ✓"); setTimeout(loadState, demo()?0:4000); return true;
+  }catch(e){ toast(e.message, true); return false; }
+  finally{ if(btn){ btn.classList.remove("busy"); const a=ACTIONS.find(x=>x.id===btn.dataset.id); if(a) btn.querySelector("b").textContent=a.label; } }
+}
+$("tempRange").oninput = e => $("tempVal").textContent = e.target.value+" °C";
+$("limRange").oninput = e => $("limVal").textContent = e.target.value+" %";
+$("btnTemp").onclick = () => doCmd("set_temperatures", {temperature:$("tempRange").value}, "Temperatura "+$("tempRange").value+" °C");
+$("btnLimit").onclick = () => doCmd("set_charge_limit", {percent:$("limRange").value}, "Limite "+$("limRange").value+" %");
+$("btnRefresh").onclick = loadState;
+$("btnWake").onclick = async () => { try{ toast("A acordar o carro…"); const r = await tessie((demo()?"x":cfg.vin)+"/wake",{method:"POST"}); toast(r.result===false?"O carro não acordou em 90 s.":"Carro acordado ✓", r.result===false); loadState(); }catch(e){ toast(e.message,true); } };
+async function locate(){
+  try{
+    const l = await tessie((demo()?"x":cfg.vin)+"/location");
+    $("locText").textContent = (l.saved_location ? l.saved_location+" · " : "") + (l.address || `${l.latitude}, ${l.longitude}`);
+    const m=$("locMap"); m.href = `https://www.google.com/maps/search/?api=1&query=${l.latitude},${l.longitude}`; m.hidden=false;
+    return l;
+  }catch(e){ toast(e.message,true); return null; }
+}
+$("btnLocate").onclick = locate;
+
+/* ---------- Voz: comandos fixos ---------- */
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[!?;:]/g," ").replace(/[.,](?!\d)/g," ").replace(/\s+/g," ").trim();
+const SAY = {
+  ok:{pt:"Feito.", en:"Done.", fr:"C'est fait."},
+  fail:{pt:"Não consegui.", en:"That didn't work.", fr:"Ça n'a pas marché."},
+  unknown:{pt:"Não percebi o comando.", en:"I didn't understand.", fr:"Je n'ai pas compris."},
+  unlockAsk:{pt:"Diz confirmar para destrancar.", en:"Say confirm to unlock.", fr:"Dites confirmer pour déverrouiller."}
+};
+const L = () => cfg.lang.slice(0,2);
+const say = (key, extra) => (SAY[key] ? SAY[key][L()] : key) + (extra ? " "+extra : "");
+let pendingUnlock = 0;
+/* Ordem importa: o primeiro padrão que corresponde ganha. */
+const VOICE = [
+  {d:{pt:"confirmar", en:"confirm", fr:"confirmer"}, re:[/\b(confirmar|confirmo|confirm|confirmer)\b/], run:async()=>{ if(Date.now()-pendingUnlock<15000){ pendingUnlock=0; return doCmd("unlock",{}, "Destrancar"); } return null; }},
+  {d:{pt:"destrancar o carro", en:"unlock the car", fr:"déverrouiller la voiture"}, re:[/destranc|\bunlock|deverrouill/], run:async()=>{ pendingUnlock=Date.now(); return "ask"; }},
+  {d:{pt:"trancar o carro", en:"lock the car", fr:"verrouiller la voiture"}, re:[/\btranc|fech\w* (o )?carro|\block\b|verrouill/], run:()=>doCmd("lock",{}, "Trancar")},
+  {d:{pt:"abre a mala da frente", en:"open the frunk", fr:"ouvre le coffre avant"}, re:[/mala (da )?frente|frunk|mala dianteira|capo|front trunk|coffre avant/], run:()=>doCmd("activate_front_trunk",{}, "Mala dianteira")},
+  {d:{pt:"abre a mala", en:"open the trunk", fr:"ouvre le coffre"}, re:[/\bmala\b|\btrunk\b|\bcoffre\b/], run:()=>doCmd("activate_rear_trunk",{}, "Mala traseira")},
+  {d:{pt:"fecha os vidros", en:"close the windows", fr:"ferme les vitres"}, re:[/fech\w* (os )?vidros|close (the )?windows|ferm\w* (les )?(vitres|fenetres)/], run:()=>doCmd("close_windows",{}, "Fechar vidros")},
+  {d:{pt:"abre os vidros", en:"vent the windows", fr:"ouvre les vitres"}, re:[/vidros|ventila|\bvent\b|windows|vitres|fenetres/], run:()=>doCmd("vent_windows",{}, "Ventilar vidros")},
+  {d:{pt:"temperatura 21", en:"temperature 21", fr:"température 21"}, re:[/(?:temperatura|temperature)\D{0,8}(\d{2}(?:[.,]5)?)/, /(\d{2}(?:[.,]5)?) (?:graus|degrees|degres)/], run:(m)=>{ const t=Math.min(28,Math.max(15,parseFloat(m[1].replace(",",".")))); return doCmd("set_temperatures",{temperature:t}, "Temperatura "+t+" °C"); }},
+  {d:{pt:"desliga o ar", en:"turn off the climate", fr:"éteins la clim"}, re:[/deslig\w* (o )?(ar|clima|ac)|(turn off|stop) (the )?(climate|ac|air)|etein\w* (la )?clim|arret\w* (la )?clim/], run:()=>doCmd("stop_climate",{}, "Clima desligado")},
+  {d:{pt:"liga o ar", en:"turn on the climate", fr:"allume la clim"}, re:[/\blig\w* (o )?(ar|clima|ac)\b|aquec|arrefec|(turn on|start) (the )?(climate|ac|air)|allum\w* (la )?clim|\bclim\b|climatisation/], run:()=>doCmd("start_climate",{}, "Clima ligado")},
+  {d:{pt:"descongela", en:"defrost", fr:"dégivrer"}, re:[/descongel|desembaci|defrost|degivr/], run:()=>doCmd("start_max_defrost",{}, "Descongelar")},
+  {d:{pt:"limite de carga 80", en:"charge limit 80", fr:"limite de charge 80"}, re:[/limite\D{0,15}(\d{2,3})|limit\D{0,10}(\d{2,3})/], run:(m)=>{ const p=Math.min(100,Math.max(50,parseInt(m[1]||m[2]))); return doCmd("set_charge_limit",{percent:p}, "Limite "+p+" %"); }},
+  {d:{pt:"para a carga", en:"stop charging", fr:"arrête la charge"}, re:[/(para|parar|pausa|termina)\w* (a )?carga|stop charg|arret\w* (la )?charge/], run:()=>doCmd("stop_charging",{}, "Carga parada")},
+  {d:{pt:"começa a carregar", en:"start charging", fr:"lance la charge"}, re:[/(comec|inicia|liga)\w* (a )?carga|carregar|start charg|(demarr|lanc|commenc)\w* (la )?charge/], run:()=>doCmd("start_charging",{}, "Carga iniciada")},
+  {d:{pt:"abre a porta de carga", en:"open charge port", fr:"ouvre la trappe"}, re:[/porta (de )?carga|charge port|trappe/], run:()=>doCmd("open_charge_port",{}, "Porta de carga")},
+  {d:{pt:"desliga a sentinela", en:"disable sentry", fr:"désactive la sentinelle"}, re:[/(desativ|deslig)\w* .*sentinel|(disable|turn off) .*sentry|desactiv\w* .*sentinel/], run:()=>doCmd("disable_sentry",{}, "Sentinela desligada")},
+  {d:{pt:"liga a sentinela", en:"enable sentry", fr:"active la sentinelle"}, re:[/sentinel|sentry/], run:()=>doCmd("enable_sentry",{}, "Sentinela ligada")},
+  {d:{pt:"abre o portão", en:"open the garage", fr:"ouvre le portail"}, re:[/portao|garagem|homelink|garage|gate|portail/], run:()=>doCmd("trigger_homelink",{}, "HomeLink")},
+  {d:{pt:"pisca as luzes", en:"flash the lights", fr:"fais clignoter les phares"}, re:[/pisca|luzes|flash|lights|phares|clignot/], run:()=>doCmd("flash",{}, "Luzes")},
+  {d:{pt:"buzina", en:"honk", fr:"klaxonne"}, re:[/buzin|apita|honk|horn|klaxon/], run:()=>doCmd("honk",{}, "Buzina")},
+  {d:{pt:"onde está o carro", en:"where is the car", fr:"où est la voiture"}, re:[/onde (esta|estou|fica)|localiz|where|locate|\bou est|localis/], run:async()=>{ const l=await locate(); show("car"); return l ? (l.address||"ok") : false; }},
+  {d:{pt:"quanta bateria tenho", en:"battery level", fr:"niveau de batterie"}, re:[/bateria|autonomia|battery|range|batterie|autonomie/], run:async()=>{ await loadState(); const cs=car?.charge_state; if(!cs) return false; const km=Math.round(cs.battery_range*MI); return {pt:`Bateria a ${Math.round(cs.battery_level)} por cento, ${km} quilómetros.`, en:`Battery at ${Math.round(cs.battery_level)} percent, ${km} kilometres.`, fr:`Batterie à ${Math.round(cs.battery_level)} pour cent, ${km} kilomètres.`}[L()]; }},
+  {d:{pt:"nota comprar pão", en:"note buy bread", fr:"note acheter du pain"}, re:[/^(?:nova )?nota (.+)|^(?:new )?note (.+)|^(?:nouvelle )?note (.+)/], run:(m, raw)=>{ const txt = raw.trim().replace(/^(nova\s+|new\s+|nouvelle\s+)?(nota|note)\s*:?\s*/i,"") || (m[1]||m[2]||m[3]); addNote(txt.charAt(0).toUpperCase()+txt.slice(1), ""); return true; }},
+  {d:{pt:"youtube receitas", en:"youtube recipes", fr:"youtube recettes"}, re:[/youtube (.+)|(?:procura|pesquisa) (.+) no youtube/], run:(m)=>{ openYoutube(m[1]||m[2]); return true; }},
+  {d:{pt:"teste de velocidade", en:"speed test", fr:"test de débit"}, re:[/teste de velocidade|speed ?test|test de (debit|vitesse)/], run:()=>{ show("net"); speedTest(); return true; }},
+  {d:{pt:"canal RTP 1", en:"channel BBC One", fr:"chaîne TF1"}, re:[/^(?:canal|poe|mete|po|channel|play|chaine|mets) (.+)/], run:(m)=>{ const ok = playByName(m[1]); return ok ? true : false; }},
+  {d:{pt:"abre a TV / notas / rede", en:"open TV / notes / network", fr:"ouvre la TV / notes / réseau"}, re:[/\b(tv|televisao|television|iptv)\b|\bnotas?\b|\bnotes\b|\brede\b|network|reseau|\bmedia\b|definicoes|settings|parametres|\bcarro\b|\bcar\b|voiture/], run:(m, raw)=>{ const n=norm(raw); const v = /tv|televis|iptv/.test(n)?"tv":/nota|note/.test(n)?"notes":/rede|network|reseau/.test(n)?"net":/media/.test(n)?"media":/definic|setting|parametre/.test(n)?"settings":"car"; show(v); return true; }}
+];
+async function handleCommand(raw){
+  raw = raw.trim(); if(!raw) return;
+  logVoice(raw, true); $("heard").textContent = "“"+raw+"”";
+  const n = norm(raw);
+  for(const c of VOICE){
+    for(const re of c.re){
+      const m = n.match(re);
+      if(m){
+        let res;
+        try{ res = await c.run(m, raw); }catch(e){ res=false; }
+        if(res===null) continue;
+        const reply = res==="ask" ? say("unlockAsk") : typeof res==="string" ? res : res ? say("ok") : say("fail");
+        logVoice(reply); speak(reply); return;
+      }
+    }
+  }
+  logVoice(say("unknown")); speak(say("unknown"));
+}
+function logVoice(t, me){ const d=document.createElement("div"); d.textContent=t; if(me) d.className="me"; const l=$("voiceLog"); l.appendChild(d); l.scrollTop=l.scrollHeight; }
+function speak(t){ if(!cfg.speak || !("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+function renderCmdList(){ $("cmdList").innerHTML = VOICE.map(c=>`<div class="cmd"><b>“${esc(c.d[L()])}”</b></div>`).join(""); }
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, listening=false;
+function startListening(){
+  if(!SR){ toast("Este browser não suporta reconhecimento de voz. Usa a caixa de texto.", true); show("voice"); return; }
+  if(listening){ rec && rec.stop(); return; }
+  rec = new SR(); rec.lang = cfg.lang; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.onstart = ()=>{ listening=true; $("micBtn").classList.add("live"); $("micBtn2").textContent="A ouvir… toca para parar"; };
+  rec.onend = ()=>{ listening=false; $("micBtn").classList.remove("live"); $("micBtn2").textContent="Começar a ouvir"; };
+  rec.onerror = e=>{ if(e.error==="not-allowed") toast("Microfone bloqueado. Autoriza o microfone para este site.", true); else if(e.error!=="no-speech" && e.error!=="aborted") toast("Erro de voz: "+e.error, true); };
+  rec.onresult = e=>{ let fin="", tmp=""; for(const r of e.results){ if(r.isFinal) fin+=r[0].transcript; else tmp+=r[0].transcript; } $("heard").textContent = fin||tmp; if(fin) handleCommand(fin); };
+  try{ rec.start(); }catch(e){ toast("Não foi possível ativar o microfone.", true); }
+}
+$("micBtn").onclick = startListening;
+$("micBtn2").onclick = startListening;
+$("typeForm").onsubmit = e => { e.preventDefault(); handleCommand($("typeCmd").value); $("typeCmd").value=""; };
+$("voiceLang").onchange = e => { cfg.lang=e.target.value; $("setLang").value=cfg.lang; saveCfg(); renderCmdList(); };
+$("voiceSupport").textContent = SR ? "Reconhecimento de voz disponível. Nos Tesla com processador Intel o browser pode não o suportar; nesse caso usa a caixa de texto." : "Este browser não tem reconhecimento de voz. Os comandos escritos funcionam na mesma.";
+
+/* ---------- IPTV ---------- */
+let channels = [];      // {name, logo, group, id, url, kind}
+let tvKind = "live", tvTarget = 0, audioSlot = 0;
+let favs = new Set(LS.get("tvfavs", []));
+let epg = {};           // tvg-id -> [{start, stop, title}]
+const hlsInst = [null, null];
+
+function parseM3U(text){
+  const out=[]; const lines=text.split(/\r?\n/); let cur=null;
+  for(const raw of lines){
+    const line=raw.trim(); if(!line) continue;
+    if(line.startsWith("#EXTINF")){
+      const attr = k => { const m=line.match(new RegExp(k+'="([^"]*)"')); return m?m[1]:""; };
+      const comma = line.lastIndexOf(",");
+      cur = {name:(comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name"), logo:attr("tvg-logo"), group:attr("group-title")||"Sem categoria", id:attr("tvg-id")};
+    } else if(!line.startsWith("#") && cur){
+      cur.url=line; cur.kind = /\/movie\//i.test(line) ? "movie" : /\/series\//i.test(line) ? "series" : "live";
+      out.push(cur); cur=null;
+    }
+  }
+  return out;
+}
+/* Proxy: um Cloudflare Worker teu que acrescenta CORS e serve tudo em https. */
+function px(url){
+  if(!url || !cfg.proxy) return url;
+  const base = cfg.proxy.replace(/\/+$/,"");
+  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + "url=" + encodeURIComponent(url);
+}
+function fetchErrorHelp(url, e){
+  if(window.top !== window || location.protocol==="file:") return "Estás a abrir a app dentro da pré-visualização do Claude, que bloqueia todas as ligações externas (incluindo o proxy). Abre a app pelo teu link do GitHub Pages.";
+  if(cfg.proxy && e instanceof TypeError) return "O browser não conseguiu contactar o proxy. Confirma o endereço do proxy e a ligação à internet.";
+  if(location.protocol==="https:" && /^http:\/\//i.test(url) && !cfg.proxy) return "O servidor IPTV usa http:// e o browser bloqueia-o numa página https. Configura o proxy (Definições › Proxy).";
+  if(!cfg.proxy) return "O servidor não aceita pedidos vindos de um browser (CORS). Configura o proxy (Definições › Proxy) ou usa “Carregar ficheiro”.";
+  return "O proxy não conseguiu chegar ao servidor ("+e.message+"). Confirma o endereço, a porta e os dados de acesso.";
+}
+const xBase = () => cfg.xs.replace(/\/+$/,"").replace(/\/(player_api|get)\.php.*$/,"");
+const xQ = () => `username=${encodeURIComponent(cfg.xu)}&password=${encodeURIComponent(cfg.xp)}`;
+async function xApi(action, extra=""){
+  const r = await fetch(px(`${xBase()}/player_api.php?${xQ()}&action=${action}${extra}`));
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+async function loadXtream(){
+  const auth = await (await fetch(px(`${xBase()}/player_api.php?${xQ()}`))).json();
+  if(auth?.user_info && String(auth.user_info.auth)==="0") throw new Error("utilizador ou palavra-passe errados");
+  if(auth?.user_info?.status && auth.user_info.status!=="Active") throw new Error("conta "+auth.user_info.status);
+  const [lc, ls, vc, vs, sc, ss] = await Promise.all([
+    xApi("get_live_categories"), xApi("get_live_streams"),
+    xApi("get_vod_categories").catch(()=>[]), xApi("get_vod_streams").catch(()=>[]),
+    xApi("get_series_categories").catch(()=>[]), xApi("get_series").catch(()=>[])
+  ]);
+  const cat = list => Object.fromEntries((Array.isArray(list)?list:[]).map(c=>[String(c.category_id), c.category_name]));
+  const lcm=cat(lc), vcm=cat(vc), scm=cat(sc), b=xBase(), u=encodeURIComponent(cfg.xu), p=encodeURIComponent(cfg.xp);
+  const out = [];
+  (Array.isArray(ls)?ls:[]).forEach(s=>out.push({name:s.name, logo:s.stream_icon||"", group:lcm[s.category_id]||"Sem categoria", id:s.epg_channel_id||"", url:`${b}/live/${u}/${p}/${s.stream_id}.m3u8`, kind:"live"}));
+  (Array.isArray(vs)?vs:[]).forEach(s=>out.push({name:s.name, logo:s.stream_icon||"", group:vcm[s.category_id]||"Sem categoria", id:"", url:`${b}/movie/${u}/${p}/${s.stream_id}.${s.container_extension||"mp4"}`, kind:"movie"}));
+  (Array.isArray(ss)?ss:[]).forEach(s=>out.push({name:s.name, logo:s.cover||"", group:scm[s.category_id]||"Sem categoria", id:"", url:`series:${s.series_id}`, sid:s.series_id, kind:"series"}));
+  return out;
+}
+async function loadIptv(force){
+  if(!force){ const cached = await IDB.get("channels"); if(cached && cached.length){ channels=cached; afterIptv("Lista em cache: "+channels.length+" entradas."); loadEpg(); return; } }
+  const isX = cfg.xs && cfg.xu && cfg.xp;
+  if(!isX && !cfg.m3u){ afterIptv(""); return; }
+  $("iptvStatus").textContent = isX ? "A ligar ao servidor Xtream…" : "A descarregar lista…";
+  const target = isX ? xBase() : cfg.m3u;
+  try{
+    if(isX){
+      try{ channels = await loadXtream(); }
+      catch(e){
+        if(/errados|conta /.test(e.message)) throw e;
+        const r = await fetch(px(`${xBase()}/get.php?${xQ()}&type=m3u_plus&output=m3u8`)); if(!r.ok) throw new Error("HTTP "+r.status);
+        channels = parseM3U(await r.text());
+      }
+    } else {
+      const r = await fetch(px(cfg.m3u)); if(!r.ok) throw new Error("HTTP "+r.status);
+      channels = parseM3U(await r.text());
+    }
+    if(!channels.length) throw new Error("a lista veio vazia");
+    await IDB.set("channels", channels);
+    const n = k => channels.filter(c=>c.kind===k).length;
+    afterIptv(`Lista carregada: ${n("live")} canais, ${n("movie")} filmes, ${n("series")} séries.`);
+    loadEpg();
+  }catch(e){
+    const msg = /errados|conta |vazia|HTTP/.test(e.message) ? "Erro: "+e.message+"." : fetchErrorHelp(target, e);
+    afterIptv("Não consegui carregar a lista. "+msg);
+    toast("IPTV: "+msg, true);
+  }
+}
+async function openSeries(c){
+  $("tvList").innerHTML = `<p class="muted small" style="margin:8px">A carregar episódios…</p>`;
+  try{
+    const info = await xApi("get_series_info", "&series_id="+c.sid);
+    const b=xBase(), u=encodeURIComponent(cfg.xu), p=encodeURIComponent(cfg.xp);
+    const eps = [];
+    Object.entries(info.episodes||{}).forEach(([season, list])=>list.forEach(ep=>eps.push({name:`T${season} E${ep.episode_num} · ${ep.title||""}`, logo:"", group:c.name, id:"", kind:"episode", url:`${b}/series/${u}/${p}/${ep.id}.${ep.container_extension||"mp4"}`})));
+    $("tvList").innerHTML = `<button class="item" id="epBack"><span class="t"><b>← ${esc(c.name)}</b><span>Voltar às séries</span></span></button>` + eps.map((e,i)=>`<button class="item" data-ep="${i}"><span class="t"><b>${esc(e.name)}</b></span></button>`).join("");
+    $("tvCount").textContent = eps.length+" episódios";
+    $("epBack").onclick = renderTvList;
+    $("tvList").querySelectorAll("[data-ep]").forEach(bt=>bt.onclick=()=>playChannel(eps[+bt.dataset.ep]));
+  }catch(e){ toast("Não consegui abrir a série. "+fetchErrorHelp(xBase(), e), true); renderTvList(); }
+}
+function afterIptv(msg){ $("iptvStatus").textContent = msg; $("tvEmpty").hidden = channels.length>0; fillGroups(); renderTvList(); }
+$("m3uFile").onchange = async e => { const f=e.target.files[0]; if(!f) return; channels=parseM3U(await f.text()); await IDB.set("channels", channels); afterIptv("Ficheiro carregado: "+channels.length+" entradas."); };
+async function loadEpg(){
+  if(!cfg.epg) return;
+  try{
+    const r = await fetch(px(cfg.epg)); if(!r.ok) return;
+    const xml = new DOMParser().parseFromString(await r.text(), "text/xml");
+    const now = Date.now(), horizon = now + 6*3600e3; const map={};
+    const pt = s => { const m=s.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{4})?/); if(!m) return 0; const iso=`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]?m[7].slice(0,3)+":"+m[7].slice(3):"Z"}`; return Date.parse(iso); };
+    xml.querySelectorAll("programme").forEach(p => { const st=pt(p.getAttribute("start")), sp=pt(p.getAttribute("stop")); if(sp<now || st>horizon) return; const ch=p.getAttribute("channel"); (map[ch]=map[ch]||[]).push({start:st, stop:sp, title:p.querySelector("title")?.textContent||""}); });
+    Object.values(map).forEach(a=>a.sort((x,y)=>x.start-y.start)); epg=map;
+  }catch(e){}
+}
+function nowNext(id){ const a=epg[id]; if(!a) return null; const now=Date.now(); const i=a.findIndex(p=>p.start<=now && p.stop>now); return i<0?null:{now:a[i], next:a[i+1]}; }
+const hm = t => new Date(t).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"});
+function fillGroups(){
+  const groups = [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))].sort((a,b)=>a.localeCompare(b));
+  $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option>${esc(g)}</option>`).join("");
+}
+function renderTvList(){
+  const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
+  let list = channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
+  if(g) list = list.filter(c=>c.group===g);
+  if(q) list = list.filter(c=>norm(c.name).includes(q));
+  const shown = list.slice(0, 300);
+  $("tvList").innerHTML = shown.map((c,i)=>{
+    const nn = nowNext(c.id);
+    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
+  }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
+  $("tvCount").textContent = list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
+  $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
+  $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
+}
+function playChannel(c, slot=tvTarget){
+  if(!c) return;
+  const v = $("vid"+slot);
+  if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
+  if(c.kind==="series" && c.sid){ openSeries(c); return; }
+  const src = px(c.url);
+  const isHls = /\.m3u8(\?|$)/i.test(c.url) || c.kind==="live";
+  if(isHls && window.Hls && Hls.isSupported()){
+    const h = new Hls({maxBufferLength:30}); h.loadSource(src); h.attachMedia(v); hlsInst[slot]=h;
+    h.on(Hls.Events.ERROR, (ev, d)=>{ if(d.fatal){ toast("Não foi possível reproduzir "+c.name+". "+(cfg.proxy?"O canal pode estar offline.":fetchErrorHelp(c.url, new Error(""))), true); } });
+  } else { v.src = src; v.onerror = ()=>toast("Não foi possível reproduzir "+c.name+". O formato (ex.: .mkv) pode não ser suportado pelo browser.", true); }
+  v.muted = slot!==audioSlot;
+  v.play().catch(()=>{});
+  const nn = nowNext(c.id);
+  $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>` + (nn ? `<div class="muted">Agora: ${hm(nn.now.start)} ${esc(nn.now.title)}${nn.next?` · A seguir: ${hm(nn.next.start)} ${esc(nn.next.title)}`:""}</div>` : "");
+  if(currentView!=="tv") show("tv");
+}
+function playByName(name){ const q=norm(name); const c = channels.find(x=>x.kind==="live" && norm(x.name)===q) || channels.find(x=>x.kind==="live" && norm(x.name).includes(q)) || channels.find(x=>norm(x.name).includes(q)); if(c){ playChannel(c); return true; } return false; }
+document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
+document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
+function setTarget(t){ tvTarget=t; document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
+document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>setTarget(+b.dataset.target));
+document.querySelectorAll(".slot").forEach(s=>s.addEventListener("click", ()=>setTarget(+s.dataset.slot)));
+$("btnSwapAudio").onclick = ()=>{ audioSlot = audioSlot?0:1; $("vid0").muted = audioSlot!==0; $("vid1").muted = audioSlot!==1; $("btnSwapAudio").textContent = "Som: USER "+(audioSlot+1); };
+$("btnFull").onclick = ()=>{ const s=$("stage"); (s.requestFullscreen||s.webkitRequestFullscreen||function(){}).call(s); };
+$("tvSearch").oninput = renderTvList; $("tvGroup").onchange = renderTvList;
+
+/* ---------- Media ---------- */
+const DEFAULT_FAVS = [
+  {name:"YouTube", url:"https://www.youtube.com"},
+  {name:"YouTube Music", url:"https://music.youtube.com"},
+  {name:"Spotify", url:"https://open.spotify.com"},
+  {name:"RTP Play", url:"https://www.rtp.pt/play/"},
+  {name:"OneDrive", url:"https://onedrive.live.com"}
+];
+let mfavs = LS.get("mfavs", DEFAULT_FAVS);
+const fsWrap = url => $("fsTrick").checked ? "https://www.youtube.com/redirect?q="+encodeURIComponent(url) : url;
+function openUrl(url){ const a=document.createElement("a"); a.href=fsWrap(url); a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
+function openYoutube(q){ openUrl("https://www.youtube.com/results?search_query="+encodeURIComponent(q)); }
+$("ytForm").onsubmit = e => { e.preventDefault(); const q=$("ytQ").value.trim(); if(q) openYoutube(q); };
+function renderFavs(){
+  $("favList").innerHTML = mfavs.map((f,i)=>`<div class="item"><button class="item" style="padding:0;min-height:0" data-open="${i}"><span class="t"><b>${esc(f.name)}</b><span>${esc(f.url)}</span></span></button><button class="star" data-del="${i}" aria-label="Remover">✕</button></div>`).join("");
+  $("favList").querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openUrl(mfavs[+b.dataset.open].url));
+  $("favList").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ mfavs.splice(+b.dataset.del,1); LS.set("mfavs",mfavs); renderFavs(); });
+}
+$("btnAddFav").onclick = ()=>{ $("favForm").hidden = !$("favForm").hidden; };
+$("favForm").onsubmit = e => { e.preventDefault(); const n=$("favName").value.trim(), u=$("favUrl").value.trim(); if(!n||!u) return; mfavs.push({name:n,url:u}); LS.set("mfavs",mfavs); $("favName").value=$("favUrl").value=""; $("favForm").hidden=true; renderFavs(); };
+let mediaHls=null;
+$("urlForm").onsubmit = e => { e.preventDefault(); const u=$("mediaUrl").value.trim(); if(!u) return; const v=$("mediaVid"); v.hidden=false; if(mediaHls){mediaHls.destroy();mediaHls=null;} if(/\.m3u8/i.test(u) && window.Hls && Hls.isSupported()){ mediaHls=new Hls(); mediaHls.loadSource(u); mediaHls.attachMedia(v);} else v.src=u; v.play().catch(()=>{}); };
+
+/* ---------- Notas ---------- */
+let notes = LS.get("notes", []);
+let curNote = null;
+function addNote(title, body){ const n={id:Date.now().toString(36), title, body, t:Date.now()}; notes.unshift(n); LS.set("notes",notes); renderNotes(); openNote(n.id); return n; }
+function renderNotes(){
+  const q = norm($("noteSearch").value||"");
+  const list = notes.filter(n=>!q || norm(n.title+" "+n.body).includes(q));
+  $("noteList").innerHTML = list.map(n=>`<button class="item ${n.id===curNote?"sel":""}" data-id="${n.id}"><span class="t"><b>${esc(n.title||"Sem título")}</b><span>${new Date(n.t).toLocaleString("pt-PT",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span></span></button>`).join("") || `<p class="muted small" style="margin:8px">${q?"Nenhuma nota encontrada.":"Ainda não tens notas. Diz “nota” seguido do texto, ou toca em Nova nota."}</p>`;
+  $("noteList").querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>openNote(b.dataset.id));
+}
+function openNote(id){ const n=notes.find(x=>x.id===id); curNote = n?n.id:null; $("noteTitle").value=n?n.title:""; $("noteBody").value=n?n.body:""; $("btnDelNote").textContent="Eliminar"; $("btnDelNote").dataset.armed=""; renderNotes(); }
+let noteTimer;
+function noteEdited(){ if(!curNote){ addNote($("noteTitle").value, $("noteBody").value); return; } const n=notes.find(x=>x.id===curNote); n.title=$("noteTitle").value; n.body=$("noteBody").value; n.t=Date.now(); clearTimeout(noteTimer); noteTimer=setTimeout(()=>{ LS.set("notes",notes); $("noteSaved").textContent="Guardado"; renderNotes(); }, 500); }
+$("noteTitle").oninput = noteEdited; $("noteBody").oninput = noteEdited;
+$("noteSearch").oninput = renderNotes;
+$("btnNewNote").onclick = ()=>{ addNote("",""); $("noteTitle").focus(); };
+$("btnDelNote").onclick = e => { if(!curNote) return; const b=e.currentTarget; if(!b.dataset.armed){ b.dataset.armed="1"; b.textContent="Toca outra vez para eliminar"; setTimeout(()=>{ b.dataset.armed=""; b.textContent="Eliminar"; },4000); return; } notes=notes.filter(n=>n.id!==curNote); LS.set("notes",notes); openNote(notes[0]?.id); toast("Nota eliminada"); };
+
+/* ---------- Rede ---------- */
+function renderNet(){
+  const c = navigator.connection || {};
+  const rows = [["Ligação", navigator.onLine?"Online":"Offline"], ["Tipo estimado", c.effectiveType||"desconhecido"], ["Débito estimado", c.downlink?c.downlink+" Mbit/s":"—"], ["Latência estimada", c.rtt!=null?c.rtt+" ms":"—"], ["Poupança de dados", c.saveData?"Ligada":"Desligada"], ["Browser", navigator.userAgent.match(/Chrom(e|ium)\/[\d.]+/)?.[0]||"—"]];
+  $("netInfo").innerHTML = rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+}
+function netChip(){ setChip("chipNet", navigator.onLine?"ok":"bad", navigator.onLine?"Online":"Offline"); if(currentView==="net") renderNet(); }
+window.addEventListener("online", netChip); window.addEventListener("offline", netChip);
+$("btnIp").onclick = async ()=>{ try{ const r=await fetch("https://api.ipify.org?format=json"); const j=await r.json(); toast("IP público: "+j.ip); }catch(e){ toast("Não consegui obter o IP.", true); } };
+let testing=false;
+async function speedTest(){
+  if(testing) return; testing=true; $("btnSpeed").disabled=true;
+  const base="https://speed.cloudflare.com";
+  ["spPing","spDown","spUp"].forEach(id=>$(id).textContent="…");
+  try{
+    const pings=[]; for(let i=0;i<5;i++){ const t=performance.now(); await fetch(base+"/__down?bytes=0&r="+Math.random(),{cache:"no-store"}); pings.push(performance.now()-t); }
+    pings.sort((a,b)=>a-b); $("spPing").textContent = Math.round(pings[1])+" ms";
+    const bytes=20e6; let t=performance.now(); const r=await fetch(base+"/__down?bytes="+bytes,{cache:"no-store"}); await r.arrayBuffer();
+    $("spDown").textContent = (bytes*8/((performance.now()-t)/1000)/1e6).toFixed(1)+" Mbit/s";
+    const up=new Uint8Array(5e6); t=performance.now(); await fetch(base+"/__up",{method:"POST",body:up});
+    $("spUp").textContent = (up.length*8/((performance.now()-t)/1000)/1e6).toFixed(1)+" Mbit/s";
+  }catch(e){ toast("Teste interrompido: sem ligação ao servidor.", true); }
+  finally{ testing=false; $("btnSpeed").disabled=false; }
+}
+$("btnSpeed").onclick = speedTest;
+
+/* ---------- Definições ---------- */
+function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setLight").checked=cfg.light; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; }
+$("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
+$("btnFindVin").onclick = async ()=>{
+  cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
+  try{ const r=await fetch(px("https://api.tessie.com/vehicles?only_active=true"),{headers:{Authorization:"Bearer "+cfg.token}}); if(!r.ok) throw new Error("Tessie respondeu "+r.status); const j=await r.json(); const v=j.results?.[0]; if(!v){ toast("Nenhum carro encontrado nesta conta.", true); return; } $("setVin").value=v.vin; toast("VIN encontrado: "+(v.last_state?.display_name||v.vin)); }
+  catch(e){ toast("Não consegui contactar a Tessie: "+e.message, true); }
+};
+$("setLang").onchange = e=>{ cfg.lang=e.target.value; $("voiceLang").value=cfg.lang; saveCfg(); renderCmdList(); };
+$("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
+$("setLight").onchange = e=>{ cfg.light=e.target.checked; saveCfg(); applyTheme(); };
+$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; saveCfg(); loadIptv(true); };
+$("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token nem palavra-passe)"), ()=>{}); }catch(e){} };
+$("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp}; Object.assign(cfg,d.cfg); if(!cfg.token) cfg.token=keep.token; if(!cfg.xp) cfg.xp=keep.xp; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
+
+/* ---------- arranque ---------- */
+buildActions(); fillSettings(); renderCmdList(); renderNotes(); renderFavs(); netChip();
+if(notes[0]) openNote(notes[0].id);
+show(LS.get("view","car"));
+loadState(); loadIptv(false);
+setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
+</script>
+</body>
+</html>
