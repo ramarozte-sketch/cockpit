@@ -1,0 +1,4 @@
+{"name":"Racing","idle":1000,"red":7000,"loops":[
+{"url":"loop_0.wav","rpm":1000},{"url":"loop_1.wav","rpm":2000},
+{"url":"loop_2.wav","rpm":3200},{"url":"loop_3.wav","rpm":4500},
+{"url":"loop_4.wav","rpm":5800},{"url":"loop_5.wav","rpm":7000}]}
