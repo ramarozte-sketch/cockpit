@@ -104,7 +104,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 
 /* TV */
 .tvwrap{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:18px;min-height:0}
-@media (max-width:1000px){.tvwrap{grid-template-columns:1fr}}
+@media (max-width:1000px){.tvwrap{grid-template-columns:1fr} .tvwrap>.panel:last-child{order:-1}}
 .list{display:flex;flex-direction:column;gap:4px;max-height:62vh;overflow-y:auto}
 .item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:0;background:none;text-align:left;width:100%;min-height:56px}
 .item:hover,.item.sel{background:var(--panel-2)}
