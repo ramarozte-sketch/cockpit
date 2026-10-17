@@ -150,7 +150,11 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
 
 /* Leitor: barra de canais e modo cinema */
-.cinebar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.cinebar{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
+.trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
+.trklist{display:flex;flex-wrap:wrap;gap:8px}.trklist .btn{min-height:52px}.trklist .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+video::cue{background:rgba(0,0,0,.72);color:#fff;font-size:1.35em;line-height:1.25}
 .cinename{font:600 18px var(--f-display);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app.cinema{grid-template-columns:1fr}
 .app.cinema .rail{display:none}
@@ -624,6 +628,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <div class="cinebar">
             <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
             <div class="cinename" id="chName">Escolhe um canal</div>
+            <button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button>
             <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
@@ -824,6 +829,14 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <div class="small muted" id="engInfo" style="margin-top:10px"></div>
       </div>
       <div class="panel"><div class="small muted" style="margin-bottom:8px">Som</div><div class="row" id="engProf" style="flex-wrap:wrap"></div></div>
+      <div class="panel">
+        <div class="small muted" style="margin-bottom:6px">Sons reais (opcional)</div>
+        <p class="small muted" style="margin:0 0 8px">Para o som de um carro verdadeiro, usa gravações de motor em loop (.mp3, .wav ou .ogg). Podes usar um só ficheiro (o tom acompanha a rotação) ou um pacote .json com vários loops a rotações diferentes, que soa mais natural.</p>
+        <div class="row"><input type="url" id="engPackUrl" placeholder="Endereço do pacote .json ou do loop (ex.: sons/motor.mp3)" style="flex:1;min-width:220px"><button class="btn" id="engPackGo">Carregar</button></div>
+        <label class="f small">Rotação do loop, se for um só ficheiro (rpm)<input type="number" id="engPackRpm" min="500" max="12000" step="100" value="3000"></label>
+        <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiros neste aparelho<input type="file" id="engPackFile" accept="audio/*" multiple hidden></label><button class="btn" id="engPackDel">Remover sons reais</button></div>
+        <p class="small muted" id="engPackInfo" style="margin:6px 0 0"></p>
+      </div>
       <div class="panel">
         <label class="f small">Fonte dos dados
           <select id="engSrc"><option value="tessie">Tesla via Tessie (velocidade e potência reais)</option><option value="gps">GPS deste ecrã</option><option value="sim">Simulador (para experimentar parado)</option></select></label>
@@ -1060,6 +1073,17 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 <audio id="radioAud" hidden></audio>
 <audio id="podAud" preload="none" hidden></audio>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="trkdlg" id="trkDlg" hidden><div class="panel trkbox" role="dialog" aria-label="Áudio e legendas">
+  <div class="row"><h2 style="margin:0">Áudio e legendas</h2><span class="spacer"></span><button class="btn" id="trkClose">Fechar</button></div>
+  <div class="small muted" id="trkWhich"></div>
+  <h3>Áudio</h3><div class="trklist" id="trkAudio"></div>
+  <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
+  <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
+  <div class="row"><input type="url" id="trkUrl" placeholder="Endereço de um ficheiro de legendas .srt ou .vtt" style="flex:1;min-width:220px"><button class="btn" id="trkUrlGo">Carregar</button></div>
+  <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiro .srt / .vtt<input type="file" id="trkFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" hidden></label>
+    <span class="small muted">Sincronia</span><button class="btn" id="trkM">−0,5 s</button><b id="trkOff" class="small">0 s</b><button class="btn" id="trkP">+0,5 s</button></div>
+  <p class="small muted" id="trkNote" style="margin:0"></p>
+</div></div>
 <div class="pinwrap" id="qrModal" hidden role="dialog" aria-modal="true" aria-labelledby="qrTitle">
   <div class="pinbox" style="width:min(440px,100%)">
     <h2 id="qrTitle">Código para o passageiro</h2>
@@ -1891,7 +1915,7 @@ function playChannel(c, slot=tvTarget){
   const live = c.kind==="live";
   const isTs = /\.ts(\?|$)/i.test(c.url);
   const isHls = /\.m3u8(\?|$)/i.test(c.url) || (live && !isTs);
-  const playId = ++playSeq[slot];
+  const playId = ++playSeq[slot]; trkReset(slot);
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
     stopSlot(slot);
@@ -1937,6 +1961,7 @@ function playChannel(c, slot=tvTarget){
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
+      h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         const lv = data.levels || [];
         const bad = lv.filter(l => /^(hvc1|hev1)/i.test(l.videoCodec||"") && !(window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`)));
@@ -1994,6 +2019,7 @@ function playChannel(c, slot=tvTarget){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3}); hlsInst[slot] = h;
         h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
+        h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
         h.on(Hls.Events.ERROR, (ev, d) => { if(!d.fatal || playId !== playSeq[slot]) return; fail("vídeo", "código " + code + " · HLS " + d.details + (d.response?.code ? " " + d.response.code : "")); });
         h.loadSource((stage && cfg.proxy2 ? px2 : px)(c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1"))); h.attachMedia(v);
         return;
@@ -4165,6 +4191,7 @@ function engNoiseBuf(ctx){ const b = ctx.createBuffer(1, ctx.sampleRate*2, ctx.s
 function engDispose(){
   const n = E.nodes; if(!n) return;
   try{ n.oscs.forEach(o=>{ try{ o.stop(); }catch(e){} try{ o.disconnect(); }catch(e){} }); n.src.stop(); }catch(e){}
+  try{ (n.samples || []).forEach(x => { try{ x.src.stop(); x.src.disconnect(); x.g.disconnect(); }catch(e){} }); }catch(e){}
   try{ n.filt.disconnect(); n.bus.disconnect(); }catch(e){}
   E.nodes = null;
 }
@@ -4174,11 +4201,18 @@ function engBuild(){
   const shaper = ctx.createWaveShaper(); shaper.curve = engCurve(p.drive*3); shaper.oversample = "2x";
   const bus = ctx.createGain(); bus.gain.value = 1;
   const amp = ctx.createGain(); amp.gain.value = 1;
-  amp.connect(filt); filt.connect(shaper); shaper.connect(bus); bus.connect(E.g);
+  // Escape: o som do motor passa por ressonâncias fixas (tubagem e caixa), que dão corpo e carácter; 'real' usa amostras e dispensa-as.
+  const mix = ctx.createGain(); mix.gain.value = 1; amp.connect(filt); filt.connect(shaper);
+  const dry = ctx.createGain(); dry.gain.value = p.real ? 1 : .55; shaper.connect(dry); dry.connect(mix);
+  if(!p.real) (p.res || (p.gearless ? [] : [[95,5,.8],[215,6,1],[480,7,.7],[1050,8,.5]])).forEach(([fq, q, gn]) => {
+    const bq = ctx.createBiquadFilter(), rg = ctx.createGain(); bq.type = "bandpass"; bq.frequency.value = fq*(p.cyl > 8 ? 1.25 : p.cyl < 5 ? 1.35 : 1); bq.Q.value = q; rg.gain.value = gn*1.6;
+    shaper.connect(bq); bq.connect(rg); rg.connect(mix);
+  });
+  mix.connect(bus); bus.connect(E.g);
   const oscs = [], layers = [];
   p.layers.forEach(([type, mult, gain]) => {
-    const o = ctx.createOscillator(), lg = ctx.createGain(); o.type = type; o.detune.value = (Math.random()-.5)*14; lg.gain.value = gain;
-    o.connect(lg); lg.connect(amp); o.start(); oscs.push(o); layers.push({o, mult});
+    const o = ctx.createOscillator(), lg = ctx.createGain(); o.type = type; const d0 = (Math.random()-.5)*14; o.detune.value = d0; lg.gain.value = gain;
+    o.connect(lg); lg.connect(amp); o.start(); oscs.push(o); layers.push({o, mult, d0, j:0});
   });
   const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = 6; lfoG.gain.value = 0; lfo.connect(lfoG); lfoG.connect(amp.gain); lfo.start(); oscs.push(lfo);
   const src = ctx.createBufferSource(); src.buffer = engNoiseBuf(ctx); src.loop = true;
@@ -4186,7 +4220,14 @@ function engBuild(){
   src.connect(bp); bp.connect(ng); ng.connect(bus); src.start();
   let wh = null, wg = null;
   if(p.turbo){ wh = ctx.createOscillator(); wg = ctx.createGain(); wh.type = "sine"; wg.gain.value = 0; wh.connect(wg); wg.connect(E.g); wh.start(); oscs.push(wh); }
-  E.nodes = {filt, bus, amp, layers, oscs, lfo, lfoG, src, bp, ng, wh, wg};
+  let samples = null;
+  if(p.real && ENG_REAL){
+    samples = ENG_REAL.loops.map(l => {
+      const sr = ctx.createBufferSource(), g = ctx.createGain(); sr.buffer = l.audio; sr.loop = true; g.gain.value = 0; sr.connect(g); g.connect(filt);
+      sr.start(0, Math.random()*Math.max(.1, l.audio.duration - .1)); return {src:sr, g, rpm:l.rpm, load:l.load};
+    });
+  }
+  E.nodes = {filt, bus, amp, layers, oscs, lfo, lfoG, src, bp, ng, wh, wg, samples};
 }
 function engBurst(freq, q, dur, peak, hp){
   const ctx = E.ctx; if(!ctx || !E.on) return; const t = ctx.currentTime;
@@ -4271,18 +4312,32 @@ function engTick(){
     gearTxt = v < 1.5 ? "N" : String(g+1);
   } else { rpm = 0; f = 85 + v*5.4 + E.thr*28; rf = Math.min(1, v/200); }
   const t = ctx.currentTime;
-  n.layers.forEach(L => L.o.frequency.setTargetAtTime(Math.max(20, Math.min(9000, f*L.mult)), t, .03));
+  n.layers.forEach(L => { L.o.frequency.setTargetAtTime(Math.max(20, Math.min(9000, f*L.mult)), t, .03); L.j = L.j*.92 + (Math.random()-.5)*(ev ? 1.5 : 5 + 7*(1 - rf)); L.o.detune.setTargetAtTime(L.d0 + L.j, t, .08); });
   const cut = p.cut[0] + (p.cut[1] - p.cut[0])*Math.min(1, thrE*.72 + rf*.28 + (ev ? v/260*.3 : 0));
   n.filt.frequency.setTargetAtTime(cut, t, .05);
   let lvl = ev ? (v < 1 && E.thr < .05 ? (c.idle ? .05 : 0) : .1 + .6*Math.min(1, v/90) + .35*thrE) : (.2 + .8*Math.pow(thrE, .8))*(.55 + .45*rf);
   if(!ev && !c.idle && v < .8 && E.thr < .05) lvl = 0;
   if(!ev && now < E.shiftUntil) lvl *= .5;
+  if(p.real) lvl = (!c.idle && v < .8 && E.thr < .05) ? 0 : (now < E.shiftUntil ? .55 : .9);
   n.bus.gain.setTargetAtTime(Math.max(0, lvl*(.7 + c.int/100*.6)), t, .04);
   const lump = p.lump*Math.pow(1 - rf, 1.5)*(1 - thrE*.6);
   n.amp.gain.setTargetAtTime(1 - lump*.5, t, .05); n.lfoG.gain.setTargetAtTime(lump*.5, t, .05); n.lfo.frequency.setTargetAtTime(Math.max(2, f/2), t, .05);
   n.bp.frequency.setTargetAtTime(350 + (ev ? v*18 : rpm*.45), t, .08);
   n.ng.gain.setTargetAtTime(p.noise*(.03 + .24*thrE)*(.4 + rf*.6)*(ev && v < 2 ? 0 : 1), t, .06);
   if(n.wh){ n.wh.frequency.setTargetAtTime(2600 + rpm*.55, t, .08); n.wg.gain.setTargetAtTime(rpm > 2500 ? Math.pow(thrE, 1.5)*.035*(c.int/60) : 0, t, .08); }
+  if(n.samples && n.samples.length){
+    const r = ev ? p.idle + (p.red - p.idle)*Math.min(1, v/(p.maxSpeed || 200)) : rpm, on = Math.max(0, Math.min(1, .12 + thrE*.95)), hasOff = n.samples.some(x => x.load === 0);
+    [1, 0].forEach(cls => {
+      const list = n.samples.filter(x => (x.load > 0 ? 1 : 0) === cls).sort((a, b) => a.rpm - b.rpm); if(!list.length) return;
+      const cg = cls ? (hasOff ? Math.sqrt(on) : .3 + .7*on) : Math.sqrt(1 - on); let lo = null, hi = null;
+      for(const x of list){ if(x.rpm <= r) lo = x; else { hi = x; break; } }
+      list.forEach(x => {
+        const w = lo && hi ? (x === lo ? (hi.rpm - r)/(hi.rpm - lo.rpm) : x === hi ? (r - lo.rpm)/(hi.rpm - lo.rpm) : 0) : (x === hi && !lo ? Math.max(0, Math.min(1, (r/hi.rpm - .25)/.4)) : x === lo || x === hi ? 1 : 0);
+        x.g.gain.setTargetAtTime(cg*Math.sin(w*Math.PI/2), t, .06);
+        x.src.playbackRate.setTargetAtTime(Math.max(.35, Math.min(2.4, r/x.rpm)), t, .05);
+      });
+    });
+  }
   if(E.thrHi > .5 && E.thr < .14 && (ev ? false : rpm > 2800) && now > E.popUntil){ E.popUntil = now + 900; E.thrHi = 0; engPops(); }
   // painel
   if(GAUGE.key !== engGaugeKey()) engGaugeBuild();
@@ -4432,7 +4487,7 @@ function engStop(){
   engUi(); engStatus();
 }
 function engUi(){
-  engGaugeBuild();
+  engGaugeBuild(); engPackAuto();
   const c = engCfg(); const b = $("engToggle"); b.textContent = E.on ? "⏹ Desligar motor" : "▶ Ligar motor"; b.classList.toggle("primary", !E.on);
   $("engProf").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.p === c.prof ? "true" : "false"));
   $("engSrc").value = c.src; $("engVol").value = c.vol; $("engInt").value = c.int; $("engIdle").checked = c.idle; $("engPops").checked = c.pops;
@@ -4440,8 +4495,7 @@ function engUi(){
   engStatus();
 }
 (function engWire(){
-  $("engProf").innerHTML = Object.entries(ENG_PROFILES).map(([id, p]) => `<button class="btn" data-p="${id}" aria-pressed="false">${p.ico} ${p.name}</button>`).join("");
-  $("engProf").querySelectorAll("button").forEach(b => b.onclick = () => { cfg.engProf = b.dataset.p; saveCfg(); if(E.on){ E.gear = 0; engBuild(); } engUi(); });
+  engProfChips();
   $("engGaugePick").innerHTML = Object.entries(GAUGE_STYLES).map(([id, n]) => `<button class="btn" data-g="${id}" aria-pressed="false">${n}</button>`).join("");
   $("engGaugePick").querySelectorAll("button").forEach(b => b.onclick = () => { cfg.engGauge = b.dataset.g; saveCfg(); engGaugeBuild(); });
   $("engToggle").onclick = () => E.on ? engStop() : engStart();
@@ -4465,6 +4519,158 @@ function engUi(){
 })();
 function openEngine(){ show("engine"); }
 
+/* ---------- Faixas de áudio e legendas ---------- */
+const TRK = {ext:[null,null], autoDone:[false,false]};
+const trkIsPt = t => /(^|[^a-z])(pt|por|portugu[eê]s|portuguese|pt-pt|pt-br)([^a-z]|$)/i.test(String(t || ""));
+const trkName = (t, i) => (t.name && t.name !== t.lang ? t.name : "") + (t.lang ? (t.name && t.name !== t.lang ? " · " : "") + t.lang : "") || ("Faixa " + (i+1));
+function trkReset(slot){ trkClearExt(slot); TRK.autoDone[slot] = false; }
+function trkClearExt(slot){ const e = TRK.ext[slot]; if(!e) return; try{ e.el.remove(); URL.revokeObjectURL(e.url); }catch(x){} TRK.ext[slot] = null; }
+function trkAudioList(slot){
+  const h = hlsInst[slot], v = $("vid"+slot);
+  if(h && h.audioTracks && h.audioTracks.length > 0) return {kind:"hls", items:h.audioTracks.map((t,i)=>({i, name:trkName(t,i), on:h.audioTrack === i}))};
+  if(v.audioTracks && v.audioTracks.length > 0) return {kind:"native", items:[...v.audioTracks].map((t,i)=>({i, name:trkName({name:t.label, lang:t.language}, i), on:t.enabled}))};
+  return {kind:"none", items:[]};
+}
+function trkSetAudio(slot, kind, i){
+  if(kind === "hls") hlsInst[slot].audioTrack = i;
+  else if(kind === "native") [...$("vid"+slot).audioTracks].forEach((t,k) => { t.enabled = k === i; });
+}
+function trkSubList(slot){
+  const h = hlsInst[slot], v = $("vid"+slot), items = [];
+  if(h && h.subtitleTracks && h.subtitleTracks.length > 0) h.subtitleTracks.forEach((t,i) => items.push({kind:"hls", i, name:trkName(t,i), on:h.subtitleTrack === i && h.subtitleDisplay !== false}));
+  else [...v.textTracks].filter(t => !t._ext && (t.kind === "subtitles" || t.kind === "captions")).forEach((t,i) => items.push({kind:"native", t, name:trkName({name:t.label, lang:t.language}, i), on:t.mode === "showing"}));
+  const e = TRK.ext[slot]; if(e) items.push({kind:"ext", t:e.track, name:e.label, on:e.track.mode === "showing"});
+  return items;
+}
+function trkSubsOff(slot){
+  const h = hlsInst[slot], v = $("vid"+slot);
+  if(h && h.subtitleTracks && h.subtitleTracks.length > 0){ h.subtitleTrack = -1; }
+  [...v.textTracks].forEach(t => { t.mode = "disabled"; });
+}
+function trkSetSub(slot, it){
+  trkSubsOff(slot); if(!it) return;
+  if(it.kind === "hls"){ const h = hlsInst[slot]; h.subtitleTrack = it.i; h.subtitleDisplay = true; }
+  else it.t.mode = "showing";
+}
+/* Quando o vídeo traz legendas em português (e o áudio não é português), liga-as sozinho, uma vez por vídeo. */
+function trkAuto(slot){
+  if(cfg.subAuto === false || TRK.autoDone[slot]) return;
+  const h = hlsInst[slot]; if(!h || !h.subtitleTracks || !h.subtitleTracks.length) return;
+  const idx = h.subtitleTracks.findIndex(t => trkIsPt(t.lang) || trkIsPt(t.name));
+  if(idx < 0) return;
+  const at = h.audioTracks && h.audioTracks.length ? h.audioTracks[h.audioTrack] : null;
+  if(at && (trkIsPt(at.lang) || trkIsPt(at.name))){ TRK.autoDone[slot] = true; return; }
+  TRK.autoDone[slot] = true; h.subtitleTrack = idx; h.subtitleDisplay = true;
+}
+const srtToVtt = t => { t = t.replace(/\r/g, "").replace(/^\uFEFF/, ""); return /^WEBVTT/.test(t) ? t : "WEBVTT\n\n" + t.replace(/(\d\d:\d\d:\d\d),(\d{3})/g, "$1.$2"); };
+const decodeSub = buf => { try{ return new TextDecoder("utf-8", {fatal:true}).decode(buf); }catch(e){ return new TextDecoder("windows-1252").decode(buf); } };
+function trkAddExt(slot, text, label){
+  const v = $("vid"+slot); trkSubsOff(slot); trkClearExt(slot);
+  const url = URL.createObjectURL(new Blob([srtToVtt(text)], {type:"text/vtt"}));
+  const el = document.createElement("track"); el.kind = "subtitles"; el.label = label; el.srclang = "pt"; el.src = url; el.default = true;
+  v.appendChild(el); el.track._ext = true; el.track.mode = "showing";
+  TRK.ext[slot] = {el, url, label, track:el.track, off:0};
+  $("trkOff").textContent = "0 s";
+}
+function trkShift(slot, d){
+  const e = TRK.ext[slot]; if(!e) return toast("Carrega primeiro um ficheiro de legendas.", true);
+  e.off += d; if(e.track.cues) for(const c of e.track.cues){ c.startTime = Math.max(0, c.startTime + d); c.endTime = Math.max(0.1, c.endTime + d); }
+  $("trkOff").textContent = (e.off > 0 ? "+" : "") + e.off.toLocaleString("pt-PT") + " s";
+}
+function trkRender(){
+  const slot = tvTarget, a = trkAudioList(slot), subs = trkSubList(slot), c = lastPlayed[slot];
+  $("trkWhich").textContent = (slot ? "USER 2" : "USER 1") + (c ? ": " + c.name : ": nada a tocar");
+  $("trkAudio").innerHTML = a.items.length > 1 ? a.items.map(x => `<button class="btn" data-a="${x.i}" aria-pressed="${x.on}">${esc(x.name)}</button>`).join("") : `<span class="small muted">${a.items.length ? esc(a.items[0].name) + " (só há uma faixa)" : "Este vídeo só tem a faixa de áudio por defeito."}</span>`;
+  $("trkSubs").innerHTML = `<button class="btn" data-s="off" aria-pressed="${!subs.some(x => x.on)}">Sem legendas</button>` + subs.map((x,k) => `<button class="btn" data-s="${k}" aria-pressed="${x.on}">${esc(x.name)}</button>`).join("");
+  $("trkAudio").querySelectorAll("[data-a]").forEach(b => b.onclick = () => { trkSetAudio(slot, a.kind, +b.dataset.a); setTimeout(trkRender, 150); });
+  $("trkSubs").querySelectorAll("[data-s]").forEach(b => b.onclick = () => { b.dataset.s === "off" ? trkSubsOff(slot) : trkSetSub(slot, subs[+b.dataset.s]); setTimeout(trkRender, 150); });
+  $("trkAuto").checked = cfg.subAuto !== false;
+  $("trkNote").textContent = !a.items.length && subs.length <= (TRK.ext[slot] ? 1 : 0) ? "Os canais e filmes que vêm em HLS com várias faixas mostram-nas aqui. Ficheiros simples (.mkv, .mp4) só deixam o browser usar a faixa por defeito; nesse caso podes carregar legendas em português (.srt ou .vtt) por ficheiro ou endereço." : "";
+}
+function trkOpen(){ trkRender(); $("trkDlg").hidden = false; }
+$("chTracks").onclick = trkOpen;
+$("trkClose").onclick = () => { $("trkDlg").hidden = true; };
+$("trkDlg").onclick = e => { if(e.target === $("trkDlg")) $("trkDlg").hidden = true; };
+$("trkAuto").onchange = e => { cfg.subAuto = e.target.checked; saveCfg(); };
+$("trkM").onclick = () => trkShift(tvTarget, -.5);
+$("trkP").onclick = () => trkShift(tvTarget, .5);
+$("trkFile").onchange = async e => {
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  try{ trkAddExt(tvTarget, decodeSub(await f.arrayBuffer()), "Português · " + f.name.slice(0, 24)); toast("Legendas carregadas ✓"); trkRender(); }catch(x){ toast("Não consegui ler o ficheiro de legendas.", true); }
+  e.target.value = "";
+};
+$("trkUrlGo").onclick = async () => {
+  const u = $("trkUrl").value.trim(); if(!/^https?:\/\//i.test(u)) return toast("Escreve o endereço completo (https://…).", true);
+  try{
+    let r; try{ r = await fetch(u); }catch(x){ r = await fetchPx(u); }
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    trkAddExt(tvTarget, decodeSub(await r.arrayBuffer()), "Português · online"); toast("Legendas carregadas ✓"); trkRender();
+  }catch(x){ toast("Não consegui obter as legendas: " + x.message, true); }
+};
+/* ---------- Sons reais (amostras de motor em loop) ---------- */
+let ENG_REAL = null;
+const fetchAny = async url => { try{ const r = await fetch(url); if(r.ok) return r; }catch(e){} return fetchPx(url); };
+function engProfChips(){
+  $("engProf").innerHTML = Object.entries(ENG_PROFILES).map(([id, p]) => `<button class="btn" data-p="${id}" aria-pressed="false">${p.ico} ${esc(p.name)}</button>`).join("");
+  $("engProf").querySelectorAll("button").forEach(b => b.onclick = () => { cfg.engProf = b.dataset.p; saveCfg(); if(E.on){ E.gear = 0; engBuild(); } engUi(); });
+}
+function engPackStatus(t, bad){ const el = $("engPackInfo"); if(el){ el.textContent = t; el.style.color = bad ? "var(--bad)" : ""; } }
+function engPackApply(pack, loops){
+  ENG_REAL = {loops};
+  ENG_PROFILES.real = {name:pack.name || "Som real", ico:"🎧", cyl:+pack.cyl || 4, idle:+pack.idle || Math.min(...loops.map(l => l.rpm)), red:+pack.red || Math.max(...loops.map(l => l.rpm)),
+    gears:Array.isArray(pack.gears) && pack.gears.length ? pack.gears : [40,70,100,135,170,210], layers:[], cut:[5000,16000], drive:0, noise:0, pop:pack.pop != null ? +pack.pop : .4, lump:0, turbo:0,
+    real:true, gearless:!!pack.gearless, maxSpeed:+pack.maxSpeed || 200};
+  engProfChips(); cfg.engProf = "real"; saveCfg(); GAUGE.key = ""; if(E.on){ E.gear = 0; engBuild(); } engUi();
+}
+async function engPackLoad(spec){
+  const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+  try{
+    engPackStatus("A carregar sons…");
+    let pack = {name:"Som real"}, loops = [];
+    if(spec.files){ loops = spec.files.map(f => ({buf:f.buf, rpm:f.rpm, load:f.load})); pack.name = "Sons reais (ficheiros)"; }
+    else {
+      const url = new URL(spec.url, location.href).toString();
+      if(/\.json(\?|$)/i.test(url)){ pack = await (await fetchAny(url)).json(); loops = (pack.loops || []).map(l => ({url:new URL(l.url, url).toString(), rpm:+l.rpm, load:l.load == null ? 1 : +l.load})); }
+      else loops = [{url, rpm:+spec.rpm || 3000, load:1}];
+    }
+    if(!loops.length) throw new Error("o pacote não tem sons");
+    for(const l of loops){
+      const ab = l.buf || await (await fetchAny(l.url)).arrayBuffer();
+      l.audio = await ctx.decodeAudioData(ab.slice(0)); delete l.buf;
+      if(!(l.rpm > 0)) throw new Error("falta a rotação (rpm) de um dos sons");
+    }
+    engPackApply(pack, loops);
+    engPackStatus("Carregado: " + (pack.name || "Som real") + " · " + loops.length + (loops.length === 1 ? " som" : " sons") + (loops.length === 1 ? " (um só loop: o tom varia com a rotação)" : "") + ".");
+    return true;
+  }catch(e){ engPackStatus("Não consegui carregar os sons: " + e.message, true); return false; }
+  finally{ try{ ctx.close(); }catch(e){} }
+}
+function engPackRemove(){
+  if(E.on && cfg.engProf === "real"){ cfg.engProf = "v8"; }
+  delete ENG_PROFILES.real; ENG_REAL = null; cfg.engPack = ""; saveCfg(); IDB.set("engPackFiles", null); engProfChips(); GAUGE.key = ""; if(E.on) engBuild(); engUi(); engPackStatus("Sons reais removidos.");
+}
+async function engPackAuto(){
+  if(ENG_REAL || engPackAuto.busy) return; engPackAuto.busy = true;
+  try{
+    if(cfg.engPack) await engPackLoad({url:cfg.engPack, rpm:cfg.engPackRpm});
+    else { const files = await IDB.get("engPackFiles"); if(files && files.length) await engPackLoad({files}); }
+  } finally { engPackAuto.busy = false; }
+}
+(function engPackWire(){
+  $("engPackUrl").value = cfg.engPack || ""; $("engPackRpm").value = cfg.engPackRpm || 3000;
+  $("engPackGo").onclick = async () => {
+    const u = $("engPackUrl").value.trim(); if(!u) return engPackStatus("Escreve o endereço de um pacote (.json) ou de um loop de motor (.mp3, .wav, .ogg).", true);
+    cfg.engPack = u; cfg.engPackRpm = +$("engPackRpm").value || 3000; saveCfg(); await engPackLoad({url:u, rpm:cfg.engPackRpm});
+  };
+  $("engPackFile").onchange = async e => {
+    const fs = [...(e.target.files || [])]; if(!fs.length) return;
+    const guess = n => { const m = n.match(/(\d{3,5})/); return m ? +m[1] : (+$("engPackRpm").value || 3000); };
+    const files = []; for(const f of fs) files.push({name:f.name, rpm:guess(f.name), load:/off|decel|coast|lift|desacel/i.test(f.name) ? 0 : 1, buf:await f.arrayBuffer()});
+    cfg.engPack = ""; saveCfg(); await IDB.set("engPackFiles", files.map(f => ({...f, buf:f.buf.slice(0)})));
+    await engPackLoad({files}); e.target.value = "";
+  };
+  $("engPackDel").onclick = engPackRemove;
+})();
 /* ---------- arranque ---------- */
 function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setProxy2","setPkey2","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon","syncIn","syncProxy","syncKey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
 $("btnSetPin").onclick = async ()=>{
