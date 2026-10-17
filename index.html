@@ -155,6 +155,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .app.cinema{grid-template-columns:1fr}
 .app.cinema .rail{display:none}
 .app.cinema main{padding:10px 16px}
+body.layout-auto .app.cinema{grid-template-columns:1fr}
+.app.cinema main{grid-column:1}
+body.layout-auto .app.cinema main{padding:10px 16px}
 #v-tv.cinema{max-width:none}
 #v-tv.cinema .tvwrap{grid-template-columns:1fr}
 #v-tv.cinema .tvwrap>.panel:first-child{display:none}
@@ -1702,16 +1705,16 @@ function parseM3U(text){
   return out;
 }
 /* Proxy: um Cloudflare Worker teu que acrescenta CORS e serve tudo em https. */
-function px(url, ref){
+function px(url, ref, ua){
   if(!url || !cfg.proxy) return url;
   const base = cfg.proxy.replace(/\/+$/,"");
-  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + "url=" + encodeURIComponent(url);
+  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
 }
 /* Segundo proxy (opcional, fora da Cloudflare, ex.: Deno Deploy) para servidores que recusam Workers. */
-function px2(url, ref){
+function px2(url, ref, ua){
   if(!url || !cfg.proxy2) return url;
   const base = cfg.proxy2.replace(/\/+$/,"");
-  return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + "url=" + encodeURIComponent(url);
+  return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
 }
 /* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
 const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
@@ -1925,7 +1928,7 @@ function playChannel(c, slot=tvTarget){
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
-      h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref) : viaProxy ? px(c.url, ref) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+      h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
     let viaProxy = !(c.free && /^https:/i.test(c.url) && cfg.proxy);
@@ -2088,11 +2091,11 @@ async function diagnoseStream(url, ch){
   let hops = [];
   try{
     const ctl = new AbortController(); setTimeout(()=>ctl.abort(), 12000);
-    const r = await fetch(px(url, ref)+"&debug=1", {signal:ctl.signal});
+    const r = await fetch(px(url, ref, free)+"&debug=1", {signal:ctl.signal});
     if(r.status===403){ res.why = "A chave do proxy está errada."; return res; }
     hops = (await r.json()).hops || [];
     if(free && cfg.proxy2){ // canais abertos: mostra também o que o 2.º proxy vê
-      try{ const r2 = await fetch(px2(url, ref)+"&debug=1", {signal:ctl.signal}); const h2 = (await r2.json()).hops || []; res.extra = h2; }catch(e){ res.extra = [{host:"2.º proxy", error:String(e.message||e)}]; }
+      try{ const r2 = await fetch(px2(url, ref, free)+"&debug=1", {signal:ctl.signal}); const h2 = (await r2.json()).hops || []; res.extra = h2; }catch(e){ res.extra = [{host:"2.º proxy", error:String(e.message||e)}]; }
     }
   }catch(e){
     res.why = e.name==="AbortError" ? "O servidor IPTV não respondeu em 12 segundos." : "Não consegui contactar o proxy (ou o proxy ainda não tem a versão nova com diagnóstico).";
