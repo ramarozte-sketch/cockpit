@@ -1902,7 +1902,7 @@ function playChannel(c, slot=tvTarget){
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="muted small">A analisar o problema…</div>`;
     await new Promise(r=>setTimeout(r, 1500)); // deixa o servidor libertar a ligação anterior
     if(playId !== playSeq[slot]) return;
-    const d = await diagnoseStream(c.url);
+    const d = await diagnoseStream(c.url, c);
     toast(`Não foi possível reproduzir ${c.name}. ${d.why}${extra ? " [" + stage + ": " + extra + "]" : ""}`, true);
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>`
       + `<div class="small" style="margin-top:4px">${esc(d.why)}</div>`
@@ -2077,10 +2077,10 @@ async function xAccount(){
   }catch(e){ return null; }
 }
 const hideCreds = s => String(s||"").split(encodeURIComponent(cfg.xp||"\u0000")).join("•••").split(cfg.xp||"\u0000").join("•••");
-async function diagnoseStream(url){
-  const res = {why:"", lines:[], account:""};
+async function diagnoseStream(url, ch){
+  const res = {why:"", lines:[], account:""}, free = !!(ch && ch.free), ref = refFor(ch);
   if(!cfg.proxy){ res.why = fetchErrorHelp(url, new Error("")); return res; }
-  const acc = await xAccount();
+  const acc = free ? null : await xAccount();
   if(acc) res.account = `Conta: ${acc.status||"?"} · ligações em uso ${acc.active} de ${acc.max||"?"}${acc.exp?` · expira ${acc.exp.toLocaleDateString("pt-PT")}`:""}`;
   if(acc && acc.status && acc.status!=="Active"){ res.why = `A conta IPTV está “${acc.status}”. Fala com o fornecedor.`; return res; }
   if(acc && acc.exp && acc.exp < new Date()){ res.why = "A subscrição IPTV expirou."; return res; }
@@ -2088,14 +2088,18 @@ async function diagnoseStream(url){
   let hops = [];
   try{
     const ctl = new AbortController(); setTimeout(()=>ctl.abort(), 12000);
-    const r = await fetch(px(url)+"&debug=1", {signal:ctl.signal});
+    const r = await fetch(px(url, ref)+"&debug=1", {signal:ctl.signal});
     if(r.status===403){ res.why = "A chave do proxy está errada."; return res; }
     hops = (await r.json()).hops || [];
+    if(free && cfg.proxy2){ // canais abertos: mostra também o que o 2.º proxy vê
+      try{ const r2 = await fetch(px2(url, ref)+"&debug=1", {signal:ctl.signal}); const h2 = (await r2.json()).hops || []; res.extra = h2; }catch(e){ res.extra = [{host:"2.º proxy", error:String(e.message||e)}]; }
+    }
   }catch(e){
     res.why = e.name==="AbortError" ? "O servidor IPTV não respondeu em 12 segundos." : "Não consegui contactar o proxy (ou o proxy ainda não tem a versão nova com diagnóstico).";
     return res;
   }
-  res.lines = hops.map((h,i)=> `${i+1}. ${h.host} → ` + (h.error ? `erro: ${hideCreds(h.error)}` : `HTTP ${h.status}${h.redirect?` (redireciona para ${h.redirect})`:""}${h.server?` [${h.server}]`:""}${h.snippet?` “${hideCreds(h.snippet)}”`:""}`));
+  const fmt = (h,i,pre="") => `${pre}${i+1}. ${h.host} → ` + (h.error ? `erro: ${hideCreds(h.error)}` : `HTTP ${h.status}${h.redirect?` (redireciona para ${h.redirect})`:""}${h.server?` [${h.server}]`:""}${h.snippet?` “${hideCreds(h.snippet)}”`:""}`);
+  res.lines = hops.map((h,i)=>fmt(h,i,res.extra?"P1 ":"")).concat((res.extra||[]).map((h,i)=>fmt(h,i,"P2 ")));
   const last = hops[hops.length-1] || {};
   const txt = (last.snippet||"").toLowerCase();
   if(last.error) res.why = "O proxy não consegue chegar ao servidor de vídeo. Pode ser uma porta que a Cloudflare não permite (usa 80, 8080, 8880, 443 ou 8443).";
