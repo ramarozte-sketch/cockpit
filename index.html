@@ -266,6 +266,7 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 .gpad{display:grid;grid-template-columns:repeat(3,72px);gap:8px}
 .gpad .btn{min-height:64px;font-size:24px}
 .engbig{display:flex;gap:12px;justify-content:space-around;text-align:center}.engbig div{display:flex;flex-direction:column}.engbig b{font-size:54px;line-height:1.05;font-variant-numeric:tabular-nums}.engbig span{font-size:13px;opacity:.65}
+.enggauge{width:min(440px,100%);margin:0 auto}.enggauge svg{display:block;width:100%;height:auto}.enggauge text{font-family:var(--f-display,inherit);fill:currentColor}
 .engbar{height:12px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden}.engbar i{display:block;height:100%;width:0;background:var(--accent,#3b82f6);transition:width .08s}
 #engProf .btn[aria-pressed=true]{outline:2px solid var(--accent,#3b82f6)}
 .g4{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px;border-radius:16px;background:color-mix(in srgb,var(--accent) 22%,var(--panel-2));width:min(560px,92vw,70vh)}
@@ -817,9 +818,8 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <section class="view" id="v-engine" hidden>
       <div class="row"><h1>Motor</h1><span class="spacer"></span><button class="btn" id="engToggle">▶ Ligar motor</button></div>
       <div class="panel">
-        <div class="engbig"><div><b id="engSpd">0</b><span>km/h</span></div><div><b id="engRpm">0</b><span id="engRpmL">rpm</span></div><div><b id="engGear">N</b><span>caixa</span></div></div>
+        <div id="engGauge" class="enggauge" role="img" aria-label="Conta-rotações"></div>
         <div class="small muted" style="margin-top:8px">Acelerador</div><div class="engbar"><i id="engBar"></i></div>
-        <div class="small muted" style="margin-top:6px">Rotação</div><div class="engbar"><i id="engBarR"></i></div>
         <div class="small muted" id="engInfo" style="margin-top:10px"></div>
       </div>
       <div class="panel"><div class="small muted" style="margin-bottom:8px">Som</div><div class="row" id="engProf" style="flex-wrap:wrap"></div></div>
@@ -4215,7 +4215,7 @@ function engTick(){
   tt *= .55 + c.int/100*.8; tt = Math.min(1, tt);
   E.thr += (tt - E.thr)*k(tt > E.thr ? .12 : .3);
   E.thrHi = Math.max(E.thr, E.thrHi - dt*.7);
-  const v = E.v, ev = !!p.gearless; let rpm, f, rf, thrE = E.thr, gearTxt = "—";
+  const v = E.v, ev = !!p.gearless; let rpm, f, rf, thrE = E.thr, gearTxt = v < 1.5 ? "P" : "D";
   if(!ev){
     const G = p.gears; let g = Math.min(E.gear, G.length-1);
     if(now > E.shiftUntil){
@@ -4247,12 +4247,11 @@ function engTick(){
   if(n.wh){ n.wh.frequency.setTargetAtTime(2600 + rpm*.55, t, .08); n.wg.gain.setTargetAtTime(rpm > 2500 ? Math.pow(thrE, 1.5)*.035*(c.int/60) : 0, t, .08); }
   if(E.thrHi > .5 && E.thr < .14 && (ev ? false : rpm > 2800) && now > E.popUntil){ E.popUntil = now + 900; E.thrHi = 0; engPops(); }
   // painel
-  $("engSpd").textContent = Math.round(v);
-  $("engRpm").textContent = ev ? Math.round(Math.max(0, E.pw || 0)) : Math.round(rpm/10)*10;
-  $("engRpmL").textContent = ev ? "kW" : "rpm";
-  $("engGear").textContent = gearTxt;
+  if(GAUGE.key !== engCfg().prof) engGaugeBuild();
+  const pwIn = E.srcNow === "sim" ? (E.sim.pedal > 0 ? E.sim.pedal*1.6 : Math.min(60, E.v*.15)*(E.acc < -.3 ? -.4 : 1)) : (E.pw != null ? E.pw : (E.acc > 0 ? E.acc*18 : 0));
+  E.pwS = (E.pwS || 0) + (pwIn - (E.pwS || 0))*k(.25);
+  engGaugeSet(ev ? E.pwS : rpm, gearTxt, v);
   $("engBar").style.width = Math.round(E.thr*100) + "%";
-  $("engBarR").style.width = Math.round(rf*100) + "%";
 }
 function engStatus(){
   const el = $("engInfo"); if(!el) return;
@@ -4262,6 +4261,53 @@ function engStatus(){
   if(E.srcNow === "tessie" && E.lastSampleAt) s += " · última leitura há " + Math.round((performance.now() - E.lastSampleAt)/1000) + " s";
   if(E.note) s += " · " + E.note; if(E.err) s += " · ⚠ " + E.err;
   el.textContent = s;
+}
+/* Conta-rotações moderno (SVG) */
+const GAUGE = {key:"", min:0, max:7000, red:6000, ev:false, step:1000};
+const gPolar = (r, deg) => { const a = (deg - 90)*Math.PI/180; return [200 + r*Math.cos(a), 200 + r*Math.sin(a)]; };
+const gArc = (r, d0, d1) => { const [x0,y0] = gPolar(r, d0), [x1,y1] = gPolar(r, d1); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${(d1-d0)>180?1:0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+const gDeg = v => -135 + 270*(Math.max(GAUGE.min, Math.min(GAUGE.max, v)) - GAUGE.min)/(GAUGE.max - GAUGE.min);
+function engGaugeBuild(){
+  const el = $("engGauge"); if(!el) return; const p = ENG_PROFILES[engCfg().prof], ev = !!p.gearless;
+  const key = engCfg().prof; if(GAUGE.key === key && el.firstChild) return; GAUGE.key = key; GAUGE.ev = ev;
+  if(ev){ GAUGE.min = -60; GAUGE.max = 200; GAUGE.red = Infinity; GAUGE.step = 50; }
+  else { GAUGE.min = 0; GAUGE.max = Math.ceil((p.red + 300)/1000)*1000; GAUGE.red = p.red - 500; GAUGE.step = 1000; }
+  let ticks = "", labels = "";
+  const first = ev ? -50 : 0;
+  for(let v = first; v <= GAUGE.max + 0.1; v += GAUGE.step){
+    const d = gDeg(v), [x0,y0] = gPolar(176, d), [x1,y1] = gPolar(150, d), [lx,ly] = gPolar(126, d), red = v >= GAUGE.red;
+    ticks += `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${red?"#ef4444":"currentColor"}" stroke-width="3" opacity="${red?1:.85}"/>`;
+    labels += `<text x="${lx.toFixed(1)}" y="${(ly+7).toFixed(1)}" text-anchor="middle" font-size="20" font-weight="600" opacity="${red?1:.8}" ${red?'style="fill:#ef4444"':""}>${ev ? v : v/1000}</text>`;
+    const m = v + GAUGE.step/2; if(m <= GAUGE.max){ const dm = gDeg(m), [a0,b0] = gPolar(176, dm), [a1,b1] = gPolar(164, dm); ticks += `<line x1="${a0.toFixed(1)}" y1="${b0.toFixed(1)}" x2="${a1.toFixed(1)}" y2="${b1.toFixed(1)}" stroke="currentColor" stroke-width="2" opacity=".4"/>`; }
+  }
+  const redArc = GAUGE.red < GAUGE.max ? `<path d="${gArc(186, gDeg(GAUGE.red), 135)}" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round" opacity=".9"/>` : "";
+  el.innerHTML = `<svg viewBox="0 0 400 400" aria-hidden="true">
+    <defs><radialGradient id="gBg" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#1b2230"/><stop offset="1" stop-color="#07090d"/></radialGradient>
+    <filter id="gGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <circle cx="200" cy="200" r="196" fill="url(#gBg)" stroke="rgba(255,255,255,.14)" stroke-width="2"/>
+    <path d="${gArc(186, -135, 135)}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="6" stroke-linecap="round"/>
+    ${redArc}
+    <path id="gProg" d="" fill="none" stroke="var(--accent,#3b82f6)" stroke-width="8" stroke-linecap="round" filter="url(#gGlow)"/>
+    ${ticks}${labels}
+    <text x="200" y="150" text-anchor="middle" font-size="14" letter-spacing="3" opacity=".55">${ev ? "POTÊNCIA kW" : "RPM × 1000"}</text>
+    <g id="gNeedle"><polygon points="196.5,206 200,58 203.5,206" fill="#ff5a36" filter="url(#gGlow)"/><polygon points="197.5,206 200,70 202.5,206" fill="#ffd0c4" opacity=".55"/></g>
+    <circle cx="200" cy="200" r="15" fill="#0b0e14" stroke="rgba(255,255,255,.3)" stroke-width="2"/><circle cx="200" cy="200" r="5" fill="#ff5a36"/>
+    <text id="gGear" x="200" y="262" text-anchor="middle" font-size="58" font-weight="800">N</text>
+    <text id="gSpd" x="200" y="314" text-anchor="middle" font-size="40" font-weight="700">0</text>
+    <text x="200" y="338" text-anchor="middle" font-size="15" letter-spacing="2" opacity=".6">KM/H</text>
+    <text id="gVal" x="200" y="372" text-anchor="middle" font-size="22" font-weight="600" opacity=".85">0</text>
+  </svg>`;
+  GAUGE.dom = {prog: el.querySelector("#gProg"), needle: el.querySelector("#gNeedle"), gear: el.querySelector("#gGear"), spd: el.querySelector("#gSpd"), val: el.querySelector("#gVal")};
+  engGaugeSet(GAUGE.ev ? 0 : ENG_PROFILES[key].idle, "N", 0);
+}
+function engGaugeSet(val, gear, spd){
+  const d = GAUGE.dom; if(!d) return; const dg = gDeg(val);
+  d.needle.setAttribute("transform", `rotate(${dg.toFixed(1)} 200 200)`);
+  const from = GAUGE.ev ? gDeg(0) : -135, a0 = Math.min(from, dg), a1 = Math.max(from, dg);
+  d.prog.setAttribute("d", a1 - a0 < .5 ? "" : gArc(186, a0, a1));
+  d.prog.setAttribute("stroke", GAUGE.ev && val < 0 ? "#22c55e" : val >= GAUGE.red ? "#ef4444" : "var(--accent,#3b82f6)");
+  d.gear.textContent = gear; d.spd.textContent = Math.round(spd);
+  d.val.textContent = GAUGE.ev ? Math.round(val) + " kW" : (Math.round(val/10)*10).toLocaleString("pt-PT") + " rpm";
 }
 function engStart(){
   if(E.on) return;
@@ -4285,6 +4331,7 @@ function engStop(){
   engUi(); engStatus();
 }
 function engUi(){
+  engGaugeBuild();
   const c = engCfg(); const b = $("engToggle"); b.textContent = E.on ? "⏹ Desligar motor" : "▶ Ligar motor"; b.classList.toggle("primary", !E.on);
   $("engProf").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.p === c.prof ? "true" : "false"));
   $("engSrc").value = c.src; $("engVol").value = c.vol; $("engInt").value = c.int; $("engIdle").checked = c.idle; $("engPops").checked = c.pops;
