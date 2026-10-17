@@ -151,6 +151,20 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 
 /* Leitor: barra de canais e modo cinema */
 .cinebar{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.epgdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.epgdlg[hidden]{display:none}
+.gdbox{width:min(1120px,96vw);height:min(88vh,820px);display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.gdgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(240px,340px) minmax(0,1fr);gap:12px}
+.gdside,.gdmain{min-height:0;display:flex;flex-direction:column;gap:8px}
+.gdlist,.gdsched{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.gdname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:18px}
+.gch{display:flex;gap:10px;align-items:center;text-align:left;justify-content:flex-start;width:100%;min-height:58px;padding:8px 10px}
+.gch[aria-pressed="true"]{outline:2px solid var(--accent)}
+.gch img,.gch .ph{width:40px;height:40px;object-fit:contain;flex:none;border-radius:6px}
+.gch .t{min-width:0;display:flex;flex-direction:column}.gch .t b,.gch .t span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gch .t span{font-size:13px;opacity:.7}
+.gdp{display:grid;grid-template-columns:62px minmax(0,1fr);gap:4px 12px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent);cursor:pointer}
+.gdp.now{outline:2px solid var(--accent)}.gdp.past{opacity:.55}.gdp .tm{font-weight:700}.gdp .d{grid-column:2;font-size:13px;opacity:.8;display:none}.gdp.open .d{display:block}
+.gdp .bar{grid-column:2;height:5px;margin:2px 0}
+@media(max-width:820px){.gdgrid{grid-template-columns:1fr;grid-template-rows:36% minmax(0,1fr)}}
 .trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
 .trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
 .trklist{display:flex;flex-wrap:wrap;gap:8px}.trklist .btn{min-height:52px}.trklist .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -600,6 +614,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
         <button class="btn" id="btnAudio" aria-pressed="false">🔊 Só áudio</button>
+        <button class="btn" id="btnGuide">📅 Guia EPG</button>
         <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnLeavePassenger" hidden>Sair do modo passageiro</button>
         <button class="btn" id="btnFull">Ecrã inteiro</button>
@@ -628,7 +643,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <div class="cinebar">
             <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
             <div class="cinename" id="chName">Escolhe um canal</div>
-            <button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button>
+            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button></div>
             <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
@@ -1072,6 +1087,17 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 <audio id="radioAud" hidden></audio>
 <audio id="podAud" preload="none" hidden></audio>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="epgdlg" id="gdDlg" hidden><div class="panel gdbox" role="dialog" aria-label="Guia de programação">
+  <div class="row"><h2 style="margin:0">📅 Guia de programação</h2><span class="spacer"></span><button class="btn" id="gdClose">Fechar</button></div>
+  <div class="gdgrid">
+    <div class="gdside"><select id="gdGroup" aria-label="Categoria"></select><input type="search" id="gdSearch" placeholder="Procurar canal" aria-label="Procurar canal"><div class="gdlist" id="gdList"></div></div>
+    <div class="gdmain">
+      <div class="row gdhead" style="flex-wrap:nowrap"><button class="btn" id="gdPrev" aria-label="Canal anterior">◀</button><b class="gdname" id="gdName">Escolhe um canal</b><button class="btn" id="gdNext" aria-label="Canal seguinte">▶</button><button class="btn primary" id="gdPlay">▶ Ver canal</button></div>
+      <div class="tabs" id="gdDays" role="tablist" aria-label="Dia"></div>
+      <div class="gdsched" id="gdSched"></div>
+    </div>
+  </div>
+</div></div>
 <div class="trkdlg" id="trkDlg" hidden><div class="panel trkbox" role="dialog" aria-label="Áudio e legendas">
   <div class="row"><h2 style="margin:0">Áudio e legendas</h2><span class="spacer"></span><button class="btn" id="trkClose">Fechar</button></div>
   <div class="small muted" id="trkWhich"></div>
@@ -1833,9 +1859,9 @@ async function loadEpg(){
   try{
     const r = await fetchPx(cfg.epg); if(!r.ok) return;
     const xml = new DOMParser().parseFromString(await r.text(), "text/xml");
-    const now = Date.now(), horizon = now + 6*3600e3; const map={};
+    const now = Date.now(), horizon = now + 48*3600e3, day0 = new Date().setHours(0,0,0,0); const map={};
     const pt = s => { const m=s.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{4})?/); if(!m) return 0; const iso=`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]?m[7].slice(0,3)+":"+m[7].slice(3):"Z"}`; return Date.parse(iso); };
-    xml.querySelectorAll("programme").forEach(p => { const st=pt(p.getAttribute("start")), sp=pt(p.getAttribute("stop")); if(sp<now || st>horizon) return; const ch=p.getAttribute("channel"); (map[ch]=map[ch]||[]).push({start:st, stop:sp, title:p.querySelector("title")?.textContent||""}); });
+    xml.querySelectorAll("programme").forEach(p => { const st=pt(p.getAttribute("start")), sp=pt(p.getAttribute("stop")); if(sp<day0 || st>horizon) return; const ch=p.getAttribute("channel"); (map[ch]=map[ch]||[]).push({start:st, stop:sp, title:p.querySelector("title")?.textContent||"", desc:p.querySelector("desc")?.textContent||""}); });
     Object.values(map).forEach(a=>a.sort((x,y)=>x.start-y.start)); epg=map;
   }catch(e){}
 }
@@ -1903,8 +1929,17 @@ function renderTvList(){
     $("tvList").querySelectorAll("div.item[data-i]").forEach(el=>epgObserver.observe(el));
   }
 }
-function playChannel(c, slot=tvTarget){
+/* Canais UHD/FHD costumam vir em HEVC, que muitos browsers não descodificam: tenta sozinho a versão HD ou SD do mesmo canal. */
+const chBase = n => String(n||"").normalize("NFKD").toLowerCase().replace(/\b(uhd|fhd|4k|hevc|h ?265|hd|sd|1080p?|720p?|576p?|50fps|60fps)\b/g," ").replace(/[^a-z0-9+]+/g," ").trim();
+const chQual = n => { const t = String(n||"").normalize("NFKD").toLowerCase(); return /\b(uhd|4k)\b/.test(t) ? 4 : /\bfhd\b|1080/.test(t) ? 3 : /\bsd\b|576/.test(t) ? 1 : 2; };
+const autoTried = [new Set(), new Set()];
+function altQuality(c, tried){
+  const b = chBase(c.name), q = chQual(c.name); if(!b) return null;
+  return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
+}
+function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
+  if(!auto) autoTried[slot].clear();
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
@@ -1918,6 +1953,10 @@ function playChannel(c, slot=tvTarget){
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
     stopSlot(slot);
+    if(/HEVC|descodificar|formato/.test(extra||"") && c.kind === "live"){
+      autoTried[slot].add(c.url); const alt = altQuality(c, autoTried[slot]);
+      if(alt){ toast(`${c.name} usa um formato que este browser não suporta. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
+    }
     if(/HEVC/.test(extra||"")){
       const msg = "Este canal usa vídeo HEVC (H.265), que o browser do Tesla não descodifica. Escolhe a versão HD ou SD do mesmo canal (as UHD/FHD costumam ser HEVC).";
       toast(msg, true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`; return;
@@ -2049,6 +2088,110 @@ function renderEpgBox(slot){
   $("epgBox").innerHTML = html;
 }
 setInterval(()=>{ if(currentView==="tv" && epgSlot[tvTarget] && lastPlayed[tvTarget]===epgSlot[tvTarget]) renderEpgBox(tvTarget); }, 60000);
+/* ---------- Guia de programação (EPG) ---------- */
+const GD = {sel:null, prog:[], day:"", token:0, obs:null};
+const gdChannels = () => { const live = channels.filter(c => c.kind === "live"); return live.length ? live : freeChans; };
+const epgFullCache = new Map();
+async function xEpgFull(c){
+  const sid = xStreamId(c); if(!sid || !(cfg.xs && cfg.xu && cfg.xp)) return [];
+  const hit = epgFullCache.get(sid); if(hit && Date.now() - hit.t < 30*60e3) return hit.list;
+  try{
+    const j = await xApi("get_simple_data_table", "&stream_id=" + sid);
+    const list = (j.epg_listings || []).map(e => ({
+      title: b64txt(e.title), desc: b64txt(e.description),
+      start: e.start_timestamp ? +e.start_timestamp*1000 : Date.parse(String(e.start).replace(" ", "T")),
+      stop: e.stop_timestamp ? +e.stop_timestamp*1000 : Date.parse(String(e.end || e.stop).replace(" ", "T"))
+    })).filter(p => p.title && isFinite(p.start) && isFinite(p.stop)).sort((a, b) => a.start - b.start);
+    epgFullCache.set(sid, {t:Date.now(), list}); return list;
+  }catch(e){ return []; }
+}
+async function gdProgrammes(c){
+  const x = (epg[c.id] || []).filter(p => p.title);
+  if(x.length) return x.map(p => ({start:p.start, stop:p.stop, title:p.title, desc:p.desc || ""}));
+  return xEpgFull(c);
+}
+const dayKey = t => new Date(t).toDateString();
+function gdFillGroups(){
+  const live = channels.some(c => c.kind === "live");
+  $("gdGroup").hidden = !live;
+  const groups = [...new Set(gdChannels().map(c => c.group).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const keep = $("gdGroup").value;
+  $("gdGroup").innerHTML = `<option value="">Todas as categorias</option>` + groups.map(g => `<option>${esc(g)}</option>`).join("");
+  if(groups.includes(keep)) $("gdGroup").value = keep;
+}
+function gdFiltered(){
+  const q = norm($("gdSearch").value || ""), g = $("gdGroup").value;
+  let l = gdChannels(); if(g) l = l.filter(c => c.group === g); if(q) l = l.filter(c => norm(c.name).includes(q));
+  return l.slice(0, 200);
+}
+function gdRenderList(){
+  const list = gdFiltered(); GD.list = list;
+  $("gdList").innerHTML = list.map((c, i) => {
+    const nn = nowNext(c);
+    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + " " + nn.now.title) : ""}</span></span></button>`;
+  }).join("") || `<p class="muted small" style="margin:8px">Nenhum canal encontrado.</p>`;
+  $("gdList").querySelectorAll(".gch").forEach(b => b.onclick = () => gdSelect(GD.list[+b.dataset.i]));
+  if(GD.obs) GD.obs.disconnect(); epgQueue = [];
+  if(cfg.xs && cfg.xu && cfg.xp && "IntersectionObserver" in window){
+    GD.obs = new IntersectionObserver(es => es.forEach(en => {
+      if(!en.isIntersecting) return; GD.obs.unobserve(en.target);
+      const c = GD.list[+en.target.dataset.i]; if(c && !pickNow(epgCache.get(xStreamId(c))?.list)) queueEpg(en.target, c);
+    }), {root:$("gdList"), rootMargin:"120px"});
+    $("gdList").querySelectorAll(".gch").forEach(el => GD.obs.observe(el));
+  }
+}
+async function gdSelect(c){
+  if(!c) return; GD.sel = c; const tk = ++GD.token;
+  $("gdName").textContent = c.name;
+  $("gdList").querySelectorAll(".gch").forEach(b => b.setAttribute("aria-pressed", String(GD.list[+b.dataset.i]?.url === c.url)));
+  $("gdDays").innerHTML = ""; $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">A carregar o guia…</p>`;
+  const prog = await gdProgrammes(c); if(tk !== GD.token) return;
+  GD.prog = prog;
+  if(!prog.length){
+    $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">Este canal não tem guia de programação. ${cfg.xs ? "O teu fornecedor não o disponibiliza para este canal." : "Em Definições, coloca o link do guia XMLTV (ou liga uma conta Xtream) para ver a programação."}</p>`; return;
+  }
+  const today = dayKey(Date.now()), days = [...new Set(prog.map(p => dayKey(p.start)))];
+  GD.day = days.includes(today) ? today : days[0];
+  gdRenderDays(days); gdRenderProg(true);
+}
+function gdRenderDays(days){
+  const today = new Date().setHours(0,0,0,0);
+  $("gdDays").innerHTML = days.map(d => {
+    const t = new Date(d), diff = Math.round((t.setHours(0,0,0,0) - today)/864e5);
+    const lb = diff === 0 ? "Hoje" : diff === 1 ? "Amanhã" : diff === -1 ? "Ontem" : new Date(d).toLocaleDateString("pt-PT", {weekday:"short", day:"numeric", month:"short"});
+    return `<button class="tab" data-d="${esc(d)}" aria-selected="${d === GD.day}">${esc(lb)}</button>`;
+  }).join("");
+  $("gdDays").querySelectorAll(".tab").forEach(b => b.onclick = () => { GD.day = b.dataset.d; $("gdDays").querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", String(x === b))); gdRenderProg(false); });
+}
+function gdRenderProg(scroll){
+  const now = Date.now(), list = GD.prog.filter(p => dayKey(p.start) === GD.day);
+  $("gdSched").innerHTML = list.map((p, i) => {
+    const isNow = p.start <= now && p.stop > now, past = p.stop <= now, pct = Math.max(0, Math.min(100, (now - p.start)/(p.stop - p.start)*100));
+    return `<div class="gdp${isNow ? " now" : ""}${past ? " past" : ""}" data-i="${i}"><span class="tm">${hm(p.start)}</span><span><b>${esc(p.title)}</b> <span class="muted small">${Math.max(1, Math.round((p.stop - p.start)/60000))} min</span></span>${isNow ? `<div class="bar"><i style="width:${pct.toFixed(1)}%;background:var(--accent)"></i></div>` : ""}<div class="d">${p.desc ? esc(p.desc) : "Sem descrição."}</div></div>`;
+  }).join("");
+  $("gdSched").querySelectorAll(".gdp").forEach(el => el.onclick = () => el.classList.toggle("open"));
+  if(scroll){ const n = $("gdSched").querySelector(".gdp.now"); if(n) n.scrollIntoView({block:"start"}); }
+}
+function gdStep(dir){
+  const l = GD.list || []; if(!l.length) return;
+  let i = l.findIndex(c => GD.sel && c.url === GD.sel.url); i = (i + dir + l.length) % l.length; gdSelect(l[i]);
+  const b = $("gdList").querySelector(`.gch[data-i="${i}"]`); if(b) b.scrollIntoView({block:"nearest"});
+}
+function openGuide(){
+  gdFillGroups(); const cur = lastPlayed[tvTarget] || lastPlayed[0];
+  if(cur && cur.kind === "live" && !gdChannels().some(c => c.url === cur.url)) $("gdGroup").value = "";
+  gdRenderList(); $("gdDlg").hidden = false;
+  const start = (cur && GD.list.find(c => c.url === cur.url)) || GD.list[0];
+  if(start){ gdSelect(start); const i = GD.list.indexOf(start); const b = $("gdList").querySelector(`.gch[data-i="${i}"]`); if(b) b.scrollIntoView({block:"center"}); }
+  else { $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">Ainda não há canais. Carrega primeiro a tua lista IPTV.</p>`; }
+}
+$("btnGuide").onclick = openGuide; $("chGuide").onclick = openGuide;
+$("gdClose").onclick = () => { $("gdDlg").hidden = true; };
+$("gdDlg").onclick = e => { if(e.target === $("gdDlg")) $("gdDlg").hidden = true; };
+$("gdGroup").onchange = gdRenderList; $("gdSearch").oninput = gdRenderList;
+$("gdPrev").onclick = () => gdStep(-1); $("gdNext").onclick = () => gdStep(1);
+$("gdPlay").onclick = () => { if(GD.sel){ $("gdDlg").hidden = true; playChannel(GD.sel); } };
+setInterval(() => { if(!$("gdDlg").hidden && GD.prog.length) gdRenderProg(false); }, 60000);
 const tsInst = [null, null];
 const playSeq = [0, 0];
 const lastPlayed = [null, null];
@@ -3872,7 +4015,7 @@ const I18N = {en:{}, fr:{}};
 I18N_PAIRS.forEach(([pt,en,fr])=>{ I18N.en[pt]=en; I18N.fr[pt]=fr; });
 const uiLang = () => cfg.ui || L();
 const origText = new WeakMap(), origAttr = new WeakMap();
-const I18N_SKIP = "script,style,[data-noi18n],#voiceLog,#tvList,#noteList,#favList,#mailList,.mailbody,#ytGrid,#ytNow,#cmdList,#epgBox,#chName,#heard,textarea";
+const I18N_SKIP = "script,style,[data-noi18n],#voiceLog,#tvList,#gdList,#gdSched,#gdName,#noteList,#favList,#mailList,.mailbody,#ytGrid,#ytNow,#cmdList,#epgBox,#chName,#heard,textarea";
 function trNode(n){
   if(n.nodeType===3){
     const p = n.parentElement; if(!p || p.closest(I18N_SKIP)) return;
