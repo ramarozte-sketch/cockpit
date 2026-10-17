@@ -1777,7 +1777,7 @@ function playChannel(c, slot=tvTarget){
     await new Promise(r=>setTimeout(r, 1500)); // deixa o servidor libertar a ligação anterior
     if(playId !== playSeq[slot]) return;
     const d = await diagnoseStream(c.url);
-    toast(`Não foi possível reproduzir ${c.name}. ${d.why}`, true);
+    toast(`Não foi possível reproduzir ${c.name}. ${d.why}${extra ? " [" + stage + ": " + extra + "]" : ""}`, true);
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>`
       + `<div class="small" style="margin-top:4px">${esc(d.why)}</div>`
       + `<div class="muted small mono" style="margin-top:6px">Falhou em ${esc(stage)}${extra?" ("+esc(extra)+")":""}${d.account?"<br>"+esc(d.account):""}${d.lines.length?"<br>"+d.lines.map(esc).join("<br>"):""}</div>`;
@@ -1799,8 +1799,11 @@ function playChannel(c, slot=tvTarget){
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
-      h.loadSource(px(c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+      h.loadSource(direct || (viaProxy ? px(c.url) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
+    // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
+    let viaProxy = !(c.free && /^https:/i.test(c.url) && cfg.proxy);
+    let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
@@ -1816,6 +1819,20 @@ function playChannel(c, slot=tvTarget){
           if(mediaFixes===0){ mediaFixes++; h.recoverMediaError(); return; }
           if(mediaFixes===1){ mediaFixes++; h.swapAudioCodec(); h.recoverMediaError(); return; }
           fail("HLS", "o browser não consegue descodificar este vídeo"); return;
+        }
+        if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
+        // O servidor de vídeo recusa a Cloudflare (403): pergunta ao proxy para onde redireciona e liga o Tesla diretamente.
+        if(viaProxy && cfg.proxy && !resolveTried && (code===403 || code===401) && !c.free){
+          resolveTried = true; h.destroy();
+          fetch(px(c.url) + "&resolve=1").then(r => r.json()).then(j => {
+            if(playId!==playSeq[slot]) return;
+            if(j.location && /^https:/i.test(j.location)){ direct = j.location; h = mk(); wire(h); }
+            else fail("HLS", "bloqueado (" + code + ") e sem endereço direto https");
+          }).catch(() => { if(playId===playSeq[slot]) fail("HLS", d.details + " " + code); });
+          return;
+        }
+        if(!viaProxy && d.type===Hls.ErrorTypes.NETWORK_ERROR){ // direto falhou (CORS ou bloqueio): tenta pelo proxy
+          viaProxy = true; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 300); return;
         }
         // Falhas momentâneas (502/503/504 ou ligação cortada): volta a pedir tudo, até 2 vezes.
         if(d.type===Hls.ErrorTypes.NETWORK_ERROR && (code===0 || code>=500) && reloads<2){
