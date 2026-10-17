@@ -579,6 +579,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
       <div class="tvwrap">
         <div class="panel">
           <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
+            <button class="tab" data-kind="free" aria-selected="false">📡 Abertos PT</button>
             <button class="tab" data-kind="live" aria-selected="true">Live</button>
             <button class="tab" data-kind="movie" aria-selected="false">Filmes</button>
             <button class="tab" data-kind="series" aria-selected="false">Séries</button>
@@ -1117,7 +1118,7 @@ function show(view){
   if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
-  if(view==="tv") renderTvList();
+  if(view==="tv"){ renderTvList(); if(!show._tvInit){ show._tvInit = 1; setTimeout(tvDefaultTab, 800); } }
   if(view==="home"){ renderHome(); if(cfg.gwToken) growattFetch(false).then(renderHome).catch(()=>{}); if(!radioLoaded) loadRadios("").then(renderHome); }
 }
 document.querySelectorAll(".nav").forEach(b => b.onclick = () => show(b.dataset.view));
@@ -1536,6 +1537,30 @@ let favs = new Set(LS.get("tvfavs", []));
 let epg = {};           // tvg-id -> [{start, stop, title}]
 const hlsInst = [null, null];
 
+/* ---------- Canais portugueses em sinal aberto (lista pública iptv-org) ----------
+   Streams públicos e gratuitos, mantidos pela comunidade. Alguns canais podem estar em baixo ou só funcionar em Portugal. */
+const FREE_SRC = "https://iptv-org.github.io/iptv/countries/pt.m3u";
+let freeChans = [];
+const FREE_TOP = [/^rtp ?1\b/i, /^rtp ?2\b/i, /^sic\b(?!.*(not|radical|mulher|caras|k\b))/i, /^tvi\b(?!.*(ficc|reality|afric))/i, /^cmtv|cm ?tv/i, /rtp not[ií]cias/i, /sic not[ií]cias/i, /cnn portugal/i, /^tvi (24|not)/i, /rtp ?3/i, /rtp mem[oó]ria/i, /rtp (africa|internacional)/i, /rtp madeira|rtp a[cç]ores/i, /^canal ?q|^porto canal|^benfica|^sporting|^sport tv/i];
+const freeRank = n => { const i = FREE_TOP.findIndex(r=>r.test(n)); return i<0 ? 99 : i; };
+async function loadFreeTv(force){
+  if(!force){
+    const c = LS.get("freeTv", null);
+    if(c && Date.now() - c.t < 24*3600e3 && c.list?.length){ freeChans = c.list; return freeChans; }
+  }
+  let txt = null;
+  for(const u of [FREE_SRC, cfg.proxy ? px(FREE_SRC) : null].filter(Boolean)){
+    try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
+  }
+  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list; return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
+  const seen = new Set();
+  freeChans = parseM3U(txt).map(c=>({...c, kind:"live", free:true, group:"Sinal aberto",
+      name:c.name.replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
+    .filter(c=>c.url && /^https?:/i.test(c.url) && !seen.has(c.url) && seen.add(c.url))
+    .sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
+  LS.set("freeTv", {t:Date.now(), list:freeChans.map(({name,logo,id,url,kind,free,group})=>({name,logo,id,url,kind,free,group}))});
+  return freeChans;
+}
 function parseM3U(text){
   const out=[]; const lines=text.split(/\r?\n/); let cur=null;
   for(const raw of lines){
@@ -1633,7 +1658,8 @@ async function openSeries(c){
     $("tvList").querySelectorAll("[data-ep]").forEach(bt=>bt.onclick=()=>playChannel(eps[+bt.dataset.ep]));
   }catch(e){ toast("Não consegui abrir a série. "+fetchErrorHelp(xBase(), e), true); renderTvList(); }
 }
-function afterIptv(msg){ $("iptvStatus").textContent = msg; $("tvEmpty").hidden = channels.length>0; fillGroups(); renderTvList(); }
+function afterIptv(msg){ $("iptvStatus").textContent = msg; $("tvEmpty").hidden = channels.length>0 || tvKind==="free"; fillGroups(); renderTvList(); }
+function tvDefaultTab(){ if(!channels.length && tvKind==="live"){ const b = document.querySelector('[data-kind="free"]'); if(b) b.click(); } }
 $("m3uFile").onchange = async e => { const f=e.target.files[0]; if(!f) return; channels=parseM3U(await f.text()); await IDB.set("channels", channels); afterIptv("Ficheiro carregado: "+channels.length+" entradas."); };
 async function loadEpg(){
   if(!cfg.epg) return;
@@ -1680,20 +1706,24 @@ function pumpEpg(){
 }
 const hm = t => new Date(t).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"});
 function fillGroups(){
+  if(tvKind==="free"){ $("tvGroup").innerHTML = ""; $("tvGroup").hidden = true; return; }
+  $("tvGroup").hidden = false;
   const groups = [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))].sort((a,b)=>a.localeCompare(b));
   $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option>${esc(g)}</option>`).join("");
 }
 function renderTvList(){
   const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
-  let list = channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
-  if(g) list = list.filter(c=>c.group===g);
+  let list = tvKind==="free" ? freeChans : channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
+  if(tvKind==="fav") list = [...channels, ...freeChans].filter((c,i,a)=>favs.has(c.url) && a.findIndex(x=>x.url===c.url)===i);
+  if(g && tvKind!=="free") list = list.filter(c=>c.group===g);
   if(q) list = list.filter(c=>norm(c.name).includes(q));
   const shown = list.slice(0, 300);
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
     return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
-  $("tvCount").textContent = list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
+  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : (freeErr || "Nada para mostrar.")}</p>`;
+  $("tvCount").textContent = tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
   // Guia dos canais visíveis
@@ -1926,7 +1956,7 @@ function updateCinemaBar(){
   const has = !!(c && neighbours(c).length > 1);
   $("chPrev").disabled = !has; $("chNext").disabled = !has;
 }
-function neighbours(c){ return channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"); }
+function neighbours(c){ return c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
   const list = neighbours(c); if(list.length < 2) return false;
@@ -1947,7 +1977,14 @@ document.addEventListener("keydown", e => { if(currentView==="tv" && !/INPUT|TEX
 // Truque do Tesla: abrir um site através de youtube.com/redirect põe o browser em ecrã inteiro.
 $("teslaFs").href = "https://www.youtube.com/redirect?q=" + encodeURIComponent(location.href.split("#")[0]);
 function playByName(name){ const q=norm(name); const c = channels.find(x=>x.kind==="live" && norm(x.name)===q) || channels.find(x=>x.kind==="live" && norm(x.name).includes(q)) || channels.find(x=>norm(x.name).includes(q)); if(c){ playChannel(c); return true; } return false; }
-document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
+let freeLoading = false, freeErr = "";
+async function ensureFree(force){
+  if(freeChans.length && !force) return;
+  freeLoading = true; freeErr = ""; renderTvList();
+  try{ await loadFreeTv(force); }catch(e){ freeErr = "Não consegui carregar os canais: " + e.message + ". Verifica a ligação (e o proxy, se estiver configurado)."; }
+  freeLoading = false; renderTvList();
+}
+document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; if(tvKind==="free") ensureFree(false); document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
 function setTarget(t){ tvTarget=t; document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
 document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>{ setTarget(+b.dataset.target); updateCinemaBar(); });
@@ -3327,6 +3364,7 @@ setInterval(()=>{ if(!document.hidden && currentView === "home"){ loadState(); i
 /* ---------- Interface em PT / EN / FR ---------- */
 const I18N_PAIRS = [
 // [português, english, français]
+["📡 Abertos PT","📡 Free-to-air PT","📡 TNT PT"],["A carregar canais…","Loading channels…","Chargement des chaînes…"],
 ["Para jogar com amigos","Play with friends","Jouer entre amis"],["Palavras e puzzles","Words and puzzles","Mots et puzzles"],["Corrida e arcada","Racing and arcade","Course et arcade"],["Portais de jogos","Game portals","Portails de jeux"],["Desenha e adivinha, em grupo","Draw and guess, in a group","Dessine et devine, en groupe"],["Pictionary online com salas privadas","Online Pictionary with private rooms","Pictionary en ligne avec salons privés"],["Centenas de jogos de tabuleiro a sério","Hundreds of real board games","Des centaines de vrais jeux de société"],["Tetris moderno, contra outros jogadores","Modern Tetris against other players","Tetris moderne contre d'autres joueurs"],["O Wordle em português","Wordle in Portuguese","Wordle en portugais"],["A palavra do dia em inglês","The daily English word","Le mot du jour en anglais"],["Adivinha o país pela forma","Guess the country by its shape","Devine le pays par sa forme"],["Combina elementos e descobre o mundo","Combine elements and discover the world","Combine des éléments et découvre le monde"],["Condução relaxante por paisagens infinitas","Relaxing drives through endless scenery","Conduite relaxante dans des paysages infinis"],["Corridas contra o relógio em pistas 3D","Time trials on 3D tracks","Contre-la-montre sur circuits 3D"],["A versão oficial, grátis","The official version, free","La version officielle, gratuite"],
 ["Sem sessão? Faz login numa página própria e volta","Not signed in? Sign in on its own page and come back","Pas connecté ? Connecte-toi dans une page à part et reviens"],["Faz login na página que abriu e depois volta ao Cockpit e toca em Recarregar.","Sign in on the page that opened, then come back to Cockpit and tap Reload.","Connecte-toi sur la page ouverte, puis reviens dans Cockpit et touche Recharger."],["Fazer login","Sign in","Se connecter"],
 ["A abrir a NOS TV numa página própria, para poderes fazer login.","Opening NOS TV in its own page so you can sign in.","Ouverture de NOS TV dans sa propre page pour te connecter."],
