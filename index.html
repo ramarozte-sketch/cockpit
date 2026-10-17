@@ -980,6 +980,9 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <p class="small muted" style="margin:0">Necessário para a maioria dos servidores Xtream (http:// e sem CORS). Usa o teu Cloudflare Worker; também serve para a Tessie e para o vídeo.</p>
           <label class="f">Endereço do proxy<input type="url" id="setProxy" placeholder="https://cockpit-proxy.<conta>.workers.dev"></label>
           <label class="f">Chave do proxy<input type="password" id="setPkey" autocomplete="off"></label>
+          <p class="small muted" style="margin:6px 0 0">Segundo proxy (opcional, para canais que recusam a Cloudflare): usa-se automaticamente quando o primeiro falha. Ver proxy-deno.js.</p>
+          <label class="f">Endereço do 2.º proxy<input type="url" id="setProxy2" placeholder="https://o-teu-projeto.deno.dev"></label>
+          <label class="f">Chave do 2.º proxy<input type="password" id="setPkey2" autocomplete="off"></label>
           <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
           <p class="small muted" id="iptvStatus" style="margin:0"></p>
           <h2>Energia</h2>
@@ -1699,11 +1702,20 @@ function parseM3U(text){
   return out;
 }
 /* Proxy: um Cloudflare Worker teu que acrescenta CORS e serve tudo em https. */
-function px(url){
+function px(url, ref){
   if(!url || !cfg.proxy) return url;
   const base = cfg.proxy.replace(/\/+$/,"");
-  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + "url=" + encodeURIComponent(url);
+  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + "url=" + encodeURIComponent(url);
 }
+/* Segundo proxy (opcional, fora da Cloudflare, ex.: Deno Deploy) para servidores que recusam Workers. */
+function px2(url, ref){
+  if(!url || !cfg.proxy2) return url;
+  const base = cfg.proxy2.replace(/\/+$/,"");
+  return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + "url=" + encodeURIComponent(url);
+}
+/* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
+const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
+const refFor = c => { if(!c || !c.free) return ""; const m = FREE_REF.find(([r]) => r.test(c.name||"")); return m ? m[1] : ""; };
 function fetchErrorHelp(url, e){
   if(window.top !== window || location.protocol==="file:") return "Estás a abrir a app dentro da pré-visualização do Claude, que bloqueia todas as ligações externas (incluindo o proxy). Abre a app pelo teu link do GitHub Pages.";
   if(cfg.proxy && e instanceof TypeError) return "O browser não conseguiu contactar o proxy. Confirma o endereço do proxy e a ligação à internet.";
@@ -1907,10 +1919,11 @@ function playChannel(c, slot=tvTarget){
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
-      h.loadSource(direct || (viaProxy ? px(c.url) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+      h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref) : viaProxy ? px(c.url, ref) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
     let viaProxy = !(c.free && /^https:/i.test(c.url) && cfg.proxy);
+    const ref = refFor(c); let via2 = false;
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
@@ -1930,9 +1943,13 @@ function playChannel(c, slot=tvTarget){
         }
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
         // O servidor de vídeo recusa a Cloudflare (403): pergunta ao proxy para onde redireciona e liga o Tesla diretamente.
-        if(viaProxy && cfg.proxy && !resolveTried && (code===403 || code===401) && !c.free){
+        // Falhou pelo 1.º proxy (bloqueio, resposta vazia ou manifesto inválido): tenta o 2.º proxy, se existir.
+        if(viaProxy && cfg.proxy2 && !via2 && (d.type===Hls.ErrorTypes.NETWORK_ERROR) && ((code>=400 && code<500) || code===204 || /manifest(Parsing|Load)Error/.test(d.details||""))){
+          via2 = true; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 300); return;
+        }
+        if(viaProxy && (via2 ? cfg.proxy2 : cfg.proxy) && !resolveTried && (code===403 || code===401) && !c.free){
           resolveTried = true; h.destroy();
-          fetch(px(c.url) + "&resolve=1").then(r => r.json()).then(j => {
+          fetch((via2 ? px2 : px)(c.url) + "&resolve=1").then(r => r.json()).then(j => {
             if(playId!==playSeq[slot]) return;
             if(j.location && /^https:/i.test(j.location)){ direct = j.location; h = mk(); wire(h); }
             else fail("HLS", "bloqueado (" + code + ") e sem endereço direto https");
@@ -2745,7 +2762,7 @@ setInterval(async ()=>{
 }, 15000);
 
 /* ---------- Modo passageiro (telemóvel ou tablet do passageiro) ---------- */
-const PASSENGER_KEYS = ["proxy","pkey","xs","xu","xp","m3u","epg","ytKey","ui","lang","scheme"];
+const PASSENGER_KEYS = ["proxy","pkey","proxy2","pkey2","xs","xu","xp","m3u","epg","ytKey","ui","lang","scheme"];
 function applyPassenger(){ document.body.classList.toggle("passenger", !!cfg.passenger); $("btnLeavePassenger").hidden = !cfg.passenger; }
 function passengerLink(){
   const o = {}; PASSENGER_KEYS.forEach(k=>{ if(cfg[k]) o[k] = cfg[k]; });
@@ -3852,7 +3869,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
+function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -3865,7 +3882,7 @@ $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 buildSchemes(); applyTheme();
-$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; saveCfg(); loadIptv(true); };
+$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; saveCfg(); loadIptv(true); };
 $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:"", gwToken:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
 
@@ -4286,7 +4303,7 @@ function engUi(){
 function openEngine(){ show("engine"); }
 
 /* ---------- arranque ---------- */
-function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon","syncIn","syncProxy","syncKey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
+function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setProxy2","setPkey2","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon","syncIn","syncProxy","syncKey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
 $("btnSetPin").onclick = async ()=>{
   if(!(await requirePin("PIN atual"))) return;
   const a = await askPin("Novo PIN", "Escolhe 4 a 8 dígitos."); if(a==null) return;
