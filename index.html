@@ -2071,18 +2071,38 @@ async function ytLoad(cat){
   try{
     const j = await ytApi("videos", {part:"snippet", chart:"mostPopular", regionCode:"PT", maxResults:"24", ...(cat ? {videoCategoryId:cat} : {})});
     ytRender((j.items||[]).map(it=>({id:it.id, title:decodeEnt(it.snippet.title), channel:it.snippet.channelTitle, thumb:ytThumb(it.snippet)})), "Sem vídeos nesta categoria em Portugal.");
-  }catch(e){ $("ytGrid").innerHTML = `<p class="small" style="margin:0">O YouTube respondeu: ${esc(e.message)}</p>`; }
+  }catch(e){ $("ytGrid").innerHTML = ytErrHelp(e); }
   $("ytStatus").textContent = "";
+}
+function ytErrHelp(e){
+  const m = String(e && e.message || e), l = m.toLowerCase();
+  let why = "";
+  if(/quota/.test(l)) why = "A quota diária da chave acabou (renova ao meio-dia de Portugal). Tenta mais tarde.";
+  else if(/referer|referrer/.test(l)) why = "A chave está restrita a outro site. No Google Cloud › Credenciais, restringe-a a https://ramarozte-sketch.github.io/* ou tira a restrição.";
+  else if(/not been used|disabled|accessnotconfigured/.test(l)) why = "A YouTube Data API v3 não está ativa neste projeto do Google Cloud. Ativa-a na biblioteca de APIs.";
+  else if(/api key not valid|invalid.*key|keyinvalid/.test(l)) why = "A chave da API não é válida. Confirma-a em Definições › YouTube (sem espaços).";
+  else if(/failed to fetch|networkerror|load failed/.test(l)) why = "Não consegui ligar ao YouTube. Confirma a ligação à internet do carro.";
+  return `<p class="small" style="margin:0">O YouTube respondeu: ${esc(m)}</p>` + (why ? `<p class="small" style="margin:8px 0 0"><b>${esc(why)}</b></p>` : "");
 }
 async function ytSearch(q){
   ytLoaded = true; ytSelectTab("none"); $("ytStatus").textContent = "A procurar…";
   try{
     const j = await ytApi("search", {part:"snippet", type:"video", maxResults:"24", q, regionCode:"PT", videoEmbeddable:"true", safeSearch:"moderate"});
     ytRender((j.items||[]).map(it=>({id:it.id.videoId, title:decodeEnt(it.snippet.title), channel:it.snippet.channelTitle, thumb:ytThumb(it.snippet)})));
-  }catch(e){ $("ytGrid").innerHTML = `<p class="small" style="margin:0">O YouTube respondeu: ${esc(e.message)}</p>`; }
+  }catch(e){ $("ytGrid").innerHTML = ytErrHelp(e); }
   $("ytStatus").textContent = "";
 }
-function ytSearchOrOpen(q){ q = String(q||"").trim(); if(!q) return; if(cfg.ytKey){ show("media"); $("ytQ").value = q; ytSearch(q); setTimeout(()=>$("ytPanel").scrollIntoView({behavior:"smooth"}), 50); } else openYoutube(q); }
+function ytSearchOrOpen(q){
+  q = String(q||"").trim(); if(!q) return;
+  show("media"); $("ytQ").value = q;
+  if(cfg.ytKey){ ytSearch(q); }
+  else{ // sem chave: não sai da app; explica e oferece abrir fora
+    ytLoaded = true; ytSelectTab("none");
+    $("ytGrid").innerHTML = `<p class="small" style="margin:0">Para procurar dentro da app falta a chave da API do YouTube neste aparelho (Definições › YouTube). Podes copiá-la do telemóvel com «Transferir para o Tesla».</p><div class="row" style="margin-top:10px"><button class="btn primary" id="ytOutBtn">Procurar no YouTube (fora da app)</button></div>`;
+    $("ytOutBtn").onclick = () => openYoutube(q);
+  }
+  setTimeout(()=>$("ytPanel").scrollIntoView({behavior:"smooth"}), 50);
+}
 function ytPlay(v){
   ytCurrent = v; $("ytPlayerBox").hidden = false;
   $("ytFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.id)}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(v.title)}"></iframe>`;
