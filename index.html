@@ -505,7 +505,10 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <div class="panel">
           <h2>Carga a decorrer</h2>
           <div class="stats">
+            <div class="stat"><span>Estado</span><b id="chState">--</b></div>
+            <div class="stat"><span>Bateria</span><b id="chSoc">--</b></div>
             <div class="stat"><span>Potência</span><b id="chPower">--</b></div>
+            <div class="stat"><span>Corrente / tensão</span><b id="chAV">--</b></div>
             <div class="stat"><span>Energia nesta carga</span><b id="chAdded">--</b></div>
             <div class="stat"><span>Custo até agora</span><b id="chCost">--</b></div>
             <div class="stat"><span>Fim previsto</span><b id="chEta">--</b></div>
@@ -1111,7 +1114,7 @@ function show(view){
   if(view==="net") renderNet();
   if(view==="media" && !ytLoaded) ytLoad("");
   if(view==="media" && !radioLoaded) loadRadios("");
-  if(view==="energy") loadEnergy();
+  if(view==="energy"){ renderLiveCharge(); loadState().then(renderLiveCharge); loadEnergy(); }
   if(view==="launcher") buildLauncher();
   if(view==="games") renderGames();
   if(view==="chargers") renderChargers();
@@ -1196,7 +1199,7 @@ function renderCar(){
   $("batPct").textContent = pct;
   $("batKm").textContent = cs.battery_range!=null ? Math.round(cs.battery_range*MI) : "--";
   const bar=$("batBar"); bar.style.width = pct+"%"; bar.style.background = pct<20?"var(--bad)":pct<35?"var(--warn)":"var(--ok)";
-  $("stCharge").textContent = chargeLabel(cs.charging_state);
+  $("stCharge").textContent = isCharging(cs) ? "A carregar" : chargeLabel(cs.charging_state);
   $("stLimit").textContent = cs.charge_limit_soc!=null ? cs.charge_limit_soc+" %" : "--";
   $("stIn").textContent = cl.inside_temp!=null ? cl.inside_temp.toFixed(1)+" °C" : "--";
   $("stOut").textContent = cl.outside_temp!=null ? cl.outside_temp.toFixed(1)+" °C" : "--";
@@ -2346,14 +2349,28 @@ function renderSolar(){
   $("pvApply").disabled = !(s && s.amps >= 5);
   $("pvUpdated").textContent = "Atualizado " + hm(pvState.t) + (pvState.upd ? " · Growatt " + String(pvState.upd).slice(11,16) : "");
 }
+function isCharging(cs){
+  cs = cs || {};
+  if(cs.charging_state === "Charging" || cs.charging_state === "Starting") return true;
+  // alguns carros/caches trazem o estado atrasado: se há corrente ou potência reais, está a carregar
+  return cs.charging_state !== "Complete" && cs.charging_state !== "Disconnected" && (num(cs.charger_actual_current,0) > 0 || num(cs.charger_power,0) > 0);
+}
 function renderLiveCharge(){
   const cs = car?.charge_state || {};
-  const charging = cs.charging_state === "Charging";
-  $("chNowA").textContent = charging ? (cs.charger_actual_current ?? "?") + " A" : chargeLabel(cs.charging_state);
-  $("chPower").textContent = charging ? (cs.charger_power ?? 0) + " kW" : "--";
+  const charging = isCharging(cs);
+  const A = num(cs.charger_actual_current, NaN), V = num(cs.charger_voltage, NaN);
+  let kw = num(cs.charger_power, NaN);
+  if(!(kw > 0) && A > 0 && V > 0){ const ph = num(cs.charger_phases, 1) >= 2 ? 3 : 1; kw = A*V*ph/1000; } // AC: potência estimada
+  const label = charging && cs.charging_state !== "Charging" ? "A carregar" : chargeLabel(cs.charging_state);
+  $("chState").textContent = label;
+  $("chSoc").textContent = cs.battery_level != null ? Math.round(cs.battery_level) + " %" + (cs.charge_limit_soc ? " → " + cs.charge_limit_soc + " %" : "") : "--";
+  $("chNowA").textContent = charging ? (isFinite(A) ? A + " A" : "A carregar") : label;
+  $("chPower").textContent = charging && isFinite(kw) ? kw.toLocaleString("pt-PT",{maximumFractionDigits:1}) + " kW" : "--";
+  $("chAV").textContent = charging && isFinite(A) ? A + " A" + (isFinite(V) ? " · " + Math.round(V) + " V" : "") : "--";
   $("chAdded").textContent = cs.charge_energy_added ? kwhFmt(cs.charge_energy_added) : "--";
   $("chCost").textContent = cs.charge_energy_added ? eur(cs.charge_energy_added * (cs.fast_charger_present && isFinite(tarSc()) ? tarSc() : tarIn())) : "--";
-  $("chEta").textContent = charging && cs.minutes_to_full_charge ? hm(Date.now() + cs.minutes_to_full_charge*60e3) : "--";
+  const mins = num(cs.minutes_to_full_charge, 0);
+  $("chEta").textContent = charging && mins > 0 ? hm(Date.now() + mins*60e3) + " (" + Math.floor(mins/60) + " h " + String(Math.round(mins%60)).padStart(2,"0") + ")" : "--";
 }
 function chargeCost(c){
   if(+c.cost > 0) return +c.cost;
@@ -2408,7 +2425,8 @@ $("btnSaveEnergy").onclick = ()=>{
   LS.set("solarFc", null);
   saveCfg(); pvState = null; LS.set("pvState", null); toast("Guardado");
 };
-setInterval(()=>{ if(!document.hidden && currentView==="energy"){ growattFetch(false).then(renderSolar).catch(()=>{}); loadState().then(renderLiveCharge); } }, 60000);
+setInterval(()=>{ if(!document.hidden && currentView==="energy"){ growattFetch(false).then(renderSolar).catch(()=>{}); } }, 60000);
+setInterval(()=>{ if(!document.hidden && currentView==="energy") loadState().then(renderLiveCharge); }, 20000);
 
 /* ---------- Saúde do carro: pneus, software, alertas ---------- */
 let healthAt = 0;
