@@ -262,6 +262,24 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 .gsnake{width:min(560px,92vw,62vh);aspect-ratio:1;border-radius:14px;background:var(--panel-2);touch-action:none}
 .gpad{display:grid;grid-template-columns:repeat(3,72px);gap:8px}
 .gpad .btn{min-height:64px;font-size:24px}
+.engbig{display:flex;gap:12px;justify-content:space-around;text-align:center}.engbig div{display:flex;flex-direction:column}.engbig b{font-size:54px;line-height:1.05;font-variant-numeric:tabular-nums}.engbig span{font-size:13px;opacity:.65}
+.engbar{height:12px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden}.engbar i{display:block;height:100%;width:0;background:var(--accent,#3b82f6);transition:width .08s}
+#engProf .btn[aria-pressed=true]{outline:2px solid var(--accent,#3b82f6)}
+.g4{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px;border-radius:16px;background:color-mix(in srgb,var(--accent) 22%,var(--panel-2));width:min(560px,92vw,70vh)}
+.g4 button{display:grid;grid-template-rows:repeat(6,1fr);gap:6px;border:0;background:none;padding:0}
+.g4 i{display:block;aspect-ratio:1;border-radius:50%;background:var(--panel-2)}
+.g4 i.p1{background:var(--accent)} .g4 i.p2{background:var(--warn)} .g4 i.w{outline:4px solid var(--fg)}
+.gmole{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:min(480px,92vw,60vh)}
+.gmole button{aspect-ratio:1;border-radius:50%;border:0;background:color-mix(in srgb,var(--fg) 12%,var(--panel-2));font-size:clamp(34px,8vw,72px);padding:0;line-height:1}
+.gmole button.up{background:var(--accent)}
+.gsimon{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(460px,92vw,60vh)}
+.gsimon button{aspect-ratio:1.5;border-radius:22px;border:0;opacity:.4;transition:opacity .1s,transform .1s}
+.gsimon button.lit{opacity:1;transform:scale(1.04)}
+.gcv{width:min(640px,94vw,calc(62vh * 1.43));aspect-ratio:600/420;border-radius:14px;background:var(--panel-2);touch-action:none;display:block}
+.gmines{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;width:min(520px,92vw,64vh)}
+.gmines button{aspect-ratio:1;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);font:700 clamp(16px,3vw,26px) var(--f-display);padding:0;color:var(--fg)}
+.gmines button.o{background:color-mix(in srgb,var(--fg) 5%,transparent);border-color:transparent}
+.gmines button.b{background:var(--bad)}
 .home{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:auto auto auto;gap:16px;min-height:calc(100vh - 32px)}
 .hcard{border-radius:26px;background:var(--panel);border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .hcard h2{font-size:14px}
@@ -707,6 +725,12 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <button class="apptile" data-app="games">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.5" r="1"/><circle cx="18" cy="13.5" r="1"/></svg></span>
           <b>Jogos</b><span>Jogos grátis, só com o carro parado</span></button>
+        <button class="apptile" data-app="podcasts">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg></span>
+          <b>Podcasts</b><span>Só áudio, retoma onde ficaste</span></button>
+        <button class="apptile" data-app="engine">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v5M6 8h3l1-2h5v2h2l2 2v6h-3l-1 2H8l-2-2H6"/><path d="M21 12v3"/></svg></span>
+          <b>Motor</b><span>Som de motor com os dados do carro</span></button>
         <button class="apptile" data-app="waze">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 19-7-4-7 4z"/></svg></span>
           <b>Waze</b><span>Trânsito e alertas em tempo real</span></button>
@@ -784,6 +808,53 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
       </div>
       <p class="small muted" id="chgInfo" style="margin:0"></p>
       <div class="chglist" id="chgList"></div>
+    </section>
+
+    <!-- MOTOR -->
+    <section class="view" id="v-engine" hidden>
+      <div class="row"><h1>Motor</h1><span class="spacer"></span><button class="btn" id="engToggle">▶ Ligar motor</button></div>
+      <div class="panel">
+        <div class="engbig"><div><b id="engSpd">0</b><span>km/h</span></div><div><b id="engRpm">0</b><span id="engRpmL">rpm</span></div><div><b id="engGear">N</b><span>caixa</span></div></div>
+        <div class="small muted" style="margin-top:8px">Acelerador</div><div class="engbar"><i id="engBar"></i></div>
+        <div class="small muted" style="margin-top:6px">Rotação</div><div class="engbar"><i id="engBarR"></i></div>
+        <div class="small muted" id="engInfo" style="margin-top:10px"></div>
+      </div>
+      <div class="panel"><div class="small muted" style="margin-bottom:8px">Som</div><div class="row" id="engProf" style="flex-wrap:wrap"></div></div>
+      <div class="panel">
+        <label class="f small">Fonte dos dados
+          <select id="engSrc"><option value="tessie">Tesla via Tessie (velocidade e potência reais)</option><option value="gps">GPS deste ecrã</option><option value="sim">Simulador (para experimentar parado)</option></select></label>
+        <label class="f small">Volume<input type="range" id="engVol" min="0" max="100" step="5" style="width:100%"></label>
+        <label class="f small">Intensidade (reação ao acelerador)<input type="range" id="engInt" min="20" max="100" step="5" style="width:100%"></label>
+        <label class="row small"><input type="checkbox" id="engIdle"> Som de ralenti com o carro parado</label>
+        <label class="row small"><input type="checkbox" id="engPops"> Estalidos ao levantar o pé</label>
+        <div id="engSim" hidden>
+          <label class="f small">Velocidade <b id="engSimVL">0 km/h</b><input type="range" id="engSimV" min="0" max="250" value="0" style="width:100%"></label>
+          <label class="f small">Pedal <b id="engSimPL">0 %</b><input type="range" id="engSimP" min="0" max="100" value="0" style="width:100%"></label>
+        </div>
+        <div class="row"><button class="btn" id="engPrev">🔊 Ouvir demonstração</button></div>
+        <p class="small muted">O som é sintetizado no ecrã a partir da velocidade, potência e aceleração do carro. O Tessie atualiza a cada 1–3 s, por isso a reação ao pedal tem pequeno atraso e é suavizada. O som só se ouve dentro do carro. Usa com o carro parado ou em segurança.</p>
+      </div>
+    </section>
+
+    <!-- PODCASTS -->
+    <section class="view" id="v-pod" hidden>
+      <div class="row"><h1>Podcasts</h1><span class="spacer"></span><button class="btn" id="podBack" hidden>◀ Podcasts</button></div>
+      <div class="panel" id="podNow" hidden>
+        <div class="row" style="flex-wrap:nowrap"><span class="aico" style="font-size:34px">🎙️</span><div style="flex:1;min-width:0"><b id="pnTitle" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><span class="small muted" id="pnShow"></span></div></div>
+        <input type="range" id="pnSeek" min="0" max="1000" value="0" style="width:100%">
+        <div class="row"><span class="small muted mono" id="pnTime">0:00</span><span class="spacer"></span>
+          <button class="btn" id="pnBack">⟲ 15</button><button class="btn primary" id="pnPlay">❚❚</button><button class="btn" id="pnFwd">30 ⟳</button><button class="btn" id="pnRate">1×</button><button class="btn" id="pnStop">■</button></div>
+      </div>
+      <div id="podHub">
+        <form id="podForm" class="row" style="flex-wrap:nowrap"><input type="search" id="podQ" placeholder="Procurar podcast (ex.: Cuca Roseta, Governo Sombra, notícias)" autocomplete="off"><button class="btn primary">Procurar</button></form>
+        <div class="tabs"><button class="tab" data-pt="top" aria-selected="true">Populares em Portugal</button><button class="tab" data-pt="fav" aria-selected="false">★ Favoritos</button><button class="tab" data-pt="recent" aria-selected="false">Continuar a ouvir</button></div>
+        <div class="radiogrid" id="podGrid"><p class="muted small" style="margin:0">A carregar…</p></div>
+        <p class="small muted" style="margin:0">Só áudio, por isso funciona com o carro em andamento. Catálogo: Apple Podcasts (pesquisa pública). Guarda o ponto onde ficaste em cada episódio.</p>
+      </div>
+      <div id="podEpBox" hidden>
+        <div class="row" style="flex-wrap:nowrap"><img id="podEpArt" alt="" style="width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--panel-2)"><div style="flex:1;min-width:0"><h2 id="podEpName" style="margin:0;text-transform:none;letter-spacing:0;font-size:20px;color:var(--fg)"></h2><span class="small muted" id="podEpArtist"></span></div><button class="btn" id="podEpFav">☆ Favorito</button></div>
+        <div class="list" id="podEps" style="margin-top:10px"></div>
+      </div>
     </section>
 
     <!-- JOGOS -->
@@ -893,6 +964,8 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
             <button class="layoutopt" data-layout="auto" aria-pressed="false"><span class="lprev lp-auto"><i></i><i></i><i></i><i></i></span><b>Condução</b><span class="small muted">Inspirado no Android Auto: ícones grandes e ecrã de início</span></button>
           </div>
           <label class="row small"><input type="checkbox" id="setFx"> Efeitos de transição entre menus</label>
+          <label class="row small"><input type="checkbox" id="setUiSnd"> Sons de interação (toques, confirmações e erros)</label>
+          <label class="f small">Volume dos sons de interação<input type="range" id="setUiVol" min="0" max="100" step="5" style="width:100%"></label>
           <h2>Esquema de cores</h2>
           <div class="schemes" id="schemes" role="group" aria-label="Esquema de cores"></div>
         </div>
@@ -978,6 +1051,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 </div>
 <audio id="tvAud" hidden></audio>
 <audio id="radioAud" hidden></audio>
+<audio id="podAud" preload="none" hidden></audio>
 <div class="toast" id="toast" hidden role="status"></div>
 <div class="pinwrap" id="qrModal" hidden role="dialog" aria-modal="true" aria-labelledby="qrTitle">
   <div class="pinbox" style="width:min(440px,100%)">
@@ -1030,7 +1104,37 @@ const saveCfg = () => LS.set("cfg", cfg);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-function toast(msg, bad){ const t=$("toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, 3500); }
+/* ---------- Sons de interação (desligáveis em Definições) ---------- */
+const UiSnd = (()=>{
+  let ctx = null, lastAt = 0;
+  const vol = () => { const v = (typeof cfg === "object" && cfg.uiVol != null && cfg.uiVol !== "") ? +cfg.uiVol : 60; return Math.max(0, Math.min(100, v))/100; };
+  const enabled = () => typeof cfg === "object" && cfg.uiSounds !== false && !document.hidden && vol() > 0;
+  const ensure = () => { try{ ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if(ctx.state === "suspended") ctx.resume(); return ctx; }catch(e){ return null; } };
+  const tone = (f1, f2, dur, type, peak, at=0) => {
+    const c = ensure(); if(!c) return; const t = c.currentTime + at, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f2), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak*vol(), t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+  };
+  const play = fn => { if(!enabled()) return; const n = Date.now(); if(n - lastAt < 45) return; lastAt = n; try{ fn(); }catch(e){} };
+  return {
+    tap:    () => play(()=>tone(1000, 760, .05, "sine", .16)),
+    nav:    () => play(()=>{ tone(520, 640, .07, "sine", .16); tone(780, 900, .08, "sine", .12, .06); }),
+    toggle: () => play(()=>tone(680, 960, .08, "triangle", .18)),
+    ok:     () => play(()=>{ tone(660, 700, .09, "sine", .17); tone(990, 1040, .13, "sine", .15, .09); }),
+    err:    () => play(()=>{ tone(240, 170, .2, "sawtooth", .09); }),
+    unlock: () => { try{ if(typeof cfg === "object" && cfg.uiSounds !== false) ensure(); }catch(e){} }
+  };
+})();
+document.addEventListener("click", e => {
+  const t = e.target.closest && e.target.closest("button, .btn, .nav, .tab, .apptile, .act, .ltile, .rcard, .item, .layoutopt, input[type=checkbox], select, summary");
+  if(!t || t.disabled || t.closest("#gmStage, [data-nosnd]")) return;
+  if(t.matches("input[type=checkbox]")) UiSnd.toggle();
+  else if(t.matches(".nav, .ltile")) UiSnd.nav();
+  else UiSnd.tap();
+}, true);
+document.addEventListener("pointerdown", () => UiSnd.unlock(), {once:true, capture:true});
+function toast(msg, bad){ try{ if(bad) UiSnd.err(); else if(/✓|Guardad|Copiad|Importad|receb|enviad|iniciad|Destranc|Tranc/i.test(String(msg))) UiSnd.ok(); }catch(e){} const t=$("toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, 3500); }
 /* Esquemas de cores: [id, nome, cores de pré-visualização (fundo, painel, destaque)] */
 const SCHEMES = [
   ["noite", "Noite", ["#0d131c","#1b2535","#7cc4ff"]],
@@ -1113,7 +1217,7 @@ function show(view){
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
-  const order = ["home","car","energy","voice","tv","media","apps","nav","chargers","games","web","notes","mail","net","settings","launcher"];
+  const order = ["home","car","energy","voice","tv","media","apps","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -1129,6 +1233,8 @@ function show(view){
   if(view==="launcher") buildLauncher();
   if(view==="games") renderGames();
   if(view==="chargers") renderChargers();
+  if(view==="pod" && typeof podEnter === "function") podEnter();
+  if(view==="engine" && typeof engUi === "function") engUi();
   if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
@@ -1336,6 +1442,8 @@ const VOICE = [
     return navigateTo(dest, app); }},
   {d:{pt:"abre o Waze", en:"open Waze", fr:"ouvre Waze"}, re:[/\bwaze\b/], run:()=>openApp("waze")},
   {d:{pt:"carregadores perto", en:"chargers nearby", fr:"bornes à proximité"}, re:[/\b(carregadores?|postos? de carregamento|superchargers?|chargers?|bornes?)\b/], run:()=>openApp("chargers")},
+  {d:{pt:"podcast Governo Sombra", en:"podcast news", fr:"podcast actualités"}, re:[/\bpodcasts?\b\s*(.*)/], run:(m)=>{ openPodcasts(m[1]); return true; }},
+  {d:{pt:"som do motor", en:"engine sound", fr:"son du moteur"}, re:[/\b(som|sound|son)\b.*\b(motor|engine|moteur)\b|\b(motor|engine|moteur)\b.*\b(som|sound|son)\b/], run:()=>{ show("engine"); return true; }},
   {d:{pt:"abre os jogos", en:"open games", fr:"ouvre les jeux"}, re:[/\b(jogos?|games?|jeux)\b/], run:()=>openApp("games")},
   {d:{pt:"abre o Google Maps", en:"open Google Maps", fr:"ouvre Google Maps"}, re:[/google maps|\bmapas?\b|\bmaps\b/], run:()=>openApp("google_maps")},
   {d:{pt:"abre a NOS TV", en:"open NOS TV", fr:"ouvre NOS TV"}, re:[/\bnos tv\b|\bnostv\b/], run:()=>openApp("nos_tv")},
@@ -2527,6 +2635,7 @@ async function rbGet(path){
   }
   throw new Error("não consegui contactar o diretório de rádios");
 }
+let podCur = null; // episódio de podcast a tocar
 let radioList = [], radioFavs = LS.get("radioFavs", []), radioCur = null, radioHls = null, radioTab = "pop", radioLoaded = false;
 const rSlim = s => ({id:s.stationuuid, name:String(s.name||"").trim(), url:s.url_resolved || s.url, logo:/^https:/.test(s.favicon||"") ? s.favicon : "", tags:String(s.tags||"").split(",").filter(Boolean).slice(0,3).join(", "), hls:+s.hls===1 || /\.m3u8/i.test(s.url_resolved||s.url||"")});
 async function loadRadios(q=""){
@@ -2548,6 +2657,7 @@ function renderRadios(list, empty){
   $("radioGrid").querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>playRadio(list[+b.dataset.ri]));
 }
 function radioStop(){
+  podStop();
   const a = $("radioAud"); if(radioHls){ radioHls.destroy(); radioHls = null; }
   a.pause(); a.removeAttribute("src"); a.load(); radioCur = null; $("radioNow").hidden = true;
   document.querySelectorAll(".rcard.on").forEach(x=>x.classList.remove("on"));
@@ -2679,7 +2789,9 @@ const APPS = {
   nos_tv: {name:"NOS TV", url:"https://nostv.pt/"},
   nav: {name:"Navegação", url:"https://www.google.com/maps"},
   games: {name:"Jogos", url:"https://poki.com/pt"},
-  chargers: {name:"Carregadores", url:"https://openchargemap.org/site"}
+  chargers: {name:"Carregadores", url:"https://openchargemap.org/site"},
+  podcasts: {name:"Podcasts", url:"https://podcasts.apple.com/pt/"},
+  engine: {name:"Motor", url:""}
 };
 if(cfg.appsIn === undefined) cfg.appsIn = true;
 const NOS_LOGIN = "https://login.nos.pt/authentication/login";
@@ -2744,6 +2856,8 @@ function openExtPlain(url){ const x = document.createElement("a"); x.href = url;
 function openApp(id){
   const a = APPS[id]; if(!a) return false;
   if(id === "games"){ show("games"); return true; }
+  if(id === "podcasts"){ show("pod"); return true; }
+  if(id === "engine"){ show("engine"); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
@@ -3212,7 +3326,13 @@ const GAMES_LOCAL = [
   {id:"g2048", name:"2048", desc:"Junta os números até chegar a 2048", ico:"🔢"},
   {id:"mem", name:"Memória", desc:"Encontra os pares no menor número de jogadas", ico:"🃏"},
   {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕"},
-  {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍"}
+  {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍"},
+  {id:"c4", name:"4 em linha", desc:"Contra o Cockpit. Toca numa coluna", ico:"🔴"},
+  {id:"mole", name:"Toupeiras", desc:"Apanha-as em 30 segundos", ico:"🐹"},
+  {id:"simon", name:"Simão diz", desc:"Repete a sequência de cores e sons", ico:"🎵"},
+  {id:"brick", name:"Quebra-blocos", desc:"Arrasta o dedo para mexer a barra", ico:"🧱"},
+  {id:"flap", name:"Voa!", desc:"Toca para voar entre os tubos", ico:"🐤"},
+  {id:"mines", name:"Campo minado", desc:"Toca para abrir, 🚩 para marcar", ico:"💣"}
 ];
 // Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
@@ -3251,7 +3371,7 @@ $("gmBack").onclick = gmExit;
 function gmStart(id){
   if(gamesLocked()) return renderGames();
   gmExit(); $("gmHub").hidden = true; $("gmBack").hidden = false; $("gmStage").hidden = false;
-  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake})[id]($("gmStage"));
+  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake, c4:gameC4, mole:gameMole, simon:gameSimon, brick:gameBrick, flap:gameFlap, mines:gameMines})[id]($("gmStage"));
 }
 function gmKeys(fn){ const h = e => { const d = {ArrowLeft:"l", ArrowRight:"r", ArrowUp:"u", ArrowDown:"d"}[e.key]; if(d){ e.preventDefault(); fn(d); } }; document.addEventListener("keydown", h); gmCleanup.push(()=>document.removeEventListener("keydown", h)); }
 function gmSwipe(el, fn){ let s = null;
@@ -3360,6 +3480,143 @@ function gameSnake(st){
   reset();
 }
 
+
+/* ---------- Mais jogos, pensados para o ecrã tátil do Tesla ---------- */
+function gameC4(st){
+  const R = 6, C = 7; let b, over, busy, best = +LS.get("c4wins", 0);
+  st.innerHTML = gmBar(gmStat("Vez","c4t","Tu") + gmStat("Vitórias","c4w",best) + `<button class="btn primary" id="c4new">Novo jogo</button>`) + `<div class="g4" id="c4g"></div><p class="small muted" style="margin:0">Toca numa coluna. Tu és o azul.</p>`;
+  const g = $("c4g");
+  const win = (bd, p) => { for(let r=0;r<R;r++) for(let c=0;c<C;c++){ if(bd[r*C+c] !== p) continue; for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){ let k = 1; while(k < 4){ const rr = r+dr*k, cc = c+dc*k; if(rr < 0 || rr >= R || cc < 0 || cc >= C || bd[rr*C+cc] !== p) break; k++; } if(k === 4) return [r,c,dr,dc]; } } return null; };
+  const drop = (bd, c, p) => { for(let r=R-1;r>=0;r--) if(!bd[r*C+c]){ bd[r*C+c] = p; return r; } return -1; };
+  const cols = bd => [3,2,4,1,5,0,6].filter(c=>!bd[c]);
+  const evalB = bd => { let sc = 0; for(let r=0;r<R;r++) if(bd[r*C+3] === 2) sc += 3;
+    for(let r=0;r<R;r++) for(let c=0;c<C;c++) for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){ const e = r+dr*3, f = c+dc*3; if(e < 0 || e >= R || f < 0 || f >= C) continue; let a = 0, o = 0, z = 0; for(let k=0;k<4;k++){ const v = bd[(r+dr*k)*C + c+dc*k]; v === 2 ? a++ : v === 1 ? o++ : z++; } if(!o){ if(a === 3) sc += 6; else if(a === 2) sc += 2; } if(!a && o === 3) sc -= 7; }
+    return sc; };
+  const mm = (bd, d, al, be, mx) => {
+    if(win(bd,2)) return 1e5 + d; if(win(bd,1)) return -1e5 - d; const cs = cols(bd); if(!cs.length || !d) return evalB(bd);
+    let v = mx ? -1e9 : 1e9;
+    for(const c of cs){ const nb = bd.slice(); drop(nb, c, mx ? 2 : 1); const x = mm(nb, d-1, al, be, !mx);
+      if(mx){ v = Math.max(v, x); al = Math.max(al, v); } else { v = Math.min(v, x); be = Math.min(be, v); } if(be <= al) break; }
+    return v; };
+  const draw = (hl) => { g.innerHTML = [...Array(C).keys()].map(c=>`<button data-c="${c}" aria-label="Coluna ${c+1}">${[...Array(R).keys()].map(r=>{ const v = b[r*C+c]; return `<i class="${v ? "p"+v : ""} ${hl && hl.some(h=>h[0] === r && h[1] === c) ? "w" : ""}"></i>`; }).join("")}</button>`).join("");
+    g.querySelectorAll("[data-c]").forEach(x=>x.onclick=()=>play(+x.dataset.c)); };
+  const end = (w, who) => { over = true; const hl = w ? [0,1,2,3].map(k=>[w[0]+w[2]*k, w[1]+w[3]*k]) : null; draw(hl);
+    if(who === 1){ best++; LS.set("c4wins", best); $("c4w").textContent = best; } $("c4t").textContent = who === 1 ? "Ganhaste!" : who === 2 ? "Perdeste" : "Empate"; };
+  const play = c => { if(over || busy || b[c]) return; drop(b, c, 1); draw(); let w = win(b,1); if(w) return end(w, 1); if(!cols(b).length) return end(null, 0);
+    busy = true; $("c4t").textContent = "A pensar…";
+    setTimeout(()=>{ busy = false; if(!g.isConnected) return; let bc = null, bv = -1e9; for(const x of cols(b)){ const nb = b.slice(); drop(nb, x, 2); const v = mm(nb, 4, -1e9, 1e9, false) + Math.random()*.5; if(v > bv){ bv = v; bc = x; } }
+      drop(b, bc, 2); draw(); w = win(b,2); if(w) return end(w, 2); if(!cols(b).length) return end(null, 0); $("c4t").textContent = "Tu"; }, 250); };
+  const reset = () => { b = Array(R*C).fill(0); over = false; busy = false; $("c4t").textContent = "Tu"; draw(); };
+  $("c4new").onclick = reset; reset();
+}
+
+function gameMole(st){
+  let score = 0, left = 30, timer, up = -1, hideT, best = +LS.get("moleBest", 0), running = false;
+  st.innerHTML = gmBar(gmStat("Pontos","mlS",0) + gmStat("Tempo","mlT",30) + gmStat("Recorde","mlB",best) + `<button class="btn primary" id="mlNew">Começar</button>`) + `<div class="gmole" id="mlG">${[...Array(9).keys()].map(i=>`<button data-m="${i}" aria-label="Buraco ${i+1}">🕳️</button>`).join("")}</div>`;
+  const cells = [...st.querySelectorAll("[data-m]")];
+  const hide = () => { if(up >= 0){ cells[up].textContent = "🕳️"; cells[up].classList.remove("up"); up = -1; } };
+  const show_ = () => { if(!running) return; hide(); let i; do{ i = Math.floor(Math.random()*9); }while(i === up); up = i; cells[i].textContent = "🐹"; cells[i].classList.add("up");
+    hideT = setTimeout(()=>{ hide(); show_(); }, Math.max(420, 900 - score*12)); };
+  const stop = () => { running = false; clearInterval(timer); clearTimeout(hideT); hide(); };
+  cells.forEach((c,i)=>c.onpointerdown = e => { e.preventDefault(); if(!running) return; if(i === up){ score++; $("mlS").textContent = score; clearTimeout(hideT); hide(); setTimeout(show_, 120); } else if(score > 0){ score--; $("mlS").textContent = score; } });
+  $("mlNew").onclick = () => { stop(); score = 0; left = 30; running = true; $("mlS").textContent = 0; $("mlT").textContent = left; $("mlNew").textContent = "Recomeçar";
+    timer = setInterval(()=>{ left--; $("mlT").textContent = left; if(left <= 0){ stop(); if(score > best){ best = score; LS.set("moleBest", best); $("mlB").textContent = best; } toast("Fim! Apanhaste " + score + "."); } }, 1000); show_(); };
+  gmCleanup.push(stop);
+}
+
+function gameSimon(st){
+  const COL = ["#2ecc71","#e74c3c","#f1c40f","#3498db"], HZ = [329.6, 261.6, 220, 164.8];
+  let seq = [], idx = 0, playing = false, best = +LS.get("simonBest", 0), tm = [], ctx = null;
+  st.innerHTML = gmBar(gmStat("Ronda","smR",0) + gmStat("Recorde","smB",best) + `<button class="btn primary" id="smNew">Começar</button>`) + `<div class="gsimon">${COL.map((c,i)=>`<button data-s="${i}" style="background:${c}" aria-label="Cor ${i+1}"></button>`).join("")}</div><p class="small muted" style="margin:0" id="smMsg">Vê a sequência e repete-a.</p>`;
+  const pads = [...st.querySelectorAll("[data-s]")];
+  const tone = i => { try{ ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = HZ[i]; o.type = "sine"; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(.18, ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .35); o.start(); o.stop(ctx.currentTime + .36); }catch(e){} };
+  const flash = i => { pads[i].classList.add("lit"); tone(i); tm.push(setTimeout(()=>pads[i].classList.remove("lit"), 320)); };
+  const later = (fn, ms) => tm.push(setTimeout(fn, ms));
+  const showSeq = () => { playing = true; idx = 0; $("smMsg").textContent = "Atenção…"; seq.forEach((v,k)=>later(()=>flash(v), 600 + k*560)); later(()=>{ playing = false; $("smMsg").textContent = "A tua vez!"; }, 600 + seq.length*560); };
+  const next = () => { seq.push(Math.floor(Math.random()*4)); $("smR").textContent = seq.length; showSeq(); };
+  pads.forEach((p,i)=>p.onpointerdown = e => { e.preventDefault(); if(playing || !seq.length) return; flash(i);
+    if(i !== seq[idx]){ playing = true; $("smMsg").textContent = "Errado! Chegaste à ronda " + seq.length + "."; if(seq.length - 1 > best){ best = seq.length - 1; LS.set("simonBest", best); $("smB").textContent = best; } seq = []; return; }
+    idx++; if(idx === seq.length){ playing = true; $("smMsg").textContent = "Muito bem!"; later(next, 800); } });
+  $("smNew").onclick = () => { tm.forEach(clearTimeout); tm = []; seq = []; $("smNew").textContent = "Recomeçar"; next(); };
+  gmCleanup.push(()=>{ tm.forEach(clearTimeout); try{ ctx && ctx.close(); }catch(e){} });
+}
+
+function gameBrick(st){
+  const W = 600, H = 420, COLS = 10, ROWS = 5, BW = 54, GAP = 6; let paddle = 255, PW = 90, bx, by, vx, vy, bricks, lives, score, level, run = false, raf, last, best = +LS.get("brickBest", 0), over = false;
+  st.innerHTML = gmBar(gmStat("Pontos","brS",0) + gmStat("Vidas","brL",3) + gmStat("Recorde","brB",best) + `<button class="btn primary" id="brNew">Novo jogo</button>`) + `<canvas class="gcv" id="brC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Arrasta o dedo para mexer a barra. Toca para lançar a bola.</p>`;
+  const c = $("brC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const rows = ["--bad","--warn","--ok","--accent","--accent"];
+  const mkBricks = () => { bricks = []; for(let r=0;r<ROWS;r++) for(let k=0;k<COLS;k++) bricks.push({x:3 + k*(BW+GAP), y:40 + r*24, alive:true, col:rows[r]}); };
+  const serve = () => { run = false; bx = paddle + PW/2; by = 384; vx = 0; vy = 0; };
+  const launch = () => { if(run || over) return; run = true; const sp = 320 + level*30, a = (Math.random()*.6 - .3); vx = sp*Math.sin(a); vy = -sp*Math.cos(a); };
+  const reset = () => { lives = 3; score = 0; level = 0; over = false; mkBricks(); serve(); upd(); };
+  const upd = () => { $("brS").textContent = score; $("brL").textContent = lives; };
+  const frame = t => { const dt = Math.min(.03, (t - (last || t))/1000); last = t;
+    if(run){ bx += vx*dt; by += vy*dt;
+      if(bx < 7){ bx = 7; vx = Math.abs(vx); } if(bx > W-7){ bx = W-7; vx = -Math.abs(vx); } if(by < 7){ by = 7; vy = Math.abs(vy); }
+      if(vy > 0 && by > 388 && by < 404 && bx > paddle - 4 && bx < paddle + PW + 4){ const rel = (bx - (paddle + PW/2))/(PW/2), sp = Math.hypot(vx, vy); vx = sp*Math.sin(rel*1.05); vy = -sp*Math.cos(rel*1.05); by = 388; }
+      for(const b of bricks){ if(!b.alive) continue; if(bx > b.x - 7 && bx < b.x + BW + 7 && by > b.y - 7 && by < b.y + 18 + 7){ b.alive = false; score += 10; if(score > best){ best = score; LS.set("brickBest", best); $("brB").textContent = best; }
+          const ox = Math.min(bx - (b.x - 7), b.x + BW + 7 - bx), oy = Math.min(by - (b.y - 7), b.y + 25 - by); if(ox < oy) vx = -vx; else vy = -vy; upd(); break; } }
+      if(!bricks.some(b=>b.alive)){ level++; mkBricks(); serve(); toast("Nível " + (level+1) + "!"); }
+      if(by > H + 10){ lives--; upd(); if(lives <= 0){ over = true; run = false; toast("Fim de jogo. Pontos: " + score); } else serve(); } }
+    else if(!over){ bx = paddle + PW/2; by = 384; }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    bricks.forEach(b=>{ if(!b.alive) return; x.fillStyle = css(b.col); x.fillRect(b.x, b.y, BW, 18); });
+    x.fillStyle = css("--fg"); x.fillRect(paddle, 396, PW, 12); x.beginPath(); x.arc(bx, by, 7, 0, 7); x.fill();
+    raf = requestAnimationFrame(frame); };
+  const move = e => { const r = c.getBoundingClientRect(); paddle = Math.max(0, Math.min(W - PW, (e.clientX - r.left)/r.width*W - PW/2)); };
+  c.addEventListener("pointermove", move); c.addEventListener("pointerdown", e=>{ move(e); launch(); });
+  gmKeys(d=>{ if(d === "l") paddle = Math.max(0, paddle - 40); if(d === "r") paddle = Math.min(W - PW, paddle + 40); if(d === "u") launch(); });
+  $("brNew").onclick = reset; reset(); raf = requestAnimationFrame(frame);
+  gmCleanup.push(()=>cancelAnimationFrame(raf));
+}
+
+function gameFlap(st){
+  const W = 600, H = 420, G = 135; let y, vy, pipes, score, state = "ready", raf, last, spawn, best = +LS.get("flapBest", 0);
+  st.innerHTML = gmBar(gmStat("Pontos","fpS",0) + gmStat("Recorde","fpB",best)) + `<canvas class="gcv" id="fpC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Toca no ecrã para bater as asas.</p>`;
+  const c = $("fpC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reset = () => { y = H/2; vy = 0; pipes = []; score = 0; spawn = 0; $("fpS").textContent = 0; state = "ready"; };
+  const flap = () => { if(state === "dead"){ reset(); return; } if(state === "ready") state = "play"; vy = -400; };
+  const die = () => { state = "dead"; if(score > best){ best = score; LS.set("flapBest", best); $("fpB").textContent = best; } };
+  const frame = t => { const dt = Math.min(.035, (t - (last || t))/1000); last = t;
+    if(state === "play"){ vy += 1400*dt; y += vy*dt; spawn -= dt;
+      if(spawn <= 0){ spawn = 1.55; pipes.push({x:W + 20, gy:70 + Math.random()*(H - 140 - G), pass:false}); }
+      pipes.forEach(p=>p.x -= 190*dt); pipes = pipes.filter(p=>p.x > -70);
+      for(const p of pipes){ if(!p.pass && p.x + 50 < 130){ p.pass = true; score++; $("fpS").textContent = score; }
+        if(130 + 14 > p.x && 130 - 14 < p.x + 50 && (y - 14 < p.gy || y + 14 > p.gy + G)) die(); }
+      if(y > H - 14 || y < -40) die(); }
+    else if(state === "ready"){ y = H/2 + Math.sin(t/260)*8; }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    x.fillStyle = css("--ok"); pipes.forEach(p=>{ x.fillRect(p.x, 0, 50, p.gy); x.fillRect(p.x, p.gy + G, 50, H); });
+    x.font = "34px serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.save(); x.translate(130, y); x.rotate(Math.max(-.5, Math.min(.9, vy/700))); x.fillText("🐤", 0, 0); x.restore();
+    if(state !== "play"){ x.fillStyle = css("--fg"); x.font = "700 26px sans-serif"; x.fillText(state === "dead" ? "Pontos: " + score + " · toca para recomeçar" : "Toca para começar", W/2, H/2 - 70); }
+    raf = requestAnimationFrame(frame); };
+  c.addEventListener("pointerdown", e=>{ e.preventDefault(); flap(); });
+  gmKeys(d=>{ if(d === "u") flap(); });
+  const sp = e => { if(e.code === "Space"){ e.preventDefault(); flap(); } }; document.addEventListener("keydown", sp); gmCleanup.push(()=>document.removeEventListener("keydown", sp));
+  reset(); raf = requestAnimationFrame(frame); gmCleanup.push(()=>cancelAnimationFrame(raf));
+}
+
+function gameMines(st){
+  const N = 9, M = 10; let mine, adj, open, flag, flagMode = false, over, started, left;
+  st.innerHTML = gmBar(gmStat("Minas","mnL",M) + `<button class="btn" id="mnMode">Modo: abrir</button><button class="btn primary" id="mnNew">Novo jogo</button>`) + `<div class="gmines" id="mnG"></div><p class="small muted" style="margin:0" id="mnMsg">Toca para abrir. Muda para o modo 🚩 para marcar minas.</p>`;
+  const g = $("mnG"), nb = i => { const r = Math.floor(i/N), c = i%N, o = []; for(let a=-1;a<=1;a++) for(let b=-1;b<=1;b++){ if(!a && !b) continue; const rr = r+a, cc = c+b; if(rr >= 0 && rr < N && cc >= 0 && cc < N) o.push(rr*N+cc); } return o; };
+  const COL = ["","#3b82f6","#22c55e","#ef4444","#a855f7","#f59e0b","#14b8a6","#e5e7eb","#9ca3af"];
+  const draw = () => { g.innerHTML = open.map((o,i)=>{ const m = mine[i]; let t = "", cl = "";
+      if(o){ cl = m ? "b" : "o"; t = m ? "💣" : (adj[i] ? `<span style="color:${COL[adj[i]]}">${adj[i]}</span>` : ""); } else if(flag[i]) t = "🚩"; else if(over && m){ t = "💣"; }
+      return `<button data-i="${i}" class="${cl}">${t}</button>`; }).join(""); g.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>tap(+b.dataset.i)); $("mnL").textContent = M - flag.filter(Boolean).length; };
+  const place = safe => { mine = Array(N*N).fill(false); const ban = new Set([safe, ...nb(safe)]); let k = 0; while(k < M){ const i = Math.floor(Math.random()*N*N); if(!mine[i] && !ban.has(i)){ mine[i] = true; k++; } } adj = mine.map((_,i)=>nb(i).filter(j=>mine[j]).length); };
+  const flood = i => { const q = [i]; while(q.length){ const a = q.pop(); if(open[a] || flag[a]) continue; open[a] = true; left--; if(!adj[a]) nb(a).forEach(j=>{ if(!open[j] && !mine[j]) q.push(j); }); } };
+  const tap = i => { if(over || open[i]) return;
+    if(flagMode){ flag[i] = !flag[i]; draw(); return; } if(flag[i]) return;
+    if(!started){ place(i); started = true; }
+    if(mine[i]){ over = true; open[i] = true; mine.forEach((m,j)=>{ if(m) open[j] = true; }); $("mnMsg").textContent = "Boom! Toca em Novo jogo."; draw(); return; }
+    flood(i); if(left === 0){ over = true; $("mnMsg").textContent = "Ganhaste! 🎉"; toast("Ganhaste o Campo minado!"); } draw(); };
+  const reset = () => { open = Array(N*N).fill(false); flag = Array(N*N).fill(false); mine = Array(N*N).fill(false); adj = Array(N*N).fill(0); over = false; started = false; left = N*N - M; flagMode = false; $("mnMode").textContent = "Modo: abrir"; $("mnMsg").textContent = "Toca para abrir. Muda para o modo 🚩 para marcar minas."; draw(); };
+  $("mnMode").onclick = () => { flagMode = !flagMode; $("mnMode").textContent = flagMode ? "Modo: 🚩 marcar" : "Modo: abrir"; };
+  $("mnNew").onclick = reset; reset();
+}
+
 /* ---------- Layout "Condução" (estilo Android Auto) ---------- */
 if(!cfg.layout) cfg.layout = "classic";
 function applyLayout(){
@@ -3374,11 +3631,15 @@ $("tbMic").onclick = startListening;
 function applyFx(){ document.body.classList.toggle("fx", cfg.fx !== false); $("setFx").checked = cfg.fx !== false; }
 $("setFx").onchange = e => { cfg.fx = e.target.checked; saveCfg(); applyFx(); };
 applyFx();
+function applyUiSnd(){ $("setUiSnd").checked = cfg.uiSounds !== false; $("setUiVol").value = cfg.uiVol != null && cfg.uiVol !== "" ? cfg.uiVol : 60; $("setUiVol").disabled = cfg.uiSounds === false; }
+$("setUiSnd").onchange = e => { cfg.uiSounds = e.target.checked; saveCfg(); applyUiSnd(); if(cfg.uiSounds) UiSnd.ok(); };
+$("setUiVol").onchange = e => { cfg.uiVol = +e.target.value; saveCfg(); UiSnd.ok(); };
+applyUiSnd();
 function buildLauncher(){
   const allowed = v => !cfg.passenger || ["tv","media","apps"].includes(v);
   const views = [...document.querySelectorAll(".rail .nav")].filter(n=>!["launcher","home"].includes(n.dataset.view) && allowed(n.dataset.view))
     .map(n=>({kind:"view", id:n.dataset.view, svg:n.querySelector("svg").outerHTML, label:n.querySelector("span").textContent}));
-  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
+  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["podcasts","Podcasts"],["engine","Motor"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
   const all = [...views, ...apps];
   $("launcherGrid").innerHTML = all.map((t,i)=>`<button class="ltile" data-li="${i}"><span class="lic">${t.svg}</span><span>${esc(t.label)}</span></button>`).join("");
   $("launcherGrid").querySelectorAll("[data-li]").forEach(b=>b.onclick=()=>{ const t = all[+b.dataset.li]; t.kind==="view" ? show(t.id) : openApp(t.id); });
@@ -3396,7 +3657,8 @@ function renderHome(){
   $("hCharge").textContent = cs.charging_state === "Charging" ? `${cs.charger_actual_current ?? "?"} A · ${cs.charger_power ?? 0} kW` : chargeLabel(cs.charging_state);
   let ico = "🎵", name = "Nada a tocar", sub = "Escolhe uma rádio ou um canal";
   const tv = audioChan || lastPlayed[0] || lastPlayed[1];
-  if(radioCur){ ico = "📻"; name = radioCur.name; sub = "Rádio"; }
+  if(podCur){ ico = "🎙️"; name = podCur.title; sub = podCur.show?.name || "Podcast"; }
+  else if(radioCur){ ico = "📻"; name = radioCur.name; sub = "Rádio"; }
   else if(tv){ ico = audioChan ? "🔊" : "📺"; name = tv.name; const nn = nowNext(tv); sub = nn ? `${hm(nn.now.start)} ${nn.now.title}` : (audioChan ? "TV só áudio" : "TV"); }
   $("hPlayIco").textContent = ico; $("hPlayName").textContent = name; $("hPlaySub").textContent = sub;
   const quick = (radioFavs.length ? radioFavs : radioList).slice(0, 6);
@@ -3412,13 +3674,14 @@ function radioZap(dir){
   const i = list.findIndex(r=>r.id === radioCur.id); return playRadio(list[(i + dir + list.length) % list.length]);
 }
 function stopAllPlayback(){
+  if(typeof engStop === "function") engStop();
   radioStop(); stopTvAudio(); audioChan = null; audioManual = false;
   stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; renderAudioCard(); updateCinemaBar(); keepAwake(false);
 }
-$("hPrev").onclick = ()=>{ radioCur ? radioZap(-1) : zap(-1); setTimeout(renderHome, 300); };
-$("hNext").onclick = ()=>{ radioCur ? radioZap(1) : zap(1); setTimeout(renderHome, 300); };
+$("hPrev").onclick = ()=>{ if(podCur){ podSkip(-15); return; } radioCur ? radioZap(-1) : zap(-1); setTimeout(renderHome, 300); };
+$("hNext").onclick = ()=>{ if(podCur){ podSkip(30); return; } radioCur ? radioZap(1) : zap(1); setTimeout(renderHome, 300); };
 $("hStop").onclick = ()=>{ stopAllPlayback(); renderHome(); };
-$("hOpenPlay").onclick = ()=> show(radioCur ? "media" : "tv");
+$("hOpenPlay").onclick = ()=> show(podCur ? "pod" : radioCur ? "media" : "tv");
 $("hOpenCar").onclick = ()=> show("car");
 $("hOpenEnergy").onclick = ()=> show("energy");
 $("hOpenApps").onclick = ()=> show("apps");
@@ -3676,6 +3939,351 @@ $("btnSyncGet").onclick = async ()=>{
   }catch(e){ syncMsg("Não consegui receber: " + e.message, true); }
   btn.disabled = false;
 };
+
+/* ---------- Podcasts (Apple Podcasts: pesquisa pública + feeds RSS) ---------- */
+let podFavs = LS.get("podFavs", []), podPos = LS.get("podPos", {}), podRecent = LS.get("podRecent", []);
+let podShow = null, podEps = [], podTab = "top", podRate = 1, podSaveAt = 0, podLoaded = false;
+const podSlim = r => ({id:String(r.collectionId || r.trackId || r.id || ""), name:r.collectionName || r.trackName || r.name || "", artist:r.artistName || "", art:/^https:/.test(r.artworkUrl600 || r.artworkUrl100 || "") ? (r.artworkUrl600 || r.artworkUrl100) : "", feed:r.feedUrl || ""});
+async function podText(u){
+  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+    try{ const r = await fetch(url); if(r.ok){ const t = await r.text(); if(t) return t; } }catch(e){}
+  }
+  return null;
+}
+function podRenderShows(list, empty){
+  $("podGrid").innerHTML = list.map((x,i)=>`<button class="rcard" data-pi="${i}">${x.art ? `<img src="${esc(x.art)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(x.name)}</b><span>${esc(x.artist || " ")}</span></span></button>`).join("")
+    || `<p class="muted small" style="margin:0">${esc(empty || "Sem resultados.")}</p>`;
+  $("podGrid").querySelectorAll("[data-pi]").forEach(b=>b.onclick=()=>podOpen(list[+b.dataset.pi]));
+}
+function podRenderRecent(){
+  $("podGrid").innerHTML = podRecent.map((r,i)=>`<button class="rcard" data-pr="${i}"><span class="ph"></span><span class="t"><b>${esc(r.title)}</b><span>${esc(r.show?.name || "")}${podPos[r.url] ? " · parou aos " + podTime(podPos[r.url]) : ""}</span></span></button>`).join("")
+    || `<p class="muted small" style="margin:0">Os episódios que ouvires aparecem aqui para continuares.</p>`;
+  $("podGrid").querySelectorAll("[data-pr]").forEach(b=>b.onclick=()=>podPlay(podRecent[+b.dataset.pr], podRecent[+b.dataset.pr].show));
+}
+function podTime(t){ t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60; return (h ? h + ":" + String(m).padStart(2,"0") : m) + ":" + String(s).padStart(2,"0"); }
+function podTab_(t){
+  podTab = t; document.querySelectorAll("[data-pt]").forEach(x=>x.setAttribute("aria-selected", x.dataset.pt === t));
+  if(t === "fav") podRenderShows(podFavs, "Ainda não tens favoritos. Abre um podcast e toca em ☆ Favorito.");
+  else if(t === "recent") podRenderRecent();
+  else podLoadTop();
+}
+async function podLoadTop(){
+  const c = LS.get("podTop", null);
+  if(c && Date.now() - c.t < 12*3600e3 && c.list?.length){ podRenderShows(c.list); return; }
+  $("podGrid").innerHTML = `<p class="muted small" style="margin:0">A carregar os mais ouvidos…</p>`;
+  let ids = [];
+  const a = await fetchJsonCors("https://rss.applemarketingtools.com/api/v2/pt/podcasts/top/30/podcasts.json");
+  ids = (a?.feed?.results || []).map(r=>r.id);
+  if(!ids.length){ const b = await fetchJsonCors("https://itunes.apple.com/pt/rss/toppodcasts/limit=30/json"); ids = (b?.feed?.entry || []).map(e=>e?.id?.attributes?.["im:id"]).filter(Boolean); }
+  let list = [];
+  if(ids.length){ const j = await fetchJsonCors("https://itunes.apple.com/lookup?entity=podcast&country=PT&id=" + ids.join(",")); list = (j?.results || []).map(podSlim).filter(x=>x.feed && x.name); }
+  if(!list.length){ const j = await fetchJsonCors("https://itunes.apple.com/search?media=podcast&entity=podcast&country=PT&limit=30&term=" + encodeURIComponent("portugal")); list = (j?.results || []).map(podSlim).filter(x=>x.feed && x.name); }
+  if(podTab !== "top") return;
+  if(!list.length){ $("podGrid").innerHTML = `<p class="small" style="margin:0">Não consegui obter o catálogo de podcasts. Usa a pesquisa ou, se continuar, confirma o proxy em Definições.</p>`; return; }
+  LS.set("podTop", {t:Date.now(), list}); podRenderShows(list);
+}
+async function podDoSearch(q){
+  q = String(q || "").trim(); if(!q) return;
+  podBackToHub(); document.querySelectorAll("[data-pt]").forEach(x=>x.setAttribute("aria-selected", "false")); podTab = "search";
+  $("podGrid").innerHTML = `<p class="muted small" style="margin:0">A procurar…</p>`;
+  const j = await fetchJsonCors("https://itunes.apple.com/search?media=podcast&entity=podcast&country=PT&limit=30&term=" + encodeURIComponent(q));
+  if(!j){ $("podGrid").innerHTML = `<p class="small" style="margin:0">Não consegui contactar o catálogo. Confirma a internet do carro e o proxy em Definições.</p>`; return; }
+  podRenderShows((j.results || []).map(podSlim).filter(x=>x.feed && x.name), "Nenhum podcast encontrado.");
+}
+function podEnter(){ if(!podLoaded){ podLoaded = true; podTab_("top"); } }
+function openPodcasts(q){ show("pod"); podEnter(); if(String(q || "").trim()){ $("podQ").value = q.trim(); podDoSearch(q); } }
+function podBackToHub(){ $("podHub").hidden = false; $("podEpBox").hidden = true; $("podBack").hidden = true; podShow = null; }
+async function podOpen(sh){
+  podShow = sh; $("podHub").hidden = true; $("podEpBox").hidden = false; $("podBack").hidden = false;
+  $("podEpName").textContent = sh.name; $("podEpArtist").textContent = sh.artist || ""; $("podEpArt").src = sh.art || ""; podUpdFav();
+  $("podEps").innerHTML = `<p class="muted small" style="margin:0">A carregar episódios…</p>`;
+  const xml = await podText(sh.feed);
+  const doc = xml ? new DOMParser().parseFromString(xml, "text/xml") : null;
+  if(podShow !== sh) return;
+  if(!doc || doc.querySelector("parsererror")){ $("podEps").innerHTML = `<p class="small" style="margin:0">Não consegui abrir os episódios deste podcast (o servidor do podcast não respondeu). Experimenta outro ou confirma o proxy em Definições.</p>`; return; }
+  const dur = it => { const v = (it.getElementsByTagNameNS("*", "duration")[0]?.textContent || "").trim(); if(!v) return 0; if(/^\d+$/.test(v)) return +v; return v.split(":").reduce((a, x)=>a*60 + (+x || 0), 0); };
+  podEps = [...doc.querySelectorAll("item")].slice(0, 60).map(it=>{
+    const enc = it.querySelector("enclosure"), url = enc?.getAttribute("url") || "";
+    const d = new Date(it.querySelector("pubDate")?.textContent || "");
+    return {url, title:(it.querySelector("title")?.textContent || "Episódio").trim(), date:isNaN(d) ? "" : d.toLocaleDateString("pt-PT", {day:"2-digit", month:"short", year:"numeric"}), dur:dur(it)};
+  }).filter(e=>/^https?:/i.test(e.url));
+  $("podEps").innerHTML = podEps.map((e,i)=>`<button class="item" data-ei="${i}"><span class="t"><b>${esc(e.title)}</b><span>${esc([e.date, e.dur ? Math.round(e.dur/60) + " min" : "", podPos[e.url] ? "parou aos " + podTime(podPos[e.url]) : ""].filter(Boolean).join(" · "))}</span></span><span>▶</span></button>`).join("")
+    || `<p class="muted small" style="margin:0">Este podcast não tem episódios de áudio disponíveis.</p>`;
+  $("podEps").querySelectorAll("[data-ei]").forEach(b=>b.onclick=()=>podPlay(podEps[+b.dataset.ei], podShow));
+}
+function podUpdFav(){ $("podEpFav").textContent = podShow && podFavs.some(f=>f.id === podShow.id) ? "★ Favorito" : "☆ Favorito"; }
+function podStop(){
+  if(!podCur) return;
+  podSavePos(true);
+  const a = $("podAud"); a.pause(); a.removeAttribute("src"); a.load(); podCur = null; $("podNow").hidden = true;
+  try{ if(navigator.mediaSession) navigator.mediaSession.metadata = null; }catch(e){}
+}
+function podSavePos(force){
+  if(!podCur) return; const a = $("podAud"), now = Date.now();
+  if(!force && now - podSaveAt < 8000) return; podSaveAt = now;
+  const t = a.currentTime || 0;
+  if(a.duration && t > a.duration - 30) delete podPos[podCur.url]; else if(t > 5) podPos[podCur.url] = Math.floor(t);
+  const keys = Object.keys(podPos); if(keys.length > 150) keys.slice(0, keys.length - 150).forEach(k=>delete podPos[k]);
+  LS.set("podPos", podPos);
+}
+function podPlay(ep, sh){
+  if(!ep || !ep.url) return false;
+  stopTvAudio(); stopSlot(0); stopSlot(1); radioStop(); // radioStop também pára o podcast anterior
+  podCur = {url:ep.url, title:ep.title, dur:ep.dur, show:sh ? {id:sh.id, name:sh.name, artist:sh.artist, art:sh.art, feed:sh.feed} : null};
+  const a = $("podAud"); let viaProxy = false;
+  const src = u => (/^http:/i.test(u) && location.protocol === "https:") ? px(u) : u;
+  const cur = podCur, pos = podPos[ep.url];
+  a.src = src(ep.url);
+  a.onerror = ()=>{
+    if(podCur !== cur) return;
+    if(!viaProxy && cfg.proxy && !/^http:/i.test(ep.url) ){ viaProxy = true; a.src = px(ep.url); a.play().catch(()=>{}); return; }
+    toast("Não consegui tocar este episódio. Experimenta outro.", true); podStop();
+  };
+  a.onloadedmetadata = ()=>{ if(podCur === cur && pos > 5 && (!a.duration || pos < a.duration - 30)){ try{ a.currentTime = pos; }catch(e){} } };
+  a.playbackRate = podRate; a.play().catch(()=>{});
+  $("podNow").hidden = false; $("pnTitle").textContent = ep.title; $("pnShow").textContent = sh?.name || ""; $("pnPlay").textContent = "❚❚";
+  podRecent = [{url:ep.url, title:ep.title, dur:ep.dur, show:podCur.show}, ...podRecent.filter(r=>r.url !== ep.url)].slice(0, 12); LS.set("podRecent", podRecent);
+  try{
+    if(navigator.mediaSession && window.MediaMetadata){
+      navigator.mediaSession.metadata = new MediaMetadata({title:ep.title, artist:sh?.name || "", artwork:sh?.art ? [{src:sh.art, sizes:"512x512"}] : []});
+      navigator.mediaSession.setActionHandler("play", ()=>{ a.play(); }); navigator.mediaSession.setActionHandler("pause", ()=>{ a.pause(); });
+      navigator.mediaSession.setActionHandler("seekbackward", ()=>podSkip(-15)); navigator.mediaSession.setActionHandler("seekforward", ()=>podSkip(30));
+    }
+  }catch(e){}
+  keepAwake(true); if(currentView === "home") renderHome();
+  return true;
+}
+function podSkip(d){ const a = $("podAud"); if(!podCur) return; try{ a.currentTime = Math.max(0, Math.min((a.duration || 1e9) - 1, (a.currentTime || 0) + d)); }catch(e){} }
+(function podWire(){
+  const a = $("podAud");
+  a.ontimeupdate = ()=>{
+    if(!podCur) return;
+    $("pnTime").textContent = podTime(a.currentTime) + (a.duration && isFinite(a.duration) ? " / " + podTime(a.duration) : "");
+    if(a.duration && isFinite(a.duration) && !$("pnSeek").dataset.drag) $("pnSeek").value = Math.round(a.currentTime / a.duration * 1000);
+    podSavePos(false);
+  };
+  a.onpause = ()=>{ $("pnPlay").textContent = "▶"; podSavePos(true); }; a.onplay = ()=>{ $("pnPlay").textContent = "❚❚"; };
+  a.onended = ()=>{ if(podCur){ delete podPos[podCur.url]; LS.set("podPos", podPos); } $("pnPlay").textContent = "▶"; };
+  $("pnPlay").onclick = ()=>{ a.paused ? a.play().catch(()=>{}) : a.pause(); };
+  $("pnBack").onclick = ()=>podSkip(-15); $("pnFwd").onclick = ()=>podSkip(30);
+  $("pnRate").onclick = ()=>{ const r = [1, 1.25, 1.5, 2]; podRate = r[(r.indexOf(podRate) + 1) % r.length]; a.playbackRate = podRate; $("pnRate").textContent = podRate + "×"; };
+  $("pnStop").onclick = ()=>{ podStop(); keepAwake(false); if(currentView === "home") renderHome(); };
+  const seek = $("pnSeek");
+  seek.oninput = ()=>{ seek.dataset.drag = "1"; };
+  seek.onchange = ()=>{ delete seek.dataset.drag; if(a.duration && isFinite(a.duration)) a.currentTime = seek.value / 1000 * a.duration; };
+  $("podForm").onsubmit = e => { e.preventDefault(); podDoSearch($("podQ").value); };
+  document.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{ podBackToHub(); podTab_(b.dataset.pt); });
+  $("podBack").onclick = ()=>{ podBackToHub(); if(podTab === "search") return; podTab_(podTab); };
+  $("podEpFav").onclick = ()=>{ if(!podShow) return; const i = podFavs.findIndex(f=>f.id === podShow.id); if(i >= 0) podFavs.splice(i, 1); else podFavs.unshift(podShow); LS.set("podFavs", podFavs.slice(0, 100)); podUpdFav(); };
+})();
+
+/* ---------- Motor: som de motor sintetizado a partir dos dados do carro ---------- */
+const ENG_PROFILES = {
+  v8:  {name:"V8 muscle", ico:"🏁", cyl:8, idle:720, red:6400, gears:[48,82,118,158,205,265], layers:[["sawtooth",1,.5],["square",.5,.34],["sawtooth",2,.22],["triangle",3,.12]], cut:[480,5200], drive:2.6, noise:.5, pop:1, lump:.55, turbo:0},
+  v6t: {name:"V6 turbo", ico:"🌀", cyl:6, idle:800, red:6800, gears:[45,75,105,138,172,205,240,285], layers:[["sawtooth",1,.45],["square",.5,.18],["sawtooth",2,.2],["sine",3,.1]], cut:[600,6400], drive:1.7, noise:.45, pop:.4, lump:.15, turbo:1},
+  v12: {name:"V12 clássico", ico:"🎻", cyl:12, idle:850, red:8400, gears:[55,95,135,180,230,285,335], layers:[["sawtooth",1,.34],["triangle",.5,.2],["sawtooth",2,.2],["sine",3,.16],["triangle",4,.1]], cut:[900,9000], drive:1.2, noise:.3, pop:.3, lump:0, turbo:0},
+  b4:  {name:"Desportivo 4 cil.", ico:"🔧", cyl:4, idle:900, red:7400, gears:[40,68,98,132,170,210], layers:[["sawtooth",1,.5],["square",1,.18],["sawtooth",2,.3]], cut:[700,6200], drive:2.1, noise:.5, pop:.8, lump:.1, turbo:0},
+  ev:  {name:"Futurista", ico:"⚡", gearless:true, layers:[["sine",1,.5],["triangle",2,.22],["sine",3,.1],["sine",4.02,.06]], cut:[900,7500], drive:.8, noise:.12, pop:0, lump:0, turbo:0}
+};
+const E = {on:false, ctx:null, g:null, prof:null, vT:0, v:0, acc:0, pw:null, thr:0, thrHi:0, pwMax:80, gear:0, shiftUntil:0, rpm:800, last:0, lastTs:null, lastV:0, lastSampleAt:0, polling:false, timer:0, pollT:0, gpsId:null, gpsLast:null, popUntil:0, sim:{v:0, pedal:0}, srcNow:"sim", nodes:null};
+const engCfg = () => ({
+  prof: ENG_PROFILES[cfg.engProf] ? cfg.engProf : "v8",
+  vol: cfg.engVol != null && cfg.engVol !== "" ? +cfg.engVol : 70,
+  int: cfg.engInt != null && cfg.engInt !== "" ? +cfg.engInt : 60,
+  src: cfg.engSrc || "tessie", idle: cfg.engIdle !== false, pops: cfg.engPops !== false
+});
+function engCurve(k){ const n = 1024, c = new Float32Array(n); for(let i=0;i<n;i++){ const x = i/(n/2) - 1; c[i] = (1+k)*x/(1+k*Math.abs(x)); } return c; }
+function engNoiseBuf(ctx){ const b = ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate), d = b.getChannelData(0); for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1; return b; }
+function engDispose(){
+  const n = E.nodes; if(!n) return;
+  try{ n.oscs.forEach(o=>{ try{ o.stop(); }catch(e){} try{ o.disconnect(); }catch(e){} }); n.src.stop(); }catch(e){}
+  try{ n.filt.disconnect(); n.bus.disconnect(); }catch(e){}
+  E.nodes = null;
+}
+function engBuild(){
+  const ctx = E.ctx, p = ENG_PROFILES[engCfg().prof]; engDispose(); E.prof = p;
+  const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.Q.value = 1.2;
+  const shaper = ctx.createWaveShaper(); shaper.curve = engCurve(p.drive*3); shaper.oversample = "2x";
+  const bus = ctx.createGain(); bus.gain.value = 1;
+  const amp = ctx.createGain(); amp.gain.value = 1;
+  amp.connect(filt); filt.connect(shaper); shaper.connect(bus); bus.connect(E.g);
+  const oscs = [], layers = [];
+  p.layers.forEach(([type, mult, gain]) => {
+    const o = ctx.createOscillator(), lg = ctx.createGain(); o.type = type; o.detune.value = (Math.random()-.5)*14; lg.gain.value = gain;
+    o.connect(lg); lg.connect(amp); o.start(); oscs.push(o); layers.push({o, mult});
+  });
+  const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = 6; lfoG.gain.value = 0; lfo.connect(lfoG); lfoG.connect(amp.gain); lfo.start(); oscs.push(lfo);
+  const src = ctx.createBufferSource(); src.buffer = engNoiseBuf(ctx); src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = .8; const ng = ctx.createGain(); ng.gain.value = 0;
+  src.connect(bp); bp.connect(ng); ng.connect(bus); src.start();
+  let wh = null, wg = null;
+  if(p.turbo){ wh = ctx.createOscillator(); wg = ctx.createGain(); wh.type = "sine"; wg.gain.value = 0; wh.connect(wg); wg.connect(E.g); wh.start(); oscs.push(wh); }
+  E.nodes = {filt, bus, amp, layers, oscs, lfo, lfoG, src, bp, ng, wh, wg};
+}
+function engBurst(freq, q, dur, peak, hp){
+  const ctx = E.ctx; if(!ctx || !E.on) return; const t = ctx.currentTime;
+  const s = ctx.createBufferSource(); s.buffer = engNoiseBuf(ctx);
+  const f = ctx.createBiquadFilter(); f.type = hp ? "highpass" : "bandpass"; f.frequency.value = freq; f.Q.value = q;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t+.004); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  s.connect(f); f.connect(g); g.connect(E.g); s.start(t); s.stop(t+dur+.05);
+  if(!hp){ const o = ctx.createOscillator(), og = ctx.createGain(); o.type = "sine"; o.frequency.setValueAtTime(freq*.7, t); o.frequency.exponentialRampToValueAtTime(60, t+dur); og.gain.setValueAtTime(peak*.9, t); og.gain.exponentialRampToValueAtTime(0.0001, t+dur); o.connect(og); og.connect(E.g); o.start(t); o.stop(t+dur+.05); }
+}
+function engPops(){
+  const c = engCfg(), p = E.prof; if(!c.pops || !p) return;
+  if(p.turbo) engBurst(2400, .7, .32, .22*(c.int/60), true);
+  if(p.pop > 0){ const n = 2 + Math.floor(Math.random()*3*p.pop + 1); for(let i=0;i<n;i++) setTimeout(()=>engBurst(160+Math.random()*220, 1.4, .09+Math.random()*.08, (.35+Math.random()*.4)*p.pop*(c.int/60)), 60 + i*(90+Math.random()*140)); }
+}
+function engSample(vk, pw, tsMs){
+  const now = performance.now();
+  if(E.lastTs == null){ E.v = vk; E.vT = vk; E.acc = 0; }
+  else {
+    let dt = tsMs && E.lastTs ? (tsMs - E.lastTs)/1000 : (now - E.lastSampleAt)/1000;
+    dt = Math.max(.4, Math.min(8, dt));
+    const a = Math.max(-9, Math.min(9, (vk - E.lastV)/3.6/dt));
+    E.acc = E.acc*.3 + a*.7;
+  }
+  E.vT = vk; E.lastV = vk; E.lastTs = tsMs || now; E.lastSampleAt = now;
+  if(pw != null && isFinite(pw)){ E.pw = pw; E.pwMax = Math.max(80, E.pwMax, pw); } else E.pw = null;
+}
+async function engPoll(){
+  if(E.polling || !E.on || E.srcNow !== "tessie") return; E.polling = true;
+  try{
+    const st = await tessie(cfg.vin + "/state"); const ds = st && st.drive_state || {};
+    if(!E.on || E.srcNow !== "tessie") return;
+    const ts = ds.timestamp || st.timestamp || null;
+    if(ts == null || ts !== E.lastTs) engSample((ds.speed || 0)*MI, ds.power, ts);
+    E.err = ""; car = st;
+  }catch(e){ E.err = e.message; }
+  finally{ E.polling = false; }
+}
+function engSetSource(){
+  const c = engCfg(); let s = c.src;
+  if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; }
+  if(s === "tessie" && demo()){ s = "sim"; E.note = "Sem Tessie ligado: modo simulador."; } else E.note = "";
+  if(s === "gps" && !navigator.geolocation){ s = "sim"; E.note = "Este browser não tem GPS: modo simulador."; }
+  E.srcNow = s; E.lastTs = null; E.acc = 0; E.pw = null; E.gpsLast = null;
+  if(s === "gps") E.gpsId = navigator.geolocation.watchPosition(pos => {
+    const sp = pos.coords.speed; const vk = sp != null && isFinite(sp) ? sp*3.6 : 0;
+    engSample(vk, null, pos.timestamp);
+  }, err => { E.err = "GPS: " + err.message; }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+  $("engSim").hidden = s !== "sim";
+  clearInterval(E.pollT); if(s === "tessie"){ engPoll(); E.pollT = setInterval(engPoll, 2000); }
+}
+function engTick(){
+  const now = performance.now(), dt = Math.min(.25, Math.max(.005, (now - E.last)/1000)); E.last = now;
+  const c = engCfg(), p = E.prof, n = E.nodes, ctx = E.ctx; if(!p || !n) return;
+  const k = x => 1 - Math.exp(-dt/x);
+  // dados -> velocidade, aceleração, acelerador
+  let pedal = null;
+  if(E.srcNow === "sim"){ E.vT = E.sim.v; if(E.sim.pedal > 0) pedal = E.sim.pedal/100; E.acc = (E.vT - E.v)/3.6/1.2; }
+  else if(now - E.lastSampleAt > 4000) E.acc *= Math.pow(.9, dt*10);
+  E.v += (E.vT - E.v)*k(E.srcNow === "tessie" ? .6 : .25);
+  if(E.v < .4 && E.vT < .4) E.v = 0;
+  let tt = 0;
+  if(pedal != null) tt = pedal;
+  else { if(E.pw != null && E.pw > 0) tt = Math.min(1, E.pw/E.pwMax*1.15); tt = Math.max(tt, Math.min(1, Math.max(0, E.acc)/3.2)*.85); }
+  tt *= .55 + c.int/100*.8; tt = Math.min(1, tt);
+  E.thr += (tt - E.thr)*k(tt > E.thr ? .12 : .3);
+  E.thrHi = Math.max(E.thr, E.thrHi - dt*.7);
+  const v = E.v, ev = !!p.gearless; let rpm, f, rf, thrE = E.thr, gearTxt = "—";
+  if(!ev){
+    const G = p.gears; let g = Math.min(E.gear, G.length-1);
+    if(now > E.shiftUntil){
+      const fr = v/G[g];
+      if(g < G.length-1 && (fr > .9 || (E.thr > .8 && fr > .82))){ g++; E.shiftUntil = now + 230; }
+      else if(g > 0 && (fr < .36 || (E.thr > .85 && fr < .55))){ g--; E.shiftUntil = now + 200; }
+    }
+    E.gear = g; const frac = Math.min(1.02, v/G[g]);
+    let rT = p.idle + (p.red - p.idle)*frac + (v < 6 ? E.thr*(p.red - p.idle)*.4 : 0);
+    if(now < E.shiftUntil){ thrE *= .12; rT = Math.max(p.idle, rT - 500); }
+    E.rpm += (rT - E.rpm)*k(rT > E.rpm ? .09 : .2);
+    rpm = E.rpm + (v < 2 ? Math.sin(now/260)*14 : 0);
+    if(rpm > p.red - 150 && E.thr > .5) rpm -= (Math.floor(now/55)%2)*220;
+    f = rpm/60*p.cyl/2; rf = Math.max(0, Math.min(1, (rpm - p.idle)/(p.red - p.idle)));
+    gearTxt = v < 1.5 ? "N" : String(g+1);
+  } else { rpm = 0; f = 85 + v*5.4 + E.thr*28; rf = Math.min(1, v/200); }
+  const t = ctx.currentTime;
+  n.layers.forEach(L => L.o.frequency.setTargetAtTime(Math.max(20, Math.min(9000, f*L.mult)), t, .03));
+  const cut = p.cut[0] + (p.cut[1] - p.cut[0])*Math.min(1, thrE*.72 + rf*.28 + (ev ? v/260*.3 : 0));
+  n.filt.frequency.setTargetAtTime(cut, t, .05);
+  let lvl = ev ? (v < 1 && E.thr < .05 ? (c.idle ? .05 : 0) : .1 + .6*Math.min(1, v/90) + .35*thrE) : (.2 + .8*Math.pow(thrE, .8))*(.55 + .45*rf);
+  if(!ev && !c.idle && v < .8 && E.thr < .05) lvl = 0;
+  if(!ev && now < E.shiftUntil) lvl *= .5;
+  n.bus.gain.setTargetAtTime(Math.max(0, lvl*(.7 + c.int/100*.6)), t, .04);
+  const lump = p.lump*Math.pow(1 - rf, 1.5)*(1 - thrE*.6);
+  n.amp.gain.setTargetAtTime(1 - lump*.5, t, .05); n.lfoG.gain.setTargetAtTime(lump*.5, t, .05); n.lfo.frequency.setTargetAtTime(Math.max(2, f/2), t, .05);
+  n.bp.frequency.setTargetAtTime(350 + (ev ? v*18 : rpm*.45), t, .08);
+  n.ng.gain.setTargetAtTime(p.noise*(.03 + .24*thrE)*(.4 + rf*.6)*(ev && v < 2 ? 0 : 1), t, .06);
+  if(n.wh){ n.wh.frequency.setTargetAtTime(2600 + rpm*.55, t, .08); n.wg.gain.setTargetAtTime(rpm > 2500 ? Math.pow(thrE, 1.5)*.035*(c.int/60) : 0, t, .08); }
+  if(E.thrHi > .5 && E.thr < .14 && (ev ? false : rpm > 2800) && now > E.popUntil){ E.popUntil = now + 900; E.thrHi = 0; engPops(); }
+  // painel
+  $("engSpd").textContent = Math.round(v);
+  $("engRpm").textContent = ev ? Math.round(Math.max(0, E.pw || 0)) : Math.round(rpm/10)*10;
+  $("engRpmL").textContent = ev ? "kW" : "rpm";
+  $("engGear").textContent = gearTxt;
+  $("engBar").style.width = Math.round(E.thr*100) + "%";
+  $("engBarR").style.width = Math.round(rf*100) + "%";
+}
+function engStatus(){
+  const el = $("engInfo"); if(!el) return;
+  if(!E.on){ el.textContent = "Parado. Carrega em Ligar (o browser só deixa tocar som depois de um toque teu)."; return; }
+  const names = {tessie:"dados do Tesla (Tessie)", gps:"GPS deste ecrã", sim:"simulador"};
+  let s = "A tocar · fonte: " + names[E.srcNow];
+  if(E.srcNow === "tessie" && E.lastSampleAt) s += " · última leitura há " + Math.round((performance.now() - E.lastSampleAt)/1000) + " s";
+  if(E.note) s += " · " + E.note; if(E.err) s += " · ⚠ " + E.err;
+  el.textContent = s;
+}
+function engStart(){
+  if(E.on) return;
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext; const ctx = E.ctx = new Ctx(); if(ctx.state === "suspended") ctx.resume();
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 6;
+    const g = E.g = ctx.createGain(); g.gain.value = 0; g.connect(comp); comp.connect(ctx.destination);
+    g.gain.setTargetAtTime(Math.pow(engCfg().vol/100, 1.6)*.9, ctx.currentTime, .3);
+    E.on = true; E.gear = 0; E.rpm = 800; E.thr = 0; E.thrHi = 0; E.v = 0; E.last = performance.now(); engBuild(); engSetSource();
+    E.timer = setInterval(()=>{ try{ engTick(); }catch(e){ E.err = e.message; } }, 40); E.stT = setInterval(engStatus, 1000);
+    keepAwake(true);
+  }catch(e){ E.on = false; toast("Não consegui iniciar o áudio: " + e.message, true); }
+  engUi();
+}
+function engStop(){
+  if(!E.on) return; E.on = false; clearInterval(E.timer); clearInterval(E.stT); clearInterval(E.pollT);
+  if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; }
+  try{ E.g.gain.setTargetAtTime(0, E.ctx.currentTime, .1); }catch(e){}
+  const ctx = E.ctx; setTimeout(()=>{ engDispose(); try{ ctx.close(); }catch(e){} }, 500); E.ctx = null;
+  if(!lastPlayed[0] && !lastPlayed[1] && !radioCur && !podCur) keepAwake(false);
+  engUi(); engStatus();
+}
+function engUi(){
+  const c = engCfg(); const b = $("engToggle"); b.textContent = E.on ? "⏹ Desligar motor" : "▶ Ligar motor"; b.classList.toggle("primary", !E.on);
+  $("engProf").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.p === c.prof ? "true" : "false"));
+  $("engSrc").value = c.src; $("engVol").value = c.vol; $("engInt").value = c.int; $("engIdle").checked = c.idle; $("engPops").checked = c.pops;
+  $("engSim").hidden = !(E.on ? E.srcNow === "sim" : c.src === "sim" || (c.src === "tessie" && demo()));
+  engStatus();
+}
+(function engWire(){
+  $("engProf").innerHTML = Object.entries(ENG_PROFILES).map(([id, p]) => `<button class="btn" data-p="${id}" aria-pressed="false">${p.ico} ${p.name}</button>`).join("");
+  $("engProf").querySelectorAll("button").forEach(b => b.onclick = () => { cfg.engProf = b.dataset.p; saveCfg(); if(E.on){ E.gear = 0; engBuild(); } engUi(); });
+  $("engToggle").onclick = () => E.on ? engStop() : engStart();
+  $("engSrc").onchange = e => { cfg.engSrc = e.target.value; saveCfg(); if(E.on) engSetSource(); engUi(); };
+  $("engVol").oninput = e => { cfg.engVol = +e.target.value; if(E.on) E.g.gain.setTargetAtTime(Math.pow(cfg.engVol/100, 1.6)*.9, E.ctx.currentTime, .05); };
+  $("engVol").onchange = () => saveCfg();
+  $("engInt").onchange = e => { cfg.engInt = +e.target.value; saveCfg(); };
+  $("engIdle").onchange = e => { cfg.engIdle = e.target.checked; saveCfg(); };
+  $("engPops").onchange = e => { cfg.engPops = e.target.checked; saveCfg(); };
+  $("engSimV").oninput = e => { E.sim.v = +e.target.value; $("engSimVL").textContent = e.target.value + " km/h"; };
+  $("engSimP").oninput = e => { E.sim.pedal = +e.target.value; $("engSimPL").textContent = e.target.value + " %"; };
+  $("engPrev").onclick = () => {
+    if(!E.on) engStart(); cfg.engSrc = "sim"; saveCfg(); engSetSource(); engUi();
+    let i = 0; const run = setInterval(() => {
+      if(!E.on || E.srcNow !== "sim"){ clearInterval(run); return; }
+      E.sim.v = Math.min(160, E.sim.v + (i < 70 ? 3 : -8)); E.sim.pedal = i < 70 ? 90 : 0; i++;
+      $("engSimV").value = E.sim.v; $("engSimVL").textContent = Math.round(E.sim.v) + " km/h"; $("engSimP").value = E.sim.pedal; $("engSimPL").textContent = E.sim.pedal + " %";
+      if(i > 90){ clearInterval(run); E.sim.v = 0; E.sim.pedal = 0; $("engSimV").value = 0; $("engSimVL").textContent = "0 km/h"; $("engSimP").value = 0; $("engSimPL").textContent = "0 %"; }
+    }, 150);
+  };
+})();
+function openEngine(){ show("engine"); }
 
 /* ---------- arranque ---------- */
 function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon","syncIn","syncProxy","syncKey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
