@@ -1186,6 +1186,15 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
   <div class="tabs" id="orgTabs" role="tablist"><button class="tab" data-t="grp" aria-selected="true">Categorias</button><button class="tab" data-t="ch" aria-selected="false">Canais</button></div>
   <select id="orgGrp" aria-label="Categoria" hidden></select>
   <p class="small muted" style="margin:0">Escreve o número da posição na caixa à esquerda (ex.: 1 = primeiro) ou usa ▲ ▼ e ⤒ (topo). "Ocultar" tira da lista desta app (a tua conta não é alterada) e podes voltar a mostrar a qualquer momento.</p>
+  <details id="orgXferBox"><summary class="small" style="cursor:pointer">⇅ Exportar / importar as minhas definições de IPTV</summary>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <p class="small muted" style="margin:0">Guarda a ordem, as categorias e canais ocultos e os favoritos para os passares a outro aparelho (por exemplo, do telemóvel para o Tesla). No Tesla, que não tem ficheiros, usa o código de texto: copia num aparelho e cola no outro.</p>
+      <label class="row small"><input type="checkbox" id="orgInclAcc"> Incluir também os dados de acesso (link M3U, Xtream e guia). Contêm a palavra-passe, por isso guarda com cuidado.</label>
+      <div class="row"><button class="btn" id="orgExpFile">⬇ Descarregar ficheiro</button><button class="btn" id="orgExpCopy">📋 Gerar e copiar código</button><label class="btn" style="display:inline-flex;align-items:center">⬆ Importar ficheiro<input type="file" id="orgImpFile" accept=".json,application/json,text/plain" hidden></label></div>
+      <textarea id="orgXfer" rows="4" placeholder="O código aparece aqui. Para importar, cola o código e carrega em Aplicar." spellcheck="false" style="font:12px monospace"></textarea>
+      <div class="row"><button class="btn primary" id="orgImpText">Aplicar código</button><span class="small muted" id="orgXferMsg"></span></div>
+    </div>
+  </details>
   <div class="gdlist" id="orgList"></div>
 </div></div>
 <div class="epgdlg" id="gdDlg" hidden><div class="panel gdbox" role="dialog" aria-label="Guia de programação">
@@ -1928,6 +1937,45 @@ $("orgReset").onclick = () => {
   if(TVORG.ch) Object.keys(TVORG.ch).filter(k => k.startsWith(kind + "|")).forEach(k => delete TVORG.ch[k]);
   const urls = new Set(orgSource(kind).map(c => c.url)); TVORG.chHide = (TVORG.chHide || []).filter(u => !urls.has(u));
   orgSave(); orgRender(); orgRefreshMain();
+};
+/* Exportar / importar as definições feitas à mão na IPTV */
+function orgExport(withAcc){
+  const o = {app:"cockpit-iptv", v:1, saved:new Date().toISOString(), org:TVORG, favs:[...favs], opts:{subAuto:cfg.subAuto, osAuto:!!cfg.osAuto}};
+  if(withAcc) o.acc = {m3u:cfg.m3u, xs:cfg.xs, xu:cfg.xu, xp:cfg.xp, epg:cfg.epg};
+  return o;
+}
+function orgImport(text){
+  let o; try{ o = JSON.parse(String(text).trim()); }catch(e){ throw new Error("o código não é válido (copia-o completo)"); }
+  if(!o || o.app !== "cockpit-iptv") throw new Error("isto não é um export das definições de IPTV do Cockpit");
+  TVORG = (o.org && typeof o.org === "object") ? o.org : {}; orgSave();
+  if(Array.isArray(o.favs)){ favs = new Set(o.favs.filter(x => typeof x === "string")); LS.set("tvfavs", [...favs]); }
+  if(o.opts){ if(o.opts.subAuto != null) cfg.subAuto = o.opts.subAuto; if(o.opts.osAuto != null) cfg.osAuto = !!o.opts.osAuto; }
+  let acc = false;
+  if(o.acc && typeof o.acc === "object"){ ["m3u","xs","xu","xp","epg"].forEach(k => { if(typeof o.acc[k] === "string") cfg[k] = o.acc[k]; }); acc = true; }
+  saveCfg(); orgRender(); orgRefreshMain();
+  return {favs:(o.favs || []).length, hidden:(TVORG.chHide || []).length, acc};
+}
+const orgXferMsg = (t, bad) => { const m = $("orgXferMsg"); m.textContent = t; m.style.color = bad ? "var(--bad)" : ""; };
+$("orgExpFile").onclick = () => {
+  const txt = JSON.stringify(orgExport($("orgInclAcc").checked), null, 1); $("orgXfer").value = txt;
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], {type:"application/json"})); a.download = "cockpit-iptv-definicoes.json"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  orgXferMsg("Ficheiro descarregado. O código também ficou na caixa.");
+};
+$("orgExpCopy").onclick = async () => {
+  const txt = JSON.stringify(orgExport($("orgInclAcc").checked)); $("orgXfer").value = txt;
+  try{ await navigator.clipboard.writeText(txt); orgXferMsg("Código copiado (" + txt.length + " caracteres)."); }
+  catch(e){ $("orgXfer").focus(); $("orgXfer").select(); orgXferMsg("Seleciona e copia o texto da caixa."); }
+};
+$("orgImpText").onclick = () => {
+  const t = $("orgXfer").value.trim(); if(!t) return orgXferMsg("Cola primeiro o código na caixa.", true);
+  if(!confirm("Importar substitui a ordem, os ocultos e os favoritos atuais. Continuar?")) return;
+  try{ const r = orgImport(t); orgXferMsg("Importado: " + r.favs + " favoritos, " + r.hidden + " canais ocultos" + (r.acc ? ", dados de acesso (carrega a lista IPTV em Definições)." : ".")); }
+  catch(e){ orgXferMsg("Erro: " + e.message, true); }
+};
+$("orgImpFile").onchange = async e => {
+  const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value = "";
+  try{ const t = await f.text(); $("orgXfer").value = t; if(!confirm("Importar substitui a ordem, os ocultos e os favoritos atuais. Continuar?")) return; const r = orgImport(t); orgXferMsg("Importado: " + r.favs + " favoritos, " + r.hidden + " canais ocultos" + (r.acc ? ", dados de acesso (carrega a lista IPTV em Definições)." : ".")); }
+  catch(x){ orgXferMsg("Erro: " + x.message, true); }
 };
 /* ---------- Canais portugueses em sinal aberto (lista pública iptv-org) ----------
    Streams públicos e gratuitos, mantidos pela comunidade. Alguns canais podem estar em baixo ou só funcionar em Portugal. */
