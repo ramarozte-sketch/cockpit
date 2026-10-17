@@ -246,6 +246,7 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 .fcb.on i{background:var(--accent)} .fcb small{font-size:11px;color:var(--muted)}
 @media (max-width:900px){ .chg{flex-wrap:wrap} .chgkw{width:60px;height:60px;font-size:20px} }
 /* Jogos */
+.gmcat{margin:18px 0 10px;font:600 15px var(--f-body);color:var(--muted);letter-spacing:.02em}
 .gmstage{align-items:center;gap:16px}
 .gmbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
 .g2048{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;padding:10px;border-radius:16px;background:var(--panel-2);width:min(560px,92vw,70vh);aspect-ratio:1;touch-action:none}
@@ -789,7 +790,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <h2>No Cockpit (sem anúncios, funcionam offline)</h2>
         <div class="apps" id="gmLocal"></div>
         <h2 style="margin-top:22px">Online grátis</h2>
-        <div class="apps" id="gmOnline"></div>
+        <div id="gmOnline"></div>
       </div>
       <div class="panel gmstage" id="gmStage" hidden></div>
     </section>
@@ -2602,7 +2603,9 @@ function openInApp(title, url, outUrl, opts={}){
   $("webHint").textContent = opts.hint || "";
   $("webSend").hidden = !opts.dest || !!cfg.passenger;
   $("webExtra").hidden = !opts.extra;
-  if(opts.extra){ $("webExtra").textContent = opts.extra.label; $("webExtra").onclick = ()=>{ if(opts.extra.mark) LS.set(opts.extra.mark, true); webCtx.url = opts.extra.url; $("webFrame").src = opts.extra.url; $("webExtra").hidden = true; }; }
+  if(opts.extra){ $("webExtra").textContent = opts.extra.label; $("webExtra").onclick = ()=>{
+    if(opts.extra.ext){ openExtPlain(opts.extra.ext); toast("Faz login na página que abriu e depois volta ao Cockpit e toca em Recarregar."); return; }
+    if(opts.extra.mark) LS.set(opts.extra.mark, true); webCtx.url = opts.extra.url; $("webFrame").src = opts.extra.url; $("webExtra").hidden = true; }; }
   $("webFrame").src = url;
   show("web");
 }
@@ -2632,17 +2635,19 @@ function openExt(url){
   a.href = cfg.fsApps ? "https://www.youtube.com/redirect?q=" + encodeURIComponent(url) : url;
   a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
 }
+/* Abre num separador normal (sem o truque do ecrã inteiro), para logins que têm de correr numa página própria. */
+function openExtPlain(url){ const x = document.createElement("a"); x.href = url; x.target = "_blank"; x.rel = "noopener"; document.body.appendChild(x); x.click(); x.remove(); }
 function openApp(id){
   const a = APPS[id]; if(!a) return false;
   if(id === "games"){ show("games"); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
-  // NOS TV: abre dentro do Cockpit na página de login da NOS; depois do login, "Abrir NOS TV" carrega o leitor.
+  // NOS TV: a NOS recusa o login dentro de outra página (erro ID 403). O login faz-se numa página própria
+  // e depois a NOS TV abre dentro do Cockpit, se a NOS deixar usar essa sessão aqui.
   if(id === "nos_tv"){
     if(!cfg.appsIn){ openExt(a.url); return true; }
-    const done = LS.get("nosLogged", false);
-    openInApp("NOS TV", done ? a.url : NOS_LOGIN, a.url, {hint:"Se ficar em branco, toca em “Abrir fora”", extra: done ? {label:"Fazer login", url:NOS_LOGIN} : {label:"Já fiz login › abrir NOS TV", url:a.url, mark:"nosLogged"}});
+    openInApp("NOS TV", a.url, a.url, {hint:"Sem sessão? Faz login numa página própria e volta", extra:{label:"Fazer login", ext:NOS_LOGIN}});
     return true;
   }
   if(!cfg.appsIn){ openExt(a.url); return true; }
@@ -3105,11 +3110,23 @@ const GAMES_LOCAL = [
   {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕"},
   {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍"}
 ];
+// Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
-  {name:"Lichess", desc:"Xadrez grátis e sem anúncios", ico:"♟️", url:"https://lichess.org/"},
-  {name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
-  {name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"},
-  {name:"Sudoku.com", desc:"Sudoku de vários níveis", ico:"🧩", url:"https://sudoku.com/"}
+  {cat:"Para jogar com amigos", name:"Gartic Phone", desc:"Desenha e adivinha, em grupo", ico:"🎨", url:"https://garticphone.com/pt", ext:true},
+  {cat:"Para jogar com amigos", name:"skribbl.io", desc:"Pictionary online com salas privadas", ico:"✏️", url:"https://skribbl.io/", ext:true},
+  {cat:"Para jogar com amigos", name:"Board Game Arena", desc:"Centenas de jogos de tabuleiro a sério", ico:"🎲", url:"https://boardgamearena.com/", ext:true},
+  {cat:"Para jogar com amigos", name:"Lichess", desc:"Xadrez grátis e sem anúncios", ico:"♟️", url:"https://lichess.org/"},
+  {cat:"Para jogar com amigos", name:"TETR.IO", desc:"Tetris moderno, contra outros jogadores", ico:"🧱", url:"https://tetr.io/", ext:true},
+  {cat:"Palavras e puzzles", name:"Termo", desc:"O Wordle em português", ico:"🔤", url:"https://term.ooo/"},
+  {cat:"Palavras e puzzles", name:"Wordle", desc:"A palavra do dia em inglês", ico:"🟩", url:"https://www.nytimes.com/games/wordle/index.html", ext:true},
+  {cat:"Palavras e puzzles", name:"Worldle", desc:"Adivinha o país pela forma", ico:"🌍", url:"https://worldle.teuteuf.fr/"},
+  {cat:"Palavras e puzzles", name:"Little Alchemy 2", desc:"Combina elementos e descobre o mundo", ico:"⚗️", url:"https://littlealchemy2.com/"},
+  {cat:"Palavras e puzzles", name:"Sudoku.com", desc:"Sudoku de vários níveis", ico:"🧩", url:"https://sudoku.com/"},
+  {cat:"Corrida e arcada", name:"Slow Roads", desc:"Condução relaxante por paisagens infinitas", ico:"🛣️", url:"https://slowroads.io/"},
+  {cat:"Corrida e arcada", name:"PolyTrack", desc:"Corridas contra o relógio em pistas 3D", ico:"🏎️", url:"https://www.kodub.com/apps/polytrack"},
+  {cat:"Corrida e arcada", name:"Tetris", desc:"A versão oficial, grátis", ico:"🟦", url:"https://tetris.com/play-tetris"},
+  {cat:"Portais de jogos", name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
+  {cat:"Portais de jogos", name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"}
 ];
 const gamesLocked = () => !cfg.passenger && !demo() && ["D","R","N"].includes(car?.drive_state?.shift_state);
 let gmCleanup = [];
@@ -3120,9 +3137,10 @@ function renderGames(){
   if(lock) gmExit();
   const tile = (g, attr) => `<button class="apptile" ${attr} ${lock ? "disabled" : ""}><span class="appicon" style="font-size:30px">${g.ico}</span><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`;
   $("gmLocal").innerHTML = GAMES_LOCAL.map(g=>tile(g, `data-gm="${g.id}"`)).join("");
-  $("gmOnline").innerHTML = GAMES_ONLINE.map((g,i)=>tile(g, `data-go="${i}"`)).join("");
+  const cats = [...new Set(GAMES_ONLINE.map(g=>g.cat))];
+  $("gmOnline").innerHTML = cats.map(c=>`<h3 class="gmcat">${esc(c)}</h3><div class="apps">${GAMES_ONLINE.map((g,i)=>g.cat === c ? tile(g, `data-go="${i}"`) : "").join("")}</div>`).join("");
   $("gmLocal").querySelectorAll("[data-gm]").forEach(b=>b.onclick=()=>gmStart(b.dataset.gm));
-  $("gmOnline").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ if(gamesLocked()) return renderGames(); const g = GAMES_ONLINE[+b.dataset.go]; cfg.appsIn ? openInApp(g.name, g.url, g.url, {hint:"Se ficar em branco, toca em “Abrir fora”"}) : openExt(g.url); });
+  $("gmOnline").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ if(gamesLocked()) return renderGames(); const g = GAMES_ONLINE[+b.dataset.go]; (cfg.appsIn && !g.ext) ? openInApp(g.name, g.url, g.url, {hint:"Se ficar em branco, toca em “Abrir fora”"}) : openExt(g.url); });
 }
 setInterval(()=>{ if(currentView === "games" && gamesLocked() && $("gmLock").hidden) renderGames(); }, 5000);
 $("gmBack").onclick = gmExit;
@@ -3309,7 +3327,8 @@ setInterval(()=>{ if(!document.hidden && currentView === "home"){ loadState(); i
 /* ---------- Interface em PT / EN / FR ---------- */
 const I18N_PAIRS = [
 // [português, english, français]
-["Já fiz login › abrir NOS TV","Signed in › open NOS TV","Connecté › ouvrir NOS TV"],["Fazer login","Sign in","Se connecter"],
+["Para jogar com amigos","Play with friends","Jouer entre amis"],["Palavras e puzzles","Words and puzzles","Mots et puzzles"],["Corrida e arcada","Racing and arcade","Course et arcade"],["Portais de jogos","Game portals","Portails de jeux"],["Desenha e adivinha, em grupo","Draw and guess, in a group","Dessine et devine, en groupe"],["Pictionary online com salas privadas","Online Pictionary with private rooms","Pictionary en ligne avec salons privés"],["Centenas de jogos de tabuleiro a sério","Hundreds of real board games","Des centaines de vrais jeux de société"],["Tetris moderno, contra outros jogadores","Modern Tetris against other players","Tetris moderne contre d'autres joueurs"],["O Wordle em português","Wordle in Portuguese","Wordle en portugais"],["A palavra do dia em inglês","The daily English word","Le mot du jour en anglais"],["Adivinha o país pela forma","Guess the country by its shape","Devine le pays par sa forme"],["Combina elementos e descobre o mundo","Combine elements and discover the world","Combine des éléments et découvre le monde"],["Condução relaxante por paisagens infinitas","Relaxing drives through endless scenery","Conduite relaxante dans des paysages infinis"],["Corridas contra o relógio em pistas 3D","Time trials on 3D tracks","Contre-la-montre sur circuits 3D"],["A versão oficial, grátis","The official version, free","La version officielle, gratuite"],
+["Sem sessão? Faz login numa página própria e volta","Not signed in? Sign in on its own page and come back","Pas connecté ? Connecte-toi dans une page à part et reviens"],["Faz login na página que abriu e depois volta ao Cockpit e toca em Recarregar.","Sign in on the page that opened, then come back to Cockpit and tap Reload.","Connecte-toi sur la page ouverte, puis reviens dans Cockpit et touche Recharger."],["Fazer login","Sign in","Se connecter"],
 ["A abrir a NOS TV numa página própria, para poderes fazer login.","Opening NOS TV in its own page so you can sign in.","Ouverture de NOS TV dans sa propre page pour te connecter."],
 ["Carregadores","Chargers","Bornes"],["Postos perto do carro ou do destino","Stations near the car or destination","Bornes près de la voiture ou de la destination"],["Perto do carro","Near the car","Près de la voiture"],["Perto do destino","Near destination","Près de la destination"],["Todas as potências","Any power","Toutes puissances"],["Navegar","Navigate","Naviguer"],["A procurar carregadores…","Searching for chargers…","Recherche de bornes…"],["Bateria","Battery","Batterie"],["Agora","Now","Maintenant"],["À chegada","On arrival","À l'arrivée"],["Ida e volta","Round trip","Aller-retour"],["Não chega","Not enough","Insuffisant"],["Não dá","Not enough","Insuffisant"],["Navegar para o carregador","Navigate to charger","Naviguer vers la borne"],["Ver mais carregadores","More chargers","Plus de bornes"],["Tempo no percurso","Weather on route","Météo sur le trajet"],["Chegada","Arrival","Arrivée"],["Previsão solar","Solar forecast","Prévision solaire"],["Hoje (previsto)","Today (forecast)","Aujourd'hui (prévu)"],["Amanhã","Tomorrow","Demain"],["Melhor janela amanhã","Best window tomorrow","Meilleur créneau demain"],["Para a previsão, põe a potência instalada (kWp) e a localização da casa em Definições › Energia.","For the forecast, set the installed power (kWp) and home location in Settings › Energy.","Pour la prévision, indique la puissance installée (kWc) et l'emplacement de la maison dans Réglages › Énergie."],["Potência instalada (kWp)","Installed power (kWp)","Puissance installée (kWc)"],["Inclinação dos painéis (°)","Panel tilt (°)","Inclinaison des panneaux (°)"],["Orientação (0 = sul, −90 = este, 90 = oeste)","Orientation (0 = south, −90 = east, 90 = west)","Orientation (0 = sud, −90 = est, 90 = ouest)"],["Latitude da casa","Home latitude","Latitude de la maison"],["Longitude da casa","Home longitude","Longitude de la maison"],["Usar a posição do carro","Use car position","Utiliser la position de la voiture"],["Bateria útil (kWh, vazio = automático)","Usable battery (kWh, empty = automatic)","Batterie utile (kWh, vide = automatique)"],["Consumo (Wh/km, vazio = automático)","Consumption (Wh/km, empty = automatic)","Consommation (Wh/km, vide = automatique)"],["Reserva mínima (%)","Minimum reserve (%)","Réserve minimale (%)"],["Chave Open Charge Map (opcional, dá mais detalhe aos carregadores)","Open Charge Map key (optional, more charger detail)","Clé Open Charge Map (facultative, plus de détails)"],
 ["Navegação","Navigation","Navigation"],["Percurso e indicações dentro do Cockpit","Route and directions inside Cockpit","Itinéraire et indications dans Cockpit"],["Jogos","Games","Jeux"],["Jogos grátis, só com o carro parado","Free games, only while parked","Jeux gratuits, seulement à l'arrêt"],["Trânsito Waze","Waze traffic","Trafic Waze"],["Chegada","Arrival","Arrivée"],["Distância","Distance","Distance"],["Tempo","Time","Durée"],["Iniciar navegação","Start navigation","Démarrer la navigation"],["Terminar","End","Terminer"],["Recente","Recent","Récent"],["Escreve uma morada. O percurso é calculado aqui e segue a posição do carro.","Type an address. The route is calculated here and follows the car's position.","Saisis une adresse. L'itinéraire est calculé ici et suit la position de la voiture."],["A procurar…","Searching…","Recherche…"],["A calcular o percurso…","Calculating route…","Calcul de l'itinéraire…"],["A recalcular o percurso…","Recalculating route…","Recalcul de l'itinéraire…"],["Percurso recalculado.","Route recalculated.","Itinéraire recalculé."],["Não consegui calcular o percurso.","Couldn't calculate the route.","Impossible de calculer l'itinéraire."],["◀ Jogos","◀ Games","◀ Jeux"],["No Cockpit (sem anúncios, funcionam offline)","In Cockpit (no ads, work offline)","Dans Cockpit (sans pub, hors ligne)"],["Online grátis","Free online","Gratuits en ligne"],["Os jogos ficam bloqueados com o carro em andamento. Põe em P (ou usa o modo passageiro no telemóvel).","Games are locked while the car is moving. Shift to P (or use passenger mode on a phone).","Les jeux sont bloqués pendant la conduite. Passe en P (ou utilise le mode passager sur un téléphone)."],["Pontos","Score","Points"],["Recorde","Best","Record"],["Novo jogo","New game","Nouvelle partie"],["Jogadas","Moves","Coups"],["Vitórias","Wins","Victoires"],["Empates","Draws","Nuls"],["Derrotas","Losses","Défaites"],["Pausa","Pause","Pause"],["Continuar","Resume","Reprendre"],["Desliza o dedo ou usa as setas.","Swipe or use the arrow keys.","Glisse le doigt ou utilise les flèches."],["Tu és o ✕.","You are ✕.","Tu es ✕."],["Ganhaste! 🎉","You won! 🎉","Tu as gagné ! 🎉"],["O Cockpit ganhou.","Cockpit won.","Cockpit a gagné."],["Empate.","Draw.","Match nul."],["Memória","Memory","Mémoire"],["Jogo do galo","Tic-tac-toe","Morpion"],["Cobra","Snake","Serpent"],["Junta os números até chegar a 2048","Merge numbers to reach 2048","Fusionne les nombres jusqu'à 2048"],["Encontra os pares no menor número de jogadas","Find the pairs in as few moves as possible","Trouve les paires en un minimum de coups"],["Contra o Cockpit","Against Cockpit","Contre Cockpit"],["O clássico, com toque ou setas","The classic, with touch or arrows","Le classique, au toucher ou aux flèches"],["Xadrez grátis e sem anúncios","Free chess, no ads","Échecs gratuits, sans pub"],["Centenas de jogos grátis no browser","Hundreds of free browser games","Des centaines de jeux gratuits"],["Jogos grátis, sem instalar nada","Free games, nothing to install","Jeux gratuits, rien à installer"],["Sudoku de vários níveis","Sudoku at several levels","Sudoku de plusieurs niveaux"],["Centrar no carro","Centre on car","Centrer sur la voiture"],
