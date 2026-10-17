@@ -202,6 +202,64 @@ body.layout-auto .view.webview{height:calc(100vh - 32px)}
 .webbar{flex-wrap:nowrap}
 #webFrame{flex:1;width:100%;min-height:0;border:0;border-radius:18px;background:#0b0f16}
 @media (max-width:900px){ .webbar{flex-wrap:wrap} #webHint{display:none} }
+/* Navegação no Cockpit */
+.view.navview{max-width:none;height:calc(100vh - 120px)}
+body.layout-auto .view.navview{height:calc(100vh - 32px)}
+.navwrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;height:100%;min-height:0}
+.navmapbox{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--panel-2);min-height:320px}
+#navMap{position:absolute;inset:0}
+.navside{overflow:auto;min-height:0}
+.nvbanner{position:absolute;left:16px;top:16px;right:16px;max-width:620px;z-index:500;display:flex;gap:16px;align-items:center;padding:14px 20px;border-radius:18px;background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.nvbanner b{font:700 34px/1.1 var(--f-display)}
+.nvbanner #nvNextText{font-size:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nvarrow{font-size:56px;line-height:1;width:64px;text-align:center;flex:none}
+.nvmapbtns{position:absolute;right:16px;bottom:16px;z-index:500;display:flex;gap:10px}
+.nvmapbtns .btn{background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.nvsteps{margin-top:12px;max-height:none}
+.nvstep{display:flex;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line)}
+.nvstep i{font-style:normal;font-size:24px;width:32px;text-align:center;color:var(--accent)}
+.nvstep span{flex:1;min-width:0}
+.nvstep small{color:var(--muted);white-space:nowrap}
+.nvstep.done{opacity:.4}
+.nvsug{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2)}
+.nvsug span{color:var(--muted);font-size:14px}
+.leaflet-container{background:var(--panel-2);font:inherit}
+.nvcar{width:26px;height:26px;border-radius:50%;background:var(--accent);border:4px solid #fff;box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent)}
+@media (max-width:900px){ .navwrap{grid-template-columns:1fr;grid-template-rows:55vh auto} .view.navview{height:auto} .nvbanner b{font-size:26px} .nvarrow{font-size:40px;width:44px} }
+.nvbox{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.nvbox h2{margin:0}
+.stat b.bad{color:var(--bad)} .stat b.warn{color:var(--warn)}
+.wxlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.wx{display:flex;flex-direction:column;gap:2px;background:var(--panel-2);border-radius:10px;padding:10px 12px}
+.wx b{font:600 22px var(--f-display)} .warnt{color:var(--warn)}
+.chglist{display:flex;flex-direction:column;gap:10px}
+.chg{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--panel)}
+.chgkw{width:76px;height:76px;flex:none;border-radius:16px;display:grid;place-items:center;align-content:center;background:var(--panel-2);font:700 26px/1 var(--f-display)}
+.chgkw small{font-size:12px;color:var(--muted);font-weight:600}
+.chgkw.fast{background:var(--accent);color:var(--accent-ink)} .chgkw.fast small{color:inherit;opacity:.7}
+.chgt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px} .chgt span{color:var(--muted);font-size:14px} .chgt .bad{color:var(--bad)}
+.chgd{font:600 20px var(--f-display);white-space:nowrap}
+.fcbars{display:flex;align-items:flex-end;gap:4px;height:120px;padding-top:8px}
+.fcb{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+.fcb i{display:block;width:100%;border-radius:6px 6px 2px 2px;background:color-mix(in srgb, var(--accent) 35%, var(--panel-2))}
+.fcb.on i{background:var(--accent)} .fcb small{font-size:11px;color:var(--muted)}
+@media (max-width:900px){ .chg{flex-wrap:wrap} .chgkw{width:60px;height:60px;font-size:20px} }
+/* Jogos */
+.gmstage{align-items:center;gap:16px}
+.gmbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
+.g2048{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;padding:10px;border-radius:16px;background:var(--panel-2);width:min(560px,92vw,70vh);aspect-ratio:1;touch-action:none}
+.g2048 div{display:grid;place-items:center;border-radius:10px;background:color-mix(in srgb, var(--fg) 6%, transparent);font:700 clamp(20px,4vw,40px) var(--f-display);transition:transform .12s}
+.gmem{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:min(560px,92vw,70vh)}
+.gmem button{aspect-ratio:1;border-radius:14px;border:1px solid var(--line);background:var(--accent);font-size:clamp(28px,5vw,52px);transition:transform .25s, background-color .25s}
+.gmem button.up,.gmem button.ok{background:var(--panel-2);transform:rotateY(180deg)}
+.gmem button.ok{opacity:.55}
+.gmem button span{display:inline-block;transform:rotateY(180deg)}
+.gttt{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(420px,88vw,60vh)}
+.gttt button{aspect-ratio:1;border-radius:16px;border:1px solid var(--line);background:var(--panel-2);font:700 clamp(40px,8vw,72px) var(--f-display);color:var(--accent)}
+.gttt button.o{color:var(--warn)}
+.gsnake{width:min(560px,92vw,62vh);aspect-ratio:1;border-radius:14px;background:var(--panel-2);touch-action:none}
+.gpad{display:grid;grid-template-columns:repeat(3,72px);gap:8px}
+.gpad .btn{min-height:64px;font-size:24px}
 .home{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);grid-template-rows:auto auto auto;gap:16px;min-height:calc(100vh - 32px)}
 .hcard{border-radius:26px;background:var(--panel);border:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .hcard h2{font-size:14px}
@@ -459,6 +517,16 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         </div>
       </div>
       <div class="panel">
+        <div class="row"><h2>Previsão solar</h2><span class="spacer"></span><span class="small muted">Open-Meteo</span></div>
+        <div class="banner" id="fcSetup" hidden>Para a previsão, põe a potência instalada (kWp) e a localização da casa em Definições › Energia.</div>
+        <div id="fcBody" hidden>
+          <div class="stats"><div class="stat"><span>Hoje (previsto)</span><b id="fcToday">--</b></div><div class="stat"><span>Amanhã</span><b id="fcTom">--</b></div><div class="stat"><span>Melhor janela amanhã</span><b id="fcWin">--</b></div></div>
+          <div class="fcbars" id="fcBars"></div>
+          <p style="margin:0" id="fcAdvice"></p>
+          <p class="small muted" id="fcCal" style="margin:0"></p>
+        </div>
+      </div>
+      <div class="panel">
         <div class="row"><h2>Últimos 30 dias</h2><span class="spacer"></span><span class="small muted" id="enNote"></span></div>
         <div class="stats">
           <div class="stat"><span>Carregamentos</span><b id="m30n">--</b></div>
@@ -624,6 +692,15 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <section class="view" id="v-apps" hidden>
       <div class="row"><h1>Apps</h1><span class="spacer"></span><label class="row small"><input type="checkbox" id="appsIn"> Abrir dentro do Cockpit</label><label class="row small"><input type="checkbox" id="appsFs"> Fora: em ecrã inteiro (truque do YouTube)</label></div>
       <div class="apps">
+        <button class="apptile" data-app="nav">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg></span>
+          <b>Navegação</b><span>Percurso e indicações dentro do Cockpit</span></button>
+        <button class="apptile" data-app="chargers">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18" rx="2"/><path d="M9 7l-2 4h4l-2 4M14 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-2-2"/></svg></span>
+          <b>Carregadores</b><span>Postos perto do carro ou do destino</span></button>
+        <button class="apptile" data-app="games">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.5" r="1"/><circle cx="18" cy="13.5" r="1"/></svg></span>
+          <b>Jogos</b><span>Jogos grátis, só com o carro parado</span></button>
         <button class="apptile" data-app="waze">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 19-7-4-7 4z"/></svg></span>
           <b>Waze</b><span>Trânsito e alertas em tempo real</span></button>
@@ -655,6 +732,64 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <button class="btn" id="webOut">Abrir fora</button>
       </div>
       <iframe id="webFrame" title="App" allow="geolocation; encrypted-media; fullscreen; autoplay; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </section>
+
+    <!-- NAVEGAÇÃO DENTRO DO COCKPIT (mapa OpenStreetMap + percurso OSRM) -->
+    <section class="view navview" id="v-nav" hidden>
+      <div class="navwrap">
+        <div class="navmapbox">
+          <div id="navMap" aria-label="Mapa"></div>
+          <div class="nvbanner" id="nvBanner" hidden><span class="nvarrow" id="nvArrow">↑</span><div style="min-width:0"><b id="nvNextDist">--</b><div id="nvNextText"></div></div></div>
+          <div class="nvmapbtns"><button class="btn" id="nvRecenter" aria-label="Centrar no carro">◎</button><button class="btn" id="nvTraffic">Trânsito Waze</button></div>
+        </div>
+        <div class="panel navside">
+          <form id="nvForm" class="row" style="flex-wrap:nowrap"><input type="text" id="nvDest" placeholder="Para onde vamos?" autocomplete="off"><button class="btn primary">Ir</button></form>
+          <div class="list" id="nvSugg"></div>
+          <div id="nvRoute" hidden>
+            <h2 id="nvTitle" style="margin:0 0 10px"></h2>
+            <div class="stats"><div class="stat"><span>Chegada</span><b id="nvEta">--</b></div><div class="stat"><span>Distância</span><b id="nvDist">--</b></div><div class="stat"><span>Tempo</span><b id="nvTime">--</b></div></div>
+            <div class="row" style="margin-top:12px"><button class="btn primary" id="nvStart">Iniciar navegação</button><button class="btn" id="nvEnd" hidden>Terminar</button><button class="btn" id="nvSend">Enviar para o Tesla</button></div>
+            <div class="row"><button class="btn" id="nvChargers">Carregadores</button><button class="btn" id="nvWaze">Abrir no Waze</button><button class="btn" id="nvGmaps">Abrir no Google Maps</button></div>
+            <div class="nvbox" id="nvTrip" hidden>
+              <h2>Bateria</h2>
+              <div class="stats"><div class="stat"><span>Agora</span><b id="nvSocNow">--</b></div><div class="stat"><span>À chegada</span><b id="nvSocArr">--</b></div><div class="stat"><span>Ida e volta</span><b id="nvSocRound">--</b></div></div>
+              <div class="banner" id="nvStop" hidden><span id="nvStopTxt"></span><div class="row" style="margin-top:10px"><button class="btn primary" id="nvStopGo">Navegar para o carregador</button><button class="btn" id="nvStopMore">Ver mais carregadores</button></div></div>
+              <p class="small muted" id="nvTripNote" style="margin:0"></p>
+            </div>
+            <div class="nvbox" id="nvWx" hidden>
+              <h2>Tempo no percurso</h2>
+              <div class="wxlist" id="nvWxList"></div>
+              <p class="small muted" id="nvWxNote" style="margin:0"></p>
+            </div>
+            <div class="list nvsteps" id="nvSteps"></div>
+          </div>
+          <p class="small muted" id="nvInfo" style="margin:0">Escreve uma morada. O percurso é calculado aqui e segue a posição do carro.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARREGADORES -->
+    <section class="view" id="v-chargers" hidden>
+      <div class="row"><h1>Carregadores</h1><span class="spacer"></span>
+        <div class="tabs" role="tablist" id="chgWhere"><button class="tab" data-w="car" aria-selected="true">Perto do carro</button><button class="tab" data-w="dest" aria-selected="false">Perto do destino</button></div>
+        <select id="chgMin" aria-label="Potência mínima"><option value="0">Todas as potências</option><option value="22">≥ 22 kW</option><option value="50">≥ 50 kW</option><option value="150">≥ 150 kW</option></select>
+        <button class="btn" id="chgRefresh">Atualizar</button>
+      </div>
+      <p class="small muted" id="chgInfo" style="margin:0"></p>
+      <div class="chglist" id="chgList"></div>
+    </section>
+
+    <!-- JOGOS -->
+    <section class="view" id="v-games" hidden>
+      <div class="row"><h1>Jogos</h1><span class="spacer"></span><button class="btn" id="gmBack" hidden>◀ Jogos</button></div>
+      <div class="banner" id="gmLock" hidden>Os jogos ficam bloqueados com o carro em andamento. Põe em P (ou usa o modo passageiro no telemóvel).</div>
+      <div id="gmHub">
+        <h2>No Cockpit (sem anúncios, funcionam offline)</h2>
+        <div class="apps" id="gmLocal"></div>
+        <h2 style="margin-top:22px">Online grátis</h2>
+        <div class="apps" id="gmOnline"></div>
+      </div>
+      <div class="panel gmstage" id="gmStage" hidden></div>
     </section>
 
     <!-- EMAIL -->
@@ -771,7 +906,11 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Token da API Growatt<input type="password" id="setGwToken" autocomplete="off"></label><label class="f" style="flex:1">Plant ID<input type="text" id="setGwPlant" inputmode="numeric" placeholder="1234567"></label></div>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Unidade da potência na Growatt<select id="setGwUnit"><option value="W">W</option><option value="kW">kW</option></select></label><label class="f" style="flex:1">Consumo base da casa (W)<input type="text" id="setHouseW" inputmode="numeric" placeholder="600"></label></div>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Tarifa da rede (€/kWh)<input type="text" id="setTarIn" inputmode="decimal" placeholder="0.21"></label><label class="f" style="flex:1">Venda à rede (€/kWh)<input type="text" id="setTarOut" inputmode="decimal" placeholder="0.05"></label><label class="f" style="flex:1">Supercharger (€/kWh)<input type="text" id="setTarSc" inputmode="decimal" placeholder="0.45"></label></div>
-          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Fases do carregador<select id="setPhases"><option value="1">1 fase (230 V)</option><option value="3">3 fases (400 V)</option></select></label><span style="flex:1"></span></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Fases do carregador<select id="setPhases"><option value="1">1 fase (230 V)</option><option value="3">3 fases (400 V)</option></select></label><label class="f" style="flex:1">Potência instalada (kWp)<input type="text" id="setKwp" inputmode="decimal" placeholder="4.2"></label></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Inclinação dos painéis (°)<input type="text" id="setTilt" inputmode="numeric" placeholder="30"></label><label class="f" style="flex:1">Orientação (0 = sul, −90 = este, 90 = oeste)<input type="text" id="setAzim" inputmode="numeric" placeholder="0"></label></div>
+          <div class="row" style="flex-wrap:nowrap;align-items:flex-end"><label class="f" style="flex:1">Latitude da casa<input type="text" id="setHomeLat" inputmode="decimal"></label><label class="f" style="flex:1">Longitude da casa<input type="text" id="setHomeLon" inputmode="decimal"></label><button class="btn" id="btnHomeHere" type="button">Usar a posição do carro</button></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Bateria útil (kWh, vazio = automático)<input type="text" id="setCapKwh" inputmode="decimal" placeholder="auto"></label><label class="f" style="flex:1">Consumo (Wh/km, vazio = automático)<input type="text" id="setEffWh" inputmode="numeric" placeholder="auto"></label><label class="f" style="flex:1">Reserva mínima (%)<input type="text" id="setReserve" inputmode="numeric" placeholder="10"></label></div>
+          <label class="f">Chave Open Charge Map (opcional, dá mais detalhe aos carregadores)<input type="password" id="setOcmKey" autocomplete="off"></label>
           <p class="small muted" style="margin:0">Se a produção aparecer 1000 vezes menor do que no ShinePhone (por exemplo 2 em vez de 2000), muda a unidade para kW. A Growatt só atualiza de minuto a minuto ou de 5 em 5 minutos, conforme o teu datalogger.</p>
           <button class="btn" id="btnSaveEnergy">Guardar Energia</button>
           <h2>YouTube na app</h2>
@@ -955,7 +1094,8 @@ function show(view){
   if(view==="settings") fillSettings();
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
-  const order = ["home","car","energy","voice","tv","media","apps","web","notes","mail","net","settings","launcher"];
+  if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
+  const order = ["home","car","energy","voice","tv","media","apps","nav","chargers","games","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -969,6 +1109,9 @@ function show(view){
   if(view==="media" && !radioLoaded) loadRadios("");
   if(view==="energy") loadEnergy();
   if(view==="launcher") buildLauncher();
+  if(view==="games") renderGames();
+  if(view==="chargers") renderChargers();
+  if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
   if(view==="tv") renderTvList();
@@ -1174,6 +1317,8 @@ const VOICE = [
       .replace(/\s+(no|com o|pelo|in|with|avec|sur)\s+(waze|google maps|maps|google)\s*[.!?]*$/i, "").replace(/[.!?]+$/, "") || m[1];
     return navigateTo(dest, app); }},
   {d:{pt:"abre o Waze", en:"open Waze", fr:"ouvre Waze"}, re:[/\bwaze\b/], run:()=>openApp("waze")},
+  {d:{pt:"carregadores perto", en:"chargers nearby", fr:"bornes à proximité"}, re:[/\b(carregadores?|postos? de carregamento|superchargers?|chargers?|bornes?)\b/], run:()=>openApp("chargers")},
+  {d:{pt:"abre os jogos", en:"open games", fr:"ouvre les jeux"}, re:[/\b(jogos?|games?|jeux)\b/], run:()=>openApp("games")},
   {d:{pt:"abre o Google Maps", en:"open Google Maps", fr:"ouvre Google Maps"}, re:[/google maps|\bmapas?\b|\bmaps\b/], run:()=>openApp("google_maps")},
   {d:{pt:"abre a NOS TV", en:"open NOS TV", fr:"ouvre NOS TV"}, re:[/\bnos tv\b|\bnostv\b/], run:()=>openApp("nos_tv")},
   {d:{pt:"desliga a rádio", en:"stop the radio", fr:"arrête la radio"}, re:[/^(para|parar|desliga|desligar|stop|arrete)\s+(a\s+|the\s+|la\s+)?radio$/], run:()=>{ radioStop(); return true; }},
@@ -1265,7 +1410,7 @@ const AI_ACTIONS = {
   stop_radio: ()=>{ radioStop(); return true; },
   audio_only: a=>setAudio(a.on!==false, audioAuto),
   navigate: a=>navigateTo(String(a.destination||""), ({waze:"waze", google_maps:"google_maps", google:"google_maps"})[a.app] || "tesla"),
-  open_app: a=>openApp(({waze:"waze", google_maps:"google_maps", maps:"google_maps", nos_tv:"nos_tv", nostv:"nos_tv"})[String(a.app||"").toLowerCase()] || "")
+  open_app: a=>openApp(({waze:"waze", google_maps:"google_maps", maps:"google_maps", nos_tv:"nos_tv", nostv:"nos_tv", games:"games", jogos:"games", navigation:"nav", nav:"nav"})[String(a.app||"").toLowerCase()] || "")
 };
 async function aiCommand(raw){
   const lang = L();
@@ -1275,7 +1420,7 @@ Write "reply" in ${LANG_NAME[lang]}, at most 2 short sentences, friendly and dir
 Allowed actions (use only these, in the order the user wants):
 lock, unlock, open_trunk, open_frunk, vent_windows, close_windows, climate_on, climate_off, set_temperature{value: 15-28 °C}, defrost, start_charging, stop_charging, set_charge_limit{value: 50-100}, open_charge_port, homelink (garage/gate), sentry_on, sentry_off, flash_lights, honk, locate,
 open_view{view: car|energy|voice|tv|media|apps|notes|network|settings|email}, play_channel{name}, next_channel, previous_channel, cinema_mode, youtube_search{query}, create_note{text}, speed_test, read_emails, compose_email{to, subject, body} (only drafts; the user confirms before sending).
-navigate{destination, app: tesla|waze|google_maps} (default tesla = the car's own navigation), open_app{app: waze|google_maps|nos_tv}. play_radio{name} (Portuguese and international radio stations), stop_radio, audio_only{on: true|false} (TV sound without picture).
+navigate{destination, app: tesla|waze|google_maps} (default tesla = the car's own navigation), open_app{app: waze|google_maps|nos_tv|games|navigation}. play_radio{name} (Portuguese and international radio stations), stop_radio, audio_only{on: true|false} (TV sound without picture).
 If the user just asks a question (battery, range, temperature, general knowledge), answer in "reply" with "actions": [].
 If the request is unclear or not possible, use "actions": [] and say so briefly.
 Current car state: ${carSummary()}. Local time: ${new Date().toLocaleString("pt-PT")}.`;
@@ -2177,7 +2322,7 @@ function chargeCost(c){
   return kwh * tarIn();
 }
 async function loadEnergy(){
-  renderSolar(); renderLiveCharge();
+  renderSolar(); renderLiveCharge(); renderSolarForecast().catch(()=>{});
   growattFetch(false).then(()=>renderSolar()).catch(e=>{ $("pvUpdated").textContent = "Growatt: " + e.message; });
   const vin = demo() ? "x" : cfg.vin;
   const from = Math.floor(Date.now()/1000) - 30*86400, to = Math.floor(Date.now()/1000);
@@ -2188,6 +2333,7 @@ async function loadEnergy(){
       tessie(vin+"/consumption_since_charge").catch(()=>null)
     ]);
     const charges = (ch.results||[]).sort((a,b)=>b.started_at-a.started_at);
+    learnFromTessie(charges, dr.results||[]);
     const kwh = charges.reduce((s,c)=>s+num(c.energy_added,0),0);
     const costs = charges.map(chargeCost); const known = costs.filter(isFinite);
     const km = (dr.results||[]).reduce((s,d)=>s+num(d.odometer_distance,0),0);
@@ -2218,6 +2364,8 @@ $("pvApply").onclick = async ()=>{
 $("btnSaveEnergy").onclick = ()=>{
   cfg.gwToken = $("setGwToken").value.trim(); cfg.gwPlant = $("setGwPlant").value.trim(); cfg.gwUnit = $("setGwUnit").value;
   cfg.houseW = $("setHouseW").value.trim(); cfg.tarIn = $("setTarIn").value.trim(); cfg.tarOut = $("setTarOut").value.trim(); cfg.tarSc = $("setTarSc").value.trim(); cfg.phases = $("setPhases").value;
+  ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ cfg[k] = $("set" + k[0].toUpperCase() + k.slice(1)).value.trim(); });
+  LS.set("solarFc", null);
   saveCfg(); pvState = null; LS.set("pvState", null); toast("Guardado");
 };
 setInterval(()=>{ if(!document.hidden && currentView==="energy"){ growattFetch(false).then(renderSolar).catch(()=>{}); loadState().then(renderLiveCharge); } }, 60000);
@@ -2421,7 +2569,10 @@ function passengerImport(){
 const APPS = {
   waze: {name:"Waze", url:"https://www.waze.com/live-map/"},
   google_maps: {name:"Google Maps", url:"https://www.google.com/maps"},
-  nos_tv: {name:"NOS TV", url:"https://nostv.pt/"}
+  nos_tv: {name:"NOS TV", url:"https://nostv.pt/"},
+  nav: {name:"Navegação", url:"https://www.google.com/maps"},
+  games: {name:"Jogos", url:"https://poki.com/pt"},
+  chargers: {name:"Carregadores", url:"https://openchargemap.org/site"}
 };
 if(cfg.appsIn === undefined) cfg.appsIn = true;
 $("appsIn").checked = !!cfg.appsIn;
@@ -2478,9 +2629,11 @@ function openExt(url){
 }
 function openApp(id){
   const a = APPS[id]; if(!a) return false;
+  if(id === "games"){ show("games"); return true; }
+  if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
+  if(id === "nav"){ openNav(""); return true; }
   if(!cfg.appsIn){ openExt(a.url); return true; }
-  if(id === "waze") openWazeIn("");
-  else if(id === "google_maps") openInApp("Google Maps", gmapsEmbed(""), a.url, {hint:"Mapa à volta do carro"});
+  if(id === "waze" || id === "google_maps") openNav("");
   else openInApp(a.name, a.url, a.url, {hint:"Se ficar em branco, toca em “Abrir fora”"});
   return true;
 }
@@ -2497,10 +2650,10 @@ async function navigateTo(dest, app="tesla"){
   dest = String(dest||"").trim(); if(!dest) return false;
   navRecent = [dest, ...navRecent.filter(x=>x.toLowerCase()!==dest.toLowerCase())].slice(0, 8); LS.set("navRecent", navRecent); renderNavRecent();
   const q = encodeURIComponent(dest);
-  if(app==="waze"){ cfg.appsIn ? openWazeIn(dest) : openExt(`https://www.waze.com/ul?q=${q}&navigate=yes`); return true; }
+  if(app==="waze"){ cfg.appsIn ? openNav(dest) : openExt(`https://www.waze.com/ul?q=${q}&navigate=yes`); return true; }
   if(app==="google_maps" || app==="google"){
     const out = `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`;
-    cfg.appsIn ? openInApp("Google Maps · " + dest, gmapsEmbed(dest), out, {dest, hint:"Percurso desde o carro"}) : openExt(out);
+    cfg.appsIn ? openNav(dest) : openExt(out);
     return true;
   }
   return doCmd("share", {value:dest, locale:"pt-PT"}, "Destino enviado: " + dest);
@@ -2509,6 +2662,566 @@ $("navForm").onsubmit = e => { e.preventDefault(); navigateTo($("navDest").value
 $("navWaze").onclick = () => navigateTo($("navDest").value, "waze");
 $("navGmaps").onclick = () => navigateTo($("navDest").value, "google_maps");
 renderNavRecent();
+
+/* ---------- Navegação dentro do Cockpit ----------
+   O Waze e o Google Maps não deixam navegar curva a curva dentro de outra página,
+   por isso o Cockpit tem navegação própria: mapa OpenStreetMap (Leaflet), moradas pelo Photon,
+   percurso pelo OSRM e posição do carro pelo GPS do browser ou pela Tessie. */
+let nvMap = null, nvCarMk = null, nvLine = null, nvDestMk = null, nvLeaf = null;
+const nv = {dest:null, r:null, active:false, pos:null, follow:true, s:0, lastIdx:0, off:0, lastReroute:0, spoken:{}, watch:null, poll:null, sim:null, lastGps:0};
+function loadLeaflet(){
+  if(window.L && window.L.map) return Promise.resolve(window.L);
+  if(nvLeaf) return nvLeaf;
+  nvLeaf = new Promise(res=>{
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    s.onload = ()=>res(window.L && window.L.map ? window.L : null); s.onerror = ()=>{ nvLeaf = null; res(null); };
+    document.head.appendChild(s);
+  });
+  return nvLeaf;
+}
+const nvDark = () => { const c = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(); const m = c.match(/^#?([0-9a-f]{6})$/i); if(!m) return true; const n = parseInt(m[1],16); return ((n>>16)*299 + ((n>>8)&255)*587 + (n&255)*114)/1000 < 128; };
+let nvTiles = null;
+async function nvEnsureMap(){
+  const LF = await loadLeaflet();
+  if(!LF){ $("nvInfo").textContent = "Não consegui carregar o mapa. Verifica a ligação à internet."; return null; }
+  if(!nvMap){
+    const p = nv.pos || carPos();
+    nvMap = LF.map("navMap", {zoomControl:false, attributionControl:true}).setView([p.lat, p.lon], p.z > 7 ? 15 : 7);
+    LF.control.zoom({position:"topright"}).addTo(nvMap);
+    nvMap.on("dragstart", ()=>{ nv.follow = false; });
+    nvCarMk = LF.marker([p.lat, p.lon], {icon:LF.divIcon({className:"", html:'<div class="nvcar"></div>', iconSize:[26,26], iconAnchor:[13,13]}), interactive:false});
+    if(p.z > 7) nvCarMk.addTo(nvMap);
+  }
+  const dark = nvDark();
+  if(!nvTiles || nvTiles._dark !== dark){
+    if(nvTiles) nvMap.removeLayer(nvTiles);
+    nvTiles = LF.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`, {maxZoom:19, subdomains:"abcd", attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>'}).addTo(nvMap);
+    nvTiles._dark = dark;
+  }
+  setTimeout(()=>nvMap.invalidateSize(), 60);
+  return LF;
+}
+async function openNav(dest){
+  show("nav");
+  nvRenderSugg([]);
+  await nvEnsureMap();
+  if(dest){ $("nvDest").value = typeof dest === "string" ? dest : dest.name; nvPlan(dest); }
+  else if(!nv.r) setTimeout(()=>$("nvDest").focus(), 100);
+}
+/* Distâncias e projeção no percurso */
+const toRad = d => d*Math.PI/180;
+function hav(a, b){ const R=6371000, dLa=toRad(b[0]-a[0]), dLo=toRad(b[1]-a[1]); const x=Math.sin(dLa/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+function nvProject(lat, lon){
+  const pts = nv.r.pts, cum = nv.r.cum, n = pts.length; const k = Math.cos(toRad(lat))*111320, ky = 110540;
+  let best = {d:Infinity, s:0, i:0};
+  const scan = (from, to) => { for(let i=Math.max(0,from); i<Math.min(n-1,to); i++){
+    const ax=(pts[i][1]-lon)*k, ay=(pts[i][0]-lat)*ky, bx=(pts[i+1][1]-lon)*k, by=(pts[i+1][0]-lat)*ky;
+    const dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy; let t = L2 ? -(ax*dx+ay*dy)/L2 : 0; t=Math.max(0,Math.min(1,t));
+    const px=ax+t*dx, py=ay+t*dy, d=Math.hypot(px,py);
+    if(d < best.d) best = {d, s:cum[i] + t*(cum[i+1]-cum[i]), i};
+  }};
+  scan(nv.lastIdx-10, nv.lastIdx+400);
+  if(best.d > 80) scan(0, n);
+  nv.lastIdx = best.i; return best;
+}
+/* Texto das manobras em PT / EN / FR */
+const NVT = {
+  pt:{left:"à esquerda", right:"à direita", "slight left":"ligeiramente à esquerda", "slight right":"ligeiramente à direita", "sharp left":"bem à esquerda", "sharp right":"bem à direita", straight:"em frente",
+      turn:"Vire {m}", cont:"Siga {m}", depart:"Siga por {n}", arrive:"Chegou ao destino", rb:"Na rotunda, saia na {x}.ª saída", ramp:"Entre na via {m}", offramp:"Saia {m}", fork:"Mantenha-se {m}", merge:"Entre no trânsito {m}", end:"No fim da estrada, vire {m}", uturn:"Faça inversão de marcha", onto:" para {n}", in:"Daqui a {d}, ", start:"A iniciar a navegação para {n}."},
+  en:{left:"left", right:"right", "slight left":"slightly left", "slight right":"slightly right", "sharp left":"sharp left", "sharp right":"sharp right", straight:"straight ahead",
+      turn:"Turn {m}", cont:"Continue {m}", depart:"Head out on {n}", arrive:"You have arrived", rb:"At the roundabout, take exit {x}", ramp:"Take the ramp {m}", offramp:"Take the exit {m}", fork:"Keep {m}", merge:"Merge {m}", end:"At the end of the road, turn {m}", uturn:"Make a U-turn", onto:" onto {n}", in:"In {d}, ", start:"Starting navigation to {n}."},
+  fr:{left:"à gauche", right:"à droite", "slight left":"légèrement à gauche", "slight right":"légèrement à droite", "sharp left":"franchement à gauche", "sharp right":"franchement à droite", straight:"tout droit",
+      turn:"Tournez {m}", cont:"Continuez {m}", depart:"Partez sur {n}", arrive:"Vous êtes arrivé", rb:"Au rond-point, prenez la sortie {x}", ramp:"Prenez la bretelle {m}", offramp:"Prenez la sortie {m}", fork:"Restez {m}", merge:"Insérez-vous {m}", end:"Au bout de la route, tournez {m}", uturn:"Faites demi-tour", onto:" sur {n}", in:"Dans {d}, ", start:"Navigation vers {n}."}
+};
+function nvText(st){
+  const T = NVT[L()] || NVT.pt, m = st.maneuver || {}, mod = T[m.modifier] || "", n = st.name || st.ref || "";
+  let t;
+  if(m.type === "arrive") return T.arrive;
+  if(m.type === "depart") return n ? T.depart.replace("{n}", n) : T.cont.replace("{m}", T.straight);
+  if(m.modifier === "uturn") t = T.uturn;
+  else if(/roundabout|rotary/.test(m.type)) t = m.exit ? T.rb.replace("{x}", m.exit) : T.turn.replace("{m}", mod);
+  else if(m.type === "on ramp") t = T.ramp.replace("{m}", mod);
+  else if(m.type === "off ramp") t = T.offramp.replace("{m}", mod);
+  else if(m.type === "fork") t = T.fork.replace("{m}", mod);
+  else if(m.type === "merge") t = T.merge.replace("{m}", mod);
+  else if(m.type === "end of road") t = T.end.replace("{m}", mod);
+  else if(m.type === "continue" || m.type === "new name" || m.modifier === "straight") t = T.cont.replace("{m}", mod || T.straight);
+  else t = T.turn.replace("{m}", mod || T.straight);
+  return (t + (n ? T.onto.replace("{n}", n) : "")).replace(/\s+/g, " ").trim();
+}
+function nvArrow(st){
+  const m = st.maneuver || {};
+  if(m.type === "arrive") return "🏁";
+  if(/roundabout|rotary/.test(m.type)) return "⟳";
+  return {left:"↰", right:"↱", "slight left":"↖", "slight right":"↗", "sharp left":"↲", "sharp right":"↳", uturn:"↶", straight:"↑"}[m.modifier] || "↑";
+}
+const fmtDist = m => m < 1000 ? (Math.max(10, Math.round(m/10)*10)) + " m" : (m/1000).toLocaleString("pt-PT", {maximumFractionDigits: m < 10000 ? 1 : 0}) + " km";
+const fmtDur = s => { const mi = Math.max(1, Math.round(s/60)); return mi < 60 ? mi + " min" : Math.floor(mi/60) + " h " + String(mi%60).padStart(2,"0") + " min"; };
+async function fetchJsonCors(u){
+  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+    try{ const r = await fetch(url); if(r.ok) return await r.json(); }catch(e){}
+  }
+  return null;
+}
+async function nvFind(q){
+  const p = nv.pos || carPos();
+  const j = await fetchJsonCors(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6${p.z > 7 ? `&lat=${p.lat}&lon=${p.lon}` : "&lat=39.4&lon=-8.2"}`);
+  const list = (j?.features || []).map(f=>{
+    const pr = f.properties || {}, street = [pr.street, pr.housenumber].filter(Boolean).join(" ");
+    const name = pr.name || street || pr.city || q;
+    const sub = [pr.name && street, [pr.postcode, pr.city].filter(Boolean).join(" "), pr.country].filter(Boolean).join(", ");
+    return {name, sub, full:[name, sub].filter(Boolean).join(", "), lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0]};
+  });
+  if(list.length) return list;
+  const g = await geocode(q);
+  return g ? [{name:q, sub:g.name, full:g.name, lat:g.lat, lon:g.lon}] : [];
+}
+function nvRenderSugg(list){
+  nv.sugg = list;
+  if(!list.length && !$("nvDest").value.trim() && !nv.r){
+    $("nvSugg").innerHTML = navRecent.slice(0, 6).map((d,i)=>`<button class="nvsug" data-nr="${i}"><b>${esc(d)}</b><span>Recente</span></button>`).join("");
+    $("nvSugg").querySelectorAll("[data-nr]").forEach(b=>b.onclick=()=>{ $("nvDest").value = navRecent[+b.dataset.nr]; nvPlan(navRecent[+b.dataset.nr]); });
+    return;
+  }
+  $("nvSugg").innerHTML = list.map((g,i)=>`<button class="nvsug" data-sg="${i}"><b>${esc(g.name)}</b><span>${esc(g.sub)}</span></button>`).join("");
+  $("nvSugg").querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>nvPlan(nv.sugg[+b.dataset.sg]));
+}
+let nvSugT = 0;
+$("nvDest").oninput = ()=>{
+  clearTimeout(nvSugT); const q = $("nvDest").value.trim();
+  if(q.length < 3){ nvRenderSugg([]); return; }
+  nvSugT = setTimeout(async ()=>{ const l = await nvFind(q); if($("nvDest").value.trim() === q) nvRenderSugg(l); }, 350);
+};
+$("nvForm").onsubmit = e => { e.preventDefault(); const q = $("nvDest").value.trim(); if(q) nvPlan(nv.sugg?.length ? nv.sugg[0] : q); };
+async function nvOrigin(){
+  if(nv.pos) return nv.pos;
+  const p = carPos(); if(p.z > 7) return {lat:p.lat, lon:p.lon};
+  if(!demo()){ try{ const l = await tessie(cfg.vin + "/location"); if(isFinite(l.latitude)) return {lat:+l.latitude, lon:+l.longitude}; }catch(e){} }
+  if(navigator.geolocation){
+    const g = await new Promise(res=>navigator.geolocation.getCurrentPosition(x=>res({lat:x.coords.latitude, lon:x.coords.longitude}), ()=>res(null), {timeout:6000}));
+    if(g) return g;
+  }
+  return null;
+}
+async function nvRoute(from, to){
+  const u = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson&steps=true`;
+  const j = await fetchJsonCors(u);
+  if(!j || j.code !== "Ok" || !j.routes?.[0]) throw new Error("Não consegui calcular o percurso.");
+  return j.routes[0];
+}
+async function nvPlan(dest, reroute){
+  if(typeof dest === "string"){
+    $("nvInfo").textContent = "A procurar…";
+    const l = await nvFind(dest);
+    if(!l.length){ $("nvInfo").textContent = "Não encontrei “" + dest + "”."; toast("Não encontrei “" + dest + "”.", true); return false; }
+    dest = l[0];
+  }
+  nv.dest = dest; nvRenderSugg([]); $("nvDest").value = dest.name; $("nvDest").blur();
+  if(!reroute){ navRecent = [dest.full, ...navRecent.filter(x=>x.toLowerCase() !== dest.full.toLowerCase())].slice(0, 8); LS.set("navRecent", navRecent); renderNavRecent(); }
+  const from = await nvOrigin();
+  if(!from){ $("nvInfo").textContent = "Não sei onde está o carro. Configura a Tessie ou permite a localização."; return false; }
+  $("nvInfo").textContent = reroute ? "A recalcular o percurso…" : "A calcular o percurso…";
+  let r;
+  try{ r = await nvRoute(from, dest); }catch(e){ $("nvInfo").textContent = e.message; toast(e.message, true); return false; }
+  const LF = await nvEnsureMap(); if(!LF) return false;
+  const pts = r.geometry.coordinates.map(c=>[c[1], c[0]]), cum = [0];
+  for(let i=1; i<pts.length; i++) cum.push(cum[i-1] + hav(pts[i-1], pts[i]));
+  const steps = r.legs.flatMap(l=>l.steps); let j = 0;
+  steps.forEach(st=>{ const loc = [st.maneuver.location[1], st.maneuver.location[0]]; let bi = j, bd = Infinity;
+    for(let i=j; i<pts.length; i++){ const d = hav(loc, pts[i]); if(d < bd){ bd = d; bi = i; } if(bd < 2 && i > j+3) break; }
+    j = bi; st.at = cum[bi]; st.text = nvText(st); st.arrow = nvArrow(st); });
+  nv.r = {pts, cum, steps, total:cum[cum.length-1], dur:r.duration};
+  nv.s = 0; nv.lastIdx = 0; nv.off = 0; nv.spoken = {};
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#7cc4ff";
+  if(nvLine) nvMap.removeLayer(nvLine); if(nvDestMk) nvMap.removeLayer(nvDestMk);
+  nvLine = LF.polyline(pts, {color:accent, weight:8, opacity:.9}).addTo(nvMap);
+  nvDestMk = LF.marker([dest.lat, dest.lon], {icon:LF.divIcon({className:"", html:'<div style="font-size:34px;line-height:1">🏁</div>', iconSize:[34,34], iconAnchor:[6,32]})}).addTo(nvMap);
+  if(!nv.pos){ nv.pos = from; nvCarMk.setLatLng([from.lat, from.lon]).addTo(nvMap); }
+  if(!nv.active) nvMap.fitBounds(nvLine.getBounds(), {padding:[60,60]});
+  $("nvTitle").textContent = dest.name;
+  $("nvRoute").hidden = false; $("nvInfo").textContent = reroute ? "Percurso recalculado." : "";
+  $("nvSend").hidden = !!cfg.passenger;
+  $("nvSteps").innerHTML = steps.map((st,i)=>`<div class="nvstep" data-st="${i}"><i>${st.arrow}</i><span>${esc(st.text)}</span><small>${st.distance ? fmtDist(st.distance) : ""}</small></div>`).join("");
+  nvProgress();
+  renderTrip().catch(()=>{}); if(!reroute) renderRouteWeather().catch(()=>{});
+  return true;
+}
+function nvProgress(){
+  const r = nv.r; if(!r) return;
+  const rem = Math.max(0, r.total - nv.s), remDur = r.dur * (rem / (r.total || 1));
+  $("nvDist").textContent = fmtDist(rem); $("nvTime").textContent = fmtDur(remDur);
+  $("nvEta").textContent = new Date(Date.now() + remDur*1000).toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"});
+  const idx = r.steps.findIndex(st => st.at > nv.s + 8 && st.maneuver.type !== "depart");
+  document.querySelectorAll("#nvSteps .nvstep").forEach((e,i)=>e.classList.toggle("done", idx >= 0 && i < idx));
+  if(!nv.active) return;
+  if(idx < 0 || rem < 30){ $("nvArrow").textContent = "🏁"; $("nvNextDist").textContent = (NVT[L()]||NVT.pt).arrive; $("nvNextText").textContent = nv.dest?.name || "";
+    if(!nv.spoken.arrive){ nv.spoken.arrive = 1; speak((NVT[L()]||NVT.pt).arrive); setTimeout(nvStop, 8000); } return; }
+  const st = r.steps[idx], d = st.at - nv.s;
+  $("nvArrow").textContent = st.arrow; $("nvNextDist").textContent = fmtDist(d); $("nvNextText").textContent = st.text;
+  const T = NVT[L()] || NVT.pt;
+  if(d <= 160 && !nv.spoken[idx+"n"]){ nv.spoken[idx+"n"] = nv.spoken[idx+"s"] = 1; speak(st.text); }
+  else if(d <= 700 && d > 250 && !nv.spoken[idx+"s"]){ nv.spoken[idx+"s"] = 1; speak(T.in.replace("{d}", fmtDist(Math.round(d/50)*50)) + st.text.charAt(0).toLowerCase() + st.text.slice(1)); }
+}
+function nvOnPos(lat, lon, src){
+  if(!isFinite(lat) || !isFinite(lon)) return;
+  if(src === "gps") nv.lastGps = Date.now();
+  nv.pos = {lat, lon};
+  if(nvMap){ nvCarMk.setLatLng([lat, lon]); if(!nvMap.hasLayer(nvCarMk)) nvCarMk.addTo(nvMap); if(nv.follow && nv.active) nvMap.setView([lat, lon], Math.max(nvMap.getZoom(), 16), {animate:true}); }
+  if(!nv.r || !nv.active) return;
+  const pr = nvProject(lat, lon);
+  if(pr.d > 60){ nv.off++; if(nv.off >= 2 && Date.now() - nv.lastReroute > 20000){ nv.lastReroute = Date.now(); nvPlan(nv.dest, true); } }
+  else { nv.off = 0; nv.s = Math.max(nv.s, pr.s); }
+  nvProgress();
+}
+function nvTrack(){
+  nvUntrack();
+  if(demo()){ // demonstração: o "carro" anda pelo percurso
+    nv.sim = setInterval(()=>{ if(!nv.r) return; const s = Math.min(nv.r.total, nv.s + 120); let i = nv.r.cum.findIndex(c=>c >= s); if(i < 0) i = nv.r.pts.length-1; nv.s = s; const p = nv.r.pts[i]; nvOnPos(p[0], p[1], "sim"); }, 1000);
+    return;
+  }
+  if(navigator.geolocation){ try{ nv.watch = navigator.geolocation.watchPosition(p=>nvOnPos(p.coords.latitude, p.coords.longitude, "gps"), ()=>{}, {enableHighAccuracy:true, maximumAge:2000}); }catch(e){} }
+  nv.poll = setInterval(async ()=>{
+    if(Date.now() - nv.lastGps < 8000) return; // o GPS do browser está a responder
+    try{ const l = await tessie(cfg.vin + "/location"); nvOnPos(+l.latitude, +l.longitude, "car"); }catch(e){}
+  }, 5000);
+}
+function nvUntrack(){
+  if(nv.watch !== null && navigator.geolocation){ try{ navigator.geolocation.clearWatch(nv.watch); }catch(e){} }
+  nv.watch = null; clearInterval(nv.poll); clearInterval(nv.sim); nv.poll = nv.sim = null;
+}
+function nvStart(){
+  if(!nv.r) return;
+  nv.active = true; nv.follow = true; nv.spoken = {};
+  $("nvStart").hidden = true; $("nvEnd").hidden = false; $("nvBanner").hidden = false;
+  speak((NVT[L()]||NVT.pt).start.replace("{n}", nv.dest?.name || ""));
+  if(nv.pos) nvMap?.setView([nv.pos.lat, nv.pos.lon], 17);
+  nvTrack(); nvProgress(); keepAwake(true);
+}
+function nvStop(){
+  nv.active = false; nvUntrack();
+  $("nvStart").hidden = false; $("nvEnd").hidden = true; $("nvBanner").hidden = true;
+}
+$("nvStart").onclick = nvStart;
+$("nvEnd").onclick = nvStop;
+$("nvRecenter").onclick = ()=>{ nv.follow = true; const p = nv.pos || carPos(); nvMap?.setView([p.lat, p.lon], Math.max(nvMap.getZoom(), 15)); };
+$("nvTraffic").onclick = ()=> openWazeIn("");
+$("nvSend").onclick = ()=>{ if(nv.dest) navigateTo(nv.dest.full, "tesla"); };
+$("nvWaze").onclick = ()=>{ if(nv.dest) openExt(`https://www.waze.com/ul?ll=${nv.dest.lat},${nv.dest.lon}&navigate=yes`); };
+$("nvGmaps").onclick = ()=>{ if(nv.dest) openExt(`https://www.google.com/maps/dir/?api=1&destination=${nv.dest.lat},${nv.dest.lon}&travelmode=driving`); };
+
+/* ---------- Carregadores perto (OpenStreetMap; Open Charge Map se houver chave) ---------- */
+const kmBetween = (a, b) => hav([a.lat, a.lon], [b.lat, b.lon]) / 1000;
+function parseKw(v){ const m = String(v||"").match(/([\d.,]+)\s*(kw|w)?/i); if(!m) return NaN; let n = parseFloat(m[1].replace(",", ".")); if(/^w$/i.test(m[2]||"") || (!m[2] && n > 1000)) n /= 1000; return n; }
+const SOCKETS = {type2_combo:"CCS", type2:"Tipo 2", chademo:"CHAdeMO", tesla_supercharger:"Tesla", tesla_destination:"Tesla destino", type2_cable:"Tipo 2", schuko:"Schuko", nacs:"Tesla"};
+async function findChargers(at, radiusKm=15){
+  const out = [];
+  if(cfg.ocmKey){
+    const j = await fetchJsonCors(`https://api.openchargemap.io/v3/poi/?output=json&latitude=${at.lat}&longitude=${at.lon}&distance=${radiusKm}&distanceunit=KM&maxresults=50&verbose=false&key=${encodeURIComponent(cfg.ocmKey)}`);
+    (Array.isArray(j) ? j : []).forEach(p=>{
+      const a = p.AddressInfo || {}, cons = p.Connections || [];
+      out.push({name:a.Title || "Posto de carregamento", op:p.OperatorInfo?.Title || "", lat:+a.Latitude, lon:+a.Longitude,
+        kw:Math.max(0, ...cons.map(c=>+c.PowerKW || 0)) || NaN, plugs:[...new Set(cons.map(c=>c.ConnectionType?.Title).filter(Boolean))].slice(0,3).join(" · "),
+        n:p.NumberOfPoints || cons.reduce((s,c)=>s+(+c.Quantity||1),0) || "", status:p.StatusType ? (p.StatusType.IsOperational === false ? "Fora de serviço" : "") : "",
+        addr:[a.AddressLine1, a.Town].filter(Boolean).join(", ")});
+    });
+  }
+  if(!out.length){
+    const q = `[out:json][timeout:20];nwr["amenity"="charging_station"](around:${radiusKm*1000},${at.lat},${at.lon});out center 80;`;
+    const j = await fetchJsonCors("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(q));
+    (j?.elements || []).forEach(e=>{
+      const t = e.tags || {}, lat = e.lat ?? e.center?.lat, lon = e.lon ?? e.center?.lon; if(!isFinite(lat)) return;
+      let kw = NaN; const plugs = new Set();
+      Object.keys(t).forEach(k=>{ const m = k.match(/^socket:([a-z0-9_]+)(:output)?$/); if(!m) return; if(m[2]) kw = Math.max(isFinite(kw) ? kw : 0, parseKw(t[k]) || 0) || kw; else if(t[k] !== "no" && t[k] !== "0") plugs.add(SOCKETS[m[1]] || m[1]); });
+      if(!isFinite(kw) && t["charging_station:output"]) kw = parseKw(t["charging_station:output"]);
+      if(!isFinite(kw) && /supercharger/i.test((t.brand||"") + (t.name||"") + (t.network||""))) kw = 150;
+      out.push({name:t.name || t.brand || t.operator || "Posto de carregamento", op:[t.operator, t.network].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(" · "), lat:+lat, lon:+lon, kw, plugs:[...plugs].slice(0,3).join(" · "), n:t.capacity || "", status:"", addr:[t["addr:street"], t["addr:city"]].filter(Boolean).join(", ")});
+    });
+  }
+  out.forEach(c=>{ c.km = kmBetween(at, c); c.full = [c.name, c.addr].filter(Boolean).join(", "); c.sub = [c.op, c.addr].filter(Boolean).join(" · "); });
+  return out.sort((a,b)=>a.km - b.km);
+}
+let chgWhere = "car";
+async function renderChargers(){
+  const at = chgWhere === "dest" && nv.dest ? nv.dest : (chgWhere === "stop" && renderChargers.at ? renderChargers.at : (nv.pos || (carPos().z > 7 ? carPos() : await nvOrigin())));
+  document.querySelectorAll("#chgWhere .tab").forEach(t=>t.setAttribute("aria-selected", t.dataset.w === chgWhere ? "true" : "false"));
+  $("chgWhere").querySelector('[data-w="dest"]').disabled = !nv.dest;
+  if(!at){ $("chgInfo").textContent = "Não sei onde está o carro."; return; }
+  $("chgInfo").textContent = "A procurar carregadores…"; $("chgList").innerHTML = "";
+  const min = +$("chgMin").value;
+  let list = await findChargers(at, 15);
+  const all = list.length;
+  list = list.filter(c => !min || !isFinite(c.kw) || c.kw >= min).sort((a,b)=> (min && isFinite(a.kw) !== isFinite(b.kw)) ? (isFinite(a.kw) ? -1 : 1) : a.km - b.km).slice(0, 40);
+  $("chgInfo").textContent = list.length ? `${list.length} postos num raio de 15 km${chgWhere === "dest" ? " do destino" : chgWhere === "stop" ? " da paragem sugerida" : " do carro"}. Fonte: ${cfg.ocmKey ? "Open Charge Map" : "OpenStreetMap"}.` : (all ? "Nenhum posto com essa potência. Escolhe “Todas as potências”." : "Não encontrei carregadores aqui.");
+  renderChargers.list = list;
+  $("chgList").innerHTML = list.map((c,i)=>`<div class="chg"><div class="chgkw${c.kw >= 100 ? " fast" : ""}">${isFinite(c.kw) ? Math.round(c.kw) : "?"}<small>kW</small></div>
+    <div class="chgt"><b>${esc(c.name)}</b><span>${esc([c.sub, c.plugs, c.n ? c.n + " pontos" : ""].filter(Boolean).join(" · "))}</span>${c.status ? `<span class="bad">${esc(c.status)}</span>` : ""}</div>
+    <div class="chgd">${c.km < 10 ? c.km.toLocaleString("pt-PT", {maximumFractionDigits:1}) : Math.round(c.km)} km</div>
+    <button class="btn primary" data-cg="${i}">Navegar</button></div>`).join("");
+  $("chgList").querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>openNav(renderChargers.list[+b.dataset.cg]));
+}
+document.querySelectorAll("#chgWhere .tab").forEach(t=>t.onclick=()=>{ chgWhere = t.dataset.w; renderChargers(); });
+$("chgMin").onchange = renderChargers;
+$("chgRefresh").onclick = renderChargers;
+$("nvChargers").onclick = ()=>{ chgWhere = nv.dest ? "dest" : "car"; show("chargers"); };
+
+/* ---------- Consumo e bateria (a partir dos dados da Tessie) ---------- */
+let effLoading = null;
+function tripModel(){
+  const eff = num(cfg.effWh, NaN) || LS.get("effWh", NaN) || 165;
+  const cap = num(cfg.capKwh, NaN) || LS.get("capKwh", NaN) || 75;
+  return {eff, cap, effAuto:!num(cfg.effWh, NaN) && isFinite(LS.get("effWh", NaN)), capAuto:!num(cfg.capKwh, NaN) && isFinite(LS.get("capKwh", NaN))};
+}
+function learnFromTessie(charges, drives){
+  const km = drives.reduce((s,d)=>s+num(d.odometer_distance,0),0), used = drives.reduce((s,d)=>s+num(d.energy_used,0),0);
+  if(km > 50 && used > 0) LS.set("effWh", Math.round(used*1000/km));
+  const caps = charges.filter(c=>num(c.ending_battery,0) - num(c.starting_battery,0) >= 20 && num(c.energy_added,0) > 5)
+    .map(c=>num(c.energy_added,0) / ((c.ending_battery - c.starting_battery)/100)).filter(v=>v > 30 && v < 120).sort((a,b)=>a-b);
+  if(caps.length) LS.set("capKwh", Math.round(caps[Math.floor(caps.length/2)]));
+}
+function ensureEff(){
+  if(effLoading || isFinite(LS.get("effWh", NaN))) return effLoading || Promise.resolve();
+  const vin = demo() ? "x" : cfg.vin, from = Math.floor(Date.now()/1000) - 30*86400, to = Math.floor(Date.now()/1000);
+  effLoading = Promise.all([tessie(vin+"/charges", {params:{distance_format:"km", from, to}}), tessie(vin+"/drives", {params:{distance_format:"km", from, to}})])
+    .then(([ch, dr])=>learnFromTessie(ch.results||[], dr.results||[])).catch(()=>{});
+  return effLoading;
+}
+
+/* ---------- Planeador: bateria à chegada e paragem de carga ---------- */
+async function renderTrip(){
+  const r = nv.r, box = $("nvTrip"); if(!r){ box.hidden = true; return; }
+  const soc = num(car?.charge_state?.battery_level, NaN);
+  if(!isFinite(soc)){ box.hidden = true; return; }
+  await ensureEff();
+  const m = tripModel(), reserve = num(cfg.reserve, 10);
+  const kmTotal = r.total/1000, kmLeft = Math.max(0, (r.total - nv.s)/1000);
+  const pct = km => km * m.eff / 1000 / m.cap * 100;
+  const arr = soc - pct(kmLeft), round = soc - pct(kmLeft + kmTotal);
+  box.hidden = false;
+  $("nvSocNow").textContent = Math.round(soc) + "%";
+  $("nvSocArr").textContent = arr < 0 ? "Não chega" : Math.round(arr) + "%";
+  $("nvSocArr").className = arr < reserve ? "bad" : arr < 20 ? "warn" : "";
+  $("nvSocRound").textContent = round < 0 ? "Não dá" : Math.round(round) + "%";
+  $("nvSocRound").className = round < reserve ? "warn" : "";
+  $("nvTripNote").textContent = `Com ${m.eff} Wh/km${m.effAuto ? " (o teu consumo dos últimos 30 dias)" : ""} e ${m.cap} kWh úteis${m.capAuto ? " (calculado pelas tuas cargas)" : ""}. Frio, chuva, autoestrada e subidas gastam mais.`;
+  $("nvStop").hidden = true;
+  if(arr >= reserve) return;
+  // Onde a bateria chega a reserva+5 %: procura um carregador rápido perto desse ponto do percurso.
+  const kmReach = Math.max(0, (soc - reserve - 5) / 100 * m.cap * 1000 / m.eff);
+  const sAt = Math.min(r.total, nv.s + kmReach*1000 * 0.85);
+  let i = r.cum.findIndex(c=>c >= sAt); if(i < 0) i = r.pts.length-1;
+  const at = {lat:r.pts[i][0], lon:r.pts[i][1]};
+  renderChargers.at = at;
+  $("nvStop").hidden = false; $("nvStopTxt").textContent = "A procurar um carregador rápido no caminho…"; $("nvStopGo").hidden = true;
+  const list = (await findChargers(at, 20)).filter(c=>isFinite(c.kw) && c.kw >= 50).sort((a,b)=>(b.kw >= 100) - (a.kw >= 100) || a.km - b.km);
+  const c = list[0];
+  if(!c){ $("nvStopTxt").textContent = `${arr < 0 ? "Não chegas ao destino sem carregar" : "Vais chegar com cerca de " + Math.round(arr) + "%"}. Não encontrei um carregador rápido perto do km ${Math.round(sAt/1000)}: carrega antes de sair.`; return; }
+  $("nvStopTxt").textContent = `${arr < 0 ? "Não chegas ao destino sem carregar" : "Vais chegar com cerca de " + Math.round(arr) + "%"}. Paragem sugerida perto do km ${Math.round(sAt/1000)}: ${c.name} (${Math.round(c.kw)} kW).`;
+  $("nvStopGo").hidden = false; $("nvStopGo").onclick = ()=>openNav(c);
+  $("nvStopMore").onclick = ()=>{ chgWhere = "stop"; show("chargers"); };
+}
+
+/* ---------- Tempo no percurso (Open-Meteo, grátis) ---------- */
+const WMO = c => c === 0 ? "☀️" : c <= 2 ? "🌤️" : c === 3 ? "☁️" : c <= 48 ? "🌫️" : c <= 57 ? "🌦️" : c <= 67 ? "🌧️" : c <= 77 ? "🌨️" : c <= 82 ? "🌧️" : c <= 86 ? "🌨️" : "⛈️";
+async function renderRouteWeather(){
+  const r = nv.r, box = $("nvWx"); if(!r){ box.hidden = true; return; }
+  const fr = r.total > 30000 ? [0, .33, .66, 1] : [0, 1];
+  const pts = fr.map(f=>{ let i = r.cum.findIndex(c=>c >= r.total*f); if(i < 0) i = r.pts.length-1; return {lat:r.pts[i][0], lon:r.pts[i][1], t:Date.now() + r.dur*f*1000, km:r.total*f/1000}; });
+  const j = await fetchJsonCors(`https://api.open-meteo.com/v1/forecast?latitude=${pts.map(p=>p.lat.toFixed(3)).join(",")}&longitude=${pts.map(p=>p.lon.toFixed(3)).join(",")}&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m&forecast_days=3&timezone=auto`);
+  const arr = Array.isArray(j) ? j : j ? [j] : [];
+  if(arr.length !== pts.length){ box.hidden = true; return; }
+  const rows = pts.map((p,k)=>{
+    const h = arr[k].hourly, off = (arr[k].utc_offset_seconds||0)*1000;
+    let best = 0, bd = Infinity; h.time.forEach((t,i)=>{ const d = Math.abs(Date.parse(t + ":00Z") - off - p.t); if(d < bd){ bd = d; best = i; } });
+    return {label: k === 0 ? "Agora" : k === pts.length-1 ? "Chegada" : "km " + Math.round(p.km), hour: hm(p.t), ico: WMO(h.weather_code[best]), temp: Math.round(h.temperature_2m[best]), rain: h.precipitation_probability?.[best] ?? 0, wind: Math.round(h.wind_speed_10m?.[best] ?? 0)};
+  });
+  box.hidden = false;
+  $("nvWxList").innerHTML = rows.map(w=>`<div class="wx"><span class="small muted">${esc(w.label)} · ${w.hour}</span><b>${w.ico} ${w.temp}°</b><span class="small${w.rain >= 50 ? " warnt" : " muted"}">💧 ${w.rain}% · 💨 ${w.wind} km/h</span></div>`).join("");
+  const wet = rows.some(w=>w.rain >= 60), cold = rows.some(w=>w.temp <= 8);
+  $("nvWxNote").textContent = wet ? "Chuva provável no caminho: conta com mais consumo." : cold ? "Vai estar frio: pré-aquece o carro ligado à corrente para poupar bateria." : "";
+}
+
+/* ---------- Previsão de produção solar ---------- */
+async function renderSolarForecast(){
+  const ok = isFinite(num(cfg.homeLat, NaN)) && num(cfg.kwp, 0) > 0;
+  $("fcSetup").hidden = ok; $("fcBody").hidden = !ok;
+  if(!ok) return;
+  const cache = LS.get("solarFc", null);
+  let j = cache && Date.now() - cache.t < 3*3600e3 && cache.k === cfg.homeLat + "," + cfg.homeLon + "," + cfg.tilt + "," + cfg.azim ? cache.j : null;
+  if(!j){
+    j = await fetchJsonCors(`https://api.open-meteo.com/v1/forecast?latitude=${num(cfg.homeLat,0)}&longitude=${num(cfg.homeLon,0)}&hourly=global_tilted_irradiance,cloud_cover&tilt=${num(cfg.tilt,30)}&azimuth=${num(cfg.azim,0)}&forecast_days=2&timezone=Europe%2FLisbon`);
+    if(!j?.hourly){ $("fcAdvice").textContent = "Não consegui obter a previsão do tempo."; return; }
+    LS.set("solarFc", {t:Date.now(), k:cfg.homeLat + "," + cfg.homeLon + "," + cfg.tilt + "," + cfg.azim, j});
+  }
+  const kwp = num(cfg.kwp, 0), pr = 0.8, house = num(cfg.houseW, 600)/1000, minKw = 230 * (+cfg.phases || 1) * 6 / 1000;
+  const days = [0, 1].map(d=>{
+    const hrs = j.hourly.time.map((t,i)=>({h:+t.slice(11,13), day:t.slice(0,10), kw:(j.hourly.global_tilted_irradiance[i]||0)/1000*kwp*pr, cloud:j.hourly.cloud_cover?.[i] ?? 0}))
+      .filter(x=>x.day === j.hourly.time[d*24].slice(0,10));
+    const kwh = hrs.reduce((s,x)=>s+x.kw, 0);
+    const good = hrs.filter(x=>x.kw - house >= minKw);
+    let win = null, cur = null; good.forEach(x=>{ if(cur && x.h === cur.b+1){ cur.b = x.h; cur.kwh += x.kw - house; } else { cur = {a:x.h, b:x.h, kwh:x.kw - house}; } if(!win || cur.kwh > win.kwh) win = {...cur}; });
+    return {hrs, kwh, win};
+  });
+  const [today, tom] = days;
+  $("fcToday").textContent = kwhFmt(today.kwh);
+  $("fcTom").textContent = kwhFmt(tom.kwh);
+  $("fcWin").textContent = tom.win ? `${tom.win.a}h–${tom.win.b+1}h` : "—";
+  const max = Math.max(...tom.hrs.map(x=>x.kw), 0.1);
+  $("fcBars").innerHTML = tom.hrs.filter(x=>x.h >= 6 && x.h <= 21).map(x=>`<div class="fcb${tom.win && x.h >= tom.win.a && x.h <= tom.win.b ? " on" : ""}" title="${x.h}h · ${x.kw.toFixed(1)} kW"><i style="height:${Math.max(2, x.kw/max*100)}%"></i><small>${x.h}</small></div>`).join("");
+  const free = tom.win ? tom.win.kwh : 0, km = Math.round(free*1000/tripModel().eff);
+  $("fcAdvice").textContent = free >= 6
+    ? `Amanhã compensa carregar com sol: deixa o carro ligado entre as ${tom.win.a}h e as ${tom.win.b+1}h. Excedente de cerca de ${kwhFmt(free)} (≈ ${km} km).`
+    : free >= 2 ? `Amanhã o sol só dá para uma carga curta (${kwhFmt(free)} entre as ${tom.win.a}h e as ${tom.win.b+1}h). Se precisares de mais, carrega no horário mais barato da rede.`
+    : "Amanhã há pouco sol para carregar. Se precisares de bateria, carrega no horário mais barato da rede.";
+  if(pvState && isFinite(pvState.today) && new Date().getHours() >= 18 && today.kwh > 1){
+    const f = pvState.today / today.kwh; $("fcCal").textContent = `Hoje a Growatt registou ${kwhFmt(pvState.today)} para ${kwhFmt(today.kwh)} previstos (${Math.round(f*100)}%). Se a diferença se repetir, ajusta a potência instalada.`;
+  } else $("fcCal").textContent = "";
+}
+$("btnHomeHere").onclick = async ()=>{
+  const p = carPos(); let g = p.z > 7 ? p : await nvOrigin();
+  if(!g){ toast("Não sei onde está o carro.", true); return; }
+  $("setHomeLat").value = (+g.lat).toFixed(4); $("setHomeLon").value = (+g.lon).toFixed(4); toast("Posição do carro copiada. Carrega em Guardar Energia.");
+};
+
+/* ---------- Jogos ---------- */
+const GAMES_LOCAL = [
+  {id:"g2048", name:"2048", desc:"Junta os números até chegar a 2048", ico:"🔢"},
+  {id:"mem", name:"Memória", desc:"Encontra os pares no menor número de jogadas", ico:"🃏"},
+  {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕"},
+  {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍"}
+];
+const GAMES_ONLINE = [
+  {name:"Lichess", desc:"Xadrez grátis e sem anúncios", ico:"♟️", url:"https://lichess.org/"},
+  {name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
+  {name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"},
+  {name:"Sudoku.com", desc:"Sudoku de vários níveis", ico:"🧩", url:"https://sudoku.com/"}
+];
+const gamesLocked = () => !cfg.passenger && !demo() && ["D","R","N"].includes(car?.drive_state?.shift_state);
+let gmCleanup = [];
+function gmExit(){ gmCleanup.forEach(f=>{ try{ f(); }catch(e){} }); gmCleanup = []; $("gmStage").hidden = true; $("gmStage").innerHTML = ""; $("gmHub").hidden = false; $("gmBack").hidden = true; }
+function renderGames(){
+  const lock = gamesLocked();
+  $("gmLock").hidden = !lock;
+  if(lock) gmExit();
+  const tile = (g, attr) => `<button class="apptile" ${attr} ${lock ? "disabled" : ""}><span class="appicon" style="font-size:30px">${g.ico}</span><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`;
+  $("gmLocal").innerHTML = GAMES_LOCAL.map(g=>tile(g, `data-gm="${g.id}"`)).join("");
+  $("gmOnline").innerHTML = GAMES_ONLINE.map((g,i)=>tile(g, `data-go="${i}"`)).join("");
+  $("gmLocal").querySelectorAll("[data-gm]").forEach(b=>b.onclick=()=>gmStart(b.dataset.gm));
+  $("gmOnline").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ if(gamesLocked()) return renderGames(); const g = GAMES_ONLINE[+b.dataset.go]; cfg.appsIn ? openInApp(g.name, g.url, g.url, {hint:"Se ficar em branco, toca em “Abrir fora”"}) : openExt(g.url); });
+}
+setInterval(()=>{ if(currentView === "games" && gamesLocked() && $("gmLock").hidden) renderGames(); }, 5000);
+$("gmBack").onclick = gmExit;
+function gmStart(id){
+  if(gamesLocked()) return renderGames();
+  gmExit(); $("gmHub").hidden = true; $("gmBack").hidden = false; $("gmStage").hidden = false;
+  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake})[id]($("gmStage"));
+}
+function gmKeys(fn){ const h = e => { const d = {ArrowLeft:"l", ArrowRight:"r", ArrowUp:"u", ArrowDown:"d"}[e.key]; if(d){ e.preventDefault(); fn(d); } }; document.addEventListener("keydown", h); gmCleanup.push(()=>document.removeEventListener("keydown", h)); }
+function gmSwipe(el, fn){ let s = null;
+  el.addEventListener("pointerdown", e=>{ s = [e.clientX, e.clientY]; });
+  el.addEventListener("pointerup", e=>{ if(!s) return; const dx = e.clientX-s[0], dy = e.clientY-s[1]; s = null; if(Math.max(Math.abs(dx), Math.abs(dy)) < 30) return; fn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "r" : "l") : (dy > 0 ? "d" : "u")); }); }
+const gmBar = (items) => `<div class="gmbar">${items}</div>`;
+const gmStat = (label, id, v) => `<div class="stat"><span>${label}</span><b id="${id}">${v}</b></div>`;
+
+function game2048(st){
+  let b, score, best = +LS.get("g2048best", 0);
+  st.innerHTML = gmBar(gmStat("Pontos","g2s",0) + gmStat("Recorde","g2b",best) + `<button class="btn primary" id="g2new">Novo jogo</button>`) + `<div class="g2048" id="g2grid"></div><p class="small muted" style="margin:0">Desliza o dedo ou usa as setas.</p>`;
+  const grid = $("g2grid");
+  const add = () => { const e = b.map((v,i)=>v ? -1 : i).filter(i=>i >= 0); if(e.length) b[e[Math.floor(Math.random()*e.length)]] = Math.random() < .9 ? 2 : 4; };
+  const draw = () => {
+    grid.innerHTML = b.map(v=>{ const lg = v ? Math.log2(v) : 0; return `<div style="${v ? `background:color-mix(in srgb, var(--accent) ${Math.min(100, lg*9)}%, var(--panel));color:${lg >= 7 ? "var(--accent-ink)" : "var(--fg)"}` : ""}">${v || ""}</div>`; }).join("");
+    $("g2s").textContent = score; if(score > best){ best = score; LS.set("g2048best", best); } $("g2b").textContent = best;
+  };
+  const lines = { l:[0,1,2,3].map(r=>[0,1,2,3].map(c=>r*4+c)), r:[0,1,2,3].map(r=>[3,2,1,0].map(c=>r*4+c)), u:[0,1,2,3].map(c=>[0,1,2,3].map(r=>r*4+c)), d:[0,1,2,3].map(c=>[3,2,1,0].map(r=>r*4+c)) };
+  const canMove = () => b.includes(0) || b.some((v,i)=>(i%4 < 3 && v === b[i+1]) || (i < 12 && v === b[i+4]));
+  const move = dir => {
+    let moved = false;
+    lines[dir].forEach(line=>{
+      const vals = line.map(i=>b[i]).filter(Boolean), out = [];
+      for(let i=0; i<vals.length; i++){ if(vals[i] === vals[i+1]){ out.push(vals[i]*2); score += vals[i]*2; i++; } else out.push(vals[i]); }
+      while(out.length < 4) out.push(0);
+      line.forEach((idx,k)=>{ if(b[idx] !== out[k]) moved = true; b[idx] = out[k]; });
+    });
+    if(moved){ add(); draw(); if(b.includes(2048) && !st._won){ st._won = true; toast("Chegaste aos 2048! 🎉"); } if(!canMove()) toast("Fim de jogo. Pontos: " + score); }
+  };
+  const reset = () => { b = Array(16).fill(0); score = 0; st._won = false; add(); add(); draw(); };
+  $("g2new").onclick = reset; gmKeys(move); gmSwipe(grid, move); reset();
+}
+function gameMemory(st){
+  const EM = ["🚗","⚡","☀️","🎵","🌊","🍕","🚀","🐬"];
+  let cards, open, moves, found, lock, best = +LS.get("memBest", 0);
+  st.innerHTML = gmBar(gmStat("Jogadas","gmMv",0) + gmStat("Recorde","gmBest",best || "--") + `<button class="btn primary" id="gmNew">Novo jogo</button>`) + `<div class="gmem" id="gmGrid"></div>`;
+  const draw = () => {
+    $("gmGrid").innerHTML = cards.map((e,i)=>`<button data-c="${i}" class="${found.has(e) ? "ok" : open.includes(i) ? "up" : ""}" aria-label="Carta">${found.has(e) || open.includes(i) ? `<span>${e}</span>` : ""}</button>`).join("");
+    $("gmMv").textContent = moves;
+    $("gmGrid").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>flip(+b.dataset.c));
+  };
+  const flip = i => {
+    if(lock || open.includes(i) || found.has(cards[i])) return;
+    open.push(i); draw();
+    if(open.length === 2){
+      moves++; lock = true;
+      setTimeout(()=>{
+        if(cards[open[0]] === cards[open[1]]) found.add(cards[open[0]]);
+        open = []; lock = false; draw();
+        if(found.size === EM.length){ if(!best || moves < best){ best = moves; LS.set("memBest", best); } $("gmBest").textContent = best; toast("Muito bem! " + moves + " jogadas."); }
+      }, cards[open[0]] === cards[open[1]] ? 350 : 900);
+    }
+  };
+  const reset = () => { cards = [...EM, ...EM].sort(()=>Math.random()-.5); open = []; moves = 0; found = new Set(); lock = false; draw(); };
+  $("gmNew").onclick = reset; reset();
+}
+function gameTtt(st){
+  let b, over, tally = LS.get("tttTally", {w:0, d:0, l:0});
+  st.innerHTML = gmBar(gmStat("Vitórias","tW",tally.w) + gmStat("Empates","tD",tally.d) + gmStat("Derrotas","tL",tally.l) + `<button class="btn primary" id="tNew">Novo jogo</button>`) + `<div class="gttt" id="tGrid"></div><p class="small muted" id="tMsg" style="margin:0">Tu és o ✕.</p>`;
+  const W = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const win = s => W.find(w=>s[w[0]] && s[w[0]] === s[w[1]] && s[w[1]] === s[w[2]]);
+  const mm = (s, p) => { const w = win(s); if(w) return s[w[0]] === "O" ? 10 : -10; if(!s.includes("")) return 0;
+    let best = p === "O" ? -99 : 99; s.forEach((v,i)=>{ if(v) return; s[i] = p; const sc = mm(s, p === "O" ? "X" : "O"); s[i] = ""; best = p === "O" ? Math.max(best, sc) : Math.min(best, sc); }); return best; };
+  const cpu = () => { const free = b.map((v,i)=>v ? -1 : i).filter(i=>i >= 0); if(Math.random() < .2) return free[Math.floor(Math.random()*free.length)];
+    let bi = free[0], bs = -99; free.forEach(i=>{ b[i] = "O"; const sc = mm(b, "X"); b[i] = ""; if(sc > bs){ bs = sc; bi = i; } }); return bi; };
+  const end = r => { over = true; tally[r]++; LS.set("tttTally", tally); $("tW").textContent = tally.w; $("tD").textContent = tally.d; $("tL").textContent = tally.l;
+    $("tMsg").textContent = r === "w" ? "Ganhaste! 🎉" : r === "l" ? "O Cockpit ganhou." : "Empate."; };
+  const draw = () => { $("tGrid").innerHTML = b.map((v,i)=>`<button data-t="${i}" class="${v === "O" ? "o" : ""}" aria-label="Casa ${i+1}">${v === "X" ? "✕" : v === "O" ? "○" : ""}</button>`).join("");
+    $("tGrid").querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>play(+x.dataset.t)); };
+  const play = i => {
+    if(over || b[i]) return; b[i] = "X"; draw();
+    if(win(b)) return end("w"); if(!b.includes("")) return end("d");
+    setTimeout(()=>{ b[cpu()] = "O"; draw(); if(win(b)) return end("l"); if(!b.includes("")) end("d"); }, 300);
+  };
+  const reset = () => { b = Array(9).fill(""); over = false; $("tMsg").textContent = "Tu és o ✕."; draw(); };
+  $("tNew").onclick = reset; reset();
+}
+function gameSnake(st){
+  const N = 20; let snake, dir, nextDir, food, score, timer, best = +LS.get("snakeBest", 0), paused = false;
+  st.innerHTML = gmBar(gmStat("Pontos","snS",0) + gmStat("Recorde","snB",best) + `<button class="btn primary" id="snNew">Novo jogo</button><button class="btn" id="snPause">Pausa</button>`) +
+    `<canvas class="gsnake" id="snC" width="600" height="600"></canvas><div class="gpad"><span></span><button class="btn" data-d="u">▲</button><span></span><button class="btn" data-d="l">◀</button><button class="btn" data-d="d">▼</button><button class="btn" data-d="r">▶</button></div>`;
+  const c = $("snC"), x = c.getContext("2d"), cs = c.width / N;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const turn = d => { const opp = {l:"r", r:"l", u:"d", d:"u"}; if(d !== opp[dir]) nextDir = d; };
+  const place = () => { do{ food = [Math.floor(Math.random()*N), Math.floor(Math.random()*N)]; }while(snake.some(p=>p[0] === food[0] && p[1] === food[1])); };
+  const draw = () => {
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = css("--warn"); x.beginPath(); x.arc((food[0]+.5)*cs, (food[1]+.5)*cs, cs*.38, 0, 7); x.fill();
+    x.fillStyle = css("--accent"); snake.forEach((p,i)=>{ x.globalAlpha = i ? .8 : 1; x.fillRect(p[0]*cs+2, p[1]*cs+2, cs-4, cs-4); }); x.globalAlpha = 1;
+    $("snS").textContent = score; $("snB").textContent = best;
+  };
+  const step = () => {
+    if(paused) return; dir = nextDir;
+    const h = snake[0], n = [h[0] + (dir === "r") - (dir === "l"), h[1] + (dir === "d") - (dir === "u")];
+    if(n[0] < 0 || n[1] < 0 || n[0] >= N || n[1] >= N || snake.some(p=>p[0] === n[0] && p[1] === n[1])){ clearInterval(timer); toast("Fim de jogo. Pontos: " + score); return; }
+    snake.unshift(n);
+    if(n[0] === food[0] && n[1] === food[1]){ score++; if(score > best){ best = score; LS.set("snakeBest", best); } place(); } else snake.pop();
+    draw();
+  };
+  const reset = () => { clearInterval(timer); snake = [[8,10],[7,10],[6,10]]; dir = nextDir = "r"; score = 0; paused = false; $("snPause").textContent = "Pausa"; place(); draw(); timer = setInterval(step, 150); };
+  $("snNew").onclick = reset;
+  $("snPause").onclick = () => { paused = !paused; $("snPause").textContent = paused ? "Continuar" : "Pausa"; };
+  st.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>turn(b.dataset.d));
+  gmKeys(turn); gmSwipe(c, turn);
+  gmCleanup.push(()=>clearInterval(timer));
+  reset();
+}
 
 /* ---------- Layout "Condução" (estilo Android Auto) ---------- */
 if(!cfg.layout) cfg.layout = "classic";
@@ -2528,7 +3241,7 @@ function buildLauncher(){
   const allowed = v => !cfg.passenger || ["tv","media","apps"].includes(v);
   const views = [...document.querySelectorAll(".rail .nav")].filter(n=>!["launcher","home"].includes(n.dataset.view) && allowed(n.dataset.view))
     .map(n=>({kind:"view", id:n.dataset.view, svg:n.querySelector("svg").outerHTML, label:n.querySelector("span").textContent}));
-  const apps = [["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
+  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
   const all = [...views, ...apps];
   $("launcherGrid").innerHTML = all.map((t,i)=>`<button class="ltile" data-li="${i}"><span class="lic">${t.svg}</span><span>${esc(t.label)}</span></button>`).join("");
   $("launcherGrid").querySelectorAll("[data-li]").forEach(b=>b.onclick=()=>{ const t = all[+b.dataset.li]; t.kind==="view" ? show(t.id) : openApp(t.id); });
@@ -2581,6 +3294,8 @@ setInterval(()=>{ if(!document.hidden && currentView === "home"){ loadState(); i
 /* ---------- Interface em PT / EN / FR ---------- */
 const I18N_PAIRS = [
 // [português, english, français]
+["Carregadores","Chargers","Bornes"],["Postos perto do carro ou do destino","Stations near the car or destination","Bornes près de la voiture ou de la destination"],["Perto do carro","Near the car","Près de la voiture"],["Perto do destino","Near destination","Près de la destination"],["Todas as potências","Any power","Toutes puissances"],["Navegar","Navigate","Naviguer"],["A procurar carregadores…","Searching for chargers…","Recherche de bornes…"],["Bateria","Battery","Batterie"],["Agora","Now","Maintenant"],["À chegada","On arrival","À l'arrivée"],["Ida e volta","Round trip","Aller-retour"],["Não chega","Not enough","Insuffisant"],["Não dá","Not enough","Insuffisant"],["Navegar para o carregador","Navigate to charger","Naviguer vers la borne"],["Ver mais carregadores","More chargers","Plus de bornes"],["Tempo no percurso","Weather on route","Météo sur le trajet"],["Chegada","Arrival","Arrivée"],["Previsão solar","Solar forecast","Prévision solaire"],["Hoje (previsto)","Today (forecast)","Aujourd'hui (prévu)"],["Amanhã","Tomorrow","Demain"],["Melhor janela amanhã","Best window tomorrow","Meilleur créneau demain"],["Para a previsão, põe a potência instalada (kWp) e a localização da casa em Definições › Energia.","For the forecast, set the installed power (kWp) and home location in Settings › Energy.","Pour la prévision, indique la puissance installée (kWc) et l'emplacement de la maison dans Réglages › Énergie."],["Potência instalada (kWp)","Installed power (kWp)","Puissance installée (kWc)"],["Inclinação dos painéis (°)","Panel tilt (°)","Inclinaison des panneaux (°)"],["Orientação (0 = sul, −90 = este, 90 = oeste)","Orientation (0 = south, −90 = east, 90 = west)","Orientation (0 = sud, −90 = est, 90 = ouest)"],["Latitude da casa","Home latitude","Latitude de la maison"],["Longitude da casa","Home longitude","Longitude de la maison"],["Usar a posição do carro","Use car position","Utiliser la position de la voiture"],["Bateria útil (kWh, vazio = automático)","Usable battery (kWh, empty = automatic)","Batterie utile (kWh, vide = automatique)"],["Consumo (Wh/km, vazio = automático)","Consumption (Wh/km, empty = automatic)","Consommation (Wh/km, vide = automatique)"],["Reserva mínima (%)","Minimum reserve (%)","Réserve minimale (%)"],["Chave Open Charge Map (opcional, dá mais detalhe aos carregadores)","Open Charge Map key (optional, more charger detail)","Clé Open Charge Map (facultative, plus de détails)"],
+["Navegação","Navigation","Navigation"],["Percurso e indicações dentro do Cockpit","Route and directions inside Cockpit","Itinéraire et indications dans Cockpit"],["Jogos","Games","Jeux"],["Jogos grátis, só com o carro parado","Free games, only while parked","Jeux gratuits, seulement à l'arrêt"],["Trânsito Waze","Waze traffic","Trafic Waze"],["Chegada","Arrival","Arrivée"],["Distância","Distance","Distance"],["Tempo","Time","Durée"],["Iniciar navegação","Start navigation","Démarrer la navigation"],["Terminar","End","Terminer"],["Recente","Recent","Récent"],["Escreve uma morada. O percurso é calculado aqui e segue a posição do carro.","Type an address. The route is calculated here and follows the car's position.","Saisis une adresse. L'itinéraire est calculé ici et suit la position de la voiture."],["A procurar…","Searching…","Recherche…"],["A calcular o percurso…","Calculating route…","Calcul de l'itinéraire…"],["A recalcular o percurso…","Recalculating route…","Recalcul de l'itinéraire…"],["Percurso recalculado.","Route recalculated.","Itinéraire recalculé."],["Não consegui calcular o percurso.","Couldn't calculate the route.","Impossible de calculer l'itinéraire."],["◀ Jogos","◀ Games","◀ Jeux"],["No Cockpit (sem anúncios, funcionam offline)","In Cockpit (no ads, work offline)","Dans Cockpit (sans pub, hors ligne)"],["Online grátis","Free online","Gratuits en ligne"],["Os jogos ficam bloqueados com o carro em andamento. Põe em P (ou usa o modo passageiro no telemóvel).","Games are locked while the car is moving. Shift to P (or use passenger mode on a phone).","Les jeux sont bloqués pendant la conduite. Passe en P (ou utilise le mode passager sur un téléphone)."],["Pontos","Score","Points"],["Recorde","Best","Record"],["Novo jogo","New game","Nouvelle partie"],["Jogadas","Moves","Coups"],["Vitórias","Wins","Victoires"],["Empates","Draws","Nuls"],["Derrotas","Losses","Défaites"],["Pausa","Pause","Pause"],["Continuar","Resume","Reprendre"],["Desliza o dedo ou usa as setas.","Swipe or use the arrow keys.","Glisse le doigt ou utilise les flèches."],["Tu és o ✕.","You are ✕.","Tu es ✕."],["Ganhaste! 🎉","You won! 🎉","Tu as gagné ! 🎉"],["O Cockpit ganhou.","Cockpit won.","Cockpit a gagné."],["Empate.","Draw.","Match nul."],["Memória","Memory","Mémoire"],["Jogo do galo","Tic-tac-toe","Morpion"],["Cobra","Snake","Serpent"],["Junta os números até chegar a 2048","Merge numbers to reach 2048","Fusionne les nombres jusqu'à 2048"],["Encontra os pares no menor número de jogadas","Find the pairs in as few moves as possible","Trouve les paires en un minimum de coups"],["Contra o Cockpit","Against Cockpit","Contre Cockpit"],["O clássico, com toque ou setas","The classic, with touch or arrows","Le classique, au toucher ou aux flèches"],["Xadrez grátis e sem anúncios","Free chess, no ads","Échecs gratuits, sans pub"],["Centenas de jogos grátis no browser","Hundreds of free browser games","Des centaines de jeux gratuits"],["Jogos grátis, sem instalar nada","Free games, nothing to install","Jeux gratuits, rien à installer"],["Sudoku de vários níveis","Sudoku at several levels","Sudoku de plusieurs niveaux"],["Centrar no carro","Centre on car","Centrer sur la voiture"],
 ["Efeitos de transição entre menus","Transition effects between menus","Effets de transition entre les menus"],
 ["◀ Voltar","◀ Back","◀ Retour"],["Recarregar","Reload","Recharger"],["Abrir fora","Open outside","Ouvrir à l'extérieur"],["Abrir dentro do Cockpit","Open inside Cockpit","Ouvrir dans Cockpit"],["Fora: em ecrã inteiro (truque do YouTube)","Outside: full screen (YouTube trick)","À l'extérieur : plein écran (astuce YouTube)"],["Trânsito e alertas em tempo real","Live traffic and alerts","Trafic et alertes en direct"],["Mapa à volta do carro","Map around the car","Carte autour de la voiture"],["Percurso desde o carro","Route from the car","Itinéraire depuis la voiture"],["Trânsito no destino","Traffic at destination","Trafic à destination"],["Se ficar em branco, toca em “Abrir fora”","If it stays blank, tap “Open outside”","Si la page reste vide, touche « Ouvrir à l'extérieur »"],
 ["Início","Home","Accueil"],["Todas as apps","All apps","Toutes les apps"],["Navegação","Navigation","Navigation"],["Para onde vamos?","Where to?","On va où ?"],["Ir","Go","Aller"],["Mais apps","More apps","Plus d'apps"],["A tocar","Now playing","En cours"],["Abrir","Open","Ouvrir"],["Nada a tocar","Nothing playing","Rien en lecture"],["Escolhe uma rádio ou um canal","Pick a radio or a channel","Choisis une radio ou une chaîne"],["■ Parar","■ Stop","■ Arrêter"],["Sol e carga","Sun and charging","Soleil et recharge"],["Solar agora","Solar now","Solaire maintenant"],["Carga","Charging","Recharge"],["Layout","Layout","Disposition"],["Clássico","Classic","Classique"],["Condução","Driving","Conduite"],["Menu com texto e painéis","Text menu and panels","Menu texte et panneaux"],["Inspirado no Android Auto: ícones grandes e ecrã de início","Inspired by Android Auto: big icons and a home screen","Inspiré d'Android Auto : grandes icônes et écran d'accueil"],["Os destinos recentes aparecem aqui.","Recent destinations show up here.","Les destinations récentes s'affichent ici."],["Rádio","Radio","Radio"],["TV só áudio","TV audio only","TV audio seul"],
@@ -2733,7 +3448,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; $("setAutoAudio").checked=!!cfg.autoAudio; }
+function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -2751,7 +3466,7 @@ $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=J
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
 
 /* ---------- arranque ---------- */
-function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
+function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
 $("btnSetPin").onclick = async ()=>{
   if(!(await requirePin("PIN atual"))) return;
   const a = await askPin("Novo PIN", "Escolhe 4 a 8 dígitos."); if(a==null) return;
