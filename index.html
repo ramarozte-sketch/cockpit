@@ -2348,6 +2348,7 @@ function renderSolar(){
   $("pvAmps").textContent = s ? (s.amps >= 5 ? s.amps + " A" : "insuficiente") : "--";
   $("pvApply").disabled = !(s && s.amps >= 5);
   $("pvUpdated").textContent = "Atualizado " + hm(pvState.t) + (pvState.upd ? " · Growatt " + String(pvState.upd).slice(11,16) : "");
+  if(cfg.gwUnit !== "kW" && pvState.w > 0 && pvState.w < 30 && pvState.today >= 1) $("pvUpdated").textContent = "Valor muito baixo (" + pvState.w + " W): a Growatt deve devolver kW. Muda a unidade para kW em Definições › Energia.";
 }
 function isCharging(cs){
   cs = cs || {};
@@ -2408,7 +2409,7 @@ async function loadEnergy(){
       return `<tr><td>${new Date(c.started_at*1000).toLocaleDateString("pt-PT",{day:"2-digit",month:"short"})} ${hm(c.started_at*1000)}</td><td class="loc">${esc(c.location||"—")}${c.is_supercharger?'<span class="tag">Supercharger</span>':""}</td><td>${c.starting_battery ?? "?"}% → ${c.ending_battery ?? "?"}%</td><td>${kwhFmt(num(c.energy_added,NaN))}</td><td>${eur(cc)}</td></tr>`;
     }).join("") || `<tr><td colspan="5" class="muted">Sem carregamentos nos últimos 30 dias.</td></tr>`;
     if(sc){ const d = num(sc.distance_driven,0)*MI, e = num(sc.energy_used,NaN);
-      $("scKm").textContent = Math.round(d) + " km"; $("scKwh").textContent = kwhFmt(e); $("scEff").textContent = d > 1 && isFinite(e) ? Math.round(e*1000/d) + " Wh/km" : "--"; }
+      $("scKm").textContent = Math.round(d) + " km"; $("scKwh").textContent = kwhFmt(isFinite(e) ? Math.max(0, e) : e); $("scEff").textContent = d > 1 && isFinite(e) ? Math.round(e*1000/d) + " Wh/km" : "--"; }
   }catch(e){ $("enNote").textContent = "Tessie: " + e.message; }
 }
 $("enRefresh").onclick = ()=>{ growattFetch(true).then(renderSolar).catch(e=>{ $("pvUpdated").textContent = "Growatt: "+e.message; }); loadState().then(renderLiveCharge); loadEnergy(); };
