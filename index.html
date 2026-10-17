@@ -828,7 +828,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <div class="small muted" style="margin-top:8px">Acelerador</div><div class="engbar"><i id="engBar"></i></div>
         <div class="small muted" id="engInfo" style="margin-top:10px"></div>
       </div>
-      <div class="panel"><div class="small muted" style="margin-bottom:8px">Som</div><div class="row" id="engProf" style="flex-wrap:wrap"></div></div>
+      <div class="panel"><div class="small muted" style="margin-bottom:8px">Som</div><div class="row" id="engProf" style="flex-wrap:wrap"></div><div class="row" style="margin-top:10px"><button class="btn primary" id="engPrev">🔊 Ouvir demonstração</button><span class="small muted">Experimenta o som escolhido a acelerar e a mudar de caixa.</span></div></div>
       <div class="panel">
         <div class="small muted" style="margin-bottom:6px">Sons reais (opcional)</div>
         <p class="small muted" style="margin:0 0 8px">Para o som de um carro verdadeiro, usa gravações de motor em loop (.mp3, .wav ou .ogg). Podes usar um só ficheiro (o tom acompanha a rotação) ou um pacote .json com vários loops a rotações diferentes, que soa mais natural.</p>
@@ -848,7 +848,6 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <label class="f small">Velocidade <b id="engSimVL">0 km/h</b><input type="range" id="engSimV" min="0" max="250" value="0" style="width:100%"></label>
           <label class="f small">Pedal <b id="engSimPL">0 %</b><input type="range" id="engSimP" min="0" max="100" value="0" style="width:100%"></label>
         </div>
-        <div class="row"><button class="btn" id="engPrev">🔊 Ouvir demonstração</button></div>
         <p class="small muted">O som é sintetizado no ecrã a partir da velocidade, potência e aceleração do carro. O Tessie atualiza a cada 1–3 s, por isso a reação ao pedal tem pequeno atraso e é suavizada. O som só se ouve dentro do carro. Usa com o carro parado ou em segurança.</p>
       </div>
     </section>
@@ -4177,7 +4176,17 @@ const ENG_PROFILES = {
   v6t: {name:"V6 turbo", ico:"🌀", cyl:6, idle:800, red:6800, gears:[45,75,105,138,172,205,240,285], layers:[["sawtooth",1,.45],["square",.5,.18],["sawtooth",2,.2],["sine",3,.1]], cut:[600,6400], drive:1.7, noise:.45, pop:.4, lump:.15, turbo:1},
   v12: {name:"V12 clássico", ico:"🎻", cyl:12, idle:850, red:8400, gears:[55,95,135,180,230,285,335], layers:[["sawtooth",1,.34],["triangle",.5,.2],["sawtooth",2,.2],["sine",3,.16],["triangle",4,.1]], cut:[900,9000], drive:1.2, noise:.3, pop:.3, lump:0, turbo:0},
   b4:  {name:"Desportivo 4 cil.", ico:"🔧", cyl:4, idle:900, red:7400, gears:[40,68,98,132,170,210], layers:[["sawtooth",1,.5],["square",1,.18],["sawtooth",2,.3]], cut:[700,6200], drive:2.1, noise:.5, pop:.8, lump:.1, turbo:0},
-  ev:  {name:"Futurista", ico:"⚡", gearless:true, layers:[["sine",1,.5],["triangle",2,.22],["sine",3,.1],["sine",4.02,.06]], cut:[900,7500], drive:.8, noise:.12, pop:0, lump:0, turbo:0}
+  ev:  {name:"Futurista", ico:"⚡", gearless:true, layers:[["sine",1,.5],["triangle",2,.22],["sine",3,.1],["sine",4.02,.06]], cut:[900,7500], drive:.8, noise:.12, pop:0, lump:0, turbo:0},
+  f8:  {name:"V8 Ferrari", ico:"🐎", cyl:8, idle:1000, red:9000, gears:[55,92,130,170,215,265,320], layers:[["sawtooth",1,.45],["sawtooth",2,.3],["square",3,.12],["triangle",4,.08]], cut:[900,9500], drive:1.4, noise:.35, pop:.5, lump:.05, turbo:0},
+  v10: {name:"V10 F1", ico:"🏎️", cyl:10, idle:1400, red:12000, gears:[60,100,140,185,235,290,345,390], layers:[["sawtooth",1,.4],["sawtooth",2,.3],["square",3,.1],["sine",4,.1]], cut:[1300,12000], drive:1, noise:.3, pop:.2, lump:0, turbo:0},
+  bx6: {name:"Boxer 6", ico:"🥊", cyl:6, idle:800, red:7400, gears:[48,80,112,148,185,225,265], layers:[["sawtooth",1,.45],["square",.5,.3],["sawtooth",2,.2],["triangle",3,.1]], cut:[500,6200], drive:2, noise:.4, pop:.6, lump:.35, turbo:0},
+  c5t: {name:"5 cil. turbo", ico:"🔩", cyl:5, idle:850, red:7000, gears:[44,74,106,142,180,220], layers:[["sawtooth",1,.5],["triangle",2,.25],["sawtooth",3,.14],["square",.5,.12]], cut:[600,6000], drive:2, noise:.45, pop:.9, lump:.25, turbo:1},
+  rot: {name:"Rotativo", ico:"🌪️", cyl:6, idle:1000, red:9000, gears:[52,88,125,165,205,250], layers:[["square",1,.4],["sawtooth",2,.3],["sawtooth",3,.18],["square",5,.06]], cut:[1500,9500], drive:2.8, noise:.65, pop:.7, lump:0, turbo:0},
+  dsl: {name:"Diesel", ico:"🛢️", cyl:4, idle:700, red:4800, gears:[34,58,85,115,150,190], layers:[["square",1,.5],["sawtooth",.5,.3],["sawtooth",2,.12]], cut:[300,2800], drive:3, noise:.6, pop:0, lump:.5, turbo:1},
+  rly: {name:"Rali turbo", ico:"🌲", cyl:4, idle:1100, red:7800, gears:[38,64,92,124,160,200], layers:[["sawtooth",1,.5],["square",1,.2],["sawtooth",2,.25]], cut:[800,7000], drive:2.6, noise:.6, pop:1.5, lump:.1, turbo:1},
+  bb:  {name:"Big block 454", ico:"💪", cyl:8, idle:600, red:5600, gears:[44,74,106,142,182,228], layers:[["sawtooth",1,.5],["square",.5,.45],["sawtooth",2,.18]], cut:[350,3800], drive:3.2, noise:.5, pop:1.3, lump:.8, turbo:0},
+  v2:  {name:"Moto bicilíndrica", ico:"🏍️", cyl:2, idle:1000, red:8000, gears:[50,80,110,142,175,210], layers:[["sawtooth",1,.5],["square",1,.2],["sawtooth",2,.25]], cut:[400,5500], drive:2.4, noise:.45, pop:.8, lump:.7, turbo:0},
+  kart:{name:"Kart 2 tempos", ico:"🛞", cyl:2, idle:2500, red:11000, gears:[60,95,130,170,210], layers:[["sawtooth",1,.5],["square",2,.2],["sawtooth",3,.12]], cut:[1200,7500], drive:2, noise:.7, pop:.3, lump:0, turbo:0}
 };
 const E = {on:false, ctx:null, g:null, prof:null, vT:0, v:0, acc:0, pw:null, thr:0, thrHi:0, pwMax:80, gear:0, shiftUntil:0, rpm:800, last:0, lastTs:null, lastV:0, lastSampleAt:0, polling:false, timer:0, pollT:0, gpsId:null, gpsLast:null, popUntil:0, sim:{v:0, pedal:0}, srcNow:"sim", nodes:null};
 const engCfg = () => ({
