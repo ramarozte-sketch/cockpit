@@ -1716,6 +1716,12 @@ function px2(url, ref){
 /* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
 const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
 const refFor = c => { if(!c || !c.free) return ""; const m = FREE_REF.find(([r]) => r.test(c.name||"")); return m ? m[1] : ""; };
+/* fetch pelo 1.º proxy; se falhar (sem ligação, bloqueio ou erro do servidor), repete pelo 2.º proxy quando existir. */
+async function fetchPx(url, opts){
+  let r, err;
+  try{ r = await fetch(px(url), opts); if(r.ok || !cfg.proxy2 || r.status < 400 || r.status === 404) return r; }catch(e){ err = e; if(!cfg.proxy2) throw e; }
+  try{ return await fetch(px2(url), opts); }catch(e2){ if(r) return r; throw err || e2; }
+}
 function fetchErrorHelp(url, e){
   if(window.top !== window || location.protocol==="file:") return "Estás a abrir a app dentro da pré-visualização do Claude, que bloqueia todas as ligações externas (incluindo o proxy). Abre a app pelo teu link do GitHub Pages.";
   if(cfg.proxy && e instanceof TypeError) return "O browser não conseguiu contactar o proxy. Confirma o endereço do proxy e a ligação à internet.";
@@ -1726,12 +1732,12 @@ function fetchErrorHelp(url, e){
 const xBase = () => cfg.xs.replace(/\/+$/,"").replace(/\/(player_api|get)\.php.*$/,"");
 const xQ = () => `username=${encodeURIComponent(cfg.xu)}&password=${encodeURIComponent(cfg.xp)}`;
 async function xApi(action, extra=""){
-  const r = await fetch(px(`${xBase()}/player_api.php?${xQ()}&action=${action}${extra}`));
+  const r = await fetchPx(`${xBase()}/player_api.php?${xQ()}&action=${action}${extra}`);
   if(!r.ok) throw new Error("HTTP "+r.status);
   return r.json();
 }
 async function loadXtream(){
-  const auth = await (await fetch(px(`${xBase()}/player_api.php?${xQ()}`))).json();
+  const auth = await (await fetchPx(`${xBase()}/player_api.php?${xQ()}`)).json();
   if(auth?.user_info && String(auth.user_info.auth)==="0") throw new Error("utilizador ou palavra-passe errados");
   if(auth?.user_info?.status && auth.user_info.status!=="Active") throw new Error("conta "+auth.user_info.status);
   const [lc, ls, vc, vs, sc, ss] = await Promise.all([
@@ -1761,11 +1767,11 @@ async function loadIptv(force){
       try{ channels = await loadXtream(); }
       catch(e){
         if(/errados|conta /.test(e.message)) throw e;
-        const r = await fetch(px(`${xBase()}/get.php?${xQ()}&type=m3u_plus&output=m3u8`)); if(!r.ok) throw new Error("HTTP "+r.status);
+        const r = await fetchPx(`${xBase()}/get.php?${xQ()}&type=m3u_plus&output=m3u8`); if(!r.ok) throw new Error("HTTP "+r.status);
         channels = parseM3U(await r.text());
       }
     } else {
-      const r = await fetch(px(cfg.m3u)); if(!r.ok) throw new Error("HTTP "+r.status);
+      const r = await fetchPx(cfg.m3u); if(!r.ok) throw new Error("HTTP "+r.status);
       channels = parseM3U(await r.text());
     }
     if(!channels.length) throw new Error("a lista veio vazia");
@@ -1798,7 +1804,7 @@ $("m3uFile").onchange = async e => { const f=e.target.files[0]; if(!f) return; c
 async function loadEpg(){
   if(!cfg.epg) return;
   try{
-    const r = await fetch(px(cfg.epg)); if(!r.ok) return;
+    const r = await fetchPx(cfg.epg); if(!r.ok) return;
     const xml = new DOMParser().parseFromString(await r.text(), "text/xml");
     const now = Date.now(), horizon = now + 6*3600e3; const map={};
     const pt = s => { const m=s.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{4})?/); if(!m) return 0; const iso=`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]?m[7].slice(0,3)+":"+m[7].slice(3):"Z"}`; return Date.parse(iso); };
@@ -2065,7 +2071,7 @@ async function playTs(v, url, slot, onFail){
 async function xAccount(){
   if(!(cfg.xs && cfg.xu && cfg.xp)) return null;
   try{
-    const j = await (await fetch(px(`${xBase()}/player_api.php?${xQ()}`))).json();
+    const j = await (await fetchPx(`${xBase()}/player_api.php?${xQ()}`)).json();
     const u = j?.user_info || {};
     return { active:+u.active_cons||0, max:+u.max_connections||0, status:u.status||"", exp:u.exp_date ? new Date(u.exp_date*1000) : null };
   }catch(e){ return null; }
