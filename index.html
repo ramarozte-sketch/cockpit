@@ -960,6 +960,17 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <h2>Cópia de segurança</h2>
           <div class="row"><button class="btn" id="btnExport">Exportar definições e notas</button><button class="btn" id="btnImport">Importar</button></div>
           <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
+          <h2>Transferir para o Tesla (cifrado)</h2>
+          <p class="small muted" style="margin:0">No telemóvel toca em «Enviar» e aparece um código de uso único (válido 10 minutos). No Tesla escreve esse código em «Receber». Passa tudo, incluindo tokens e chaves. Os dados são cifrados neste aparelho com o código; o servidor só guarda texto ilegível e apaga-o depois de ser lido. O PIN e o layout não são transferidos.</p>
+          <div class="row"><button class="btn primary" id="btnSyncSend">Enviar para o Tesla</button></div>
+          <div class="banner" id="syncOut" hidden><div class="mono" id="syncCode" style="font-size:26px;letter-spacing:.06em;user-select:all"></div><div class="small" id="syncInfo" style="margin-top:6px"></div></div>
+          <div class="row" style="flex-wrap:nowrap"><input type="text" id="syncIn" placeholder="Código do telemóvel (6-6-6 letras e números)" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" id="btnSyncGet">Receber</button></div>
+          <details class="small"><summary>Este aparelho ainda não tem o proxy</summary>
+            <p class="muted">Escreve aqui o endereço do proxy e a chave (os mesmos do telemóvel). Só serve para esta transferência; depois ficam guardados com o resto.</p>
+            <label class="f">Endereço do proxy<input type="text" id="syncProxy" inputmode="url" autocomplete="off"></label>
+            <label class="f">Chave do proxy<input type="text" id="syncKey" autocomplete="off"></label>
+          </details>
+          <p class="small muted" id="syncMsg" style="margin:0"></p>
         </div>
       </div>
     </section>
@@ -3558,8 +3569,79 @@ $("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("set
 $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:"", gwToken:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
 
+/* ---------- Transferência cifrada telemóvel → Tesla ---------- */
+// O código tem 18 caracteres: os 6 primeiros identificam o envelope no servidor, os outros 12 (60 bits) são a chave.
+// A cifra (AES-GCM, chave via PBKDF2) é feita neste aparelho; o servidor nunca vê o código nem os dados em claro.
+const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
+const b64e = u => { let s = ""; for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); };
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+function syncUrl(base, key, id){ return String(base).replace(/\/+$/,"") + "/sync?" + (key ? "k="+encodeURIComponent(key)+"&" : "") + "id=" + id; }
+async function syncKey(secret, salt){
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:200000, hash:"SHA-256"}, km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+const syncMsg = (t, bad) => { $("syncMsg").textContent = t || ""; $("syncMsg").style.color = bad ? "var(--bad)" : ""; };
+$("btnSyncSend").onclick = async ()=>{
+  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não tem cifra (precisa de https).", true); return; }
+  if(!cfg.proxy){ syncMsg("Configura primeiro o proxy neste aparelho (Definições › Proxy).", true); return; }
+  if(!(await requirePin("PIN para enviar as definições"))) return;
+  const btn = $("btnSyncSend"); btn.disabled = true; syncMsg("A cifrar…");
+  try{
+    const data = {cfg:Object.assign({}, cfg), notes, mfavs, tvfavs:[...favs]};
+    SYNC_SKIP.forEach(k => delete data.cfg[k]);
+    const r8 = crypto.getRandomValues(new Uint8Array(18)); let raw = ""; for(const b of r8) raw += SYNC_ALPHA[b & 31];
+    const id = raw.slice(0,6), secret = raw.slice(6);
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, await syncKey(secret, salt), new TextEncoder().encode(JSON.stringify(data))));
+    const resp = await fetch(syncUrl(cfg.proxy, cfg.pkey, id), {method:"POST", body:JSON.stringify({v:1, s:b64e(salt), i:b64e(iv), c:b64e(ct)})});
+    if(!resp.ok){ const t = await resp.text().catch(()=>""); throw new Error(resp.status === 501 ? "o proxy não tem o KV com o nome SYNC (ver instruções)" : (t || "erro " + resp.status)); }
+    $("syncCode").textContent = raw.slice(0,6) + "-" + raw.slice(6,12) + "-" + raw.slice(12);
+    $("syncInfo").textContent = "Escreve este código no Tesla (Definições › Transferir › Receber) nos próximos 10 minutos. Serve uma só vez.";
+    $("syncOut").hidden = false; syncMsg("");
+    clearTimeout(btn._t); btn._t = setTimeout(()=>{ $("syncOut").hidden = true; $("syncCode").textContent = ""; }, 10*60e3);
+  }catch(e){ syncMsg("Não consegui enviar: " + e.message, true); }
+  btn.disabled = false;
+};
+$("btnSyncGet").onclick = async ()=>{
+  const raw = String($("syncIn").value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if(raw.length !== 18 || [...raw].some(c => !SYNC_ALPHA.includes(c))){ syncMsg("Código inválido: são 18 letras e números (6-6-6).", true); return; }
+  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não tem cifra (precisa de https).", true); return; }
+  const base = $("syncProxy").value.trim() || cfg.proxy, key = $("syncKey").value.trim() || cfg.pkey;
+  if(!base){ syncMsg("Falta o endereço do proxy (abre «Este aparelho ainda não tem o proxy»).", true); return; }
+  if(!(await requirePin("PIN para receber as definições"))) return;
+  const btn = $("btnSyncGet"); btn.disabled = true;
+  try{
+    let env = null;
+    for(let a = 0; a < 13 && !env; a++){ // o KV pode demorar até 1 minuto a chegar a outro ponto da rede
+      syncMsg(a ? "A aguardar os dados do telemóvel… (" + a + ")" : "A pedir os dados…");
+      const r = await fetch(syncUrl(base, key, raw.slice(0,6)));
+      if(r.ok) env = await r.json();
+      else if(r.status === 404){ await new Promise(res => setTimeout(res, 5000)); }
+      else throw new Error(r.status === 403 ? "chave do proxy errada" : r.status === 501 ? "o proxy não tem o KV com o nome SYNC" : "erro " + r.status);
+    }
+    if(!env) throw new Error("código não encontrado ou expirado. Gera outro no telemóvel.");
+    syncMsg("A decifrar…");
+    let d;
+    try{ d = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM", iv:b64d(env.i)}, await syncKey(raw.slice(6), b64d(env.s)), b64d(env.c)))); }
+    catch(e){ throw new Error("código errado ou dados corrompidos."); }
+    if(!d || typeof d.cfg !== "object") throw new Error("dados inválidos.");
+    for(const k of Object.keys(d.cfg)){ const v = d.cfg[k]; if(!SYNC_SKIP.includes(k) && ["string","number","boolean"].includes(typeof v)) cfg[k] = v; }
+    if(!cfg.proxy && base) cfg.proxy = base;
+    if(!cfg.pkey && key) cfg.pkey = key;
+    saveCfg(); pvState = null; LS.set("pvState", null);
+    if(Array.isArray(d.notes)){ notes = d.notes; LS.set("notes", notes); }
+    if(Array.isArray(d.mfavs)){ mfavs = d.mfavs; LS.set("mfavs", mfavs); }
+    if(Array.isArray(d.tvfavs)){ favs = new Set(d.tvfavs); LS.set("tvfavs", d.tvfavs); }
+    fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList();
+    $("syncIn").value = ""; $("syncProxy").value = ""; $("syncKey").value = "";
+    syncMsg("Definições recebidas ✓"); toast("Definições recebidas ✓");
+    if(cfg.token && cfg.vin) loadState();
+  }catch(e){ syncMsg("Não consegui receber: " + e.message, true); }
+  btn.disabled = false;
+};
+
 /* ---------- arranque ---------- */
-function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
+function clearSettingsFields(){ ["setToken","setVin","setM3u","setXs","setXu","setXp","setEpg","setProxy","setPkey","setYtKey","setGClient","setMsClient","setGwToken","setGwPlant","setOcmKey","setHomeLat","setHomeLon","syncIn","syncProxy","syncKey"].forEach(id=>$(id).value=""); $("backupBox").value=""; $("backupBox").hidden=true; }
 $("btnSetPin").onclick = async ()=>{
   if(!(await requirePin("PIN atual"))) return;
   const a = await askPin("Novo PIN", "Escolhe 4 a 8 dígitos."); if(a==null) return;
