@@ -161,6 +161,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .gch[aria-pressed="true"]{outline:2px solid var(--accent)}
 .gch img,.gch .ph{width:40px;height:40px;object-fit:contain;flex:none;border-radius:6px}
 .gch .t{min-width:0;display:flex;flex-direction:column}.gch .t b,.gch .t span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gch .t span{font-size:13px;opacity:.7}
+.orgrow{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent)}.orgrow.off{opacity:.45}
+.orgrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.orgrow .btn{min-height:46px;min-width:46px;padding:0 10px;flex:none}
 .gdp{display:grid;grid-template-columns:62px minmax(0,1fr);gap:4px 12px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent);cursor:pointer}
 .gdp.now{outline:2px solid var(--accent)}.gdp.past{opacity:.55}.gdp .tm{font-weight:700}.gdp .d{grid-column:2;font-size:13px;opacity:.8;display:none}.gdp.open .d{display:block}
 .gdp .bar{grid-column:2;height:5px;margin:2px 0}
@@ -631,6 +633,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           </div>
           <select id="tvGroup" aria-label="Categoria"></select>
           <input type="search" id="tvSearch" placeholder="Procurar canal ou título" aria-label="Procurar">
+          <button class="btn" id="btnOrg">⚙ Organizar categorias e canais</button>
           <div class="list" id="tvList"></div>
           <p class="small muted" id="tvCount" style="margin:0"></p>
         </div>
@@ -1087,6 +1090,13 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 <audio id="radioAud" hidden></audio>
 <audio id="podAud" preload="none" hidden></audio>
 <div class="toast" id="toast" hidden role="status"></div>
+<div class="epgdlg" id="orgDlg" hidden><div class="panel gdbox" role="dialog" aria-label="Organizar categorias e canais">
+  <div class="row"><h2 style="margin:0">⚙ Organizar</h2><span class="small muted" id="orgKindName"></span><span class="spacer"></span><button class="btn" id="orgReset">Repor</button><button class="btn primary" id="orgClose">Concluído</button></div>
+  <div class="tabs" id="orgTabs" role="tablist"><button class="tab" data-t="grp" aria-selected="true">Categorias</button><button class="tab" data-t="ch" aria-selected="false">Canais</button></div>
+  <select id="orgGrp" aria-label="Categoria" hidden></select>
+  <p class="small muted" style="margin:0">▲ ▼ mudam a posição, ⤒ põe no topo. "Ocultar" tira da lista desta app (a tua conta não é alterada) e podes voltar a mostrar a qualquer momento.</p>
+  <div class="gdlist" id="orgList"></div>
+</div></div>
 <div class="epgdlg" id="gdDlg" hidden><div class="panel gdbox" role="dialog" aria-label="Guia de programação">
   <div class="row"><h2 style="margin:0">📅 Guia de programação</h2><span class="spacer"></span><button class="btn" id="gdClose">Fechar</button></div>
   <div class="gdgrid">
@@ -1727,6 +1737,91 @@ let favs = new Set(LS.get("tvfavs", []));
 let epg = {};           // tvg-id -> [{start, stop, title}]
 const hlsInst = [null, null];
 
+/* ---------- Organizar categorias e canais (ordem própria e ocultar) ---------- */
+// TVORG = {grp:{live:[nomes]}, grpHide:{live:[nomes]}, ch:{"live|Categoria":[urls]}, chHide:[urls]}
+let TVORG = LS.get("tvOrg", null) || {};
+const orgSave = () => LS.set("tvOrg", TVORG);
+function orgGroupList(kind, names, withHidden){
+  const ord = (TVORG.grp || {})[kind] || [], hid = new Set((TVORG.grpHide || {})[kind] || []);
+  const idx = n => { const i = ord.indexOf(n); return i < 0 ? 1e6 : i; };
+  const l = [...names].sort((a, b) => idx(a) - idx(b) || a.localeCompare(b));
+  return withHidden ? l : l.filter(n => !hid.has(n));
+}
+function orgChannels(list, kind, group){
+  const hid = new Set(TVORG.chHide || []), gh = new Set((TVORG.grpHide || {})[kind] || []);
+  let l = list.filter(c => !hid.has(c.url) && (kind === "free" || kind === "fav" || !gh.has(c.group)));
+  const gord = (TVORG.grp || {})[kind] || [], has = gord.length || Object.keys(TVORG.ch || {}).some(k => k.startsWith(kind + "|"));
+  if(!has) return l;
+  const gi = c => { const i = gord.indexOf(c.group); return i < 0 ? 1e6 : i; }, seen = new Map(), maps = {};
+  l.forEach(c => { if(!seen.has(c.group)) seen.set(c.group, seen.size); });
+  const ci = c => { const key = kind + "|" + (kind === "free" ? "" : c.group); const m = maps[key] || (maps[key] = new Map((((TVORG.ch || {})[key]) || []).map((u, i) => [u, i]))); return m.has(c.url) ? m.get(c.url) : 1e6; };
+  return l.map((c, i) => [c, i]).sort((a, b) => (group ? 0 : gi(a[0]) - gi(b[0]) || seen.get(a[0].group) - seen.get(b[0].group)) || ci(a[0]) - ci(b[0]) || a[1] - b[1]).map(x => x[0]);
+}
+const orgKindNow = () => tvKind === "free" ? "free" : tvKind === "fav" ? "fav" : tvKind;
+const ORG = {tab:"grp", grp:""};
+const orgSource = kind => kind === "free" ? freeChans : channels.filter(c => c.kind === kind);
+function orgMove(arr, name, how){
+  const i = arr.indexOf(name); if(i < 0) return;
+  if(how === "top"){ arr.splice(i, 1); arr.unshift(name); }
+  else if(how === "up" && i > 0){ arr.splice(i, 1); arr.splice(i - 1, 0, name); }
+  else if(how === "dn" && i < arr.length - 1){ arr.splice(i, 1); arr.splice(i + 1, 0, name); }
+}
+function orgRefreshMain(){ fillGroups(); renderTvList(); }
+function orgRender(){
+  let kind = orgKindNow(); if(kind === "fav") kind = "live";
+  const isFree = kind === "free"; if(isFree) ORG.tab = "ch";
+  $("orgTabs").hidden = isFree;
+  $("orgTabs").querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.t === ORG.tab)));
+  const src = orgSource(kind), names = [...new Set(src.map(c => c.group).filter(Boolean))];
+  $("orgKindName").textContent = isFree ? "Canais abertos PT" : kind === "live" ? "Canais em direto" : kind === "movie" ? "Filmes" : "Séries";
+  const btn = (a, t, i, ex) => `<button class="btn" data-a="${a}" data-i="${i}" aria-label="${ex}">${t}</button>`;
+  if(ORG.tab === "grp"){
+    $("orgGrp").hidden = true;
+    const hid = new Set((TVORG.grpHide || {})[kind] || []);
+    $("orgList").innerHTML = orgGroupList(kind, names, true).map((n, i) => `<div class="orgrow${hid.has(n) ? " off" : ""}"><span class="nm">${esc(n)} <span class="muted small">(${src.filter(c => c.group === n).length})</span></span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hid.has(n) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") || `<p class="muted small">Sem categorias. Carrega primeiro a lista.</p>`;
+    const list = orgGroupList(kind, names, true);
+    $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
+      const n = list[+b.dataset.i]; TVORG.grp = TVORG.grp || {}; TVORG.grpHide = TVORG.grpHide || {};
+      const arr = TVORG.grp[kind] = orgGroupList(kind, names, true);
+      if(b.dataset.a === "hide"){ const h = TVORG.grpHide[kind] = TVORG.grpHide[kind] || []; const k = h.indexOf(n); k < 0 ? h.push(n) : h.splice(k, 1); }
+      else orgMove(arr, n, b.dataset.a);
+      orgSave(); orgRender(); orgRefreshMain();
+    });
+  } else {
+    $("orgGrp").hidden = isFree;
+    if(!isFree){
+      const ordered = orgGroupList(kind, names, true); if(!ordered.includes(ORG.grp)) ORG.grp = ordered[0] || "";
+      $("orgGrp").innerHTML = ordered.map(n => `<option${n === ORG.grp ? " selected" : ""}>${esc(n)}</option>`).join("");
+    }
+    const key = kind + "|" + (isFree ? "" : ORG.grp), hidC = new Set(TVORG.chHide || []);
+    let chs = src.filter(c => isFree || c.group === ORG.grp);
+    const saved = ((TVORG.ch || {})[key]) || [], pos = new Map(saved.map((u, i) => [u, i]));
+    chs = chs.map((c, i) => [c, i]).sort((a, b) => (pos.has(a[0].url) ? pos.get(a[0].url) : 1e6) - (pos.has(b[0].url) ? pos.get(b[0].url) : 1e6) || a[1] - b[1]).map(x => x[0]);
+    const shownC = chs.slice(0, 400);
+    $("orgList").innerHTML = shownC.map((c, i) => `<div class="orgrow${hidC.has(c.url) ? " off" : ""}"><span class="nm">${esc(c.name)}</span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hidC.has(c.url) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") + (chs.length > 400 ? `<p class="muted small">A mostrar 400 de ${chs.length}.</p>` : "") || `<p class="muted small">Nenhum canal nesta categoria.</p>`;
+    $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
+      const c = shownC[+b.dataset.i]; TVORG.ch = TVORG.ch || {}; TVORG.chHide = TVORG.chHide || [];
+      if(b.dataset.a === "hide"){ const k = TVORG.chHide.indexOf(c.url); k < 0 ? TVORG.chHide.push(c.url) : TVORG.chHide.splice(k, 1); }
+      else { const arr = TVORG.ch[key] = chs.map(x => x.url); orgMove(arr, c.url, b.dataset.a); }
+      orgSave(); orgRender(); orgRefreshMain();
+      const keep = $("orgList").querySelectorAll(".orgrow")[Math.max(0, +b.dataset.i + (b.dataset.a === "dn" ? 1 : b.dataset.a === "up" ? -1 : 0))]; if(keep) keep.scrollIntoView({block:"nearest"});
+    });
+  }
+}
+function orgOpen(){ ORG.tab = "grp"; orgRender(); $("orgDlg").hidden = false; }
+$("btnOrg").onclick = orgOpen;
+$("orgClose").onclick = () => { $("orgDlg").hidden = true; };
+$("orgDlg").onclick = e => { if(e.target === $("orgDlg")) $("orgDlg").hidden = true; };
+$("orgTabs").querySelectorAll(".tab").forEach(b => b.onclick = () => { ORG.tab = b.dataset.t; orgRender(); });
+$("orgGrp").onchange = e => { ORG.grp = e.target.value; orgRender(); };
+$("orgReset").onclick = () => {
+  const kind = orgKindNow() === "fav" ? "live" : orgKindNow();
+  if(!confirm("Repor a ordem original e mostrar tudo nesta secção?")) return;
+  if(TVORG.grp) delete TVORG.grp[kind]; if(TVORG.grpHide) delete TVORG.grpHide[kind];
+  if(TVORG.ch) Object.keys(TVORG.ch).filter(k => k.startsWith(kind + "|")).forEach(k => delete TVORG.ch[k]);
+  const urls = new Set(orgSource(kind).map(c => c.url)); TVORG.chHide = (TVORG.chHide || []).filter(u => !urls.has(u));
+  orgSave(); orgRender(); orgRefreshMain();
+};
 /* ---------- Canais portugueses em sinal aberto (lista pública iptv-org) ----------
    Streams públicos e gratuitos, mantidos pela comunidade. Alguns canais podem estar em baixo ou só funcionar em Portugal. */
 const FREE_SRC = "https://iptv-org.github.io/iptv/countries/pt.m3u";
@@ -1913,7 +2008,7 @@ const hm = t => new Date(t).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2
 function fillGroups(){
   if(tvKind==="free"){ $("tvGroup").innerHTML = ""; $("tvGroup").hidden = true; return; }
   $("tvGroup").hidden = false;
-  const groups = [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))].sort((a,b)=>a.localeCompare(b));
+  const groups = orgGroupList(tvKind==="fav" ? "live" : tvKind, [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))], false);
   $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option>${esc(g)}</option>`).join("");
 }
 function renderTvList(){
@@ -1922,6 +2017,7 @@ function renderTvList(){
   if(tvKind==="fav") list = [...channels, ...freeChans].filter((c,i,a)=>favs.has(c.url) && a.findIndex(x=>x.url===c.url)===i);
   if(g && tvKind!=="free") list = list.filter(c=>c.group===g);
   if(q) list = list.filter(c=>norm(c.name).includes(q));
+  list = orgChannels(list, orgKindNow(), tvKind==="fav" ? "x" : g);
   const shown = list.slice(0, 300);
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
@@ -2102,7 +2198,7 @@ function renderEpgBox(slot){
 setInterval(()=>{ if(currentView==="tv" && epgSlot[tvTarget] && lastPlayed[tvTarget]===epgSlot[tvTarget]) renderEpgBox(tvTarget); }, 60000);
 /* ---------- Guia de programação (EPG) ---------- */
 const GD = {sel:null, prog:[], day:"", token:0, obs:null};
-const gdChannels = () => { const live = channels.filter(c => c.kind === "live"); return live.length ? live : freeChans; };
+const gdChannels = () => { const live = channels.filter(c => c.kind === "live"); return live.length ? orgChannels(live, "live", "") : orgChannels(freeChans, "free", ""); };
 const epgFullCache = new Map();
 async function xEpgFull(c){
   const sid = xStreamId(c); if(!sid || !(cfg.xs && cfg.xu && cfg.xp)) return [];
@@ -2126,7 +2222,7 @@ const dayKey = t => new Date(t).toDateString();
 function gdFillGroups(){
   const live = channels.some(c => c.kind === "live");
   $("gdGroup").hidden = !live;
-  const groups = [...new Set(gdChannels().map(c => c.group).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const groups = orgGroupList("live", [...new Set(gdChannels().map(c => c.group).filter(Boolean))], false);
   const keep = $("gdGroup").value;
   $("gdGroup").innerHTML = `<option value="">Todas as categorias</option>` + groups.map(g => `<option>${esc(g)}</option>`).join("");
   if(groups.includes(keep)) $("gdGroup").value = keep;
@@ -2325,7 +2421,7 @@ function updateCinemaBar(){
   const has = !!(c && neighbours(c).length > 1);
   $("chPrev").disabled = !has; $("chNext").disabled = !has;
 }
-function neighbours(c){ return c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"); }
+function neighbours(c){ return orgChannels(c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.free ? "free" : c.kind, c.group || "x"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
   const list = neighbours(c); if(list.length < 2) return false;
@@ -4027,7 +4123,7 @@ const I18N = {en:{}, fr:{}};
 I18N_PAIRS.forEach(([pt,en,fr])=>{ I18N.en[pt]=en; I18N.fr[pt]=fr; });
 const uiLang = () => cfg.ui || L();
 const origText = new WeakMap(), origAttr = new WeakMap();
-const I18N_SKIP = "script,style,[data-noi18n],#voiceLog,#tvList,#gdList,#gdSched,#gdName,#noteList,#favList,#mailList,.mailbody,#ytGrid,#ytNow,#cmdList,#epgBox,#chName,#heard,textarea";
+const I18N_SKIP = "script,style,[data-noi18n],#voiceLog,#tvList,#orgList,#gdList,#gdSched,#gdName,#noteList,#favList,#mailList,.mailbody,#ytGrid,#ytNow,#cmdList,#epgBox,#chName,#heard,textarea";
 function trNode(n){
   if(n.nodeType===3){
     const p = n.parentElement; if(!p || p.closest(I18N_SKIP)) return;
