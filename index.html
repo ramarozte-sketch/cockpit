@@ -504,6 +504,20 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 .dkcast{position:absolute;inset:0;background:#000}
 .dkcast video{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;background:#000}
 .dkcast.fill video{object-fit:cover}
+.dkctl{position:absolute;right:10px;top:10px;z-index:5;display:none;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 20px);transition:opacity .3s}
+.dkcast.live .dkctl{display:flex}
+.dkcast.idle .dkctl{opacity:0;pointer-events:none}
+.dkctl button{border:0;border-radius:10px;padding:9px 13px;background:rgba(10,16,24,.78);color:#fff;font:600 14px var(--f-display);backdrop-filter:blur(6px);min-height:40px}
+.dkctl button:hover,.dkctl button:focus-visible{background:var(--accent);color:var(--accent-ink)}
+.dkapps{position:absolute;inset:0;z-index:6;background:rgba(5,10,16,.94);display:flex;flex-direction:column;gap:10px;padding:12px;color:#e8eef5}
+.dkapps[hidden]{display:none}
+.dkapps .hd{display:flex;gap:8px;align-items:center}
+.dkapps input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);color:inherit;font-size:16px}
+.dkapps .hd button{border:0;border-radius:10px;padding:10px 14px;background:var(--panel-2);color:inherit;font-weight:600}
+.dkappgrid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;align-content:start}
+.dkappgrid button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border:0;border-radius:12px;background:transparent;color:inherit;font-size:12.5px;line-height:1.2;word-break:break-word}
+.dkappgrid button:hover,.dkappgrid button:focus-visible{background:var(--panel-2)}
+.dkappgrid img{width:52px;height:52px;border-radius:12px;background:#222;object-fit:contain}
 .dkcastinfo{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:16px;text-align:center;background:rgba(5,10,16,.92);color:#e8eef5}
 .dkcast.live .dkcastinfo{display:none}
 .dkcode{font:700 46px var(--f-display);letter-spacing:.3em;color:var(--accent)}
@@ -5523,15 +5537,36 @@ function dkCast(){
   const QS = [{n:"Auto", br:0, fps:30, sc:1}, {n:"Baixa", br:1000, fps:15, sc:2}, {n:"Média", br:2500, fps:24, sc:1.5}, {n:"Alta", br:5000, fps:30, sc:1}, {n:"Máxima", br:10000, fps:30, sc:1}];
   let qi = Math.min(QS.length - 1, Math.max(0, +LS.get("castQ", 3) || 0)), dc = null;
   const sendQ = () => { try{ if(dc && dc.readyState === "open"){ const q = QS[qi]; dc.send(JSON.stringify({br:q.br, fps:q.fps, sc:q.sc})); } }catch(e){} };
-  const w = dkWin("cast", "Cast do ecrã", {w:640, h:400, onClose:() => { alive = false; try{ pc && pc.close(); }catch(e){} }, tools:[
-    {label:"Qualidade: " + QS[qi].n, aria:"Qualidade do cast", fn:() => { qi = (qi + 1) % QS.length; LS.set("castQ", qi); const b = w.el.querySelector(".dktools button"); if(b) b.textContent = "Qualidade: " + QS[qi].n; sendQ(); toast("Qualidade: " + QS[qi].n + (QS[qi].br ? " (" + QS[qi].br / 1000 + " Mbps)" : "")); }},
-    {label:"Ajustar", aria:"Ajustar ou preencher", fn:() => { const bx = w.body.querySelector(".dkcast"); if(!bx) return; bx.classList.toggle("fill"); const bs = w.el.querySelectorAll(".dktools button"); if(bs[1]) bs[1].textContent = bx.classList.contains("fill") ? "Preencher" : "Ajustar"; }}]});
+  const w = dkWin("cast", "Cast do ecrã", {w:640, h:400, onClose:() => { alive = false; try{ pc && pc.close(); }catch(e){} }});
   let alive = true, pc = null;
   if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
   const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
-  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">⛶ Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
   const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
   const base = cfg.proxy, key = cfg.pkey;
+  const apps = new Map(), gridEl = box.querySelector(".dkappgrid"), appsEl = box.querySelector(".dkapps"), btn = a => box.querySelector('.dkctl [data-a="' + a + '"]');
+  const qLabel = () => { btn("q").textContent = "Qualidade: " + QS[qi].n; };
+  qLabel();
+  btn("q").onclick = () => { qi = (qi + 1) % QS.length; LS.set("castQ", qi); qLabel(); sendQ(); toast("Qualidade: " + QS[qi].n + (QS[qi].br ? " (" + QS[qi].br / 1000 + " Mbps)" : "")); };
+  btn("fit").onclick = () => { box.classList.toggle("fill"); btn("fit").textContent = box.classList.contains("fill") ? "Vista a preencher" : "Vista completa"; };
+  btn("fs").onclick = () => {
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if(fsEl){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    if(w.el.classList.contains("max") && !box.requestFullscreen && !box.webkitRequestFullscreen){ w.el.classList.remove("max"); return; }
+    const req = box.requestFullscreen || box.webkitRequestFullscreen;
+    if(req){ Promise.resolve(req.call(box)).catch(() => w.el.classList.add("max")); } else w.el.classList.toggle("max");
+  };
+  let idleT = 0; const wake = () => { box.classList.remove("idle"); clearTimeout(idleT); idleT = setTimeout(() => { if(!appsEl.hidden) return; box.classList.add("idle"); }, 4000); };
+  ["pointermove", "pointerdown", "keydown"].forEach(ev => box.addEventListener(ev, wake)); wake();
+  const drawApps = () => {
+    const f = (appsEl.querySelector("input").value || "").toLowerCase();
+    gridEl.innerHTML = [...apps.values()].filter(a => !f || a.n.toLowerCase().includes(f)).sort((x, y) => x.n.localeCompare(y.n, "pt")).map(a => `<button data-p="${esc(a.p)}"><img alt="" src="data:image/png;base64,${a.i}"><span>${esc(a.n)}</span></button>`).join("") || `<span class="small muted">Sem apps.</span>`;
+    gridEl.querySelectorAll("button").forEach(b => b.onclick = () => { try{ dc.send(JSON.stringify({t:"launch", p:b.dataset.p})); toast("A abrir " + (apps.get(b.dataset.p)?.n || "app") + " no telemóvel…"); appsEl.hidden = true; wake(); }catch(e){ toast("Sem ligação ao telemóvel.", true); } });
+  };
+  btn("apps").onclick = () => { appsEl.hidden = false; drawApps(); appsEl.querySelector("input").focus(); };
+  appsEl.querySelector('[data-a="close"]').onclick = () => { appsEl.hidden = true; wake(); };
+  appsEl.querySelector("input").oninput = drawApps;
+  const onDc = ev => { try{ const m = JSON.parse(ev.data); if(m.t === "app"){ apps.set(m.p, m); btn("apps").hidden = false; btn("apps").textContent = "Apps do telemóvel (" + apps.size + ")"; if(!appsEl.hidden) drawApps(); } else if(m.t === "err") toast(m.m || "Erro no telemóvel.", true); }catch(e){} };
   (async () => {
     let offer = null;
     for(let i = 0; i < 300 && alive && !offer; i++){
@@ -5541,7 +5576,7 @@ function dkCast(){
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
     st.textContent = "A ligar…";
     pc = new RTCPeerConnection(rtcCfg);
-    pc.ondatachannel = e => { dc = e.channel; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
+    pc.ondatachannel = e => { dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
     pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
@@ -5583,7 +5618,7 @@ function castSenderUI(code0){
       pc = new RTCPeerConnection(rtcCfg);
       const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
       const ch = pc.createDataChannel("ctl");
-      ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
+      ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
       await pc.setLocalDescription(await pc.createOffer());
       await iceDone(pc);
       st("A enviar o pedido ao Tesla…");
