@@ -426,7 +426,7 @@ body.layout-tesla .app.cinema .top{grid-column:1}body.layout-tesla .app.cinema m
 .radionow .aico{font-size:26px}
 #btnAudio[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 body.passenger .nav:not([data-view="tv"]):not([data-view="media"]):not([data-view="apps"]){display:none}
-body.passenger #chipCar,body.passenger #micBtn,body.passenger #heard,body.passenger #lockNow,body.passenger #teslaFs{display:none!important}
+body.passenger #chipDrive,body.passenger #chipCar,body.passenger #micBtn,body.passenger #heard,body.passenger #lockNow,body.passenger #teslaFs{display:none!important}
 @media (max-width:900px){.brand{font-size:11px;letter-spacing:.04em}}
 
 /* Energia */
@@ -644,6 +644,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <button class="tsonly tslock" id="tsLockBtn" aria-label="Trancar ou destrancar o carro"></button><span class="tsonly tsbat" id="tsTopBat">--</span>
     <div class="clock" id="clock">--:--</div><span class="tsonly tsout" id="tsOut"></span>
     <span class="chip" id="chipCar"><i class="dot"></i><span>Carro</span></span>
+    <span class="chip" id="chipDrive" hidden><i class="dot"></i><span>Parado</span></span>
     <span class="chip" id="chipNet"><i class="dot"></i><span>Rede</span></span>
     <button class="lockbtn" id="lockNow" hidden>Bloquear</button>
     <a class="lockbtn" id="teslaFs" style="text-decoration:none;display:inline-flex;align-items:center" title="Abre a app em ecrã inteiro no browser do Tesla">⛶ Ecrã inteiro Tesla</a>
@@ -930,7 +931,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
       <div class="dkarea" id="dkArea">
         <div class="dkgrid" id="dkGrid"></div>
         <div class="dkwins" id="dkWins"></div>
-        <div class="dklock" id="dkLock" hidden><b>Bloqueado com o carro em andamento</b><span>As janelas voltam quando o carro estiver parado.</span></div>
+        <div class="dklock" id="dkLock" hidden><b>Bloqueado com o carro em andamento</b><span>As janelas e a imagem do Cast voltam quando o carro estiver parado. O som do Cast continua.</span></div>
       </div>
       <div class="dkdock" id="dkDock" aria-label="Janelas abertas"></div>
     </section>
@@ -1616,6 +1617,35 @@ tick(); setInterval(tick, 10000);
 
 /* ---------- Tessie ---------- */
 const MI = 1.60934;
+/* Estado de condução: "park" (parado, P) ou "moving" (D/R/N ou velocidade). Uma só fonte de verdade para todos os bloqueios.
+   Entra em andamento logo que há sinal; só volta a parado depois de DRIVE.hold ms seguidos em P e a 0 km/h (evita oscilar nos semáforos).
+   Sem dados novos há mais de DRIVE.stale ms mantém o último estado se era "andamento" (falha para o lado seguro). */
+const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, stale:600000, minKmh:3};
+function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
+function driveChip(){ const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (DRIVE.state === "moving" ? "warn" : "ok"); c.querySelector("span").textContent = DRIVE.state === "moving" ? "Em andamento" : "Parado"; } }
+function driveSet(st){
+  if(st === DRIVE.state) return;
+  DRIVE.state = st; document.body.classList.toggle("driving", st === "moving"); driveChip();
+  try{ toast(st === "moving" ? "Em andamento: jogos, janelas e imagem do Cast bloqueados" : "Parado: tudo desbloqueado"); }catch(e){}
+  try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
+}
+function driveUpdate(fresh){
+  const now = Date.now();
+  if(typeof demo === "function" && demo()){ driveSet("park"); return; }
+  const ds = car && car.drive_state;
+  if(fresh && ds){
+    DRIVE.lastData = now; driveChip();
+    if(driveFrom(ds) === "moving"){ DRIVE.parkSince = 0; driveSet("moving"); }
+    else if(DRIVE.state === "moving"){ if(!DRIVE.parkSince) DRIVE.parkSince = now; if(now - DRIVE.parkSince >= DRIVE.hold) driveSet("park"); }
+    else driveSet("park");
+    return;
+  }
+  if(DRIVE.state === "moving"){
+    if(DRIVE.parkSince && ds && driveFrom(ds) === "park" && now - DRIVE.parkSince >= DRIVE.hold) driveSet("park");
+    else if(now - DRIVE.lastData > DRIVE.stale) driveSet("park");
+  }
+}
+setInterval(() => driveUpdate(false), 2000);
 const demo = () => !cfg.token || !cfg.vin;
 let car = null;
 const demoState = {
@@ -1669,6 +1699,7 @@ async function cmd(name, params={}){
 async function loadState(){
   try{
     car = await tessie((demo()?"x":cfg.vin)+"/state");
+    driveUpdate(true);
     renderCar(); setChip("chipCar", demo()?"warn":"ok", demo()?"Demonstração":(car.display_name||"Ligado"));
   }catch(e){ setChip("chipCar","bad","Carro: erro"); toast(e.message, true); }
 }
@@ -3426,7 +3457,7 @@ setInterval(async ()=>{
   if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
   try{
     await loadState();
-    const driving = ["D","R","N"].includes(car?.drive_state?.shift_state);
+    const driving = DRIVE.state === "moving";
     if(driving !== drivingNow){ drivingNow = driving; setAudio(audioManual, driving); toast(driving ? "Em andamento: TV só com som" : "Parado: a imagem voltou"); }
   }catch(e){}
 }, 15000);
@@ -4039,7 +4070,7 @@ const GAMES_ONLINE = [
   {cat:"Portais de jogos", name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
   {cat:"Portais de jogos", name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"}
 ];
-const gamesLocked = () => !cfg.passenger && !demo() && ["D","R","N"].includes(car?.drive_state?.shift_state);
+const gamesLocked = () => !cfg.passenger && !demo() && DRIVE.state === "moving";
 let gmCleanup = [];
 function gmExit(){ gmCleanup.forEach(f=>{ try{ f(); }catch(e){} }); gmCleanup = []; $("gmStage").hidden = true; $("gmStage").innerHTML = ""; $("gmHub").hidden = false; $("gmBack").hidden = true; }
 function renderGames(){
@@ -4907,7 +4938,7 @@ async function engPoll(){
     if(!E.on || E.srcNow !== "tessie") return;
     const ts = ds.timestamp || st.timestamp || null;
     if(ts == null || ts !== E.lastTs) engSample((ds.speed || 0)*MI, ds.power, ts);
-    E.err = ""; car = st;
+    E.err = ""; car = st; driveUpdate(true);
   }catch(e){ E.err = e.message; }
   finally{ E.polling = false; }
 }
@@ -5541,10 +5572,24 @@ function dkCast(){
   let alive = true, pc = null;
   if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
   const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
-  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">⛶ Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">⛶ Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
   const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
   const base = cfg.proxy, key = cfg.pkey;
   const apps = new Map(), gridEl = box.querySelector(".dkappgrid"), appsEl = box.querySelector(".dkapps"), btn = a => box.querySelector('.dkctl [data-a="' + a + '"]');
+  let snd = {on:true, ac:null, nt:0};
+  const sndLabel = () => { btn("snd").textContent = snd.on ? "🔊 Som" : "🔇 Sem som"; };
+  const wakeAudio = () => { try{ if(!snd.ac){ const AC = window.AudioContext || window.webkitAudioContext; snd.ac = new AC({sampleRate:24000}); } if(snd.ac.state === "suspended") snd.ac.resume(); }catch(e){} };
+  box.addEventListener("pointerdown", wakeAudio, true);
+  btn("snd").onclick = () => { snd.on = !snd.on; vid.muted = !snd.on; sndLabel(); if(snd.on) wakeAudio(); };
+  const playPcm = ab => {
+    if(!snd.on || !snd.ac || snd.ac.state !== "running") return;
+    const a = new Int16Array(ab), n = a.length >> 1; if(!n) return;
+    const buf = snd.ac.createBuffer(2, n, 24000), L = buf.getChannelData(0), R = buf.getChannelData(1);
+    for(let i = 0; i < n; i++){ L[i] = a[2*i] / 32768; R[i] = a[2*i+1] / 32768; }
+    const src = snd.ac.createBufferSource(); src.buffer = buf; src.connect(snd.ac.destination);
+    const now = snd.ac.currentTime; if(snd.nt < now + 0.02) snd.nt = now + 0.15; else if(snd.nt > now + 0.7) return;
+    src.start(snd.nt); snd.nt += buf.duration;
+  };
   const qLabel = () => { btn("q").textContent = "Qualidade: " + QS[qi].n; };
   qLabel();
   btn("q").onclick = () => { qi = (qi + 1) % QS.length; LS.set("castQ", qi); qLabel(); sendQ(); toast("Qualidade: " + QS[qi].n + (QS[qi].br ? " (" + QS[qi].br / 1000 + " Mbps)" : "")); };
@@ -5561,7 +5606,7 @@ function dkCast(){
   const drawApps = () => {
     const f = (appsEl.querySelector("input").value || "").toLowerCase();
     gridEl.innerHTML = [...apps.values()].filter(a => !f || a.n.toLowerCase().includes(f)).sort((x, y) => x.n.localeCompare(y.n, "pt")).map(a => `<button data-p="${esc(a.p)}"><img alt="" src="data:image/png;base64,${a.i}"><span>${esc(a.n)}</span></button>`).join("") || `<span class="small muted">Sem apps.</span>`;
-    gridEl.querySelectorAll("button").forEach(b => b.onclick = () => { try{ dc.send(JSON.stringify({t:"launch", p:b.dataset.p})); toast("A abrir " + (apps.get(b.dataset.p)?.n || "app") + " no telemóvel…"); appsEl.hidden = true; wake(); }catch(e){ toast("Sem ligação ao telemóvel.", true); } });
+    gridEl.querySelectorAll("button").forEach(b => b.onclick = () => { try{ dc.send(JSON.stringify({t:"launch", p:b.dataset.p})); toast("A abrir " + (apps.get(b.dataset.p)?.n || "app") + " no telemóvel…"); appsEl.hidden = true; wake(); }catch(e){ toast("O telemóvel já não está ligado (a transmissão terminou).", true); } });
   };
   btn("apps").onclick = () => { appsEl.hidden = false; drawApps(); appsEl.querySelector("input").focus(); };
   appsEl.querySelector('[data-a="close"]').onclick = () => { appsEl.hidden = true; wake(); };
@@ -5576,7 +5621,9 @@ function dkCast(){
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
     st.textContent = "A ligar…";
     pc = new RTCPeerConnection(rtcCfg);
-    pc.ondatachannel = e => { dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
+    pc.ondatachannel = e => {
+      if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
+      dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
     pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
