@@ -1279,6 +1279,10 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV passa a só som.</p>
           <p class="small" id="driveInfo" style="margin:0">Estado agora: 🅿️ parado</p>
           <label class="f">Modo de marcha<select id="setGear"><option value="auto">Automático (segue o carro pela Tessie)</option><option value="park">P — parado</option><option value="moving">D — em andamento (TV só com som, bloqueios ativos)</option></select></label>
+          <label class="f">Segundos em P (e a 0 km/h) até voltar a desbloquear<input type="number" id="setParkHold" min="3" max="3600" step="1" inputmode="numeric"></label>
+          <label class="f">Verificar o carro de quantos em quantos segundos (em repouso)<input type="number" id="setDriveCheck" min="5" max="300" step="1" inputmode="numeric"></label>
+          <p class="small muted" style="margin:0">De 5 a 300 s (por defeito 10) quando não há nada bloqueável aberto. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) verifica sempre pelo menos de 60 em 60 s, e logo ao entrar. Ao primeiro sinal de andamento, o bloqueio é imediato.</p>
+          <p class="small muted" style="margin:0">Espera para desbloquear: de 3 a 3600 s (por defeito 6). Mais baixo, a imagem e as janelas voltam mais depressa; mais alto, evita que oscile em semáforos. Passar a «em andamento» é sempre imediato.</p>
           <p class="small muted" style="margin:0">Podes forçar D à mão (por exemplo se a Tessie estiver lenta). Forçar P não anula um carro que a Tessie diz estar em andamento.</p>
           <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
@@ -1640,6 +1644,7 @@ function show(view){
     return;
   }
   if(view==="settings") fillSettings();
+  if(["tv","games","desktop"].includes(view) && typeof driveLoop === "function") setTimeout(() => driveLoop(true), 0);
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
@@ -1679,7 +1684,7 @@ const MI = 1.60934;
 /* Estado de condução: "park" (parado, P) ou "moving" (D/R/N ou velocidade). Uma só fonte de verdade para todos os bloqueios.
    Entra em andamento logo que há sinal; só volta a parado depois de DRIVE.hold ms seguidos em P e a 0 km/h (evita oscilar nos semáforos).
    Sem dados novos há mais de DRIVE.stale ms mantém o último estado se era "andamento" (falha para o lado seguro). */
-const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, stale:600000, minKmh:3};
+const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, check:10, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
 /* Marcha manual: "auto" segue a Tessie; "moving" força D; "park" só vale se a Tessie não indicar andamento. */
 function drivingEff(){ return (typeof cfg !== "undefined" && cfg.gearMode === "moving") || DRIVE.state === "moving"; }
@@ -3543,6 +3548,12 @@ function setAudio(manual, auto){
 $("btnAudio").onclick = () => setAudio(!audioManual, audioAuto);
 $("btnGear").onclick = () => gearSet({auto:"park", park:"moving", moving:"auto"}[cfg.gearMode || "auto"]);
 $("setGear").onchange = e => gearSet(e.target.value);
+const checkClamp = v => Math.min(300, Math.max(5, Math.round(+v) || 10));
+DRIVE.check = checkClamp(cfg.driveCheck || 10); $("setDriveCheck").value = DRIVE.check; driveLoop();
+$("setDriveCheck").onchange = e => { const v = checkClamp(e.target.value); e.target.value = v; cfg.driveCheck = v; DRIVE.check = v; saveCfg(); driveLoop(); toast("Em repouso, verifica o carro de " + v + " em " + v + " s."); };
+const holdClamp = v => Math.min(3600, Math.max(3, Math.round(+v) || 6));
+DRIVE.hold = holdClamp(cfg.parkHold || 6) * 1000; $("setParkHold").value = DRIVE.hold / 1000;
+$("setParkHold").onchange = e => { const v = holdClamp(e.target.value); e.target.value = v; cfg.parkHold = v; DRIVE.hold = v * 1000; saveCfg(); toast("Desbloqueia ao fim de " + v + " s em P."); };
 driveChip();
 $("acBack").onclick = () => setAudio(false, audioAuto);
 if(cfg.autoAudio === undefined) cfg.autoAudio = true;
@@ -3555,11 +3566,20 @@ function tvDriveSync(){
   const driving = drivingEff();
   if(driving !== drivingNow){ drivingNow = driving; setAudio(audioManual, driving); }
 }
-setInterval(async ()=>{
-  if(!cfg.autoAudio || cfg.passenger || demo() || document.hidden) return;
-  if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
-  try{ await loadState(); tvDriveSync(); }catch(e){}
-}, 15000);
+/* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
+   e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
+DRIVE.timer = 0;
+function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] || audioChan); }catch(e){ return true; } }
+async function driveCheckNow(){
+  try{
+    if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
+  }catch(e){}
+}
+function driveLoop(immediate){
+  clearTimeout(DRIVE.timer);
+  const secs = driveWatching() ? Math.min(DRIVE.check, 60) : DRIVE.check;
+  DRIVE.timer = setTimeout(async () => { await driveCheckNow(); driveLoop(); }, immediate ? 0 : secs * 1000);
+}
 
 /* ---------- Modo passageiro (telemóvel ou tablet do passageiro) ---------- */
 const PASSENGER_KEYS = ["proxy","pkey","proxy2","pkey2","xs","xu","xp","m3u","epg","ytKey","ui","lang","scheme"];
