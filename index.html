@@ -1687,7 +1687,7 @@ const MI = 1.60934;
 const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, check:10, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
 /* Marcha manual: "auto" segue a Tessie; "moving" força D; "park" só vale se a Tessie não indicar andamento. */
-function drivingEff(){ return false; }
+function drivingEff(){ return (typeof cfg !== "undefined" && cfg.gearMode === "moving") || DRIVE.state === "moving"; }
 function driveChip(){
   const eff = drivingEff(), man = cfg.gearMode === "moving";
   const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento" + (man ? " (forçado à mão)" : "") + " — bloqueios ativos" : "🅿️ parado");
@@ -2478,7 +2478,7 @@ function renderTvList(){
     const nn = nowNext(c);
     return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
-  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : (freeErr || "Nada para mostrar.")}</p>`;
+  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
   $("tvCount").textContent = tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
@@ -3570,11 +3570,18 @@ function tvDriveSync(){
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
 function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] || audioChan); }catch(e){ return true; } }
-async function driveCheckNow(){
-  try{
-    if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
-  }catch(e){}
+let driveBusy = null;
+function driveCheckNow(){
+  if(driveBusy) return driveBusy;
+  driveBusy = (async () => {
+    try{
+      if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
+    }catch(e){}
+    finally{ driveBusy = null; }
+  })();
+  return driveBusy;
 }
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ try{ driveUpdate(false); tvDriveSync(); driveLoop(true); }catch(e){} } });
 function driveLoop(immediate){
   clearTimeout(DRIVE.timer);
   const secs = driveWatching() ? Math.min(DRIVE.check, 60) : DRIVE.check;
@@ -5698,6 +5705,11 @@ function dkWeb(t, url){
 
 /* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
 const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+async function rtcConfig(base, key){
+  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } }catch(e){}
+  return rtcCfg;
+}
+function rtcLostWatch(pc, fn){ let t = 0; return () => { const s = pc.connectionState; clearTimeout(t); if(s === "failed" || s === "closed") fn(); else if(s === "disconnected") t = setTimeout(() => { if(pc.connectionState === "disconnected" || pc.connectionState === "failed") fn(); }, 8000); }; }
 const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
 const castRev = s => s.split("").reverse().join("");
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -5761,14 +5773,14 @@ function dkCast(){
     }
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
     st.textContent = "A ligar…";
-    pc = new RTCPeerConnection(rtcCfg);
+    pc = new RTCPeerConnection(await rtcConfig(base, key));
     pc.ondatachannel = e => {
       if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
       dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
     pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
-    pc.onconnectionstatechange = () => { if(["failed","disconnected","closed"].includes(pc.connectionState)){ box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; } };
+    pc.onconnectionstatechange = rtcLostWatch(pc, () => { box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; });
     await pc.setRemoteDescription(offer);
     await pc.setLocalDescription(await pc.createAnswer());
     await iceDone(pc);
@@ -5803,7 +5815,7 @@ function castSenderUI(code0){
       stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30}, audio:true});
       q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
       stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
-      pc = new RTCPeerConnection(rtcCfg);
+      pc = new RTCPeerConnection(await rtcConfig(base, key));
       const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
       const ch = pc.createDataChannel("ctl");
       ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
@@ -5818,7 +5830,7 @@ function castSenderUI(code0){
       for(let i = 0; i < 150 && pc && !ans; i++){ await wait(2000); try{ const a = await fetch(syncUrl(base, key, aid)); if(a.ok) ans = await a.json(); }catch(e){} }
       if(!ans || !pc){ if(pc){ st("O Tesla não respondeu. Confirma que o Cast está aberto com o mesmo código."); stop(); } return; }
       await pc.setRemoteDescription(ans);
-      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); if(pc && ["failed","disconnected"].includes(pc.connectionState)){ st("Ligação perdida."); } };
+      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); }; const lostW = rtcLostWatch(pc, () => st("Ligação perdida.")); pc.addEventListener("connectionstatechange", lostW);
       st("✓ A transmitir para o Tesla.");
     }catch(e){ st("Erro: " + (e.name === "NotAllowedError" ? "cancelaste a partilha." : e.message)); stop(); }
   };
