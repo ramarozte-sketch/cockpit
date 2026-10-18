@@ -474,6 +474,42 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 .keys button.ok{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:20px}
 .keys button.del{font-size:16px}
 .lockbtn{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:6px 14px;min-height:40px;font-size:14px}
+
+/* ===== Desktop: ícones, janelas e Cast ===== */
+#v-desktop{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}
+#v-desktop[hidden]{display:none}
+.dkarea{position:relative;flex:1;min-height:360px;border:1px solid var(--line);border-radius:18px;background:var(--panel);overflow:hidden}
+.dkgrid{position:absolute;inset:0;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-rows:min-content;gap:18px 10px;overflow:auto}
+.dktile{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;padding:8px 4px;border-radius:14px;color:inherit;font-size:14px;text-align:center}
+.dktile:hover,.dktile:focus-visible{background:var(--panel-2)}
+.dkic{width:68px;height:68px;border-radius:18px;display:grid;place-items:center;font-size:32px;color:#fff;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.dktile .dkx{position:absolute;top:2px;right:8px;width:26px;height:26px;border-radius:50%;background:var(--bad);color:#fff;display:none;place-items:center;font-size:14px;border:0}
+.dkedit .dktile .dkx{display:grid}
+.dkwins{position:absolute;inset:0;pointer-events:none}
+.dkwin{position:absolute;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.55);overflow:hidden;min-width:260px;min-height:180px;pointer-events:auto}
+.dkwin.max{left:0!important;top:0!important;width:100%!important;height:100%!important;border-radius:0}
+.dkwin.min{display:none}
+.dkbar{display:flex;align-items:center;gap:4px;padding:5px 8px 5px 12px;background:var(--panel-2);cursor:grab;touch-action:none;user-select:none}
+.dkbar b{font:600 14px var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dkbar button{border:0;background:none;color:inherit;width:36px;height:32px;border-radius:8px;font-size:15px}
+.dkbar button:hover,.dkbar button:focus-visible{background:var(--line)}
+.dkbody{flex:1;min-height:0;position:relative;background:#000}
+.dkbody iframe{width:100%;height:100%;border:0;background:#fff}
+.dkrs{position:absolute;right:0;bottom:0;width:24px;height:24px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 50%,var(--muted) 50%);opacity:.7}
+.dklock{position:absolute;inset:0;z-index:50;background:rgba(0,0,0,.82);display:grid;place-content:center;gap:8px;text-align:center;padding:20px}
+.dklock[hidden]{display:none}
+.dkdock{display:flex;gap:8px;flex-wrap:wrap;min-height:44px;align-items:center}
+.dkdock .btn{padding:8px 14px}
+.dkdock .btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.dkcast{position:absolute;inset:0;background:#000}
+.dkcast video{width:100%;height:100%;object-fit:contain;background:#000}
+.dkcastinfo{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:16px;text-align:center;background:rgba(5,10,16,.92);color:#e8eef5}
+.dkcast.live .dkcastinfo{display:none}
+.dkcode{font:700 46px var(--f-display);letter-spacing:.3em;color:var(--accent)}
+.dkcastinfo p{margin:0;max-width:520px}
+#castSend{position:fixed;inset:0;z-index:9999;background:var(--bg,#0b1118);color:var(--fg,#e8eef5);display:grid;place-items:center;overflow:auto;padding:20px}
+#castSend .panel{max-width:560px;width:100%;display:flex;flex-direction:column;gap:10px}
+#castSend video{width:100%;max-height:260px;background:#000;border-radius:10px}
 </style>
 </head>
 <body>
@@ -580,6 +616,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <button class="nav tb" data-view="tv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M9 2l3 3 3-3"/></svg><span>TV</span></button>
     <button class="nav tb" data-view="media"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg><span>Media</span></button>
     <button class="nav tb" data-view="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>Apps</span></button>
+    <button class="nav" data-view="desktop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Desktop</span></button>
     <button class="nav" data-view="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg><span>Notas</span></button>
     <button class="nav" data-view="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Email</span></button>
     <button class="nav" data-view="net"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg><span>Rede</span></button>
@@ -858,6 +895,29 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <div class="epg" id="epgBox"></div>
         </div>
       </div>
+    </section>
+
+    <!-- DESKTOP -->
+    <section class="view" id="v-desktop" hidden>
+      <div class="row"><h1>Desktop</h1><span class="spacer"></span>
+        <button class="btn" id="dkAdd">+ Atalho</button><button class="btn" id="dkEditBtn" aria-pressed="false">Editar</button><button class="btn" id="dkCloseAll">Fechar janelas</button></div>
+      <div class="panel" id="dkForm" hidden>
+        <h2 id="dkFormT">Novo atalho</h2>
+        <div class="row" style="flex-wrap:wrap">
+          <label class="f" style="flex:1;min-width:160px">Nome<input type="text" id="dkfName" autocomplete="off"></label>
+          <label class="f" style="flex:2;min-width:220px">Endereço<input type="url" id="dkfUrl" placeholder="https://…" autocomplete="off"></label>
+          <label class="f" style="width:110px">Ícone<input type="text" id="dkfIco" maxlength="2" placeholder="▶" autocomplete="off"></label>
+          <label class="f" style="width:90px">Cor<input type="color" id="dkfCol" value="#2563eb"></label>
+        </div>
+        <label class="row small"><input type="checkbox" id="dkfWin"> Abrir numa janela do Desktop (só funciona em sites que permitem; senão abre noutro separador)</label>
+        <div class="row"><button class="btn primary" id="dkfSave">Guardar</button><button class="btn" id="dkfCancel">Cancelar</button><button class="btn danger" id="dkReset">Repor atalhos de origem</button></div>
+      </div>
+      <div class="dkarea" id="dkArea">
+        <div class="dkgrid" id="dkGrid"></div>
+        <div class="dkwins" id="dkWins"></div>
+        <div class="dklock" id="dkLock" hidden><b>Bloqueado com o carro em andamento</b><span>As janelas voltam quando o carro estiver parado.</span></div>
+      </div>
+      <div class="dkdock" id="dkDock" aria-label="Janelas abertas"></div>
     </section>
 
     <!-- MEDIA -->
@@ -1508,7 +1568,7 @@ function show(view){
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
-  const order = ["home","car","energy","voice","tv","media","apps","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
+  const order = ["home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -1522,6 +1582,7 @@ function show(view){
   if(view==="media" && !radioLoaded) loadRadios("");
   if(view==="energy"){ renderLiveCharge(); loadState().then(renderLiveCharge); loadEnergy(); }
   if(view==="launcher") buildLauncher();
+  if(view==="desktop") dkEnter();
   if(view==="games") renderGames();
   if(view==="chargers") renderChargers();
   if(view==="pod" && typeof podEnter === "function") podEnter();
@@ -5337,6 +5398,206 @@ $("btnDelPin").onclick = async ()=>{
   cfg.pinHash=""; cfg.pinSalt=""; saveCfg(); renderLock(); toast("PIN removido");
 };
 $("lockNow").onclick = ()=>{ PIN.lock(); toast("Bloqueado"); };
+
+
+/* ---------- Desktop: ícones, janelas e Cast do ecrã (PC → Tesla, por WebRTC) ---------- */
+const DK_DEF = [
+  {id:"yt",  name:"YouTube",   url:"https://www.youtube.com/",       ico:"▶", c:"#e60026"},
+  {id:"sp",  name:"Spotify",   url:"https://open.spotify.com/",      ico:"♫", c:"#1db954"},
+  {id:"wa",  name:"WhatsApp",  url:"https://web.whatsapp.com/",      ico:"✆", c:"#25a244"},
+  {id:"tg",  name:"Telegram",  url:"https://web.telegram.org/",      ico:"✈", c:"#2a9bd6"},
+  {id:"olx", name:"OLX",       url:"https://www.olx.pt/",            ico:"O", c:"#23373b"},
+  {id:"fs",  name:"Flashscore",url:"https://www.flashscore.pt/",     ico:"F", c:"#d7001e"},
+  {id:"gm",  name:"Gmail",     url:"https://mail.google.com/",       ico:"M", c:"#d93025"},
+  {id:"gpt", name:"ChatGPT",   url:"https://chatgpt.com/",           ico:"✦", c:"#10a37f"},
+  {id:"mp",  name:"Mapas",     url:"https://www.google.com/maps",    ico:"⌖", c:"#34a853"}
+];
+const DK_BUILTIN = [
+  {id:"cast", name:"Cast do ecrã", ico:"⧉", c:"#7c3aed", kind:"cast"},
+  {id:"tv",   name:"TV",           ico:"📺", c:"#2563eb", kind:"view"},
+  {id:"media",name:"Média",        ico:"♪", c:"#db2777", kind:"view"},
+  {id:"nav",  name:"Navegação",    ico:"➤", c:"#0d9488", kind:"app"},
+  {id:"notes",name:"Notas",        ico:"✎", c:"#ca8a04", kind:"view"},
+  {id:"mail", name:"Email",        ico:"✉", c:"#475569", kind:"view"}
+];
+const DK = {wins:new Map(), z:10, n:0, edit:false, editing:null};
+const dkTiles = () => Array.isArray(cfg.desk) ? cfg.desk : DK_DEF.map(x => ({...x, win:false}));
+const dkSave = list => { cfg.desk = list; saveCfg(); };
+const dkNorm = u => { u = String(u||"").trim(); return /^https?:\/\//i.test(u) ? u : (u ? "https://" + u : ""); };
+function dkRender(){
+  const all = [...DK_BUILTIN, ...dkTiles().map(t => ({...t, kind:"web"}))];
+  $("dkGrid").innerHTML = all.map((t,i) => `<button class="dktile" data-i="${i}"><span class="dkic" style="background:${esc(t.c||"#2563eb")}">${esc(t.ico||String(t.name||"?").slice(0,1))}</span><span>${esc(t.name)}</span>${t.kind==="web" ? `<span class="dkx" data-del="${i}" role="button" aria-label="Apagar">✕</span>` : ""}</button>`).join("");
+  $("dkGrid").classList.toggle("dkedit", DK.edit);
+  $("dkGrid").querySelectorAll(".dktile").forEach(b => b.onclick = e => {
+    const t = all[+b.dataset.i];
+    if(e.target.closest("[data-del]")){ const ix = +e.target.closest("[data-del]").dataset.del - DK_BUILTIN.length; const l = dkTiles().slice(); l.splice(ix,1); dkSave(l); dkRender(); return; }
+    if(DK.edit && t.kind==="web"){ dkForm(t, +b.dataset.i - DK_BUILTIN.length); return; }
+    dkLaunch(t);
+  });
+  $("dkEditBtn").setAttribute("aria-pressed", DK.edit ? "true" : "false"); $("dkEditBtn").textContent = DK.edit ? "Concluir" : "Editar";
+}
+function dkLaunch(t){
+  if(t.kind==="view"){ show(t.id); return; }
+  if(t.kind==="app"){ openApp(t.id); return; }
+  if(gamesLocked()){ toast("Só com o carro parado.", true); return; }
+  if(t.kind==="cast"){ dkCast(); return; }
+  const u = dkNorm(t.url); if(!u) return;
+  if(t.win) dkWeb(t, u); else window.open(u, "_blank", "noopener");
+}
+function dkForm(t, ix){
+  DK.editing = ix;
+  $("dkFormT").textContent = ix >= 0 ? "Editar atalho" : "Novo atalho";
+  $("dkfName").value = t ? t.name : ""; $("dkfUrl").value = t ? t.url : ""; $("dkfIco").value = t ? (t.ico||"") : ""; $("dkfCol").value = t && /^#[0-9a-f]{6}$/i.test(t.c||"") ? t.c : "#2563eb"; $("dkfWin").checked = !!(t && t.win);
+  $("dkForm").hidden = false; $("dkfName").focus();
+}
+$("dkAdd").onclick = () => dkForm(null, -1);
+$("dkfCancel").onclick = () => { $("dkForm").hidden = true; };
+$("dkfSave").onclick = () => {
+  const name = $("dkfName").value.trim(), url = dkNorm($("dkfUrl").value);
+  if(!name || !url){ toast("Põe o nome e o endereço.", true); return; }
+  const t = {id:"u"+Date.now(), name, url, ico:$("dkfIco").value.trim() || name.slice(0,1).toUpperCase(), c:$("dkfCol").value, win:$("dkfWin").checked};
+  const l = dkTiles().slice(); if(DK.editing >= 0) l[DK.editing] = {...l[DK.editing], ...t, id:l[DK.editing].id}; else l.push(t);
+  dkSave(l); $("dkForm").hidden = true; dkRender();
+};
+$("dkReset").onclick = () => { delete cfg.desk; saveCfg(); $("dkForm").hidden = true; dkRender(); toast("Atalhos repostos."); };
+$("dkEditBtn").onclick = () => { DK.edit = !DK.edit; dkRender(); };
+$("dkCloseAll").onclick = () => [...DK.wins.keys()].forEach(dkClose);
+
+/* janelas */
+function dkDock(){
+  $("dkDock").innerHTML = [...DK.wins.entries()].map(([id,w]) => `<button class="btn" data-w="${esc(id)}" aria-pressed="${!w.el.classList.contains("min") && w.el.style.zIndex == DK.z}">${esc(w.title)}</button>`).join("") || `<span class="small muted">Sem janelas abertas. Abre um atalho ou o Cast do ecrã.</span>`;
+  $("dkDock").querySelectorAll("[data-w]").forEach(b => b.onclick = () => { const w = DK.wins.get(b.dataset.w); if(!w) return; if(w.el.classList.contains("min")){ w.el.classList.remove("min"); dkFocus(b.dataset.w); } else if(w.el.style.zIndex == DK.z){ w.el.classList.add("min"); dkDock(); } else dkFocus(b.dataset.w); });
+}
+function dkFocus(id){ const w = DK.wins.get(id); if(!w) return; w.el.classList.remove("min"); w.el.style.zIndex = ++DK.z; dkDock(); }
+function dkClose(id){ const w = DK.wins.get(id); if(!w) return; try{ w.onClose && w.onClose(); }catch(e){} w.el.remove(); DK.wins.delete(id); dkDock(); }
+function dkWin(id, title, opts = {}){
+  if(DK.wins.has(id)){ dkFocus(id); return DK.wins.get(id); }
+  const area = $("dkWins"), aw = area.clientWidth || 900, ah = area.clientHeight || 500;
+  const el = document.createElement("div"); el.className = "dkwin";
+  const w = Math.min(opts.w || 560, aw - 20), hgt = Math.min(opts.h || 380, ah - 20), off = (DK.n++ % 6) * 30;
+  el.style.cssText = `left:${Math.max(6, Math.min(24 + off, aw - w - 6))}px;top:${Math.max(6, Math.min(20 + off, ah - hgt - 6))}px;width:${w}px;height:${hgt}px;z-index:${++DK.z}`;
+  el.innerHTML = `<div class="dkbar"><b></b><span class="spacer"></span><span class="dktools"></span><button data-a="min" aria-label="Minimizar">–</button><button data-a="max" aria-label="Maximizar">▢</button><button data-a="x" aria-label="Fechar">✕</button></div><div class="dkbody"></div><i class="dkrs"></i>`;
+  el.querySelector("b").textContent = title;
+  (opts.tools || []).forEach(t => { const b = document.createElement("button"); b.textContent = t.label; b.setAttribute("aria-label", t.aria || t.label); b.onclick = t.fn; el.querySelector(".dktools").appendChild(b); });
+  area.appendChild(el);
+  const rec = {el, title, body:el.querySelector(".dkbody"), onClose:opts.onClose};
+  DK.wins.set(id, rec);
+  el.addEventListener("pointerdown", () => { if(el.style.zIndex != DK.z){ el.style.zIndex = ++DK.z; dkDock(); } }, true);
+  el.querySelectorAll(".dkbar button[data-a]").forEach(b => b.onclick = () => {
+    if(b.dataset.a === "x") dkClose(id);
+    else if(b.dataset.a === "min"){ el.classList.add("min"); dkDock(); }
+    else el.classList.toggle("max");
+  });
+  const drag = (handle, onMove) => handle.addEventListener("pointerdown", e => {
+    if(e.target.closest("button")) return; e.preventDefault(); handle.setPointerCapture(e.pointerId);
+    const sx = e.clientX, sy = e.clientY, r0 = {l:el.offsetLeft, t:el.offsetTop, w:el.offsetWidth, h:el.offsetHeight};
+    const mv = ev => onMove(ev.clientX - sx, ev.clientY - sy, r0), up = () => { handle.removeEventListener("pointermove", mv); handle.removeEventListener("pointerup", up); handle.removeEventListener("pointercancel", up); };
+    handle.addEventListener("pointermove", mv); handle.addEventListener("pointerup", up); handle.addEventListener("pointercancel", up);
+  });
+  drag(el.querySelector(".dkbar"), (dx, dy, r) => { if(el.classList.contains("max")) return; el.style.left = Math.max(0, Math.min(r.l + dx, area.clientWidth - 60)) + "px"; el.style.top = Math.max(0, Math.min(r.t + dy, area.clientHeight - 40)) + "px"; });
+  drag(el.querySelector(".dkrs"), (dx, dy, r) => { el.style.width = Math.max(260, Math.min(r.w + dx, area.clientWidth - r.l)) + "px"; el.style.height = Math.max(180, Math.min(r.h + dy, area.clientHeight - r.t)) + "px"; });
+  dkDock();
+  return rec;
+}
+function dkWeb(t, url){
+  const w = dkWin("web:" + t.id, t.name, {w:620, h:420, tools:[
+    {label:"⟳", aria:"Recarregar", fn:() => { const f = DK.wins.get("web:"+t.id)?.body.querySelector("iframe"); if(f) f.src = url; }},
+    {label:"↗", aria:"Abrir noutro separador", fn:() => window.open(url, "_blank", "noopener")}]});
+  if(!w.body.querySelector("iframe")){
+    const f = document.createElement("iframe"); f.src = url; f.allow = "autoplay; fullscreen; clipboard-write; microphone; camera"; f.referrerPolicy = "no-referrer";
+    w.body.appendChild(f);
+  }
+}
+
+/* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
+const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
+const castRev = s => s.split("").reverse().join("");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function iceDone(pc, ms = 3000){
+  return new Promise(res => { if(pc.iceGatheringState === "complete") return res(); const t = setTimeout(res, ms); pc.addEventListener("icegatheringstatechange", () => { if(pc.iceGatheringState === "complete"){ clearTimeout(t); res(); } }); });
+}
+function dkCast(){
+  if(!cfg.proxy){ toast("O Cast precisa do proxy (Definições › Proxy), com o KV SYNC.", true); return; }
+  const w = dkWin("cast", "Cast do ecrã", {w:640, h:400, onClose:() => { alive = false; try{ pc && pc.close(); }catch(e){} }});
+  let alive = true, pc = null;
+  if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
+  const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
+  const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
+  const base = cfg.proxy, key = cfg.pkey;
+  (async () => {
+    let offer = null;
+    for(let i = 0; i < 300 && alive && !offer; i++){
+      try{ const r = await fetch(syncUrl(base, key, code)); if(r.ok) offer = await r.json(); else if(r.status === 501){ st.textContent = "Falta o KV SYNC no teu Worker (ver proxy-worker.js)."; return; } }catch(e){}
+      if(!offer) await wait(2000);
+    }
+    if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
+    st.textContent = "A ligar…";
+    pc = new RTCPeerConnection(rtcCfg);
+    pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
+    pc.onconnectionstatechange = () => { if(["failed","disconnected","closed"].includes(pc.connectionState)){ box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; } };
+    await pc.setRemoteDescription(offer);
+    await pc.setLocalDescription(await pc.createAnswer());
+    await iceDone(pc);
+    const r = await fetch(syncUrl(base, key, castRev(code)), {method:"POST", body:JSON.stringify(pc.localDescription)});
+    if(!r.ok) st.textContent = "Não consegui responder ao PC (" + r.status + ").";
+  })().catch(e => { st.textContent = "Erro: " + e.message; });
+}
+/* Página do emissor (no PC): ?cast=CODIGO */
+function castSenderUI(code0){
+  const d = document.createElement("div"); d.id = "castSend";
+  d.innerHTML = `<div class="panel"><h2 style="margin:0">Cast do ecrã para o Tesla</h2>
+    <p class="small muted" style="margin:0">No Tesla abre Desktop › Cast do ecrã e escreve aqui o código que aparece. Precisa de um browser de computador (Chrome ou Edge).</p>
+    <label class="f">Código<input type="text" id="csCode" maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:.3em;font-size:22px"></label>
+    <label class="f">Proxy (o mesmo das Definições)<input type="url" id="csBase" placeholder="https://cockpit-proxy.…workers.dev"></label>
+    <label class="f">Chave do proxy<input type="password" id="csKey" autocomplete="off"></label>
+    <div class="row"><button class="btn primary" id="csGo">Partilhar ecrã</button><button class="btn" id="csStop" hidden>Parar</button></div>
+    <p class="small" id="csSt" style="margin:0"></p><video id="csPrev" autoplay muted playsinline hidden></video></div>`;
+  document.body.appendChild(d);
+  const q = i => d.querySelector("#" + i), st = t => q("csSt").textContent = t;
+  q("csCode").value = /^[A-Za-z2-9]{6}$/.test(code0) ? code0.toUpperCase() : "";
+  q("csBase").value = cfg.proxy || ""; q("csKey").value = cfg.pkey || "";
+  let pc = null, stream = null;
+  const stop = () => { try{ pc && pc.close(); }catch(e){} try{ stream && stream.getTracks().forEach(t => t.stop()); }catch(e){} pc = stream = null; q("csStop").hidden = true; q("csGo").hidden = false; q("csPrev").hidden = true; };
+  q("csStop").onclick = () => { stop(); st("Parado."); };
+  q("csGo").onclick = async () => {
+    const code = q("csCode").value.trim().toUpperCase(), base = q("csBase").value.trim(), key = q("csKey").value;
+    if(!/^[A-Z2-9]{6}$/.test(code)){ st("Escreve o código de 6 caracteres que aparece no Tesla."); return; }
+    if(!base){ st("Falta o endereço do proxy."); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){ st("Este browser não deixa partilhar o ecrã. Usa o Chrome ou o Edge num computador."); return; }
+    try{
+      st("Escolhe o ecrã ou a janela a partilhar…");
+      stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30}, audio:true});
+      q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
+      stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
+      pc = new RTCPeerConnection(rtcCfg);
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      await pc.setLocalDescription(await pc.createOffer());
+      await iceDone(pc);
+      st("A enviar o pedido ao Tesla…");
+      const r = await fetch(syncUrl(base, key, code), {method:"POST", body:JSON.stringify(pc.localDescription)});
+      if(r.status === 409){ st("Este código já foi usado. Gera outro no Tesla (fecha e abre o Cast)."); stop(); return; }
+      if(!r.ok){ st("O proxy recusou o pedido (" + r.status + "). Confirma o endereço, a chave e o KV SYNC."); stop(); return; }
+      st("À espera que o Tesla aceite…");
+      const aid = castRev(code); let ans = null;
+      for(let i = 0; i < 150 && pc && !ans; i++){ await wait(2000); try{ const a = await fetch(syncUrl(base, key, aid)); if(a.ok) ans = await a.json(); }catch(e){} }
+      if(!ans || !pc){ if(pc){ st("O Tesla não respondeu. Confirma que o Cast está aberto com o mesmo código."); stop(); } return; }
+      await pc.setRemoteDescription(ans);
+      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); if(pc && ["failed","disconnected"].includes(pc.connectionState)){ st("Ligação perdida."); } };
+      st("✓ A transmitir para o Tesla.");
+    }catch(e){ st("Erro: " + (e.name === "NotAllowedError" ? "cancelaste a partilha." : e.message)); stop(); }
+  };
+}
+/* bloqueio com o carro em andamento */
+let dkLockT = 0;
+function dkLockCheck(){
+  const lock = gamesLocked();
+  $("dkLock").hidden = !lock;
+  if(lock) document.querySelectorAll("#dkWins video").forEach(v => { try{ v.pause(); }catch(e){} });
+}
+function dkEnter(){ dkRender(); dkDock(); dkLockCheck(); clearInterval(dkLockT); dkLockT = setInterval(() => { if(currentView !== "desktop"){ clearInterval(dkLockT); return; } dkLockCheck(); }, 3000); }
+{ const qs = new URLSearchParams(location.search); if(qs.has("cast")) setTimeout(() => castSenderUI(qs.get("cast") || ""), 0); }
 
 buildActions(); $("voiceLang").value=cfg.lang; renderCmdList(); applyLang(); renderNotes(); renderFavs(); netChip(); renderLock();
 if(notes[0]) openNote(notes[0].id);
