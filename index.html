@@ -69,6 +69,12 @@ h1{font:700 28px var(--f-display);letter-spacing:.03em;margin:0}
 h2{font:600 15px var(--f-display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.setgrp{margin:26px 0 10px;font:600 13px var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.setgrp:first-of-type{margin-top:6px}
+.setcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:16px;align-items:start}
+.setcard h2{margin:0}
+.setsub{margin:-6px 0 2px}
+.setsubh{margin:6px 0 0;font:600 13px var(--f-display);color:var(--muted);letter-spacing:.06em}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}.app{grid-template-columns:76px 1fr}.nav span{font-size:10px}}
 .muted{color:var(--muted)}
@@ -868,6 +874,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
         <button class="btn" id="btnAudio" aria-pressed="false">🔊 Só áudio</button>
+        <button class="btn" id="btnGear" title="Modo de marcha: automático (Tessie), P ou D">🚗 Marcha: Auto</button>
         <button class="btn" id="btnGuide">📅 Guia EPG</button>
         <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnLeavePassenger" hidden>Sair do modo passageiro</button>
@@ -1251,23 +1258,40 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <!-- DEFINIÇÕES -->
     <section class="view" id="v-settings" hidden>
       <h1>Definições</h1>
-      <div class="grid2">
-        <div class="panel">
+      <h3 class="setgrp">Segurança e carro</h3>
+      <div class="setcards">
+      <div class="panel setcard">
           <h2>PIN de proteção</h2>
+          <p class="small muted setsub" style="margin:0">Bloqueia o acesso às Definições e ao Email.</p>
           <p class="small muted" id="pinState" style="margin:0"></p>
           <div class="row"><button class="btn primary" id="btnSetPin">Definir PIN</button><button class="btn danger" id="btnDelPin" hidden>Remover PIN</button></div>
+        </div>
+      <div class="panel setcard">
           <h2>Tesla via Tessie</h2>
+          <p class="small muted setsub" style="margin:0">Liga o Cockpit ao teu carro.</p>
           <label class="f">Token da API Tessie (tessie.com › Settings › API)<input type="password" id="setToken" autocomplete="off"></label>
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
           <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
-          <h2>Voz e aparência</h2>
-          <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
+        </div>
+      <div class="panel setcard">
+          <h2>Condução e passageiro</h2>
+          <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV passa a só som.</p>
+          <p class="small" id="driveInfo" style="margin:0">Estado agora: 🅿️ parado</p>
+          <label class="f">Modo de marcha<select id="setGear"><option value="auto">Automático (segue o carro pela Tessie)</option><option value="park">P — parado</option><option value="moving">D — em andamento (TV só com som, bloqueios ativos)</option></select></label>
+          <p class="small muted" style="margin:0">Podes forçar D à mão (por exemplo se a Tessie estiver lenta). Forçar P não anula um carro que a Tessie diz estar em andamento.</p>
+          <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
+          <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
+          <label class="row small"><input type="checkbox" id="setAutoAudio"> No ecrã do carro, passar a TV a só áudio quando o carro anda (volta à imagem em P)</label>
+        </div>
+      </div>
+      <h3 class="setgrp">Aparência e voz</h3>
+      <div class="setcards">
+      <div class="panel setcard">
+          <h2>Idioma e layout</h2>
+          <p class="small muted setsub" style="margin:0">Língua da interface e disposição dos menus.</p>
           <label class="f">Língua da interface<select id="setUi"><option value="pt">Português</option><option value="en">English</option><option value="fr">Français</option></select></label>
-          <label class="f">Assistente IA (frases livres, perguntas e emails)<select id="setAi"><option value="auto">Ligado</option><option value="off">Desligado (só comandos fixos)</option></select></label>
-          <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
-          <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
-          <h2>Layout</h2>
+          <h3 class="setsubh">Layout</h3>
           <div class="layouts" role="group" aria-label="Layout">
             <button class="layoutopt" data-layout="classic" aria-pressed="false"><span class="lprev lp-classic"><i></i><i></i><i></i></span><b>Clássico</b><span class="small muted">Menu com texto e painéis</span></button>
             <button class="layoutopt" data-layout="tesla" aria-pressed="false"><span class="lprev lp-tesla"><i></i><i></i><i></i></span><b>Tesla</b><span class="small muted">Muito parecido com o ecrã do Tesla: carro à esquerda, mapa à direita, barra de ícones em baixo</span></button>
@@ -1279,26 +1303,50 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <label class="row small"><input type="checkbox" id="setBoot"> Ecrã de arranque (animação Matrix ao abrir a app)</label>
           <label class="row small"><input type="checkbox" id="setBootSnd"> Som futurista no arranque</label>
           <div class="row"><button class="btn" id="btnBootTest">▶ Ver o arranque</button></div>
-          <h2>Esquema de cores</h2>
+        </div>
+      <div class="panel setcard">
+          <h2>Cores, sons e arranque</h2>
+          <p class="small muted setsub" style="margin:0">Esquema de cores, efeitos, sons e animação de arranque.</p>
+          
+          <h3 class="setsubh">Esquema de cores</h3>
           <div class="schemes" id="schemes" role="group" aria-label="Esquema de cores"></div>
         </div>
-        <div class="panel">
-          <h2>IPTV — a tua lista</h2>
-          <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
-          <p class="small muted" style="margin:0">ou Xtream Codes:</p>
-          <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
-          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
-          <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
+      <div class="panel setcard">
+          <h2>Voz e assistente</h2>
+          <p class="small muted setsub" style="margin:0">Língua da voz, reconhecimento e assistente IA.</p>
+          <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
+          <label class="f">Assistente IA (frases livres, perguntas e emails)<select id="setAi"><option value="auto">Ligado</option><option value="off">Desligado (só comandos fixos)</option></select></label>
+          <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
+          <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
+        </div>
+      </div>
+      <h3 class="setgrp">Ligações e serviços</h3>
+      <div class="setcards">
+      <div class="panel setcard">
           <h2>Proxy</h2>
+          <p class="small muted setsub" style="margin:0">Necessário para IPTV, Tessie e vídeo no browser do carro. Usa o teu Cloudflare Worker.</p>
           <p class="small muted" style="margin:0">Necessário para a maioria dos servidores Xtream (http:// e sem CORS). Usa o teu Cloudflare Worker; também serve para a Tessie e para o vídeo.</p>
           <label class="f">Endereço do proxy<input type="url" id="setProxy" placeholder="https://cockpit-proxy.<conta>.workers.dev"></label>
           <label class="f">Chave do proxy<input type="password" id="setPkey" autocomplete="off"></label>
           <p class="small muted" style="margin:6px 0 0">Segundo proxy (opcional, para canais que recusam a Cloudflare): usa-se automaticamente quando o primeiro falha. Ver proxy-deno.js.</p>
           <label class="f">Endereço do 2.º proxy<input type="url" id="setProxy2" placeholder="https://o-teu-projeto.deno.dev"></label>
           <label class="f">Chave do 2.º proxy<input type="password" id="setPkey2" autocomplete="off"></label>
+          <div class="row"><button class="btn primary" id="btnSaveProxy">Guardar proxy</button></div>
+        </div>
+      <div class="panel setcard">
+          <h2>TV e IPTV</h2>
+          <p class="small muted setsub" style="margin:0">A tua lista M3U ou Xtream Codes e o guia de programas.</p>
+          <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
+          <p class="small muted" style="margin:0">ou Xtream Codes:</p>
+          <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
+          <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
           <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
           <p class="small muted" id="iptvStatus" style="margin:0"></p>
-          <h2>Energia</h2>
+        </div>
+      <div class="panel setcard">
+          <h2>Energia solar</h2>
+          <p class="small muted setsub" style="margin:0">Growatt, tarifas e dados da casa para o carregamento solar.</p>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Token da API Growatt<input type="password" id="setGwToken" autocomplete="off"></label><label class="f" style="flex:1">Plant ID<input type="text" id="setGwPlant" inputmode="numeric" placeholder="1234567"></label></div>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Unidade da potência na Growatt<select id="setGwUnit"><option value="W">W</option><option value="kW">kW</option></select></label><label class="f" style="flex:1">Consumo base da casa (W)<input type="text" id="setHouseW" inputmode="numeric" placeholder="600"></label></div>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Tarifa da rede (€/kWh)<input type="text" id="setTarIn" inputmode="decimal" placeholder="0.21"></label><label class="f" style="flex:1">Venda à rede (€/kWh)<input type="text" id="setTarOut" inputmode="decimal" placeholder="0.05"></label><label class="f" style="flex:1">Supercharger (€/kWh)<input type="text" id="setTarSc" inputmode="decimal" placeholder="0.45"></label></div>
@@ -1309,7 +1357,10 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <label class="f">Chave Open Charge Map (opcional, dá mais detalhe aos carregadores)<input type="password" id="setOcmKey" autocomplete="off"></label>
           <p class="small muted" style="margin:0">Se a produção aparecer 1000 vezes menor do que no ShinePhone (por exemplo 2 em vez de 2000), muda a unidade para kW. A Growatt só atualiza de minuto a minuto ou de 5 em 5 minutos, conforme o teu datalogger.</p>
           <button class="btn" id="btnSaveEnergy">Guardar Energia</button>
-          <h2>YouTube na app</h2>
+        </div>
+      <div class="panel setcard">
+          <h2>YouTube</h2>
+          <p class="small muted setsub" style="margin:0">Chave da API para pesquisar e ver YouTube na app.</p>
           <label class="f">Chave da API do YouTube<input type="password" id="setYtKey" autocomplete="off"></label>
           <details class="small" data-noi18n><summary>Como obter a chave (grátis)</summary>
             <ol style="padding-left:20px;margin:8px 0;display:flex;flex-direction:column;gap:4px">
@@ -1319,7 +1370,10 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
               <li>Recomendado: em “Restrições da aplicação” escolhe <b>Websites</b> e adiciona <span class="mono">https://ramarozte-sketch.github.io/*</span>.</li>
             </ol>
           </details>
+        </div>
+      <div class="panel setcard">
           <h2>Email</h2>
+          <p class="small muted setsub" style="margin:0">Acesso ao Gmail e ao Outlook.</p>
           <label class="f">ID de cliente Google (Gmail)<input type="text" id="setGClient" autocomplete="off" placeholder="…apps.googleusercontent.com"></label>
           <label class="f">ID da aplicação Microsoft (Outlook)<input type="text" id="setMsClient" autocomplete="off" placeholder="00000000-0000-0000-0000-000000000000"></label>
           <div class="small muted" data-noi18n>Endereço de retorno a registar: <span class="mono" id="mailRedirect"></span></div>
@@ -1342,14 +1396,19 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
             </ol>
           </details>
           <button class="btn" id="btnSaveApis">Guardar YouTube e Email</button>
-          <h2>Modo passageiro e só áudio</h2>
-          <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
-          <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
-          <label class="row small"><input type="checkbox" id="setAutoAudio"> No ecrã do carro, passar a TV a só áudio quando o carro anda (volta à imagem em P)</label>
+        </div>
+      </div>
+      <h3 class="setgrp">Dados</h3>
+      <div class="setcards">
+      <div class="panel setcard">
           <h2>Cópia de segurança</h2>
+          <p class="small muted setsub" style="margin:0">Exporta ou importa as definições e as notas.</p>
           <div class="row"><button class="btn" id="btnExport">Exportar definições e notas</button><button class="btn" id="btnImport">Importar</button></div>
           <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
+        </div>
+      <div class="panel setcard">
           <h2>Transferir para o Tesla (cifrado)</h2>
+          <p class="small muted setsub" style="margin:0">Envia tudo do telemóvel para o Tesla com um código de uso único.</p>
           <p class="small muted" style="margin:0">No telemóvel toca em «Enviar» e aparece um código de uso único (válido 10 minutos). No Tesla escreve esse código em «Receber». Passa tudo, incluindo tokens e chaves. Os dados são cifrados neste aparelho com o código; o servidor só guarda texto ilegível e apaga-o depois de ser lido. O PIN e o layout não são transferidos.</p>
           <div class="row"><button class="btn primary" id="btnSyncSend">Enviar para o Tesla</button></div>
           <div class="banner" id="syncOut" hidden><div class="mono" id="syncCode" style="font-size:26px;letter-spacing:.06em;user-select:all"></div><div class="small" id="syncInfo" style="margin-top:6px"></div></div>
@@ -1622,11 +1681,28 @@ const MI = 1.60934;
    Sem dados novos há mais de DRIVE.stale ms mantém o último estado se era "andamento" (falha para o lado seguro). */
 const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
-function driveChip(){ const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (DRIVE.state === "moving" ? "warn" : "ok"); c.querySelector("span").textContent = DRIVE.state === "moving" ? "Em andamento" : "Parado"; } }
+/* Marcha manual: "auto" segue a Tessie; "moving" força D; "park" só vale se a Tessie não indicar andamento. */
+function drivingEff(){ return (typeof cfg !== "undefined" && cfg.gearMode === "moving") || DRIVE.state === "moving"; }
+function driveChip(){
+  const eff = drivingEff(), man = cfg.gearMode === "moving";
+  const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento" + (man ? " (forçado à mão)" : "") + " — bloqueios ativos" : "🅿️ parado");
+  const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (eff ? "warn" : "ok"); c.querySelector("span").textContent = eff ? (man ? "D (manual)" : "Em andamento") : (cfg.gearMode === "park" ? "P (manual)" : "Parado"); }
+  const g = document.getElementById("btnGear"); if(g) g.textContent = "🚗 Marcha: " + ({auto:"Auto", park:"P", moving:"D"}[cfg.gearMode || "auto"]);
+  const sg = document.getElementById("setGear"); if(sg && sg.value !== (cfg.gearMode || "auto")) sg.value = cfg.gearMode || "auto";
+  document.body.classList.toggle("driving", eff);
+}
+function gearSet(m){
+  if(m === "park" && DRIVE.state === "moving"){ toast("O carro está em andamento: não dá para forçar P.", true); m = "auto"; }
+  cfg.gearMode = m; saveCfg(); driveChip();
+  try{ tvDriveSync(); }catch(e){}
+  try{ if(currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
+  toast("Marcha: " + ({auto:"automática", park:"P (parado)", moving:"D (em andamento)"}[m]));
+}
 function driveSet(st){
   if(st === DRIVE.state) return;
-  DRIVE.state = st; document.body.classList.toggle("driving", st === "moving"); driveChip();
+  DRIVE.state = st; driveChip();
   try{ toast(st === "moving" ? "Em andamento: jogos, janelas e imagem do Cast bloqueados" : "Parado: tudo desbloqueado"); }catch(e){}
+  try{ tvDriveSync(); }catch(e){}
   try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
 }
 function driveUpdate(fresh){
@@ -1645,7 +1721,7 @@ function driveUpdate(fresh){
     else if(now - DRIVE.lastData > DRIVE.stale) driveSet("park");
   }
 }
-setInterval(() => driveUpdate(false), 2000);
+setInterval(() => { driveUpdate(false); try{ tvDriveSync(); }catch(e){} }, 2000);
 const demo = () => !cfg.token || !cfg.vin;
 let car = null;
 const demoState = {
@@ -2809,7 +2885,25 @@ function setCinema(on){
   $("btnCinema").textContent = on ? "Sair do cinema" : "Modo cinema";
   LS.set("cinema", on);
 }
-$("btnCinema").onclick = () => setCinema(!$("v-tv").classList.contains("cinema"));
+$("btnCinema").onclick = () => { const on = !$("v-tv").classList.contains("cinema"); setCinema(on); if(on) toast("Toca duas vezes no vídeo para sair."); };
+/* Duplo toque no vídeo: sai do ecrã inteiro (ou do modo cinema). */
+(function(){
+  let last = 0, lx = 0, ly = 0;
+  const exitFs = () => {
+    if(document.fullscreenElement || document.webkitFullscreenElement){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return true; }
+    if($("v-tv").classList.contains("cinema")){ setCinema(false); return true; }
+    return false;
+  };
+  const st = $("stage");
+  st.addEventListener("pointerup", e => {
+    if(e.target.closest("button,a,input,select,textarea")) return;
+    const t = Date.now();
+    if(t - last < 380 && Math.hypot(e.clientX - lx, e.clientY - ly) < 70){ last = 0; if(exitFs()) e.preventDefault(); }
+    else { last = t; lx = e.clientX; ly = e.clientY; }
+  });
+  st.addEventListener("dblclick", e => { if(!e.target.closest("button,a,input,select,textarea")) exitFs(); });
+  document.addEventListener("fullscreenchange", () => { if(document.fullscreenElement) toast("Toca duas vezes no vídeo para sair."); });
+})();
 $("chPrev").onclick = () => zap(-1);
 $("chNext").onclick = () => zap(1);
 document.addEventListener("keydown", e => { if(currentView==="tv" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||"")){ if(e.key==="ArrowUp"||e.key==="PageUp"){ zap(-1); e.preventDefault(); } if(e.key==="ArrowDown"||e.key==="PageDown"){ zap(1); e.preventDefault(); } } });
@@ -3447,19 +3541,24 @@ function setAudio(manual, auto){
   return true;
 }
 $("btnAudio").onclick = () => setAudio(!audioManual, audioAuto);
+$("btnGear").onclick = () => gearSet({auto:"park", park:"moving", moving:"auto"}[cfg.gearMode || "auto"]);
+$("setGear").onchange = e => gearSet(e.target.value);
+driveChip();
 $("acBack").onclick = () => setAudio(false, audioAuto);
 if(cfg.autoAudio === undefined) cfg.autoAudio = true;
 $("setAutoAudio").checked = !!cfg.autoAudio;
 $("setAutoAudio").onchange = e => { cfg.autoAudio = e.target.checked; saveCfg(); if(!cfg.autoAudio && audioAuto) setAudio(audioManual, false); };
-/* De 15 em 15 s, enquanto há TV a tocar, vê pela Tessie se o carro está em P ou em andamento. */
+/* TV e estado de condução: em andamento passa a só som; em P a imagem volta. Reage logo que o estado muda e confirma de 15 em 15 s pela Tessie. */
+function tvDriveSync(){
+  if(!cfg.autoAudio || cfg.passenger || demo()) return;
+  if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
+  const driving = drivingEff();
+  if(driving !== drivingNow){ drivingNow = driving; setAudio(audioManual, driving); }
+}
 setInterval(async ()=>{
   if(!cfg.autoAudio || cfg.passenger || demo() || document.hidden) return;
   if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
-  try{
-    await loadState();
-    const driving = DRIVE.state === "moving";
-    if(driving !== drivingNow){ drivingNow = driving; setAudio(audioManual, driving); toast(driving ? "Em andamento: TV só com som" : "Parado: a imagem voltou"); }
-  }catch(e){}
+  try{ await loadState(); tvDriveSync(); }catch(e){}
 }, 15000);
 
 /* ---------- Modo passageiro (telemóvel ou tablet do passageiro) ---------- */
@@ -4070,7 +4169,7 @@ const GAMES_ONLINE = [
   {cat:"Portais de jogos", name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
   {cat:"Portais de jogos", name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"}
 ];
-const gamesLocked = () => !cfg.passenger && !demo() && DRIVE.state === "moving";
+const gamesLocked = () => !cfg.passenger && !demo() && drivingEff();
 let gmCleanup = [];
 function gmExit(){ gmCleanup.forEach(f=>{ try{ f(); }catch(e){} }); gmCleanup = []; $("gmStage").hidden = true; $("gmStage").innerHTML = ""; $("gmHub").hidden = false; $("gmBack").hidden = true; }
 function renderGames(){
@@ -4626,6 +4725,7 @@ $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 buildSchemes(); applyTheme();
+$("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
 $("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; saveCfg(); loadIptv(true); };
 $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:"", gwToken:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
@@ -4633,7 +4733,7 @@ $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.tri
 /* ---------- Transferência cifrada telemóvel → Tesla ---------- */
 // O código tem 18 caracteres: os 6 primeiros identificam o envelope no servidor, os outros 12 (60 bits) são a chave.
 // A cifra (AES-GCM, chave via PBKDF2) é feita neste aparelho; o servidor nunca vê o código nem os dados em claro.
-const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
+const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","gearMode","layout","srBroken","pvState","__proto__","constructor","prototype"];
 const b64e = u => { let s = ""; for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); };
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 function syncUrl(base, key, id){ return String(base).replace(/\/+$/,"") + "/sync?" + (key ? "k="+encodeURIComponent(key)+"&" : "") + "id=" + id; }
