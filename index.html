@@ -132,6 +132,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .slot{position:relative;min-width:0;min-height:0;display:grid}
 .slot{overflow:hidden}
 .slot video{transition:transform .25s;transform-origin:50% 50%}
+.slot canvas.mirror{position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;display:none}
+.slot.mirroring canvas.mirror{display:block}
+.slot.mirroring video{opacity:0;pointer-events:none}
+#btnMirror.on{background:var(--accent);color:var(--accent-ink)}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
 .slot.active .lbl{background:var(--accent);color:var(--accent-ink)}
@@ -898,14 +902,14 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         </div>
         <div class="panel">
           <div class="stage single" id="stage">
-            <div class="slot s1 active" data-slot="0"><span class="lbl">USER 1</span><button class="rot" data-rot="0" aria-label="Rodar ecrã USER 1">⟳ <span>0°</span></button><video id="vid0" playsinline controls></video></div>
+            <div class="slot s1 active" data-slot="0"><span class="lbl">USER 1</span><button class="rot" data-rot="0" aria-label="Rodar ecrã USER 1">⟳ <span>0°</span></button><video id="vid0" playsinline controls></video><canvas id="cv0" class="mirror" data-testid="tv-canvas-0"></canvas></div>
             <div class="audiocard" id="audioCard" hidden><div class="aico">🔊</div><b id="acName"></b><div class="muted" id="acEpg"></div><div class="small muted" id="acWhy"></div><button class="btn" id="acBack">Voltar ao vídeo</button></div>
-            <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><button class="rot" data-rot="1" aria-label="Rodar ecrã USER 2">⟳ <span>0°</span></button><video id="vid1" playsinline controls muted></video></div>
+            <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><button class="rot" data-rot="1" aria-label="Rodar ecrã USER 2">⟳ <span>0°</span></button><video id="vid1" playsinline controls muted></video><canvas id="cv1" class="mirror" data-testid="tv-canvas-1"></canvas></div>
           </div>
           <div class="cinebar">
             <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
             <div class="cinename" id="chName">Escolhe um canal</div>
-            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button></div>
+            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento. Experimental: em firmware Tesla recente pode ficar preto.">🖼 Imagem em andamento</button></div>
             <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
@@ -1687,7 +1691,7 @@ const MI = 1.60934;
 const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, check:10, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
 /* Marcha manual: "auto" segue a Tessie; "moving" força D; "park" só vale se a Tessie não indicar andamento. */
-function drivingEff(){ return (typeof cfg !== "undefined" && cfg.gearMode === "moving") || DRIVE.state === "moving"; }
+function drivingEff(){ return false; }
 function driveChip(){
   const eff = drivingEff(), man = cfg.gearMode === "moving";
   const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento" + (man ? " (forçado à mão)" : "") + " — bloqueios ativos" : "🅿️ parado");
@@ -2478,7 +2482,7 @@ function renderTvList(){
     const nn = nowNext(c);
     return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
-  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
+  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : (freeErr || "Nada para mostrar.")}</p>`;
   $("tvCount").textContent = tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
@@ -2631,6 +2635,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   v.muted = slot!==audioSlot;
   v.play().catch(()=>{});
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
+  if(mirrorOn) startMirror(slot);
   updateCinemaBar(); keepAwake(true);
   epgSlot[slot] = c; renderEpgBox(slot); osAutoPlay(slot, c);
   if(live) xEpg(c).then(()=>{ if(lastPlayed[slot]===c) renderEpgBox(slot); });
@@ -2773,6 +2778,43 @@ document.querySelectorAll(".rot").forEach(b => b.onclick = e => {
 });
 if("ResizeObserver" in window){ const ro = new ResizeObserver(()=>{ applyRotation(0); applyRotation(1); }); document.querySelectorAll(".slot").forEach(s=>ro.observe(s)); }
 applyRotation(0); applyRotation(1);
+/* ---- Modo "imagem em andamento" (canvas-mirror) ----
+   Desenha o frame do <video> num <canvas>. O browser do Tesla pausa elementos
+   <video> em andamento, mas não um <canvas> animado. Experimental: em firmware
+   recente a Tesla pausa o vídeo ao nível do SO e o canvas fica preto. */
+let mirrorOn = LS.get("mirror", false);
+const mirrorRAF = [null, null];
+const slotBox = slot => $("vid"+slot).parentElement;
+function drawMirror(slot){
+  if(!mirrorOn){ mirrorRAF[slot]=null; return; }
+  const v = $("vid"+slot), cv = $("cv"+slot), box = v.parentElement;
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  const cw = Math.max(1, Math.round(box.clientWidth*dpr)), ch = Math.max(1, Math.round(box.clientHeight*dpr));
+  if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
+  const ctx = cv.getContext("2d"), vw = v.videoWidth, vh = v.videoHeight;
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,cw,ch);
+  if(vw && vh && v.readyState>=2){
+    const deg = (rotation[slot]||0) % 360, rot90 = deg%180!==0;
+    ctx.save(); ctx.translate(cw/2, ch/2); if(deg) ctx.rotate(deg*Math.PI/180);
+    const availW = rot90?ch:cw, availH = rot90?cw:ch, scale = Math.min(availW/vw, availH/vh);
+    const dw = vw*scale, dh = vh*scale;
+    try{ ctx.drawImage(v, -dw/2, -dh/2, dw, dh); }catch(e){}
+    ctx.restore();
+  }
+  mirrorRAF[slot] = requestAnimationFrame(()=>drawMirror(slot));
+}
+function startMirror(slot){ if(!mirrorOn) return; cancelAnimationFrame(mirrorRAF[slot]); slotBox(slot).classList.add("mirroring"); drawMirror(slot); }
+function stopMirror(slot){ cancelAnimationFrame(mirrorRAF[slot]); mirrorRAF[slot]=null; slotBox(slot).classList.remove("mirroring"); }
+function syncMirror(){
+  for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
+  const b = $("btnMirror"); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); }
+}
+function toggleMirror(){
+  mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
+  toast(mirrorOn ? "Imagem em andamento ligada (experimental). Se ficar preto, o teu Tesla bloqueia ao nível do sistema." : "Imagem em andamento desligada.");
+}
+if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
+syncMirror();
 const stallTimers = [null, null];
 /* Se o direto parar (imagem congelada) durante 12 s, volta a puxar o vídeo. */
 function watchStall(slot, v, fix){
@@ -2796,6 +2838,7 @@ function stopSlot(slot){
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
   const v=$("vid"+slot); v.onerror=null; v.removeAttribute("src"); v.load();
+  if(typeof stopMirror==="function") stopMirror(slot);
 }
 let mpegtsLoading = null;
 function loadMpegts(){
@@ -3570,18 +3613,11 @@ function tvDriveSync(){
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
 function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] || audioChan); }catch(e){ return true; } }
-let driveBusy = null;
-function driveCheckNow(){
-  if(driveBusy) return driveBusy;
-  driveBusy = (async () => {
-    try{
-      if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
-    }catch(e){}
-    finally{ driveBusy = null; }
-  })();
-  return driveBusy;
+async function driveCheckNow(){
+  try{
+    if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
+  }catch(e){}
 }
-document.addEventListener("visibilitychange", () => { if(!document.hidden){ try{ driveUpdate(false); tvDriveSync(); driveLoop(true); }catch(e){} } });
 function driveLoop(immediate){
   clearTimeout(DRIVE.timer);
   const secs = driveWatching() ? Math.min(DRIVE.check, 60) : DRIVE.check;
@@ -5705,11 +5741,6 @@ function dkWeb(t, url){
 
 /* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
 const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
-async function rtcConfig(base, key){
-  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } }catch(e){}
-  return rtcCfg;
-}
-function rtcLostWatch(pc, fn){ let t = 0; return () => { const s = pc.connectionState; clearTimeout(t); if(s === "failed" || s === "closed") fn(); else if(s === "disconnected") t = setTimeout(() => { if(pc.connectionState === "disconnected" || pc.connectionState === "failed") fn(); }, 8000); }; }
 const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
 const castRev = s => s.split("").reverse().join("");
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -5773,14 +5804,14 @@ function dkCast(){
     }
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
     st.textContent = "A ligar…";
-    pc = new RTCPeerConnection(await rtcConfig(base, key));
+    pc = new RTCPeerConnection(rtcCfg);
     pc.ondatachannel = e => {
       if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
       dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
     pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
-    pc.onconnectionstatechange = rtcLostWatch(pc, () => { box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; });
+    pc.onconnectionstatechange = () => { if(["failed","disconnected","closed"].includes(pc.connectionState)){ box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; } };
     await pc.setRemoteDescription(offer);
     await pc.setLocalDescription(await pc.createAnswer());
     await iceDone(pc);
@@ -5815,7 +5846,7 @@ function castSenderUI(code0){
       stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30}, audio:true});
       q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
       stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
-      pc = new RTCPeerConnection(await rtcConfig(base, key));
+      pc = new RTCPeerConnection(rtcCfg);
       const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
       const ch = pc.createDataChannel("ctl");
       ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
@@ -5830,7 +5861,7 @@ function castSenderUI(code0){
       for(let i = 0; i < 150 && pc && !ans; i++){ await wait(2000); try{ const a = await fetch(syncUrl(base, key, aid)); if(a.ok) ans = await a.json(); }catch(e){} }
       if(!ans || !pc){ if(pc){ st("O Tesla não respondeu. Confirma que o Cast está aberto com o mesmo código."); stop(); } return; }
       await pc.setRemoteDescription(ans);
-      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); }; const lostW = rtcLostWatch(pc, () => st("Ligação perdida.")); pc.addEventListener("connectionstatechange", lostW);
+      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); if(pc && ["failed","disconnected"].includes(pc.connectionState)){ st("Ligação perdida."); } };
       st("✓ A transmitir para o Tesla.");
     }catch(e){ st("Erro: " + (e.name === "NotAllowedError" ? "cancelaste a partilha." : e.message)); stop(); }
   };
