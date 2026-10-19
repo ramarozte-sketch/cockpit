@@ -2551,6 +2551,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     // Afinado para o browser do Tesla: pouca memória, qualidade ajustada ao tamanho do ecrã, muitas tentativas de rede.
     const mk = () => {
       const h = new Hls({
+        fLoader: makeCapLoader(slot),
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true,
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:15, maxBufferSize:40*1000*1000,
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
@@ -2567,7 +2568,6 @@ function playChannel(c, slot=tvTarget, auto=false){
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
       h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
-      h.on(Hls.Events.FRAG_LOADED, (ev, d)=>{ if(mirrorOn) mirrorFeed(slot, d); });
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         const lv = data.levels || [];
         const bad = lv.filter(l => /^(hvc1|hev1)/i.test(l.videoCodec||"") && !(window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`)));
@@ -2825,7 +2825,18 @@ function copyLoop(slot){
   if(!mirrorOn){ mirrorRAF[slot]=null; return; }
   const st = MIR[slot], fresh = st && st.lastFrame && (performance.now()-st.lastFrame)<1500;
   if(!fresh){ const v=$("vid"+slot); if(v.videoWidth && v.readyState>=2) mirDraw(slot, v, v.videoWidth, v.videoHeight); }
+  if(WC_OK && st && !fresh){ mirDiag(slot, st); }
   mirrorRAF[slot] = requestAnimationFrame(()=>copyLoop(slot));
+}
+/* Pequeno diagnóstico no canvas enquanto o WebCodecs não produz imagem (para testar no carro). */
+function mirDiag(slot, st){
+  const cv=$("cv"+slot); if(!cv.width) return; const ctx=cv.getContext("2d");
+  const msg = st.err ? ("WebCodecs: "+st.err) : ("A descodificar\u2026 fragmentos:"+(st.segs||0)+" frames:"+(st.frames||0));
+  ctx.save(); ctx.font="14px monospace"; ctx.textAlign="center";
+  const w=ctx.measureText(msg).width+20;
+  ctx.fillStyle="rgba(0,0,0,.6)"; ctx.fillRect(cv.width/2-w/2, cv.height-34, w, 24);
+  ctx.fillStyle=st.err?"#ff6b6b":"#8fd0ff"; ctx.fillText(msg, cv.width/2, cv.height-17);
+  ctx.restore();
 }
 
 /* Pipeline WebCodecs: fragmento HLS -> mux.js (fMP4) -> mp4box (amostras) -> VideoDecoder -> canvas.
@@ -2840,7 +2851,7 @@ function wcInit(slot){
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null;
     const file = MP4Box.createFile(); st.file = file;
     const decoder = new VideoDecoder({
-      output: frame => { try{ mirDraw(slot, frame, frame.displayWidth||frame.codedWidth, frame.displayHeight||frame.codedHeight); st.lastFrame = performance.now(); }finally{ frame.close(); } },
+      output: frame => { try{ mirDraw(slot, frame, frame.displayWidth||frame.codedWidth, frame.displayHeight||frame.codedHeight); st.lastFrame = performance.now(); st.frames=(st.frames||0)+1; }finally{ frame.close(); } },
       error: e => { st.err = "decoder: "+e.message; }
     });
     st.decoder = decoder;
@@ -2869,11 +2880,27 @@ function wcInit(slot){
     });
   });
 }
-/* Recebe cada fragmento HLS (áudio continua a tocar pelo <video>; aqui só usamos o vídeo). */
+/* Recebe os bytes de cada fragmento HLS (já clonados pelo loader) e alimenta o transmuxer. */
 function mirrorFeed(slot, d){
   const st = MIR[slot]; if(!st || !st.tm) return;
-  const payload = d && (d.payload || (d.frag && d.frag.data)); if(!payload) return;
-  try{ st.tm.push(new Uint8Array(payload)); st.tm.flush(); }catch(e){ st.err="transmux: "+e.message; }
+  const payload = d && d.payload; if(!payload) return;
+  st.segs = (st.segs||0)+1;
+  try{ st.tm.push(payload instanceof Uint8Array ? payload : new Uint8Array(payload)); st.tm.flush(); }catch(e){ st.err="transmux: "+e.message; }
+}
+/* Loader que CLONA os bytes do fragmento antes de o HLS.js os transferir para o worker.
+   Com enableWorker:true o ArrayBuffer é "detached" e chegaria vazio -> ecrã preto. */
+function makeCapLoader(slot){
+  const Base = Hls.DefaultConfig.loader;
+  return class extends Base {
+    load(context, config, callbacks){
+      const onSucc = callbacks.onSuccess;
+      callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
+        try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8}); } } }catch(e){}
+        onSucc(resp,stats,ctx,net);
+      }});
+      super.load(context, config, callbacks);
+    }
+  };
 }
 function wcDestroy(slot){
   const st = MIR[slot]; if(!st) return;
