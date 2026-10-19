@@ -2567,6 +2567,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
       h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
+      h.on(Hls.Events.FRAG_LOADED, (ev, d)=>{ if(mirrorOn) mirrorFeed(slot, d); });
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         const lv = data.levels || [];
         const bad = lv.filter(l => /^(hvc1|hev1)/i.test(l.videoCodec||"") && !(window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`)));
@@ -2784,34 +2785,121 @@ applyRotation(0); applyRotation(1);
    recente a Tesla pausa o vídeo ao nível do SO e o canvas fica preto. */
 let mirrorOn = LS.get("mirror", false);
 const mirrorRAF = [null, null];
+const MIR = [null, null];                 // estado do pipeline WebCodecs por slot
 const slotBox = slot => $("vid"+slot).parentElement;
-function drawMirror(slot){
-  if(!mirrorOn){ mirrorRAF[slot]=null; return; }
-  const v = $("vid"+slot), cv = $("cv"+slot), box = v.parentElement;
+const WC_OK = typeof window.VideoDecoder === "function";
+
+/* Carrega mux.js (demux TS -> fMP4) e mp4box (extrai amostras) só quando o modo liga. */
+let mirLibs = null;
+function loadMirLibs(){
+  if(window.muxjs && window.MP4Box) return Promise.resolve(true);
+  if(mirLibs) return mirLibs;
+  const load = src => new Promise(res=>{ const s=document.createElement("script"); s.src=src; s.onload=()=>res(true); s.onerror=()=>res(false); document.head.appendChild(s); });
+  mirLibs = (async()=>{
+    if(!window.muxjs) await load("https://cdn.jsdelivr.net/npm/mux.js@7.1.0/dist/mux.min.js");
+    if(!window.MP4Box) await load("https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js");
+    return !!(window.muxjs && window.MP4Box);
+  })();
+  return mirLibs;
+}
+
+/* Desenha uma fonte (VideoFrame ou <video>) no canvas, com rotação e letterbox. */
+function mirDraw(slot, src, vw, vh){
+  const cv = $("cv"+slot), box = slotBox(slot);
   const dpr = Math.min(window.devicePixelRatio||1, 2);
   const cw = Math.max(1, Math.round(box.clientWidth*dpr)), ch = Math.max(1, Math.round(box.clientHeight*dpr));
   if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
-  const ctx = cv.getContext("2d"), vw = v.videoWidth, vh = v.videoHeight;
+  const ctx = cv.getContext("2d"), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
   ctx.fillStyle="#000"; ctx.fillRect(0,0,cw,ch);
-  if(vw && vh && v.readyState>=2){
-    const deg = (rotation[slot]||0) % 360, rot90 = deg%180!==0;
-    ctx.save(); ctx.translate(cw/2, ch/2); if(deg) ctx.rotate(deg*Math.PI/180);
-    const availW = rot90?ch:cw, availH = rot90?cw:ch, scale = Math.min(availW/vw, availH/vh);
-    const dw = vw*scale, dh = vh*scale;
-    try{ ctx.drawImage(v, -dw/2, -dh/2, dw, dh); }catch(e){}
+  if(vw && vh){
+    ctx.save(); ctx.translate(cw/2,ch/2); if(deg) ctx.rotate(deg*Math.PI/180);
+    const aw=rot90?ch:cw, ah=rot90?cw:ch, sc=Math.min(aw/vw, ah/vh), dw=vw*sc, dh=vh*sc;
+    try{ ctx.drawImage(src, -dw/2, -dh/2, dw, dh); }catch(e){}
     ctx.restore();
   }
-  mirrorRAF[slot] = requestAnimationFrame(()=>drawMirror(slot));
 }
-function startMirror(slot){ if(!mirrorOn) return; cancelAnimationFrame(mirrorRAF[slot]); slotBox(slot).classList.add("mirroring"); drawMirror(slot); }
-function stopMirror(slot){ cancelAnimationFrame(mirrorRAF[slot]); mirrorRAF[slot]=null; slotBox(slot).classList.remove("mirroring"); }
+
+/* Fallback: copia o <video> para o canvas. Só desenha se o WebCodecs não estiver a produzir
+   frames (em andamento esta cópia fica preta; aí o WebCodecs assume o controlo). */
+function copyLoop(slot){
+  if(!mirrorOn){ mirrorRAF[slot]=null; return; }
+  const st = MIR[slot], fresh = st && st.lastFrame && (performance.now()-st.lastFrame)<1500;
+  if(!fresh){ const v=$("vid"+slot); if(v.videoWidth && v.readyState>=2) mirDraw(slot, v, v.videoWidth, v.videoHeight); }
+  mirrorRAF[slot] = requestAnimationFrame(()=>copyLoop(slot));
+}
+
+/* Pipeline WebCodecs: fragmento HLS -> mux.js (fMP4) -> mp4box (amostras) -> VideoDecoder -> canvas.
+   Não usa elemento <video> para a imagem, por isso o bloqueio de vídeo em andamento não se aplica. */
+function wcInit(slot){
+  if(!(mirrorOn && WC_OK)) return;
+  const st = MIR[slot] = MIR[slot] || {};
+  if(st.decoder) return;
+  loadMirLibs().then(ok=>{
+    if(!ok || !mirrorOn || MIR[slot]!==st){ if(!ok) toast("Não foi possível carregar o descodificador (sem rede?).", true); return; }
+    const DS = window.DataStream || MP4Box.DataStream;
+    st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null;
+    const file = MP4Box.createFile(); st.file = file;
+    const decoder = new VideoDecoder({
+      output: frame => { try{ mirDraw(slot, frame, frame.displayWidth||frame.codedWidth, frame.displayHeight||frame.codedHeight); st.lastFrame = performance.now(); }finally{ frame.close(); } },
+      error: e => { st.err = "decoder: "+e.message; }
+    });
+    st.decoder = decoder;
+    file.onError = e => { st.err = "mp4box: "+e; };
+    file.onReady = info => {
+      const vt = (info.videoTracks||[])[0]; if(!vt) return;
+      if(/^(hvc1|hev1)/i.test(vt.codec)){ st.err="HEVC"; toast("Este canal é HEVC/H.265: o WebCodecs não o descodifica. Escolhe a versão HD/SD.", true); return; }
+      let desc=null; const trak=file.getTrackById(vt.id);
+      for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC||e.hvcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
+      try{ decoder.configure({codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height), optimizeForLatency:true}); }
+      catch(err){ st.err="configure: "+err.message; return; }
+      file.setExtractionOptions(vt.id, null, {nbSamples:24}); file.start();
+    };
+    file.onSamples = (id, user, samples) => {
+      for(const s of samples){
+        if(decoder.state!=="configured") return;
+        try{ decoder.decode(new EncodedVideoChunk({ type: s.is_sync?"key":"delta", timestamp: Math.round(s.cts*1e6/s.timescale), duration: Math.round(s.duration*1e6/s.timescale), data: s.data })); }catch(e){ st.err="decode: "+e.message; }
+      }
+    };
+    const tm = new muxjs.mp4.Transmuxer({keepOriginalTimestamps:true}); st.tm = tm;
+    tm.on("data", seg => {
+      let ab;
+      if(!st.gotInit){ const init=seg.initSegment, data=seg.data, buf=new Uint8Array(init.byteLength+data.byteLength); buf.set(init,0); buf.set(data,init.byteLength); ab=buf.buffer; st.gotInit=true; }
+      else { const data=seg.data; ab=data.buffer.slice(data.byteOffset, data.byteOffset+data.byteLength); }
+      ab.fileStart=st.fileStart; st.fileStart+=ab.byteLength; file.appendBuffer(ab);
+    });
+  });
+}
+/* Recebe cada fragmento HLS (áudio continua a tocar pelo <video>; aqui só usamos o vídeo). */
+function mirrorFeed(slot, d){
+  const st = MIR[slot]; if(!st || !st.tm) return;
+  const payload = d && (d.payload || (d.frag && d.frag.data)); if(!payload) return;
+  try{ st.tm.push(new Uint8Array(payload)); st.tm.flush(); }catch(e){ st.err="transmux: "+e.message; }
+}
+function wcDestroy(slot){
+  const st = MIR[slot]; if(!st) return;
+  try{ if(st.decoder && st.decoder.state!=="closed") st.decoder.close(); }catch(e){}
+  try{ if(st.file) st.file.flush(); }catch(e){}
+  MIR[slot] = null;
+}
+function startMirror(slot){
+  if(!mirrorOn) return;
+  slotBox(slot).classList.add("mirroring");
+  wcInit(slot);
+  cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot);
+}
+function stopMirror(slot){
+  cancelAnimationFrame(mirrorRAF[slot]); mirrorRAF[slot]=null;
+  wcDestroy(slot);
+  const box=slotBox(slot); if(box) box.classList.remove("mirroring");
+}
 function syncMirror(){
   for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
   const b = $("btnMirror"); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); }
 }
 function toggleMirror(){
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
-  toast(mirrorOn ? "Imagem em andamento ligada (experimental). Se ficar preto, o teu Tesla bloqueia ao nível do sistema." : "Imagem em andamento desligada.");
+  if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não tem WebCodecs — a imagem só aparece parado.", true);
+  else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264; HEVC/H.265 não decodifica." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
 syncMirror();
