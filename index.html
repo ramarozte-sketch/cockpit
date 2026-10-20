@@ -160,7 +160,11 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .kv dt{color:var(--muted)} .kv dd{margin:0;font-variant-numeric:tabular-nums}
 
 /* Leitor: barra de canais e modo cinema */
-.cinebar{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.cinebar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;min-width:0}
+.cinebar .cinename{flex:1 0 100%}
+.cinebar .btn{flex:1 1 auto;min-width:0;padding:8px 4px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-content:center}
+.cinebar .btn.av{flex:0 1 auto;padding-inline:8px}
+.cinebar .avval{flex:0 0 auto;align-self:center;min-width:44px;text-align:center}
 .epgdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.epgdlg[hidden]{display:none}
 .gdbox{width:min(1120px,96vw);height:min(88vh,820px);display:flex;flex-direction:column;gap:10px;overflow:hidden}
 .gdgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(240px,340px) minmax(0,1fr);gap:12px}
@@ -196,7 +200,7 @@ body.layout-auto .app.cinema main{padding:10px 16px}
 #v-tv.cinema .stage{width:min(100%, calc((100vh - 330px) * 16 / 9));margin:0 auto}
 #v-tv.cinema #tvEmpty{display:none}
 #teslaFs{color:inherit}
-#v-tv.cinema .cinebar .btn{min-height:64px;font-size:18px;padding-inline:26px}
+#v-tv.cinema .cinebar .btn{min-height:64px;font-size:16px;padding-inline:4px}
 #btnCinema[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 
 /* Layout "Condução": barra só com ícones grandes, ecrã de início em cartões e grelha de apps */
@@ -906,11 +910,11 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
             <div class="audiocard" id="audioCard" hidden><div class="aico">🔊</div><b id="acName"></b><div class="muted" id="acEpg"></div><div class="small muted" id="acWhy"></div><button class="btn" id="acBack">Voltar ao vídeo</button></div>
             <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><button class="rot" data-rot="1" aria-label="Rodar ecrã USER 2">⟳ <span>0°</span></button><video id="vid1" playsinline controls muted></video><canvas id="cv1" class="mirror" data-testid="tv-canvas-1"></canvas></div>
           </div>
-          <div class="cinebar">
-            <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
+          <div class="cinebar" data-testid="tv-cinebar">
             <div class="cinename" id="chName">Escolhe um canal</div>
-            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento. Experimental: em firmware Tesla recente pode ficar preto.">🖼 Imagem em andamento</button><button class="btn" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted" style="min-width:52px;text-align:center">0,0s</span><button class="btn" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button></div>
-            <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
+            <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
+            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio e legendas">🎚 Áudio</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
+            <button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
             <div class="tabs" role="tablist" aria-label="Ecrã de destino">
@@ -2332,6 +2336,8 @@ function px2(url, ref, ua){
   const base = cfg.proxy2.replace(/\/+$/,"");
   return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
 }
+/* Ligação direta do Tesla ao servidor (sem proxy), em https para não ser bloqueada como conteúdo misto. */
+const directUrl = u => String(u||"").replace(/^http:/i,"https:").replace(/^(https:\/\/[^\/]+):80(?=\/|$)/i,"$1");
 /* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
 const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
 const refFor = c => { if(!c || !c.free) return ""; const m = FREE_REF.find(([r]) => r.test(c.name||"")); return m ? m[1] : ""; };
@@ -2543,7 +2549,12 @@ function playChannel(c, slot=tvTarget, auto=false){
   };
   const tryTs = async () => {
     const tsUrl = c.url.replace(/\.m3u8(\?|$)/i, ".ts$1");
-    const ok = await playTs(v, px(tsUrl), slot, () => fail("MPEG-TS"));
+    const viaDirect = () => {
+      if(playId !== playSeq[slot]) return;
+      stopSlot(slot);
+      playTs(v, directUrl(tsUrl), slot, () => fail("MPEG-TS", "proxy e ligação direta falharam")).then(ok => { if(ok && mirrorOn) startMirror(slot); });
+    };
+    const ok = await playTs(v, px(tsUrl), slot, cfg.proxy ? viaDirect : () => fail("MPEG-TS"));
     if(!ok) fail("MPEG-TS", "biblioteca de vídeo indisponível");
   };
   if(isTs && live){ tryTs(); }
@@ -2593,8 +2604,8 @@ function playChannel(c, slot=tvTarget, auto=false){
           fetch((via2 ? px2 : px)(c.url) + "&resolve=1").then(r => r.json()).then(j => {
             if(playId!==playSeq[slot]) return;
             if(j.location && /^https:/i.test(j.location)){ direct = j.location; h = mk(); wire(h); }
-            else fail("HLS", "bloqueado (" + code + ") e sem endereço direto https");
-          }).catch(() => { if(playId===playSeq[slot]) fail("HLS", d.details + " " + code); });
+            else { direct = directUrl(c.url); h = mk(); wire(h); }
+          }).catch(() => { if(playId!==playSeq[slot]) return; direct = directUrl(c.url); h = mk(); wire(h); });
           return;
         }
         if(!viaProxy && d.type===Hls.ErrorTypes.NETWORK_ERROR){ // direto falhou (CORS ou bloqueio): tenta pelo proxy
@@ -2615,19 +2626,29 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(live) watchStall(slot, v, () => { const cur = hlsInst[slot]; if(cur){ cur.stopLoad(); cur.startLoad(-1); } });
   } else {
     // Filmes e episódios (ficheiro direto): 1.º proxy → 2.º proxy → versão HLS (.m3u8) do mesmo ficheiro, se o painel a oferecer.
-    let stage = 0;
+    let stage = 0, triedDirect = false;
     v.src = px(c.url);
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
       if(stage === 0 && cfg.proxy && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
+      // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
+      if(stage <= 1 && cfg.proxy && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
       if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
-        const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3}); hlsInst[slot] = h;
-        h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
-        h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
-        h.on(Hls.Events.ERROR, (ev, d) => { if(!d.fatal || playId !== playSeq[slot]) return; fail("vídeo", "código " + code + " · HLS " + d.details + (d.response?.code ? " " + d.response.code : "")); });
-        h.loadSource((stage && cfg.proxy2 ? px2 : px)(c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1"))); h.attachMedia(v);
+        const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
+        const go = src => {
+          const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3}); hlsInst[slot] = h;
+          h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
+          h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
+          h.on(Hls.Events.ERROR, (ev, d) => {
+            if(!d.fatal || playId !== playSeq[slot]) return;
+            if(src !== "direct"){ h.destroy(); go("direct"); return; }
+            fail("vídeo", "código " + code + " · HLS " + d.details + (d.response?.code ? " " + d.response.code : ""));
+          });
+          h.loadSource(src === "direct" ? directUrl(m3u) : (cfg.proxy2 ? px2 : px)(m3u)); h.attachMedia(v);
+        };
+        go("proxy");
         return;
       }
       fail("vídeo", "código " + code);
@@ -2784,7 +2805,8 @@ applyRotation(0); applyRotation(1);
    <video> em andamento, mas não um <canvas> animado. Experimental: em firmware
    recente a Tesla pausa o vídeo ao nível do SO e o canvas fica preto. */
 let mirrorOn = LS.get("mirror", false);
-let mirDelayMs = LS.get("mirDelay2", 0);   // ajuste fino manual (ms); o sync base é automático
+const mirDelMap = LS.get("mirDelCh", {});   // ajuste fino A/V (ms) guardado por canal; o sync base é automático
+const mirDelFor = slot => { const c = lastPlayed[slot]; return c ? (+mirDelMap[c.url] || 0) : 0; };
 const mirrorRAF = [null, null];
 const MIR = [null, null];                 // estado do pipeline WebCodecs por slot
 const slotBox = slot => $("vid"+slot).parentElement;
@@ -2861,7 +2883,7 @@ function present(slot){
   if(q.length && audioOk){
     const kUs = autoOffUs(st, q[0].timestamp);
     if(kUs!=null) st.offUs = kUs; else if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;
-    const masterUs = v.currentTime*1e6 + st.offUs - mirDelayMs*1000;
+    const masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
     let idx=-1;
     for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
     if(idx>=0){
@@ -2971,8 +2993,15 @@ function toggleMirror(){
   else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264; HEVC/H.265 não decodifica." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
-function fmtDelay(){ const b=$("mirDelVal"); if(b) b.textContent=(mirDelayMs/1000).toFixed(2).replace(".",",")+"s"; }
-function nudgeDelay(d){ mirDelayMs=Math.max(-5000, Math.min(5000, mirDelayMs+d)); LS.set("mirDelay2", mirDelayMs); fmtDelay(); toast("Atraso da imagem: "+(mirDelayMs/1000).toFixed(2).replace(".",",")+"s"); }
+const fmtSec = ms => (ms/1000).toFixed(2).replace(".",",")+"s";
+function fmtDelay(){ const b=$("mirDelVal"); if(b) b.textContent=fmtSec(mirDelFor(tvTarget)); }
+function nudgeDelay(d){
+  const c = lastPlayed[tvTarget]; if(!c){ toast("Abre primeiro um canal para ajustar o A/V."); return; }
+  const v = Math.max(-5000, Math.min(5000, mirDelFor(tvTarget)+d));
+  delete mirDelMap[c.url]; if(v) mirDelMap[c.url] = v;
+  const ks = Object.keys(mirDelMap); if(ks.length > 200) delete mirDelMap[ks[0]];
+  LS.set("mirDelCh", mirDelMap); fmtDelay(); toast(`Atraso da imagem em ${c.name}: ${fmtSec(v)} (guardado para este canal)`);
+}
 if($("mirDelMinus")) $("mirDelMinus").onclick = ()=>nudgeDelay(-250);
 if($("mirDelPlus")) $("mirDelPlus").onclick = ()=>nudgeDelay(250);
 fmtDelay();
@@ -3065,7 +3094,7 @@ async function diagnoseStream(url, ch){
   else if(ch && (ch.kind==="movie" || ch.kind==="episode") && last.status>=200 && last.status<300) res.why = "O servidor entrega o ficheiro, mas o browser não consegue reproduzi-lo: normalmente vídeo HEVC/H.265, áudio AC3/DTS ou contentor .mkv/.avi. Experimenta outro filme, ou uma versão em MP4/H.264.";
   else if(last.status>=200 && last.status<300) res.why = "Agora o servidor respondeu bem ao teste. Foi uma falha momentânea: a app já tentou outra vez sozinha. Toca no canal de novo; se falhar sempre, experimenta a versão HD ou SD.";
   else if(/error code: 1003/.test(txt)) res.why = "O proxy na Cloudflare ainda é a versão antiga, que não consegue aceder a endereços IP diretos. Atualiza o código do proxy.";
-  else if(last.status>=400 && (/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt))) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy).";
+  else if(last.status>=400 && (/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt))) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy). A app também tentou ligar o Tesla diretamente e não conseguiu: experimenta a versão HD/SD do canal ou configura um 2.º proxy fora da Cloudflare (ex.: Deno Deploy) em Definições.";
   else if((last.status===401 || last.status===403) && hops.length>1) res.why = "O servidor principal aceitou, mas o servidor de vídeo para onde redireciona recusou. Os fornecedores fazem isto para bloquear endereços de datacenters, como os da Cloudflare, só no vídeo.";
   else if(last.status===401 || last.status===403) res.why = "O servidor IPTV recusa o vídeo pedido a partir da Cloudflare, embora aceite a lista. É um bloqueio a endereços de datacenters.";
   else if(last.status===404) res.why = "O servidor diz que este canal não existe (HTTP 404). Recarrega a lista em Definições.";
@@ -3077,7 +3106,7 @@ async function diagnoseStream(url, ch){
 }
 function updateCinemaBar(){
   const c = lastPlayed[tvTarget];
-  $("chName").textContent = c ? c.name : "Escolhe um canal";
+  $("chName").textContent = c ? c.name : "Escolhe um canal"; fmtDelay();
   const has = !!(c && neighbours(c).length > 1);
   $("chPrev").disabled = !has; $("chNext").disabled = !has;
 }
@@ -3129,7 +3158,7 @@ async function ensureFree(force){
 }
 document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; if(tvKind==="free") ensureFree(false); document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
-function setTarget(t){ tvTarget=t; document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
+function setTarget(t){ tvTarget=t; fmtDelay(); document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
 document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>{ setTarget(+b.dataset.target); updateCinemaBar(); });
 document.querySelectorAll(".slot").forEach(s=>s.addEventListener("click", ()=>setTarget(+s.dataset.slot)));
 $("btnSwapAudio").onclick = ()=>{ audioSlot = audioSlot?0:1; $("vid0").muted = audioSlot!==0; $("vid1").muted = audioSlot!==1; $("btnSwapAudio").textContent = "Som: USER "+(audioSlot+1); };
