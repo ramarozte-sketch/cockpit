@@ -2337,7 +2337,9 @@ function px2(url, ref, ua){
   return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
 }
 /* Ligação direta do Tesla ao servidor (sem proxy), em https para não ser bloqueada como conteúdo misto. */
-const directUrl = u => String(u||"").replace(/^http:/i,"https:").replace(/^(https:\/\/[^\/]+):80(?=\/|$)/i,"$1");
+/* Página aberta em http:// — o Tesla liga-se diretamente aos servidores IPTV (IP do carro), sem proxy. */
+const PAGE_HTTP = location.protocol === "http:";
+const directUrl = u => PAGE_HTTP ? String(u||"") : String(u||"").replace(/^http:/i,"https:").replace(/^(https:\/\/[^\/]+):80(?=\/|$)/i,"$1");
 /* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
 const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
 const refFor = c => { if(!c || !c.free) return ""; const m = FREE_REF.find(([r]) => r.test(c.name||"")); return m ? m[1] : ""; };
@@ -2552,9 +2554,19 @@ function playChannel(c, slot=tvTarget, auto=false){
     const viaDirect = () => {
       if(playId !== playSeq[slot]) return;
       stopSlot(slot);
-      playTs(v, directUrl(tsUrl), slot, () => fail("MPEG-TS", "proxy e ligação direta falharam")).then(ok => { if(ok && mirrorOn) startMirror(slot); });
+      playTs(v, directUrl(tsUrl), slot, () => fail("MPEG-TS", "1.º proxy, 2.º proxy e ligação direta falharam")).then(ok => { if(ok && mirrorOn) startMirror(slot); });
     };
-    const ok = await playTs(v, px(tsUrl), slot, cfg.proxy ? viaDirect : () => fail("MPEG-TS"));
+    const viaP2 = () => {
+      if(playId !== playSeq[slot]) return;
+      stopSlot(slot);
+      playTs(v, px2(tsUrl), slot, viaDirect).then(ok => { if(ok && mirrorOn) startMirror(slot); });
+    };
+    if(PAGE_HTTP){ // direto primeiro; o proxy fica como reserva
+      const ok0 = await playTs(v, tsUrl, slot, () => { if(playId!==playSeq[slot]) return; stopSlot(slot); playTs(v, px(tsUrl), slot, cfg.proxy2 ? viaP2 : () => fail("MPEG-TS", "ligação direta e proxy falharam")).then(ok => { if(ok && mirrorOn) startMirror(slot); }); });
+      if(!ok0) fail("MPEG-TS", "biblioteca de vídeo indisponível");
+      return;
+    }
+    const ok = await playTs(v, px(tsUrl), slot, cfg.proxy2 ? viaP2 : cfg.proxy ? viaDirect : () => fail("MPEG-TS"));
     if(!ok) fail("MPEG-TS", "biblioteca de vídeo indisponível");
   };
   if(isTs && live){ tryTs(); }
@@ -2573,7 +2585,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
-    let viaProxy = !(c.free && /^https:/i.test(c.url) && cfg.proxy);
+    let viaProxy = !(PAGE_HTTP || (c.free && /^https:/i.test(c.url) && cfg.proxy));
     const ref = refFor(c); let via2 = false;
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
@@ -2626,11 +2638,12 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(live) watchStall(slot, v, () => { const cur = hlsInst[slot]; if(cur){ cur.stopLoad(); cur.startLoad(-1); } });
   } else {
     // Filmes e episódios (ficheiro direto): 1.º proxy → 2.º proxy → versão HLS (.m3u8) do mesmo ficheiro, se o painel a oferecer.
-    let stage = 0, triedDirect = false;
-    v.src = px(c.url);
+    let stage = PAGE_HTTP ? -1 : 0, triedDirect = PAGE_HTTP;
+    v.src = PAGE_HTTP ? c.url : px(c.url);
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
+      if(stage === -1){ stage = 0; if(cfg.proxy){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
       if(stage === 0 && cfg.proxy && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
       // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
       if(stage <= 1 && cfg.proxy && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
@@ -2638,7 +2651,9 @@ function playChannel(c, slot=tvTarget, auto=false){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
         const go = src => {
-          const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3}); hlsInst[slot] = h;
+          if(mirrorOn) stopMirror(slot);
+          const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3, fLoader: makeCapLoader(slot)}); hlsInst[slot] = h;
+          if(mirrorOn) startMirror(slot);
           h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
           h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
           h.on(Hls.Events.ERROR, (ev, d) => {
@@ -2810,7 +2825,39 @@ const mirDelFor = slot => { const c = lastPlayed[slot]; return c ? (+mirDelMap[c
 const mirrorRAF = [null, null];
 const MIR = [null, null];                 // estado do pipeline WebCodecs por slot
 const slotBox = slot => $("vid"+slot).parentElement;
-const WC_OK = typeof window.VideoDecoder === "function";
+const WC_NATIVE = typeof window.VideoDecoder === "function" && typeof window.EncodedVideoChunk === "function";
+const WC_OK = WC_NATIVE || (typeof Worker === "function" && typeof WebAssembly === "object" && typeof createImageBitmap === "function");
+/* Sem WebCodecs (página em http): descodifica H.264 por software num Worker e só à medida que o áudio avança. */
+class SoftVideoDecoder {
+  constructor({output, error}){ this.output = output; this.onerr = error; this.state = "unconfigured"; this.pending = []; this.inflight = 0; }
+  configure(cfg){
+    this.w = new Worker("h264soft.js");
+    this.w.onmessage = e => { const d = e.data;
+      if(d.type === "frame"){ const b = d.bmp; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
+      else if(d.type === "done") this.inflight = Math.max(0, this.inflight - 1);
+      else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
+    };
+    this.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
+    this.w.postMessage({cmd:"open", extra:cfg.description || null, shift:(cfg.codedWidth || 0) > 1280 ? 1 : 0});
+    this.state = "configured";
+  }
+  decode(ch){ this.pending.push({data:new Uint8Array(ch.data), ts:ch.timestamp, key:ch.type === "key"}); if(this.pending.length > 4000) this.pending.shift(); }
+  headTs(){ return this.pending.length ? this.pending[0].ts : null; }
+  pump(masterUs){
+    if(masterUs == null || this.state !== "configured") return;
+    const p = this.pending;
+    if(p.length && p[0].ts < masterUs - 1500000){ // muito atrasado: salta para o último keyframe já vencido
+      let k = -1; for(let i = 1; i < p.length && p[i].ts <= masterUs; i++) if(p[i].key) k = i;
+      if(k > 0){ p.splice(0, k); this.w.postMessage({cmd:"flush"}); }
+    }
+    while(p.length && this.inflight < 3 && p[0].ts <= masterUs + 800000){
+      const c = p.shift(), buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
+      this.inflight++; this.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key}, [buf]);
+    }
+  }
+  reset(){ this.pending = []; this.inflight = 0; try{ this.w && this.w.postMessage({cmd:"flush"}); }catch(e){} }
+  close(){ this.state = "closed"; this.pending = []; try{ this.w && this.w.terminate(); }catch(e){} }
+}
 
 /* Carrega mux.js (demux TS -> fMP4) e mp4box (extrai amostras) só quando o modo liga. */
 let mirLibs = null;
@@ -2880,15 +2927,20 @@ function present(slot){
   // Só apresenta quando o áudio (relógio mestre) já corre. Evita esvaziar a fila até ao
   // live edge e ficar com a imagem adiantada face ao som.
   const audioOk = v && v.readyState>=1 && v.currentTime>0 && !v.seeking;
-  if(q.length && audioOk){
-    const kUs = autoOffUs(st, q[0].timestamp);
-    if(kUs!=null) st.offUs = kUs; else if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;
-    const masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
+  const head = q.length ? q[0].timestamp : (st.decoder && st.decoder.headTs ? st.decoder.headTs() : null);
+  if(head!=null && audioOk){
+    const kUs = st.fixedOff!=null ? st.fixedOff : autoOffUs(st, head);
+    if(kUs!=null) st.offUs = kUs; else if(st.offUs==null) st.offUs = head - v.currentTime*1e6;
+    st.masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
+  }
+  if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
+  if(q.length && audioOk && st.masterUs!=null){
+    const masterUs = st.masterUs;
     let idx=-1;
     for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
     if(idx>=0){
       for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados para apanhar o áudio
-      const f=q[idx]; mirDraw(slot, f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=performance.now();
+      const f=q[idx]; mirDraw(slot, f.bmp||f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=performance.now();
       try{ f.close(); }catch(e){}
       st.q=q.slice(idx+1);
     }
@@ -2907,7 +2959,7 @@ function wcInit(slot){
     const DS = window.DataStream || MP4Box.DataStream;
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null; st.ranges = []; st.marks = []; st.curFrag = null;
     const file = MP4Box.createFile(); st.file = file;
-    const decoder = new VideoDecoder({
+    const decoder = new (WC_NATIVE ? VideoDecoder : SoftVideoDecoder)({
       output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>1200){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; }
     });
@@ -2929,8 +2981,10 @@ function wcInit(slot){
         while(rg.length>1 && rg[0].end <= s.offset) rg.shift();
         const r = rg[0];
         if(r && !r.marked && s.offset>=r.start && s.offset<r.end){ r.marked=true; st.marks.push({ts:tsUs, frag:r.frag}); st.marks.sort((a,b)=>a.ts-b.ts); if(st.marks.length>30) st.marks.shift(); }
-        try{ decoder.decode(new EncodedVideoChunk({ type: s.is_sync?"key":"delta", timestamp: tsUs, duration: Math.round(s.duration*1e6/s.timescale), data: s.data })); }catch(e){ st.err="decode: "+e.message; }
+        const ch = { type: s.is_sync?"key":"delta", timestamp: tsUs, duration: Math.round(s.duration*1e6/s.timescale), data: s.data };
+        try{ decoder.decode(WC_NATIVE ? new EncodedVideoChunk(ch) : ch); }catch(e){ st.err="decode: "+e.message; }
       }
+      if(!WC_NATIVE) startPresent(slot);
     };
     const tm = new muxjs.mp4.Transmuxer({keepOriginalTimestamps:true}); st.tm = tm;
     tm.on("data", seg => {
@@ -2964,9 +3018,100 @@ function makeCapLoader(slot){
     }
   };
 }
+/* Filmes .mp4: lê o ficheiro aos bocados (Range), extrai a imagem com mp4box e descodifica-a.
+   O tempo de cada amostra já é o tempo do filme, por isso casa direto com v.currentTime. */
+function mp4Init(slot){
+  if(!(mirrorOn && WC_OK)) return;
+  const c = lastPlayed[slot], v = $("vid"+slot);
+  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)){
+    if(c && /\.mkv(\?|$)/i.test(c.url)) toast("Filmes .mkv ainda não têm imagem em andamento (para já só .mp4).", true);
+    return;
+  }
+  const st = MIR[slot] = MIR[slot] || {};
+  if(st.movie) return;
+  st.movie = true; st.fixedOff = 0;
+  st.onMeta = () => {
+    if(MIR[slot]!==st) return;
+    const src = v.currentSrc || v.src; if(!src || st.src===src) return;
+    if(st.src){ stopMirror(slot); startMirror(slot); return; } // mudou de fonte (fallback de proxy)
+    st.src = src; mp4Run(slot, st, src);
+  };
+  v.addEventListener("loadedmetadata", st.onMeta);
+  if(v.readyState>=1) st.onMeta();
+}
+function mp4Run(slot, st, src){
+  loadMirLibs().then(ok=>{
+    if(!ok || MIR[slot]!==st) return;
+    const v = $("vid"+slot), DS = window.DataStream || MP4Box.DataStream, CH = 1<<21, sleep = ms => new Promise(r=>setTimeout(r, ms));
+    const file = MP4Box.createFile(); st.file = file; st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
+    const decoder = new (WC_NATIVE ? VideoDecoder : SoftVideoDecoder)({
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; st.q.push(frame); if(st.q.length>600){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
+      error: e => { st.err = "decoder: "+e.message; }
+    });
+    st.decoder = decoder;
+    let ready = false, pos = 0, lastTs = 0;
+    file.onError = e => { st.err = "mp4box: "+e; };
+    file.onReady = info => {
+      const vt = (info.videoTracks||[])[0]; if(!vt){ st.err="sem pista de vídeo"; return; }
+      if(/^(hvc1|hev1)/i.test(vt.codec)){ st.err="HEVC"; toast("Este filme é HEVC/H.265: não é possível mostrar a imagem em andamento.", true); return; }
+      let desc=null; const trak=file.getTrackById(vt.id);
+      for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
+      st.cfg = {codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height)};
+      try{ decoder.configure(st.cfg); }catch(err){ st.err="configure: "+err.message; return; }
+      file.setExtractionOptions(vt.id, null, {nbSamples:30});
+      const sk = file.seek(v.currentTime||0, true); pos = sk.offset; lastTs = sk.time*1e6; ready = true;
+      file.start();
+    };
+    file.onSamples = (id, user, samples) => {
+      if(MIR[slot]!==st || decoder.state!=="configured") return;
+      for(const s of samples){
+        const ts = Math.round(s.cts*1e6/s.timescale);
+        const ch = { type: s.is_sync?"key":"delta", timestamp: ts, duration: Math.round(s.duration*1e6/s.timescale), data: s.data };
+        try{ decoder.decode(WC_NATIVE ? new EncodedVideoChunk(ch) : ch); }catch(e){ st.err="decode: "+e.message; }
+        lastTs = ts;
+      }
+      try{ file.releaseUsedSamples(id, samples[samples.length-1].number+1); }catch(e){}
+      startPresent(slot);
+    };
+    st.onSeek = () => {
+      if(!ready || MIR[slot]!==st) return;
+      try{ st.abort && st.abort.abort(); }catch(e){}
+      for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = [];
+      try{ if(WC_NATIVE){ decoder.reset(); decoder.configure(st.cfg); } else decoder.reset(); }catch(e){}
+      const sk = file.seek(v.currentTime, true); pos = sk.offset; lastTs = sk.time*1e6;
+    };
+    v.addEventListener("seeking", st.onSeek);
+    (async () => {
+      while(MIR[slot]===st && mirrorOn){
+        const master = st.masterUs!=null ? st.masterUs : v.currentTime*1e6;
+        if(ready && lastTs > master + 6e6){ await sleep(250); continue; }
+        const a = pos; st.abort = new AbortController();
+        let buf;
+        try{
+          const r = await fetch(src, {headers:{Range:`bytes=${a}-${a+CH-1}`}, signal:st.abort.signal});
+          if(r.status===200){ try{ r.body && r.body.cancel(); }catch(e){} st.err = "o servidor não aceita leitura parcial (Range)"; return; }
+          if(r.status===416){ await sleep(1000); continue; }
+          if(!r.ok){ st.err = "HTTP "+r.status; await sleep(2000); continue; }
+          buf = await r.arrayBuffer();
+        }catch(e){ if(e.name!=="AbortError"){ st.err = "rede: "+(e.message||e); await sleep(2000); } continue; }
+        if(MIR[slot]!==st) return;
+        if(pos!==a) continue; // houve um salto entretanto
+        st.segs = (st.segs||0)+1;
+        const wasReady = ready; buf.fileStart = a;
+        const nx = file.appendBuffer(buf);
+        if(!wasReady){ if(!ready) pos = nx || a+buf.byteLength; }
+        else if(pos===a) pos = a+buf.byteLength;
+        if(wasReady && buf.byteLength < CH) await sleep(1000); // fim do ficheiro
+      }
+    })();
+  });
+}
 function wcDestroy(slot){
   const st = MIR[slot]; if(!st) return;
   st.presenting = false;
+  try{ st.abort && st.abort.abort(); }catch(e){}
+  const v = $("vid"+slot);
+  if(v){ if(st.onMeta) v.removeEventListener("loadedmetadata", st.onMeta); if(st.onSeek) v.removeEventListener("seeking", st.onSeek); }
   if(st.q){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q=null; }
   try{ if(st.decoder && st.decoder.state!=="closed") st.decoder.close(); }catch(e){}
   try{ if(st.file) st.file.flush(); }catch(e){}
@@ -2975,7 +3120,8 @@ function wcDestroy(slot){
 function startMirror(slot){
   if(!mirrorOn) return;
   slotBox(slot).classList.add("mirroring");
-  wcInit(slot);
+  const c = lastPlayed[slot];
+  if(c && c.kind!=="live" && !hlsInst[slot] && !/\.m3u8(\?|$)/i.test(c.url)) mp4Init(slot); else wcInit(slot);
   cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot);
 }
 function stopMirror(slot){
@@ -2989,7 +3135,8 @@ function syncMirror(){
 }
 function toggleMirror(){
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
-  if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não tem WebCodecs — a imagem só aparece parado.", true);
+  if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não suporta o descodificador — a imagem só aparece parado.", true);
+  else if(mirrorOn && !WC_NATIVE) toast("Imagem em andamento ligada (descodificação por software, página em http). Prefere canais HD/SD 720p.");
   else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264; HEVC/H.265 não decodifica." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
@@ -3078,8 +3225,12 @@ async function diagnoseStream(url, ch){
     const r = await fetch(px(url, ref, free)+"&debug=1", {signal:ctl.signal});
     if(r.status===403){ res.why = "A chave do proxy está errada."; return res; }
     hops = (await r.json()).hops || [];
-    if(free && cfg.proxy2){ // canais abertos: mostra também o que o 2.º proxy vê
-      try{ const r2 = await fetch(px2(url, ref, free)+"&debug=1", {signal:ctl.signal}); const h2 = (await r2.json()).hops || []; res.extra = h2; }catch(e){ res.extra = [{host:"2.º proxy", error:String(e.message||e)}]; }
+    if(cfg.proxy2){ // mostra também o que o 2.º proxy vê
+      try{
+        const r2 = await fetch(px2(url, ref, free)+"&debug=1", {signal:ctl.signal}); const t2 = await r2.text();
+        if(r2.status===503 && /USAGE_EXCEEDED|suspended/i.test(t2 + (r2.headers.get("x-deno-error")||""))) res.extra = [{host:"2.º proxy (Deno)", error:"suspenso: limite de utilização do Deno Deploy esgotado"}];
+        else { try{ res.extra = JSON.parse(t2).hops || []; }catch(e){ res.extra = [{host:"2.º proxy", error:"HTTP "+r2.status+" "+t2.slice(0,80)}]; } }
+      }catch(e){ res.extra = [{host:"2.º proxy", error:String(e.message||e)}]; }
     }
   }catch(e){
     res.why = e.name==="AbortError" ? "O servidor IPTV não respondeu em 12 segundos." : "Não consegui contactar o proxy (ou o proxy ainda não tem a versão nova com diagnóstico).";
@@ -3094,7 +3245,14 @@ async function diagnoseStream(url, ch){
   else if(ch && (ch.kind==="movie" || ch.kind==="episode") && last.status>=200 && last.status<300) res.why = "O servidor entrega o ficheiro, mas o browser não consegue reproduzi-lo: normalmente vídeo HEVC/H.265, áudio AC3/DTS ou contentor .mkv/.avi. Experimenta outro filme, ou uma versão em MP4/H.264.";
   else if(last.status>=200 && last.status<300) res.why = "Agora o servidor respondeu bem ao teste. Foi uma falha momentânea: a app já tentou outra vez sozinha. Toca no canal de novo; se falhar sempre, experimenta a versão HD ou SD.";
   else if(/error code: 1003/.test(txt)) res.why = "O proxy na Cloudflare ainda é a versão antiga, que não consegue aceder a endereços IP diretos. Atualiza o código do proxy.";
-  else if(last.status>=400 && (/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt))) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy). A app também tentou ligar o Tesla diretamente e não conseguiu: experimenta a versão HD/SD do canal ou configura um 2.º proxy fora da Cloudflare (ex.: Deno Deploy) em Definições.";
+  else if(last.status>=400 && (/cloudflare/i.test(last.server) || /error code: 1\d{3}/.test(txt))){
+    const l2 = (res.extra||[])[ (res.extra||[]).length-1 ] || null;
+    if(!cfg.proxy2) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy). A app também tentou ligar o Tesla diretamente e não conseguiu: configura um 2.º proxy fora da Cloudflare (ex.: Deno Deploy) em Definições.";
+    else if(l2 && l2.status>=200 && l2.status<300) res.why = "O 1.º proxy é recusado, mas o 2.º proxy (Deno) chega ao vídeo. Se mesmo assim não toca, o problema é o formato: os canais UHD costumam ser HEVC/H.265 — experimenta a versão HD/SD; nos filmes, o ficheiro pode ser .mkv/HEVC/AC3.";
+    else if(l2 && /suspenso/.test(l2.error||"")) res.why = "O 1.º proxy (Cloudflare) é recusado por este servidor e o 2.º proxy (Deno) está SUSPENSO por ter esgotado o limite gratuito do Deno Deploy. Entra em dash.deno.com e reativa/atualiza o plano, ou cria um novo projeto Deno com o proxy-deno.js e põe o novo endereço em Definições.";
+    else if(l2 && l2.error) res.why = "O 1.º proxy é recusado e o 2.º proxy não respondeu ao teste (" + hideCreds(l2.error) + "). Confirma o endereço e a chave do 2.º proxy em Definições, e que o proxy-deno.js está atualizado.";
+    else res.why = "O servidor de vídeo recusa os dois proxies (Cloudflare e Deno) e a ligação direta do Tesla. O fornecedor bloqueia endereços de datacenters; experimenta a versão HD/SD do canal ou fala com o fornecedor IPTV.";
+  }
   else if((last.status===401 || last.status===403) && hops.length>1) res.why = "O servidor principal aceitou, mas o servidor de vídeo para onde redireciona recusou. Os fornecedores fazem isto para bloquear endereços de datacenters, como os da Cloudflare, só no vídeo.";
   else if(last.status===401 || last.status===403) res.why = "O servidor IPTV recusa o vídeo pedido a partir da Cloudflare, embora aceite a lista. É um bloqueio a endereços de datacenters.";
   else if(last.status===404) res.why = "O servidor diz que este canal não existe (HTTP 404). Recarrega a lista em Definições.";
