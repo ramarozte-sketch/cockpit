@@ -2845,18 +2845,12 @@ function present(slot){
   const st=MIR[slot];
   if(!st || !mirrorOn){ if(st) st.presenting=false; return; }
   const q = st.q || [], v = $("vid"+slot);
-  if(q.length){
-    let masterUs;
-    const audioOk = v && v.readyState>=1 && v.currentTime>0 && !v.seeking;
-    if(audioOk){
-      // Alinha o PTS do vídeo ao relógio do áudio (mesma base de tempo) -> sem deriva.
-      if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;
-      masterUs = v.currentTime*1e6 + st.offUs;
-    } else {
-      const now=performance.now();
-      if(st.t0==null){ st.t0=now; st.pts0=q[0].timestamp; }
-      masterUs = st.pts0 + (now-st.t0)*1000;
-    }
+  // Só apresenta quando o áudio (relógio mestre) já corre. Evita esvaziar a fila até ao
+  // live edge e ficar com a imagem adiantada face ao som.
+  const audioOk = v && v.readyState>=1 && v.currentTime>0 && !v.seeking;
+  if(q.length && audioOk){
+    if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;  // calibra 1x: 1.º frame = posição do áudio
+    const masterUs = v.currentTime*1e6 + st.offUs;
     let idx=-1;
     for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
     if(idx>=0){
