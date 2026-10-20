@@ -909,7 +909,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <div class="cinebar">
             <button class="btn" id="chPrev" aria-label="Canal anterior">◀ Anterior</button>
             <div class="cinename" id="chName">Escolhe um canal</div>
-            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento. Experimental: em firmware Tesla recente pode ficar preto.">🖼 Imagem em andamento</button></div>
+            <div class="row" style="flex-wrap:nowrap;gap:10px"><button class="btn" id="chGuide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" aria-label="Áudio e legendas">🎚 Áudio / Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento. Experimental: em firmware Tesla recente pode ficar preto.">🖼 Imagem em andamento</button><button class="btn" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted" style="min-width:52px;text-align:center">0,0s</span><button class="btn" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button></div>
             <button class="btn" id="chNext" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
@@ -2784,6 +2784,7 @@ applyRotation(0); applyRotation(1);
    <video> em andamento, mas não um <canvas> animado. Experimental: em firmware
    recente a Tesla pausa o vídeo ao nível do SO e o canvas fica preto. */
 let mirrorOn = LS.get("mirror", false);
+let mirDelayMs = LS.get("mirDelay2", 0);   // ajuste fino manual (ms); o sync base é automático
 const mirrorRAF = [null, null];
 const MIR = [null, null];                 // estado do pipeline WebCodecs por slot
 const slotBox = slot => $("vid"+slot).parentElement;
@@ -2840,6 +2841,15 @@ function mirDiag(slot, st){
 }
 /* Apresenta os frames descodificados à cadência real (pacing por relógio), em vez de os
    desenhar em rajada. Mantém baixa latência descartando buffer quando fica atrasado. */
+/* Auto A/V: PTS do 1.º frame de cada fragmento vs frag.start (posição no relógio do <video>). */
+function autoOffUs(st, ts){
+  const ms = st.marks; if(!ms || !ms.length) return null;
+  let m = null;
+  for(const x of ms){ if(x.ts <= ts) m = x; else break; }
+  m = m || ms[0];
+  const s = m.frag && m.frag.start;
+  return (typeof s==="number" && isFinite(s)) ? m.ts - s*1e6 : null;
+}
 function startPresent(slot){ const st=MIR[slot]; if(!st || st.presenting) return; st.presenting=true; requestAnimationFrame(()=>present(slot)); }
 function present(slot){
   const st=MIR[slot];
@@ -2849,8 +2859,9 @@ function present(slot){
   // live edge e ficar com a imagem adiantada face ao som.
   const audioOk = v && v.readyState>=1 && v.currentTime>0 && !v.seeking;
   if(q.length && audioOk){
-    if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;  // calibra 1x: 1.º frame = posição do áudio
-    const masterUs = v.currentTime*1e6 + st.offUs;
+    const kUs = autoOffUs(st, q[0].timestamp);
+    if(kUs!=null) st.offUs = kUs; else if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;
+    const masterUs = v.currentTime*1e6 + st.offUs - mirDelayMs*1000;
     let idx=-1;
     for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
     if(idx>=0){
@@ -2872,10 +2883,10 @@ function wcInit(slot){
   loadMirLibs().then(ok=>{
     if(!ok || !mirrorOn || MIR[slot]!==st){ if(!ok) toast("Não foi possível carregar o descodificador (sem rede?).", true); return; }
     const DS = window.DataStream || MP4Box.DataStream;
-    st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null;
+    st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null; st.ranges = []; st.marks = []; st.curFrag = null;
     const file = MP4Box.createFile(); st.file = file;
     const decoder = new VideoDecoder({
-      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>600){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>1200){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; }
     });
     st.decoder = decoder;
@@ -2892,7 +2903,11 @@ function wcInit(slot){
     file.onSamples = (id, user, samples) => {
       for(const s of samples){
         if(decoder.state!=="configured") return;
-        try{ decoder.decode(new EncodedVideoChunk({ type: s.is_sync?"key":"delta", timestamp: Math.round(s.cts*1e6/s.timescale), duration: Math.round(s.duration*1e6/s.timescale), data: s.data })); }catch(e){ st.err="decode: "+e.message; }
+        const tsUs = Math.round(s.cts*1e6/s.timescale), rg = st.ranges;
+        while(rg.length>1 && rg[0].end <= s.offset) rg.shift();
+        const r = rg[0];
+        if(r && !r.marked && s.offset>=r.start && s.offset<r.end){ r.marked=true; st.marks.push({ts:tsUs, frag:r.frag}); st.marks.sort((a,b)=>a.ts-b.ts); if(st.marks.length>30) st.marks.shift(); }
+        try{ decoder.decode(new EncodedVideoChunk({ type: s.is_sync?"key":"delta", timestamp: tsUs, duration: Math.round(s.duration*1e6/s.timescale), data: s.data })); }catch(e){ st.err="decode: "+e.message; }
       }
     };
     const tm = new muxjs.mp4.Transmuxer({keepOriginalTimestamps:true}); st.tm = tm;
@@ -2900,6 +2915,7 @@ function wcInit(slot){
       let ab;
       if(!st.gotInit){ const init=seg.initSegment, data=seg.data, buf=new Uint8Array(init.byteLength+data.byteLength); buf.set(init,0); buf.set(data,init.byteLength); ab=buf.buffer; st.gotInit=true; }
       else { const data=seg.data; ab=data.buffer.slice(data.byteOffset, data.byteOffset+data.byteLength); }
+      st.ranges.push({start:st.fileStart, end:st.fileStart+ab.byteLength, frag:st.curFrag});
       ab.fileStart=st.fileStart; st.fileStart+=ab.byteLength; file.appendBuffer(ab);
     });
   });
@@ -2908,7 +2924,7 @@ function wcInit(slot){
 function mirrorFeed(slot, d){
   const st = MIR[slot]; if(!st || !st.tm) return;
   const payload = d && d.payload; if(!payload) return;
-  st.segs = (st.segs||0)+1;
+  st.segs = (st.segs||0)+1; st.curFrag = d.frag || null;
   try{ st.tm.push(payload instanceof Uint8Array ? payload : new Uint8Array(payload)); st.tm.flush(); }catch(e){ st.err="transmux: "+e.message; }
 }
 /* Loader que CLONA os bytes do fragmento antes de o HLS.js os transferir para o worker.
@@ -2919,7 +2935,7 @@ function makeCapLoader(slot){
     load(context, config, callbacks){
       const onSucc = callbacks.onSuccess;
       callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
-        try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8}); } } }catch(e){}
+        try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8, frag:(ctx&&ctx.frag)||context.frag}); } } }catch(e){}
         onSucc(resp,stats,ctx,net);
       }});
       super.load(context, config, callbacks);
@@ -2955,6 +2971,11 @@ function toggleMirror(){
   else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264; HEVC/H.265 não decodifica." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
+function fmtDelay(){ const b=$("mirDelVal"); if(b) b.textContent=(mirDelayMs/1000).toFixed(2).replace(".",",")+"s"; }
+function nudgeDelay(d){ mirDelayMs=Math.max(-5000, Math.min(5000, mirDelayMs+d)); LS.set("mirDelay2", mirDelayMs); fmtDelay(); toast("Atraso da imagem: "+(mirDelayMs/1000).toFixed(2).replace(".",",")+"s"); }
+if($("mirDelMinus")) $("mirDelMinus").onclick = ()=>nudgeDelay(-250);
+if($("mirDelPlus")) $("mirDelPlus").onclick = ()=>nudgeDelay(250);
+fmtDelay();
 syncMirror();
 const stallTimers = [null, null];
 /* Se o direto parar (imagem congelada) durante 12 s, volta a puxar o vídeo. */
