@@ -2838,6 +2838,29 @@ function mirDiag(slot, st){
   ctx.fillStyle=st.err?"#ff6b6b":"#8fd0ff"; ctx.fillText(msg, cv.width/2, cv.height-17);
   ctx.restore();
 }
+/* Apresenta os frames descodificados à cadência real (pacing por relógio), em vez de os
+   desenhar em rajada. Mantém baixa latência descartando buffer quando fica atrasado. */
+function startPresent(slot){ const st=MIR[slot]; if(!st || st.presenting) return; st.presenting=true; requestAnimationFrame(()=>present(slot)); }
+function present(slot){
+  const st=MIR[slot];
+  if(!st || !mirrorOn){ if(st) st.presenting=false; return; }
+  const q = st.q || [];
+  if(q.length){
+    const now = performance.now();
+    if(st.t0==null){ st.t0=now; st.pts0=q[0].timestamp; }
+    const playMs = now - st.t0;
+    let idx=-1;
+    for(let i=0;i<q.length;i++){ if((q[i].timestamp - st.pts0)/1000 <= playMs) idx=i; else break; }
+    if(idx>=0){
+      for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados
+      const f=q[idx]; mirDraw(slot, f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=now;
+      try{ f.close(); }catch(e){}
+      st.q = q.slice(idx+1);
+    }
+    if(st.q.length>250){ st.t0 -= 1000; }   // demasiado buffer: adianta o relógio (fica perto do direto)
+  }
+  requestAnimationFrame(()=>present(slot));
+}
 
 /* Pipeline WebCodecs: fragmento HLS -> mux.js (fMP4) -> mp4box (amostras) -> VideoDecoder -> canvas.
    Não usa elemento <video> para a imagem, por isso o bloqueio de vídeo em andamento não se aplica. */
@@ -2851,7 +2874,7 @@ function wcInit(slot){
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null;
     const file = MP4Box.createFile(); st.file = file;
     const decoder = new VideoDecoder({
-      output: frame => { try{ mirDraw(slot, frame, frame.displayWidth||frame.codedWidth, frame.displayHeight||frame.codedHeight); st.lastFrame = performance.now(); st.frames=(st.frames||0)+1; }finally{ frame.close(); } },
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>400){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; }
     });
     st.decoder = decoder;
@@ -2904,6 +2927,8 @@ function makeCapLoader(slot){
 }
 function wcDestroy(slot){
   const st = MIR[slot]; if(!st) return;
+  st.presenting = false;
+  if(st.q){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q=null; }
   try{ if(st.decoder && st.decoder.state!=="closed") st.decoder.close(); }catch(e){}
   try{ if(st.file) st.file.flush(); }catch(e){}
   MIR[slot] = null;
