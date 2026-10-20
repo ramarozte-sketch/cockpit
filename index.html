@@ -2844,20 +2844,27 @@ function startPresent(slot){ const st=MIR[slot]; if(!st || st.presenting) return
 function present(slot){
   const st=MIR[slot];
   if(!st || !mirrorOn){ if(st) st.presenting=false; return; }
-  const q = st.q || [];
+  const q = st.q || [], v = $("vid"+slot);
   if(q.length){
-    const now = performance.now();
-    if(st.t0==null){ st.t0=now; st.pts0=q[0].timestamp; }
-    const playMs = now - st.t0;
-    let idx=-1;
-    for(let i=0;i<q.length;i++){ if((q[i].timestamp - st.pts0)/1000 <= playMs) idx=i; else break; }
-    if(idx>=0){
-      for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados
-      const f=q[idx]; mirDraw(slot, f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=now;
-      try{ f.close(); }catch(e){}
-      st.q = q.slice(idx+1);
+    let masterUs;
+    const audioOk = v && v.readyState>=1 && v.currentTime>0 && !v.seeking;
+    if(audioOk){
+      // Alinha o PTS do vídeo ao relógio do áudio (mesma base de tempo) -> sem deriva.
+      if(st.offUs==null) st.offUs = q[0].timestamp - v.currentTime*1e6;
+      masterUs = v.currentTime*1e6 + st.offUs;
+    } else {
+      const now=performance.now();
+      if(st.t0==null){ st.t0=now; st.pts0=q[0].timestamp; }
+      masterUs = st.pts0 + (now-st.t0)*1000;
     }
-    if(st.q.length>250){ st.t0 -= 1000; }   // demasiado buffer: adianta o relógio (fica perto do direto)
+    let idx=-1;
+    for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
+    if(idx>=0){
+      for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados para apanhar o áudio
+      const f=q[idx]; mirDraw(slot, f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=performance.now();
+      try{ f.close(); }catch(e){}
+      st.q=q.slice(idx+1);
+    }
   }
   requestAnimationFrame(()=>present(slot));
 }
@@ -2874,7 +2881,7 @@ function wcInit(slot){
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null;
     const file = MP4Box.createFile(); st.file = file;
     const decoder = new VideoDecoder({
-      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>400){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); if(st.q.length>600){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; }
     });
     st.decoder = decoder;
