@@ -1432,6 +1432,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <p class="small muted setsub" style="margin:0">Guarda todas as definições no teu servidor e importa-as noutro aparelho só com a password.</p>
           <p class="small muted" style="margin:0">Guarda tudo (definições, chaves, notas, favoritos) cifrado neste aparelho antes de sair; o servidor só vê texto cifrado. Quem não souber a password não consegue ler nem encontrar o cofre. Usa uma password longa (8 ou mais caracteres) e não a percas: não há recuperação. Precisa do proxy Cloudflare com o KV «SYNC». Funciona também em páginas http.</p>
           <label class="f">Password do cofre<input type="password" id="vaultPw" autocomplete="off"></label>
+          <label class="row small"><input type="checkbox" id="vaultCh" checked> Incluir a lista de canais IPTV (cifrada e comprimida; pode ser grande)</label>
           <div class="row"><button class="btn primary" id="btnVaultSave">Guardar no servidor</button><button class="btn" id="btnVaultLoad">Importar do servidor</button><button class="btn" id="btnVaultDel">Apagar cofre</button></div>
           <details class="small"><summary>Este aparelho ainda não tem o proxy</summary>
             <p class="muted">Escreve o endereço do Worker e a chave (os mesmos dos outros aparelhos). Só servem para esta operação; ao importar ficam guardados com o resto.</p>
@@ -2352,7 +2353,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v53";
+const APP_VERSION = "v54";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5376,7 +5377,7 @@ const VC = (() => {
   return { pbkdf2, ctr, hmac, sha256, pbkdf2Js, ctrJs, hmacJs };
 })();
 
-const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation)$/;
+const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation|freeTv)$/;
 const VAULT_CFG_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
 const vaultMsg = (t, bad) => { const e = $("vaultMsg"); e.textContent = t || ""; e.style.color = bad ? "var(--bad)" : ""; };
 const vaultBase = () => ($("vaultProxy").value.trim() || cfg.proxy || "").replace(/\/+$/,"");
@@ -5408,6 +5409,40 @@ async function vaultPrep(needBase){
   if(!vaultBase()){ vaultMsg("Falta o endereço do Worker (abre «Este aparelho ainda não tem o proxy»).", true); return null; }
   return pw;
 }
+const chPid = (id, i) => hex(VC.sha256(new TextEncoder().encode(id + ":ch:" + i))).slice(0, 32);
+const catBytes = (...a) => { const o = new Uint8Array(a.reduce((n, x) => n + x.length, 0)); let p = 0; for(const x of a){ o.set(x, p); p += x.length; } return o; };
+const gz = async (u, mode) => { const S = mode === "z" ? window.CompressionStream : window.DecompressionStream; if(!S) throw new Error("este browser não suporta compressão."); return new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new S("gzip"))).arrayBuffer()); };
+const VAULT_PIECE = 600000;
+/* A lista de canais pode ser grande: vai comprimida e cifrada, partida em pedaços de ~600 KB (o servidor só vê texto cifrado). */
+async function vaultSaveChannels(id, enc, mac){
+  let list = await IDB.get("channels"); if(!(list && list.length)) list = channels;
+  if(!(list && list.length)) return 0;
+  let raw = new TextEncoder().encode(JSON.stringify(list)), z = 0;
+  try{ raw = await gz(raw, "z"); z = 1; }catch(e){}
+  const iv = new Uint8Array(16); iv.set(crypto.getRandomValues(new Uint8Array(8)));
+  const ct = await VC.ctr(enc, iv, raw), tag = await VC.hmac(mac, catBytes(new TextEncoder().encode("chan"), iv, ct));
+  const b = b64e(ct), pieces = []; for(let o=0;o<b.length;o+=VAULT_PIECE) pieces.push(b.slice(o, o+VAULT_PIECE));
+  let oldN = 0; try{ const r = await fetch(vaultUrl(chPid(id, 0)), {cache:"no-store"}); if(r.ok) oldN = +(await r.json()).n || 0; }catch(e){}
+  for(let i=0;i<pieces.length;i++){
+    vaultMsg("A guardar canais… " + (i+1) + "/" + pieces.length);
+    const body = i === 0 ? {v:2, z, i:b64e(iv), m:b64e(tag), n:pieces.length, p:pieces[0]} : {p:pieces[i]};
+    const r = await fetch(vaultUrl(chPid(id, i)), {method:"PUT", body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(vaultFail(r, await r.text().catch(()=>"")));
+  }
+  for(let i=pieces.length;i<oldN;i++){ try{ await fetch(vaultUrl(chPid(id, i)), {method:"DELETE"}); }catch(e){} }
+  return list.length;
+}
+async function vaultLoadChannels(id, enc, mac){
+  const r0 = await fetch(vaultUrl(chPid(id, 0)), {cache:"no-store"}); if(r0.status === 404) return 0; if(!r0.ok) throw new Error(vaultFail(r0, ""));
+  const h = await r0.json(), pieces = [h.p];
+  for(let i=1;i<(+h.n || 1);i++){ vaultMsg("A importar canais… " + (i+1) + "/" + h.n); const r = await fetch(vaultUrl(chPid(id, i)), {cache:"no-store"}); if(!r.ok) throw new Error("faltam partes da lista de canais."); pieces.push((await r.json()).p); }
+  const ct = b64d(pieces.join("")), iv = b64d(h.i), tag = b64d(h.m);
+  const want = await VC.hmac(mac, catBytes(new TextEncoder().encode("chan"), iv, ct)); let bad = want.length !== tag.length; for(let i=0;i<want.length;i++) bad = bad | (want[i] ^ tag[i]);
+  if(bad) throw new Error("a lista de canais está corrompida.");
+  let raw = await VC.ctr(enc, iv, ct); if(h.z) raw = await gz(raw, "d");
+  const list = JSON.parse(new TextDecoder().decode(raw)); if(!Array.isArray(list)) throw new Error("lista de canais inválida.");
+  await IDB.set("channels", list); return list.length;
+}
 const vaultFail = (r, t) => r.status === 501 ? "o Worker não tem o KV com o nome SYNC." : r.status === 403 ? "chave do Worker errada." : r.status === 404 ? "não há cofre com esta password." : (t || "erro " + r.status);
 $("btnVaultSave").onclick = async () => {
   const pw = await vaultPrep(); if(!pw) return;
@@ -5421,7 +5456,8 @@ $("btnVaultSave").onclick = async () => {
     const tag = await VC.hmac(mac, body);
     const resp = await fetch(vaultUrl(id), {method:"PUT", body:JSON.stringify({v:2, s:b64e(salt), i:b64e(iv), c:b64e(ct), m:b64e(tag)})});
     if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
-    vaultMsg("Guardado no servidor ✓ (" + new Date().toLocaleString("pt-PT") + ")"); toast("Definições guardadas no servidor ✓");
+    let nch = 0; if($("vaultCh").checked) nch = await vaultSaveChannels(id, enc, mac);
+    vaultMsg("Guardado no servidor ✓ (" + new Date().toLocaleString("pt-PT") + ")" + (nch ? " · " + nch + " entradas de canais" : "")); toast("Definições guardadas no servidor ✓");
   }catch(e){ vaultMsg("Não consegui guardar: " + e.message, true); }
   btn.disabled = false;
 };
@@ -5442,7 +5478,8 @@ $("btnVaultLoad").onclick = async () => {
     const d = JSON.parse(new TextDecoder().decode(await VC.ctr(enc, iv, ct)));
     if(!cfg.proxy && vaultBase()) cfg.proxy = vaultBase(); if(!cfg.pkey && vaultKeyV()) cfg.pkey = vaultKeyV(); saveCfg();
     vaultApply(d);
-    vaultMsg("Importado ✓ A recarregar…"); toast("Definições importadas ✓");
+    let nch = 0; if($("vaultCh").checked){ try{ nch = await vaultLoadChannels(id, enc, mac); }catch(e){ vaultMsg("Definições importadas, mas os canais falharam: " + e.message, true); await new Promise(r => setTimeout(r, 2500)); } }
+    vaultMsg("Importado ✓" + (nch ? " (" + nch + " entradas de canais)" : "") + " A recarregar…"); toast("Definições importadas ✓");
     setTimeout(() => location.reload(), 900);
   }catch(e){ vaultMsg("Não consegui importar: " + e.message, true); }
   btn.disabled = false;
@@ -5451,7 +5488,9 @@ $("btnVaultDel").onclick = async () => {
   const pw = await vaultPrep(); if(!pw) return;
   if(!confirm("Apagar o cofre deste servidor? Esta ação não se desfaz.")) return;
   try{
-    const resp = await fetch(vaultUrl(await vaultId(pw)), {method:"DELETE"});
+    const vid = await vaultId(pw);
+    try{ const r = await fetch(vaultUrl(chPid(vid, 0)), {cache:"no-store"}); if(r.ok){ const n = +(await r.json()).n || 1; for(let i=0;i<n;i++) await fetch(vaultUrl(chPid(vid, i)), {method:"DELETE"}); } }catch(e){}
+    const resp = await fetch(vaultUrl(vid), {method:"DELETE"});
     if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
     vaultMsg("Cofre apagado."); 
   }catch(e){ vaultMsg("Não consegui apagar: " + e.message, true); }
