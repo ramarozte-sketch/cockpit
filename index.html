@@ -1424,7 +1424,12 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <p class="small muted" style="margin:0">No telemóvel toca em «Enviar» e aparece um código de uso único (válido 10 minutos). No Tesla escreve esse código em «Receber». Passa tudo, incluindo tokens e chaves. Os dados são cifrados neste aparelho com o código; o servidor só guarda texto ilegível e apaga-o depois de ser lido. O PIN e o layout não são transferidos.</p>
           <div class="row"><button class="btn primary" id="btnSyncSend">Enviar para o Tesla</button></div>
           <div class="banner" id="syncOut" hidden><div class="mono" id="syncCode" style="font-size:26px;letter-spacing:.06em;user-select:all"></div><div class="small" id="syncInfo" style="margin-top:6px"></div></div>
-          <div class="row" style="flex-wrap:nowrap"><input type="text" id="syncIn" placeholder="Código do telemóvel (6-6-6 letras e números)" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" id="btnSyncGet">Receber</button></div>
+          <div class="row" style="flex-wrap:nowrap"><input type="text" id="syncIn" placeholder="Código cifrado 6-6-6 ou pacote HTTP" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" id="btnSyncGet">Receber</button></div>
+          <div id="syncManualWrap" hidden>
+            <p class="small" style="color:var(--warn);margin:8px 0">Modo HTTP manual: o pacote não está cifrado e pode conter tokens/chaves. Copia-o apenas por um meio privado e apaga-o depois de importar.</p>
+            <textarea id="syncManualBox" class="mono small" rows="5" spellcheck="false" autocomplete="off" placeholder="O pacote manual aparece aqui; no Tesla cola aqui o pacote recebido."></textarea>
+            <div class="row"><button class="btn" id="btnSyncCopy">Copiar pacote</button><button class="btn" id="btnSyncUse">Usar pacote colado</button></div>
+          </div>
           <details class="small"><summary>Este aparelho ainda não tem o proxy</summary>
             <p class="muted">Escreve aqui o endereço do proxy e a chave (os mesmos do telemóvel). Só serve para esta transferência; depois ficam guardados com o resto.</p>
             <label class="f">Endereço do proxy<input type="text" id="syncProxy" inputmode="url" autocomplete="off"></label>
@@ -2294,7 +2299,7 @@ const freeRank = n => { const i = FREE_TOP.findIndex(r=>r.test(n)); return i<0 ?
 async function loadFreeTv(force){
   if(!force){
     const c = LS.get("freeTv", null);
-    if(c && Date.now() - c.t < 24*3600e3 && c.list?.length){ freeChans = c.list; return freeChans; }
+    if(c && Date.now() - c.t < 6*3600e3 && c.list?.length){ freeChans = c.list; return freeChans; }
   }
   let txt = null;
   for(const u of [FREE_SRC, cfg.proxy ? px(FREE_SRC) : null].filter(Boolean)){
@@ -2512,6 +2517,33 @@ function altQuality(c, tried){
   const b = chBase(c.name), q = chQual(c.name); if(!b) return null;
   return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
 }
+/* Alternativas para canais públicos: tenta outra emissão do mesmo canal quando o manifesto HLS falha (ex.: CORS). */
+function freeAltQuality(c, tried){
+  if(!c || !c.free) return null;
+  const norm = n => String(n||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  const getBrand = n => {
+    const t = norm(n);
+    if (/^sic(?: |$)/.test(t)) return "sic";
+    if (/^rtp ?1(?: |$)/.test(t)) return "rtp1";
+    if (/^rtp ?2(?: |$)/.test(t)) return "rtp2";
+    if (/^tvi(?: |$)/.test(t)) return "tvi";
+    if (/^(?:cmtv|cm tv)(?: |$)/.test(t)) return "cmtv";
+    if (/^cnn portugal(?: |$)/.test(t)) return "cnn portugal";
+    return "";
+  };
+  const brand = getBrand(c.name);
+  if(!brand) return null;
+  const isSpinOff = n => /noticias|radical|mulher|reality|africa|internacional|caras|kids|ficcao|ficcao|24 horas/.test(norm(n));
+  const candidates = freeChans.filter(x => x.free && x.url && /^https?:/i.test(x.url)
+    && x.url !== c.url && !tried.has(x.url)
+    && getBrand(x.name) === brand && !isSpinOff(x.name));
+  // Prefer a lower/equal bitrate alternative (usually SD/HD) rather than another UHD/FHD copy.
+  return candidates.sort((a,z) => {
+    const qa = chQual(a.name), qz = chQual(z.name), qc = chQual(c.name);
+    const pa = qa < qc ? 0 : 1, pz = qz < qc ? 0 : 1;
+    return pa-pz || Math.abs(qc-qa)-Math.abs(qc-qz) || a.name.localeCompare(z.name);
+  })[0] || null;
+}
 function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
   if(!auto) autoTried[slot].clear();
@@ -2528,6 +2560,11 @@ function playChannel(c, slot=tvTarget, auto=false){
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
     stopSlot(slot);
+    if(c.free && /manifestLoadError|manifestParsingError|network|CORS|HTTP 40[13]/i.test(String(extra||""))){
+      autoTried[slot].add(c.url);
+      const alt = freeAltQuality(c, autoTried[slot]);
+      if(alt){ toast(`${c.name} falhou ao carregar. A tentar alternativa: ${alt.name}…`); playChannel(alt, slot, true); return; }
+    }
     if(/HEVC|descodificar|formato/.test(extra||"") && c.kind === "live"){
       autoTried[slot].add(c.url); const alt = altQuality(c, autoTried[slot]);
       if(alt){ toast(`${c.name} usa um formato que este browser não suporta. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
@@ -3023,8 +3060,10 @@ function makeCapLoader(slot){
 function mp4Init(slot){
   if(!(mirrorOn && WC_OK)) return;
   const c = lastPlayed[slot], v = $("vid"+slot);
-  if(c && /\.mkv(\?|$)/i.test(c.url)){ mkvInit(slot); return; }
-  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)) return;
+  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)){
+    if(c && /\.mkv(\?|$)/i.test(c.url)) toast("Filmes .mkv ainda não têm imagem em andamento (para já só .mp4).", true);
+    return;
+  }
   const st = MIR[slot] = MIR[slot] || {};
   if(st.movie) return;
   st.movie = true; st.fixedOff = 0;
@@ -3104,93 +3143,10 @@ function mp4Run(slot, st, src){
     })();
   });
 }
-/* MKV experimental: usa Web-Demuxer (FFmpeg/WASM) para extrair pacotes Matroska.
-   Mantém o relógio do <video> como referência e desenha no mesmo canvas do MP4.
-   O modo exige WebCodecs nativo; h264soft.js recebe amostras num formato diferente. */
-const MKV_DEMUX_URL = "https://cdn.jsdelivr.net/npm/web-demuxer@4.0.0/+esm";
-const MKV_WASM_URL = "https://cdn.jsdelivr.net/npm/web-demuxer@4.0.0/dist/wasm-files/web-demuxer.wasm";
-let mkvModulePromise = null;
-function loadMkvDemuxer(){
-  if(!mkvModulePromise) mkvModulePromise = import(MKV_DEMUX_URL).then(m=>m.WebDemuxer).catch(e=>{ mkvModulePromise=null; throw e; });
-  return mkvModulePromise;
-}
-function mkvInit(slot){
-  if(!(mirrorOn && WC_NATIVE)) {
-    if(mirrorOn) toast("A imagem em andamento para MKV requer WebCodecs nativo; não está disponível no modo HTTP/software.", true);
-    return;
-  }
-  const c=lastPlayed[slot], v=$("vid"+slot);
-  if(!c || !/\\.mkv(\\?|$)/i.test(c.url)) return;
-  const st=MIR[slot]=MIR[slot]||{};
-  if(st.mkvStarting || st.mkv) return;
-  st.mkvStarting=true; st.movie=true; st.fixedOff=0; st.q=[]; st.lastFrame=0;
-  (async()=>{
-    try{
-      const WebDemuxer=await loadMkvDemuxer();
-      if(!WebDemuxer || MIR[slot]!==st || !mirrorOn) return;
-      const demuxer=new WebDemuxer({wasmFilePath:MKV_WASM_URL});
-      st.mkv=demuxer;
-      const src=v.currentSrc||v.src||directUrl(c.url);
-      await demuxer.load(src);
-      if(MIR[slot]!==st || !mirrorOn) return;
-      st.mkvConfig=await demuxer.getDecoderConfig("video");
-      if(!st.mkvConfig || !/^(avc1|avc3)/i.test(st.mkvConfig.codec||"")){
-        st.err="o MKV não contém vídeo H.264/AVC compatível";
-        toast("MKV: a imagem em andamento requer vídeo H.264/AVC suportado pelo browser.", true);
-        return;
-      }
-      st.decoder=new VideoDecoder({
-        output:frame=>{
-          if(MIR[slot]!==st){try{frame.close()}catch(e){};return;}
-          st.q.push(frame);
-          if(st.q.length>120){const f=st.q.shift();try{f.close()}catch(e){}}
-          startPresent(slot);
-        },
-        error:e=>{st.err="MKV decoder: "+e.message;}
-      });
-      st.decoder.configure(st.mkvConfig);
-      st.mkvGeneration=0;
-      st.mkvRun=async(startAt)=>{
-        const gen=++st.mkvGeneration;
-        try{if(st.mkvReader) await st.mkvReader.cancel();}catch(e){}
-        if(MIR[slot]!==st || !mirrorOn) return;
-        try{
-          const info=await demuxer.getMediaInfo();
-          const stream=(info.streams||[]).find(x=>x.codec_type_string==="video");
-          let fps=25;
-          const rate=(stream&&(stream.avg_frame_rate||stream.r_frame_rate)||"").split("/").map(Number);
-          if(rate.length===2 && rate[0]>0 && rate[1]>0) fps=Math.max(1,Math.min(60,rate[0]/rate[1]));
-          st.mkvReader=demuxer.read("video",Math.max(0,startAt)).getReader();
-          while(MIR[slot]===st && mirrorOn && gen===st.mkvGeneration){
-            while(v.paused && MIR[slot]===st && gen===st.mkvGeneration) await new Promise(r=>setTimeout(r,150));
-            if(MIR[slot]!==st || gen!==st.mkvGeneration) break;
-            const item=await st.mkvReader.read();
-            if(item.done) break;
-            if(item.value && st.decoder.state==="configured") st.decoder.decode(item.value);
-            startPresent(slot);
-            await new Promise(r=>setTimeout(r,1000/fps));
-          }
-        }catch(e){if(MIR[slot]===st && gen===st.mkvGeneration) st.err="MKV stream: "+(e.message||e);}
-      };
-      st.onSeek=()=>{
-        if(MIR[slot]!==st)return;
-        try{st.mkvGeneration++; if(st.decoder.state!=="closed"){st.decoder.reset();st.decoder.configure(st.mkvConfig)}}catch(e){}
-        st.mkvRun(v.currentTime||0);
-      };
-      v.addEventListener("seeking",st.onSeek);
-      st.mkvRun(v.currentTime||0);
-      toast("MKV: suporte experimental iniciado; a compatibilidade depende do codec e do servidor.", false);
-    }catch(e){
-      if(MIR[slot]===st) {st.err="MKV: "+(e.message||e);toast("Não foi possível abrir o descodificador MKV. Verifica CDN, CORS e suporte a Range no servidor.",true);}
-    }finally{st.mkvStarting=false;}
-  })();
-}
 function wcDestroy(slot){
   const st = MIR[slot]; if(!st) return;
   st.presenting = false;
   try{ st.abort && st.abort.abort(); }catch(e){}
-  try{ st.mkvGeneration++; if(st.mkvReader) st.mkvReader.cancel(); }catch(e){}
-  try{ if(st.mkv && st.mkv.destroy) st.mkv.destroy(); }catch(e){}
   const v = $("vid"+slot);
   if(v){ if(st.onMeta) v.removeEventListener("loadedmetadata", st.onMeta); if(st.onSeek) v.removeEventListener("seeking", st.onSeek); }
   if(st.q){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q=null; }
@@ -5235,8 +5191,44 @@ async function syncKey(secret, salt){
   return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:200000, hash:"SHA-256"}, km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
 }
 const syncMsg = (t, bad) => { $("syncMsg").textContent = t || ""; $("syncMsg").style.color = bad ? "var(--bad)" : ""; };
+// Em HTTPS usa-se o transporte cifrado com código de uso único. Em HTTP disponibiliza-se
+// um pacote manual local (sem servidor/proxy), explicitamente NÃO cifrado.
+function syncIsHttp(){ return location.protocol !== "https:"; }
+function syncManualShow(value){ $("syncManualWrap").hidden = false; if(value !== undefined) $("syncManualBox").value = value; }
+function syncPack(data){ return "COCKPIT-HTTP1:" + b64e(new TextEncoder().encode(JSON.stringify(data))); }
+function syncUnpack(value){
+  const t=String(value||"").trim();
+  if(!t.startsWith("COCKPIT-HTTP1:")) throw new Error("Pacote manual inválido. Cola o pacote completo COCKPIT-HTTP1.");
+  try { return JSON.parse(new TextDecoder().decode(b64d(t.slice("COCKPIT-HTTP1:".length)))); }
+  catch(e){ throw new Error("Pacote ilegível ou incompleto."); }
+}
+function syncTransferData(){
+  const data={cfg:Object.assign({},cfg),notes,mfavs,tvfavs:[...favs]};
+  SYNC_SKIP.forEach(k=>delete data.cfg[k]);
+  return data;
+}
+async function syncApplyData(d, base="", key=""){
+  if(!d || typeof d.cfg !== "object") throw new Error("dados inválidos.");
+  for(const k of Object.keys(d.cfg)){ const v=d.cfg[k]; if(!SYNC_SKIP.includes(k) && ["string","number","boolean"].includes(typeof v)) cfg[k]=v; }
+  if(!cfg.proxy && base) cfg.proxy=base;
+  if(!cfg.pkey && key) cfg.pkey=key;
+  saveCfg(); pvState=null; LS.set("pvState",null);
+  if(Array.isArray(d.notes)){ notes=d.notes; LS.set("notes",notes); }
+  if(Array.isArray(d.mfavs)){ mfavs=d.mfavs; LS.set("mfavs",mfavs); }
+  if(Array.isArray(d.tvfavs)){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); }
+  fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList();
+  $("syncIn").value=""; $("syncManualBox").value=""; $("syncProxy").value=""; $("syncKey").value="";
+  syncMsg("Definições recebidas ✓"); toast("Definições recebidas ✓");
+  if(cfg.token && cfg.vin) loadState();
+}
 $("btnSyncSend").onclick = async ()=>{
-  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não tem cifra (precisa de https).", true); return; }
+  if(syncIsHttp()){
+    if(!(await requirePin("PIN para preparar o pacote"))) return;
+    syncManualShow(syncPack(syncTransferData()));
+    $("syncInfo").textContent="Copia o pacote completo e transfere-o por um meio privado para o Tesla; depois cola-o no campo manual e toca em «Usar pacote colado».";
+    $("syncOut").hidden=false; syncMsg("Pacote HTTP criado localmente. Não está cifrado.",true); return;
+  }
+  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não disponibiliza a cifra necessária. Abre a versão HTTPS.", true); return; }
   if(!cfg.proxy){ syncMsg("Configura primeiro o proxy neste aparelho (Definições › Proxy).", true); return; }
   if(!(await requirePin("PIN para enviar as definições"))) return;
   const btn = $("btnSyncSend"); btn.disabled = true; syncMsg("A cifrar…");
@@ -5257,9 +5249,17 @@ $("btnSyncSend").onclick = async ()=>{
   btn.disabled = false;
 };
 $("btnSyncGet").onclick = async ()=>{
+  if(syncIsHttp()){
+    syncManualShow();
+    const pasted=$("syncManualBox").value.trim() || $("syncIn").value.trim();
+    if(!pasted){ syncMsg("Cola o pacote COCKPIT-HTTP1 na caixa manual e toca em «Usar pacote colado».",true); return; }
+    try { await syncApplyData(syncUnpack(pasted),cfg.proxy,cfg.pkey); }
+    catch(e){ syncMsg("Não consegui receber: "+e.message,true); }
+    return;
+  }
   const raw = String($("syncIn").value).toUpperCase().replace(/[^A-Z0-9]/g, "");
   if(raw.length !== 18 || [...raw].some(c => !SYNC_ALPHA.includes(c))){ syncMsg("Código inválido: são 18 letras e números (6-6-6).", true); return; }
-  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não tem cifra (precisa de https).", true); return; }
+  if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não disponibiliza a cifra necessária. Abre a versão HTTPS.", true); return; }
   const base = $("syncProxy").value.trim() || cfg.proxy, key = $("syncKey").value.trim() || cfg.pkey;
   if(!base){ syncMsg("Falta o endereço do proxy (abre «Este aparelho ainda não tem o proxy»).", true); return; }
   if(!(await requirePin("PIN para receber as definições"))) return;
