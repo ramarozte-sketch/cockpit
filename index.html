@@ -541,6 +541,23 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
 #castSend{position:fixed;inset:0;z-index:9999;background:var(--bg,#0b1118);color:var(--fg,#e8eef5);display:grid;place-items:center;overflow:auto;padding:20px}
 #castSend .panel{max-width:560px;width:100%;display:flex;flex-direction:column;gap:10px}
 #castSend video{width:100%;max-height:260px;background:#000;border-radius:10px}
+
+/* Menu lateral/inferior: todos os ícones cabem sempre no ecrã (encolhem em ecrãs baixos ou estreitos, em vez de cortar). */
+.rail{overflow:hidden;gap:clamp(1px,.5vh,4px);padding:clamp(4px,1.2vh,12px) 8px}
+.rail .brand{padding:clamp(0px,.6vh,6px) 0 clamp(2px,1.2vh,14px);flex:none}
+.rail .nav{flex:1 1 0;min-height:0;max-height:92px;padding:2px 4px;justify-content:center}
+.rail .nav svg{width:clamp(18px,4.4vh,28px);height:clamp(18px,4.4vh,28px);flex:none}
+.rail .nav span{font-size:clamp(9px,1.6vh,12px);line-height:1.1}
+body.layout-auto .rail{gap:clamp(4px,1.4vh,12px);padding:clamp(6px,1.6vh,16px) 12px}
+body.layout-auto .nav{width:84px;height:auto;max-height:84px;min-height:0;flex:1 1 0;padding:0}
+body.layout-auto .nav svg{width:clamp(22px,5.2vh,38px);height:clamp(22px,5.2vh,38px)}
+body.layout-tesla .rail{overflow:hidden;flex-wrap:nowrap;gap:clamp(2px,.6vw,6px);padding:6px clamp(6px,1.6vw,18px)}
+body.layout-tesla .rail .nav{flex:0 1 80px;min-width:40px;width:auto;height:clamp(48px,10vh,80px);max-height:none;padding:0}
+body.layout-tesla .rail .nav svg{width:clamp(24px,5vh,36px);height:clamp(24px,5vh,36px)}
+body.layout-tesla .tsclim{flex:0 1 auto;min-width:0;margin:0 clamp(2px,.8vw,14px);height:clamp(48px,10vh,72px)}
+body.layout-tesla .tsclim button{width:clamp(30px,3.6vw,46px)}
+body.layout-tesla .tsclim b{min-width:clamp(54px,6vw,92px);font-size:clamp(24px,3.2vw,34px)}
+body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,8vh,60px);margin-left:clamp(4px,1vw,18px)}
 </style>
 </head>
 <body>
@@ -2366,7 +2383,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v56";
+const APP_VERSION = "v57";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
