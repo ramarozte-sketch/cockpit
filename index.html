@@ -2295,7 +2295,7 @@ async function loadFreeTv(force){
     if(c && Date.now() - c.t < 6*3600e3 && c.list?.length){ freeChans = c.list; return freeChans; }
   }
   let txt = null;
-  for(const u of [FREE_SRC, cfg.proxy ? px(FREE_SRC) : null].filter(Boolean)){
+  for(const u of [FREE_SRC, HASPX() ? px(FREE_SRC) : null].filter(Boolean)){
     try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
   }
   if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list; return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
@@ -2323,7 +2323,12 @@ function parseM3U(text){
   return out;
 }
 /* Proxy: um Cloudflare Worker teu que acrescenta CORS e serve tudo em https. */
+/* Proxy do telemóvel: quando o Cockpit é aberto a partir da app Cockpit Cast (http://IP-do-telemóvel:8080/c), o vídeo e os pedidos sem CORS saem pela ligação do telemóvel. */
+const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
+const HASPX = () => !!(PHONE || cfg.proxy);
+if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
 function px(url, ref, ua){
+  if(PHONE && url) return PHONE.base + "/?k=" + encodeURIComponent(PHONE.key || "") + "&" + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
   if(!url || !cfg.proxy) return url;
   const base = cfg.proxy.replace(/\/+$/,"");
   return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
@@ -2336,7 +2341,7 @@ function px2(url, ref, ua){
 }
 /* Ligação direta do Tesla ao servidor (sem proxy), em https para não ser bloqueada como conteúdo misto. */
 /* Página aberta em http:// — o Tesla liga-se diretamente aos servidores IPTV (IP do carro), sem proxy. */
-const PAGE_HTTP = location.protocol === "http:";
+const PAGE_HTTP = location.protocol === "http:" && !PHONE;
 const directUrl = u => PAGE_HTTP ? String(u||"") : String(u||"").replace(/^http:/i,"https:").replace(/^(https:\/\/[^\/]+):80(?=\/|$)/i,"$1");
 /* Alguns canais abertos só respondem se o pedido vier do site da própria estação. */
 const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt/"],[/\btvi\b|cnn portugal/i,"https://tvi.iol.pt/"],[/cm ?tv/i,"https://www.cmtv.pt/"],[/benfica/i,"https://www.slbenfica.pt/"]];
@@ -2596,7 +2601,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(!ok0) fail("MPEG-TS", "biblioteca de vídeo indisponível");
       return;
     }
-    const ok = await playTs(v, px(tsUrl), slot, cfg.proxy2 ? viaP2 : cfg.proxy ? viaDirect : () => fail("MPEG-TS"));
+    const ok = await playTs(v, px(tsUrl), slot, cfg.proxy2 ? viaP2 : HASPX() ? viaDirect : () => fail("MPEG-TS"));
     if(!ok) fail("MPEG-TS", "biblioteca de vídeo indisponível");
   };
   if(isTs && live){ tryTs(); }
@@ -2615,7 +2620,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
-    let viaProxy = !(PAGE_HTTP || (c.free && /^https:/i.test(c.url) && cfg.proxy));
+    let viaProxy = !(PAGE_HTTP || (c.free && /^https:/i.test(c.url) && HASPX()));
     const ref = refFor(c); let via2 = false;
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
@@ -2641,7 +2646,7 @@ function playChannel(c, slot=tvTarget, auto=false){
         if(viaProxy && cfg.proxy2 && !via2 && (d.type===Hls.ErrorTypes.NETWORK_ERROR) && ((code>=400 && code<500) || code===204 || /manifest(Parsing|Load)Error/.test(d.details||""))){
           via2 = true; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 300); return;
         }
-        if(viaProxy && (via2 ? cfg.proxy2 : cfg.proxy) && !resolveTried && (code===403 || code===401) && !c.free){
+        if(viaProxy && (via2 ? cfg.proxy2 : HASPX()) && !resolveTried && (code===403 || code===401) && !c.free){
           resolveTried = true; h.destroy();
           fetch((via2 ? px2 : px)(c.url) + "&resolve=1").then(r => r.json()).then(j => {
             if(playId!==playSeq[slot]) return;
@@ -2673,10 +2678,10 @@ function playChannel(c, slot=tvTarget, auto=false){
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
-      if(stage === -1){ stage = 0; if(cfg.proxy){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
-      if(stage === 0 && cfg.proxy && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
+      if(stage === -1){ stage = 0; if(HASPX()){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
+      if(stage === 0 && HASPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
       // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
-      if(stage <= 1 && cfg.proxy && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
+      if(stage <= 1 && HASPX() && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
       if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
@@ -3243,7 +3248,7 @@ async function xAccount(){
 const hideCreds = s => String(s||"").split(encodeURIComponent(cfg.xp||"\u0000")).join("•••").split(cfg.xp||"\u0000").join("•••");
 async function diagnoseStream(url, ch){
   const res = {why:"", lines:[], account:""}, free = !!(ch && ch.free), ref = refFor(ch);
-  if(!cfg.proxy){ res.why = fetchErrorHelp(url, new Error("")); return res; }
+  if(!HASPX()){ res.why = fetchErrorHelp(url, new Error("")); return res; }
   const acc = free ? null : await xAccount();
   if(acc) res.account = `Conta: ${acc.status||"?"} · ligações em uso ${acc.active} de ${acc.max||"?"}${acc.exp?` · expira ${acc.exp.toLocaleDateString("pt-PT")}`:""}`;
   if(acc && acc.status && acc.status!=="Active"){ res.why = `A conta IPTV está “${acc.status}”. Fala com o fornecedor.`; return res; }
@@ -3280,7 +3285,7 @@ async function diagnoseStream(url, ch){
     if(!cfg.proxy2) res.why = "O servidor de vídeo está protegido pela Cloudflare e recusa pedidos vindos de Workers (o teu proxy). A app também tentou ligar o Tesla diretamente e não conseguiu: configura um 2.º proxy fora da Cloudflare (ex.: Deno Deploy) em Definições.";
     else if(l2 && l2.status>=200 && l2.status<300) res.why = "O 1.º proxy é recusado, mas o 2.º proxy (Deno) chega ao vídeo. Se mesmo assim não toca, o problema é o formato: os canais UHD costumam ser HEVC/H.265 — experimenta a versão HD/SD; nos filmes, o ficheiro pode ser .mkv/HEVC/AC3.";
     else if(l2 && /suspenso/.test(l2.error||"")) res.why = "O 1.º proxy (Cloudflare) é recusado por este servidor e o 2.º proxy (Deno) está SUSPENSO por ter esgotado o limite gratuito do Deno Deploy. Entra em dash.deno.com e reativa/atualiza o plano, ou cria um novo projeto Deno com o proxy-deno.js e põe o novo endereço em Definições.";
-    else if(l2 && l2.error) res.why = "O 1.º proxy é recusado e o 2.º proxy não respondeu ao teste (" + hideCreds(l2.error) + "). Confirma o endereço e a chave do 2.º proxy em Definições, e que o proxy-deno.js está atualizado.";
+    else if(l2 && l2.error) res.why = "O servidor de vídeo recusa o 1.º proxy (Cloudflare) e o 2.º proxy (Deno) não responde (" + hideCreds(l2.error) + "). “Failed to fetch” quer dizer que o Tesla nem chega ao endereço do 2.º proxy: abre-o no browser do Tesla — deve mostrar “Cockpit proxy 2 a funcionar.”. Se não mostrar, o projeto Deno foi apagado ou suspenso (limite gratuito), ou o endereço em Definições está errado. Cria/reativa o projeto com o proxy-deno.js e põe o endereço novo.";
     else res.why = "O servidor de vídeo recusa os dois proxies (Cloudflare e Deno) e a ligação direta do Tesla. O fornecedor bloqueia endereços de datacenters; experimenta a versão HD/SD do canal ou fala com o fornecedor IPTV.";
   }
   else if((last.status===401 || last.status===403) && hops.length>1) res.why = "O servidor principal aceitou, mas o servidor de vídeo para onde redireciona recusou. Os fornecedores fazem isto para bloquear endereços de datacenters, como os da Cloudflare, só no vídeo.";
@@ -3868,7 +3873,7 @@ let rbBase = LS.get("rbBase", RB[0]);
 async function rbGet(path){
   for(const base of [rbBase, ...RB.filter(b=>b!==rbBase)]){
     for(const via of ["direct", "proxy"]){
-      if(via==="proxy" && !cfg.proxy) continue;
+      if(via==="proxy" && !HASPX()) continue;
       try{ const u = base + path; const r = await fetch(via==="direct" ? u : px(u)); if(r.ok){ const j = await r.json(); if(base !== rbBase){ rbBase = base; LS.set("rbBase", base); } return j; } }catch(e){}
     }
   }
@@ -4069,7 +4074,7 @@ function carPos(){
 /* Converte uma morada em coordenadas (OpenStreetMap), para pôr o destino no mapa do Waze. */
 async function geocode(q){
   const u = "https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=pt&q=" + encodeURIComponent(q);
-  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+  for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
     try{ const r = await fetch(url); if(r.ok){ const j = await r.json(); if(j[0]) return {lat:+j[0].lat, lon:+j[0].lon, name:j[0].display_name}; } }catch(e){}
   }
   return null;
@@ -4262,7 +4267,7 @@ function nvArrow(st){
 const fmtDist = m => m < 1000 ? (Math.max(10, Math.round(m/10)*10)) + " m" : (m/1000).toLocaleString("pt-PT", {maximumFractionDigits: m < 10000 ? 1 : 0}) + " km";
 const fmtDur = s => { const mi = Math.max(1, Math.round(s/60)); return mi < 60 ? mi + " min" : Math.floor(mi/60) + " h " + String(mi%60).padStart(2,"0") + " min"; };
 async function fetchJsonCors(u){
-  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+  for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
     try{ const r = await fetch(url); if(r.ok) return await r.json(); }catch(e){}
   }
   return null;
@@ -5310,7 +5315,7 @@ let podFavs = LS.get("podFavs", []), podPos = LS.get("podPos", {}), podRecent = 
 let podShow = null, podEps = [], podTab = "top", podRate = 1, podSaveAt = 0, podLoaded = false;
 const podSlim = r => ({id:String(r.collectionId || r.trackId || r.id || ""), name:r.collectionName || r.trackName || r.name || "", artist:r.artistName || "", art:/^https:/.test(r.artworkUrl600 || r.artworkUrl100 || "") ? (r.artworkUrl600 || r.artworkUrl100) : "", feed:r.feedUrl || ""});
 async function podText(u){
-  for(const url of [u, cfg.proxy ? px(u) : null].filter(Boolean)){
+  for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
     try{ const r = await fetch(url); if(r.ok){ const t = await r.text(); if(t) return t; } }catch(e){}
   }
   return null;
@@ -5401,7 +5406,7 @@ function podPlay(ep, sh){
   a.src = src(ep.url);
   a.onerror = ()=>{
     if(podCur !== cur) return;
-    if(!viaProxy && cfg.proxy && !/^http:/i.test(ep.url) ){ viaProxy = true; a.src = px(ep.url); a.play().catch(()=>{}); return; }
+    if(!viaProxy && HASPX() && !/^http:/i.test(ep.url) ){ viaProxy = true; a.src = px(ep.url); a.play().catch(()=>{}); return; }
     toast("Não consegui tocar este episódio. Experimenta outro.", true); podStop();
   };
   a.onloadedmetadata = ()=>{ if(podCur === cur && pos > 5 && (!a.duration || pos < a.duration - 30)){ try{ a.currentTime = pos; }catch(e){} } };
