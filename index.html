@@ -139,6 +139,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
 .slot.active .lbl{background:var(--accent);color:var(--accent-ink)}
+.slot .lbl,.slot .rot{transition:opacity .35s}
+.slot:not(.hud) .lbl,.slot:not(.hud) .rot{opacity:0;pointer-events:none}
 .epg{font-size:14px}
 
 /* Notas */
@@ -1426,6 +1428,19 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
         </div>
       <div class="panel setcard">
+          <h2>Cofre no servidor (password)</h2>
+          <p class="small muted setsub" style="margin:0">Guarda todas as definições no teu servidor e importa-as noutro aparelho só com a password.</p>
+          <p class="small muted" style="margin:0">Guarda tudo (definições, chaves, notas, favoritos) cifrado neste aparelho antes de sair; o servidor só vê texto cifrado. Quem não souber a password não consegue ler nem encontrar o cofre. Usa uma password longa (8 ou mais caracteres) e não a percas: não há recuperação. Precisa do proxy Cloudflare com o KV «SYNC». Funciona também em páginas http.</p>
+          <label class="f">Password do cofre<input type="password" id="vaultPw" autocomplete="off"></label>
+          <div class="row"><button class="btn primary" id="btnVaultSave">Guardar no servidor</button><button class="btn" id="btnVaultLoad">Importar do servidor</button><button class="btn" id="btnVaultDel">Apagar cofre</button></div>
+          <details class="small"><summary>Este aparelho ainda não tem o proxy</summary>
+            <p class="muted">Escreve o endereço do Worker e a chave (os mesmos dos outros aparelhos). Só servem para esta operação; ao importar ficam guardados com o resto.</p>
+            <label class="f">Endereço do Worker<input type="text" id="vaultProxy" inputmode="url" autocomplete="off"></label>
+            <label class="f">Chave do Worker<input type="text" id="vaultKey" autocomplete="off"></label>
+          </details>
+          <p class="small muted" id="vaultMsg" style="margin:0"></p>
+        </div>
+      <div class="panel setcard">
           <h2>Transferir para o Tesla (cifrado)</h2>
           <p class="small muted setsub" style="margin:0">Envia tudo do telemóvel para o Tesla com um código de uso único.</p>
           <p class="small muted" style="margin:0">No telemóvel toca em «Enviar» e aparece um código de uso único (válido 10 minutos). No Tesla escreve esse código em «Receber». Passa tudo, incluindo tokens e chaves. Os dados são cifrados neste aparelho com o código; o servidor só guarda texto ilegível e apaga-o depois de ser lido. O PIN e o layout não são transferidos.</p>
@@ -1664,6 +1679,7 @@ function show(view){
     return;
   }
   if(view==="settings") fillSettings();
+  if(view==="tv") hudFlashAll();
   if(["tv","games","desktop"].includes(view) && typeof driveLoop === "function") setTimeout(() => driveLoop(true), 0);
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
@@ -1707,6 +1723,10 @@ const MI = 1.60934;
 const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, check:10, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
 /* Em andamento segundo a Tessie (shift_state D/R/N ou velocidade). */
+/* Etiqueta USER e botão de rotação: aparecem 2 s ao abrir a TV, ao tocar na janela ou ao mudar de canal, e depois desaparecem. */
+function hudFlash(el){ if(!el) return; el.classList.add("hud"); clearTimeout(el._hud); el._hud = setTimeout(() => el.classList.remove("hud"), 2000); }
+function hudFlashAll(){ document.querySelectorAll(".slot").forEach(hudFlash); }
+document.addEventListener("pointerdown", e => { const sl = e.target.closest && e.target.closest(".slot"); if(sl) hudFlash(sl); }, true);
 function drivingEff(){ return DRIVE.state === "moving"; }
 function driveChip(){
   const eff = drivingEff();
@@ -2332,7 +2352,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v51";
+const APP_VERSION = "v53";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2730,6 +2750,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   epgSlot[slot] = c; renderEpgBox(slot); osAutoPlay(slot, c);
   if(live) xEpg(c).then(()=>{ if(lastPlayed[slot]===c) renderEpgBox(slot); });
   if(currentView!=="tv") show("tv");
+  hudFlashAll();
 }
 const epgSlot = [null, null];
 function renderEpgBox(slot){
@@ -5228,6 +5249,213 @@ $("btnTestDirect").onclick = async () => {
 };
 $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:"", gwToken:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
+
+/* ---------- Cofre de definições no servidor ---------- */
+/* ---------- Cofre no servidor: cripto (WebCrypto quando existe; JS puro em páginas http) ---------- */
+const VC = (() => {
+  const K = new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+  const IV = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const W = new Uint32Array(64);
+  function core(H){
+    for(let i=16;i<64;i++){ const a=W[i-15], b=W[i-2]; W[i] = (W[i-16] + (((a>>>7)|(a<<25))^((a>>>18)|(a<<14))^(a>>>3)) + W[i-7] + (((b>>>17)|(b<<15))^((b>>>19)|(b<<13))^(b>>>10))) | 0; }
+    let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(let i=0;i<64;i++){
+      const t1 = (h + (((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7))) + ((e&f)^(~e&g)) + K[i] + W[i]) | 0;
+      const t2 = ((((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10))) + ((a&b)^(a&c)^(b&c))) | 0;
+      h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+    }
+    H[0]=(H[0]+a)|0; H[1]=(H[1]+b)|0; H[2]=(H[2]+c)|0; H[3]=(H[3]+d)|0; H[4]=(H[4]+e)|0; H[5]=(H[5]+f)|0; H[6]=(H[6]+g)|0; H[7]=(H[7]+h)|0;
+  }
+  function sha256(bytes){
+    const H = Int32Array.from(IV), n = bytes.length, len = ((n + 9 + 63) >> 6) << 6, buf = new Uint8Array(len);
+    buf.set(bytes); buf[n] = 0x80; const dv = new DataView(buf.buffer); dv.setUint32(len-8, Math.floor(n/0x20000000)); dv.setUint32(len-4, (n<<3)>>>0);
+    for(let o=0;o<len;o+=64){ for(let i=0;i<16;i++) W[i] = dv.getUint32(o+i*4); core(H); }
+    const out = new Uint8Array(32), od = new DataView(out.buffer); for(let i=0;i<8;i++) od.setUint32(i*4, H[i]>>>0); return out;
+  }
+  function hmacJs(key, msg){
+    if(key.length > 64) key = sha256(key);
+    const ip = new Uint8Array(64+msg.length), op = new Uint8Array(96);
+    for(let i=0;i<64;i++){ const k = i < key.length ? key[i] : 0; ip[i] = k ^ 0x36; op[i] = k ^ 0x5c; }
+    ip.set(msg, 64); op.set(sha256(ip), 64); return sha256(op);
+  }
+  function pbkdf2Js(pw, salt, iter, dkLen){
+    let key = pw.length > 64 ? sha256(pw) : pw;
+    const is = Int32Array.from(IV), os = Int32Array.from(IV);
+    for(let i=0;i<16;i++){ const k = i*4; const g = j => (k+j < key.length ? key[k+j] : 0); W[i] = ((g(0)^0x36)<<24 | (g(1)^0x36)<<16 | (g(2)^0x36)<<8 | (g(3)^0x36)) | 0; } core(is);
+    for(let i=0;i<16;i++){ const k = i*4; const g = j => (k+j < key.length ? key[k+j] : 0); W[i] = ((g(0)^0x5c)<<24 | (g(1)^0x5c)<<16 | (g(2)^0x5c)<<8 | (g(3)^0x5c)) | 0; } core(os);
+    const out = new Uint8Array(Math.ceil(dkLen/32)*32), od = new DataView(out.buffer), H = new Int32Array(8), U = new Int32Array(8), T = new Int32Array(8);
+    for(let blk=1; blk*32 <= out.length; blk++){
+      const m = new Uint8Array(salt.length+4); m.set(salt); new DataView(m.buffer).setUint32(salt.length, blk);
+      const first = sha256Cont(is, os, m);
+      for(let i=0;i<8;i++){ U[i] = first[i]; T[i] = first[i]; }
+      for(let it=1; it<iter; it++){
+        for(let i=0;i<8;i++) W[i] = U[i]; W[8] = 0x80000000|0; for(let i=9;i<15;i++) W[i] = 0; W[15] = 768;
+        H.set(is); core(H);
+        for(let i=0;i<8;i++) W[i] = H[i]; W[8] = 0x80000000|0; for(let i=9;i<15;i++) W[i] = 0; W[15] = 768;
+        H.set(os); core(H);
+        for(let i=0;i<8;i++){ U[i] = H[i]; T[i] ^= H[i]; }
+      }
+      for(let i=0;i<8;i++) od.setUint32((blk-1)*32+i*4, T[i]>>>0);
+    }
+    return out.slice(0, dkLen);
+  }
+  // HMAC com estados ipad/opad já calculados (para a 1.ª iteração, mensagem de comprimento qualquer)
+  function sha256Cont(is, os, msg){
+    const run = (st, data) => {
+      const H = Int32Array.from(st), n = data.length, tot = 64 + n, len = ((n + 9 + 63) >> 6) << 6, buf = new Uint8Array(len);
+      buf.set(data); buf[n] = 0x80; const dv = new DataView(buf.buffer); dv.setUint32(len-8, Math.floor(tot/0x20000000)); dv.setUint32(len-4, (tot<<3)>>>0);
+      for(let o=0;o<len;o+=64){ for(let i=0;i<16;i++) W[i] = dv.getUint32(o+i*4); core(H); }
+      return H;
+    };
+    const inner = run(is, msg), d = new Uint8Array(32), dd = new DataView(d.buffer); for(let i=0;i<8;i++) dd.setUint32(i*4, inner[i]>>>0);
+    return run(os, d);
+  }
+  /* AES-256 em modo CTR (contador de 128 bits em big-endian) */
+  const SB = new Uint8Array(256); (() => { let p=1,q=1; do{ p = p ^ ((p<<1)&255) ^ (p&128 ? 0x1b : 0); q ^= q<<1; q ^= q<<2; q ^= q<<4; q &= 255; if(q&128) q ^= 0x09; const x = q ^ ((q<<1)|(q>>7)) ^ ((q<<2)|(q>>6)) ^ ((q<<3)|(q>>5)) ^ ((q<<4)|(q>>4)); SB[p] = (x ^ 0x63) & 255; }while(p!==1); SB[0] = 0x63; })();
+  const xt = b => ((b<<1) ^ (b&128 ? 0x1b : 0)) & 255;
+  function expandKey(key){
+    const w = new Uint8Array(240); w.set(key); let rc = 1;
+    for(let i=32;i<240;i+=4){
+      let t0=w[i-4],t1=w[i-3],t2=w[i-2],t3=w[i-1];
+      if(i%32===0){ const x=t0; t0=SB[t1]^rc; t1=SB[t2]; t2=SB[t3]; t3=SB[x]; rc = xt(rc); }
+      else if(i%32===16){ t0=SB[t0]; t1=SB[t1]; t2=SB[t2]; t3=SB[t3]; }
+      w[i]=w[i-32]^t0; w[i+1]=w[i-31]^t1; w[i+2]=w[i-30]^t2; w[i+3]=w[i-29]^t3;
+    }
+    return w;
+  }
+  function encBlock(rk, inp, out){
+    const s = new Uint8Array(16); for(let i=0;i<16;i++) s[i] = inp[i] ^ rk[i];
+    const t = new Uint8Array(16);
+    for(let r=1;r<=14;r++){
+      for(let i=0;i<16;i++) t[i] = SB[s[i]];
+      // ShiftRows
+      let x;
+      x=t[1]; t[1]=t[5]; t[5]=t[9]; t[9]=t[13]; t[13]=x;
+      x=t[2]; t[2]=t[10]; t[10]=x; x=t[6]; t[6]=t[14]; t[14]=x;
+      x=t[15]; t[15]=t[11]; t[11]=t[7]; t[7]=t[3]; t[3]=x;
+      if(r<14){
+        for(let c=0;c<16;c+=4){
+          const a0=t[c],a1=t[c+1],a2=t[c+2],a3=t[c+3], all=a0^a1^a2^a3;
+          s[c]   = a0 ^ all ^ xt(a0^a1);
+          s[c+1] = a1 ^ all ^ xt(a1^a2);
+          s[c+2] = a2 ^ all ^ xt(a2^a3);
+          s[c+3] = a3 ^ all ^ xt(a3^a0);
+        }
+      } else s.set(t);
+      for(let i=0;i<16;i++) s[i] ^= rk[r*16+i];
+    }
+    out.set(s);
+  }
+  function ctrJs(key, iv, data){
+    const rk = expandKey(key), ctr = Uint8Array.from(iv), ks = new Uint8Array(16), out = new Uint8Array(data.length);
+    for(let o=0;o<data.length;o+=16){
+      encBlock(rk, ctr, ks);
+      const n = Math.min(16, data.length-o); for(let i=0;i<n;i++) out[o+i] = data[o+i] ^ ks[i];
+      for(let i=15;i>=0;i--){ if(++ctr[i] & 255) break; ctr[i] = 0; }
+    }
+    return out;
+  }
+  const enc = new TextEncoder();
+  const sub = () => (typeof crypto !== "undefined" && crypto.subtle) ? crypto.subtle : null;
+  async function pbkdf2(pw, salt, iter, len){
+    const s = sub(), p = enc.encode(pw);
+    if(s){ try{ const km = await s.importKey("raw", p, "PBKDF2", false, ["deriveBits"]); return new Uint8Array(await s.deriveBits({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, km, len*8)); }catch(e){} }
+    await new Promise(r => setTimeout(r, 30));
+    return pbkdf2Js(p, salt, iter, len);
+  }
+  async function ctr(key, iv, data){
+    const s = sub();
+    if(s){ try{ const k = await s.importKey("raw", key, "AES-CTR", false, ["encrypt"]); return new Uint8Array(await s.encrypt({name:"AES-CTR", counter:iv, length:64}, k, data)); }catch(e){} }
+    return ctrJs(key, iv, data);
+  }
+  async function hmac(key, data){
+    const s = sub();
+    if(s){ try{ const k = await s.importKey("raw", key, {name:"HMAC", hash:"SHA-256"}, false, ["sign"]); return new Uint8Array(await s.sign("HMAC", k, data)); }catch(e){} }
+    return hmacJs(key, data);
+  }
+  return { pbkdf2, ctr, hmac, sha256, pbkdf2Js, ctrJs, hmacJs };
+})();
+
+const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation)$/;
+const VAULT_CFG_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
+const vaultMsg = (t, bad) => { const e = $("vaultMsg"); e.textContent = t || ""; e.style.color = bad ? "var(--bad)" : ""; };
+const vaultBase = () => ($("vaultProxy").value.trim() || cfg.proxy || "").replace(/\/+$/,"");
+const vaultKeyV = () => $("vaultKey").value.trim() || cfg.pkey || "";
+const vaultUrl = id => vaultBase() + "/vault?" + (vaultKeyV() ? "k=" + encodeURIComponent(vaultKeyV()) + "&" : "") + "id=" + id;
+const hex = u => [...u].map(b => b.toString(16).padStart(2,"0")).join("");
+async function vaultId(pw){ return hex(await VC.pbkdf2(pw, new TextEncoder().encode("cockpit-vault-id-v1"), 100000, 16)); }
+async function vaultKeys(pw, salt){ const k = await VC.pbkdf2(pw, salt, 100000, 64); return {enc:k.slice(0,32), mac:k.slice(32)}; }
+function vaultCollect(){
+  const store = {};
+  try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.startsWith("ck_") && !VAULT_SKIP.test(k.slice(3))) store[k.slice(3)] = JSON.parse(localStorage.getItem(k)); } }catch(e){}
+  const c = Object.assign({}, cfg); VAULT_CFG_SKIP.forEach(k => delete c[k]);
+  store.cfg = c; store.notes = notes; store.mfavs = mfavs; store.tvfavs = [...favs];
+  return {v:2, t:Date.now(), store};
+}
+function vaultApply(d){
+  if(!d || typeof d.store !== "object") throw new Error("dados inválidos.");
+  for(const k of Object.keys(d.store)){
+    if(!/^[A-Za-z0-9_]{1,40}$/.test(k) || VAULT_SKIP.test(k) && k !== "cfg") continue;
+    if(k === "cfg"){
+      const c = d.store.cfg || {}; for(const kk of Object.keys(c)){ const v = c[kk]; if(!VAULT_CFG_SKIP.includes(kk) && ["string","number","boolean"].includes(typeof v)) cfg[kk] = v; }
+      saveCfg();
+    } else LS.set(k, d.store[k]);
+  }
+}
+async function vaultPrep(needBase){
+  const pw = $("vaultPw").value;
+  if(pw.length < 8){ vaultMsg("A password tem de ter 8 ou mais caracteres.", true); return null; }
+  if(!vaultBase()){ vaultMsg("Falta o endereço do Worker (abre «Este aparelho ainda não tem o proxy»).", true); return null; }
+  return pw;
+}
+const vaultFail = (r, t) => r.status === 501 ? "o Worker não tem o KV com o nome SYNC." : r.status === 403 ? "chave do Worker errada." : r.status === 404 ? "não há cofre com esta password." : (t || "erro " + r.status);
+$("btnVaultSave").onclick = async () => {
+  const pw = await vaultPrep(); if(!pw) return;
+  if(!(await requirePin("PIN para guardar as definições no servidor"))) return;
+  const btn = $("btnVaultSave"); btn.disabled = true; vaultMsg("A cifrar…");
+  try{
+    const id = await vaultId(pw), salt = crypto.getRandomValues(new Uint8Array(16)), iv = new Uint8Array(16); iv.set(crypto.getRandomValues(new Uint8Array(8)));
+    const {enc, mac} = await vaultKeys(pw, salt);
+    const ct = await VC.ctr(enc, iv, new TextEncoder().encode(JSON.stringify(vaultCollect())));
+    const body = new Uint8Array(32 + ct.length); body.set(salt); body.set(iv, 16); body.set(ct, 32);
+    const tag = await VC.hmac(mac, body);
+    const resp = await fetch(vaultUrl(id), {method:"PUT", body:JSON.stringify({v:2, s:b64e(salt), i:b64e(iv), c:b64e(ct), m:b64e(tag)})});
+    if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
+    vaultMsg("Guardado no servidor ✓ (" + new Date().toLocaleString("pt-PT") + ")"); toast("Definições guardadas no servidor ✓");
+  }catch(e){ vaultMsg("Não consegui guardar: " + e.message, true); }
+  btn.disabled = false;
+};
+$("btnVaultLoad").onclick = async () => {
+  const pw = await vaultPrep(); if(!pw) return;
+  if(!(await requirePin("PIN para importar as definições do servidor"))) return;
+  const btn = $("btnVaultLoad"); btn.disabled = true; vaultMsg("A procurar o cofre…");
+  try{
+    const id = await vaultId(pw), resp = await fetch(vaultUrl(id), {cache:"no-store"});
+    if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
+    const o = await resp.json(); if(o.v !== 2) throw new Error("formato desconhecido.");
+    const salt = b64d(o.s), iv = b64d(o.i), ct = b64d(o.c), tag = b64d(o.m);
+    vaultMsg("A decifrar…");
+    const {enc, mac} = await vaultKeys(pw, salt);
+    const body = new Uint8Array(32 + ct.length); body.set(salt); body.set(iv, 16); body.set(ct, 32);
+    const want = await VC.hmac(mac, body); let bad = want.length !== tag.length; for(let i=0;i<want.length;i++) bad = bad | (want[i] ^ tag[i]);
+    if(bad) throw new Error("a password não corresponde ou o cofre está corrompido.");
+    const d = JSON.parse(new TextDecoder().decode(await VC.ctr(enc, iv, ct)));
+    if(!cfg.proxy && vaultBase()) cfg.proxy = vaultBase(); if(!cfg.pkey && vaultKeyV()) cfg.pkey = vaultKeyV(); saveCfg();
+    vaultApply(d);
+    vaultMsg("Importado ✓ A recarregar…"); toast("Definições importadas ✓");
+    setTimeout(() => location.reload(), 900);
+  }catch(e){ vaultMsg("Não consegui importar: " + e.message, true); }
+  btn.disabled = false;
+};
+$("btnVaultDel").onclick = async () => {
+  const pw = await vaultPrep(); if(!pw) return;
+  if(!confirm("Apagar o cofre deste servidor? Esta ação não se desfaz.")) return;
+  try{
+    const resp = await fetch(vaultUrl(await vaultId(pw)), {method:"DELETE"});
+    if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
+    vaultMsg("Cofre apagado."); 
+  }catch(e){ vaultMsg("Não consegui apagar: " + e.message, true); }
+};
 
 /* ---------- Transferência cifrada telemóvel → Tesla ---------- */
 // O código tem 18 caracteres: os 6 primeiros identificam o envelope no servidor, os outros 12 (60 bits) são a chave.
