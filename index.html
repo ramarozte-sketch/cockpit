@@ -1422,13 +1422,13 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <h2>Transferir para o Tesla (cifrado)</h2>
           <p class="small muted setsub" style="margin:0">Envia tudo do telemóvel para o Tesla com um código de uso único.</p>
           <p class="small muted" style="margin:0">No telemóvel toca em «Enviar» e aparece um código de uso único (válido 10 minutos). No Tesla escreve esse código em «Receber». Passa tudo, incluindo tokens e chaves. Os dados são cifrados neste aparelho com o código; o servidor só guarda texto ilegível e apaga-o depois de ser lido. O PIN e o layout não são transferidos.</p>
-          <div class="row"><button class="btn primary" id="btnSyncSend">Enviar para o Tesla</button></div>
+          <div class="row"><button class="btn primary" id="btnSyncSend">Enviar para o Tesla (cifrado)</button><button class="btn" id="btnSyncHttpSend">Método alternativo HTTP</button></div>
           <div class="banner" id="syncOut" hidden><div class="mono" id="syncCode" style="font-size:26px;letter-spacing:.06em;user-select:all"></div><div class="small" id="syncInfo" style="margin-top:6px"></div></div>
           <div class="row" style="flex-wrap:nowrap"><input type="text" id="syncIn" placeholder="Código cifrado 6-6-6 ou pacote HTTP" autocapitalize="characters" autocomplete="off" spellcheck="false"><button class="btn" id="btnSyncGet">Receber</button></div>
           <div id="syncManualWrap" hidden>
             <p class="small" style="color:var(--warn);margin:8px 0">Modo HTTP manual: o pacote não está cifrado e pode conter tokens/chaves. Copia-o apenas por um meio privado e apaga-o depois de importar.</p>
             <textarea id="syncManualBox" class="mono small" rows="5" spellcheck="false" autocomplete="off" placeholder="O pacote manual aparece aqui; no Tesla cola aqui o pacote recebido."></textarea>
-            <div class="row"><button class="btn" id="btnSyncCopy">Copiar pacote</button><button class="btn" id="btnSyncUse">Usar pacote colado</button></div>
+            <div class="row"><button class="btn" id="btnSyncCopy">Copiar pacote</button><button class="btn primary" id="btnSyncHttpUse">Importar pacote HTTP</button></div>
           </div>
           <details class="small"><summary>Este aparelho ainda não tem o proxy</summary>
             <p class="muted">Escreve aqui o endereço do proxy e a chave (os mesmos do telemóvel). Só serve para esta transferência; depois ficam guardados com o resto.</p>
@@ -5223,10 +5223,7 @@ async function syncApplyData(d, base="", key=""){
 }
 $("btnSyncSend").onclick = async ()=>{
   if(syncIsHttp()){
-    if(!(await requirePin("PIN para preparar o pacote"))) return;
-    syncManualShow(syncPack(syncTransferData()));
-    $("syncInfo").textContent="Copia o pacote completo e transfere-o por um meio privado para o Tesla; depois cola-o no campo manual e toca em «Usar pacote colado».";
-    $("syncOut").hidden=false; syncMsg("Pacote HTTP criado localmente. Não está cifrado.",true); return;
+    syncMsg("Estás em HTTP. Usa o botão «Método alternativo HTTP» para gerar um pacote manual.",true); return;
   }
   if(!(window.crypto && crypto.subtle)){ syncMsg("Este browser não disponibiliza a cifra necessária. Abre a versão HTTPS.", true); return; }
   if(!cfg.proxy){ syncMsg("Configura primeiro o proxy neste aparelho (Definições › Proxy).", true); return; }
@@ -5247,6 +5244,21 @@ $("btnSyncSend").onclick = async ()=>{
     clearTimeout(btn._t); btn._t = setTimeout(()=>{ $("syncOut").hidden = true; $("syncCode").textContent = ""; }, 10*60e3);
   }catch(e){ syncMsg("Não consegui enviar: " + e.message, true); }
   btn.disabled = false;
+};
+$("btnSyncHttpSend").onclick = async ()=>{
+  if(!(await requirePin("PIN para preparar o pacote HTTP"))) return;
+  syncManualShow(syncPack(syncTransferData()));
+  $("syncInfo").textContent="Método alternativo HTTP: copia o pacote completo e transfere-o por um meio privado para o Tesla. No Tesla, cola-o e escolhe «Importar pacote HTTP».";
+  $("syncOut").hidden=false;
+  syncMsg("Pacote HTTP criado localmente. Não está cifrado; contém dados de configuração.",true);
+};
+$("btnSyncHttpUse").onclick = async ()=>{
+  syncManualShow();
+  const pasted=$("syncManualBox").value.trim() || $("syncIn").value.trim();
+  if(!pasted){ syncMsg("Cola primeiro o pacote COCKPIT-HTTP1 na caixa manual.",true); $("syncManualBox").focus(); return; }
+  if(!(await requirePin("PIN para importar o pacote HTTP"))) return;
+  try { await syncApplyData(syncUnpack(pasted),cfg.proxy,cfg.pkey); }
+  catch(e){ syncMsg("Não consegui importar o pacote HTTP: "+e.message,true); }
 };
 $("btnSyncGet").onclick = async ()=>{
   if(syncIsHttp()){
