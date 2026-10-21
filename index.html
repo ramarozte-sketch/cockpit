@@ -1287,6 +1287,7 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         </div>
       <div class="panel setcard">
           <h2>Condução e passageiro</h2>
+          <p class="small muted" style="margin:0">Versão do Cockpit: <b id="appVer"></b></p>
           <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV passa a só som.</p>
           <p class="small" id="driveInfo" style="margin:0">Estado agora: 🅿️ parado</p>
           <label class="f">Segundos em P (e a 0 km/h) até voltar a desbloquear<input type="number" id="setParkHold" min="3" max="3600" step="1" inputmode="numeric"></label>
@@ -2331,6 +2332,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
+const APP_VERSION = "v51";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5197,7 +5199,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
+function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAudioMode").value=cfg.audioMode||"auto"; }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
