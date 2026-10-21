@@ -1362,6 +1362,8 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
           <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
+          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
+          <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
           <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
           <p class="small muted" id="iptvStatus" style="margin:0"></p>
         </div>
@@ -1768,14 +1770,25 @@ const demoState = {
   vehicle_state:{locked:true, sentry_mode:false},
   drive_state:{latitude:37.29, longitude:-8.27}
 };
+/* Tessie: tenta o Worker (Cloudflare), depois o 2.º proxy e por fim a ligação direta; só passa ao seguinte se a rede falhar. */
+async function fetchTessie(url, init){
+  const tries = [];
+  if(cfg.proxy) tries.push(pxVia(cfg.proxy, cfg.pkey, url));
+  if(cfg.proxy2) tries.push(pxVia(cfg.proxy2, cfg.pkey2, url));
+  if(PHONE) tries.push(pxVia(PHONE.base, PHONE.key || "", url));
+  tries.push(url);
+  let last = null;
+  for(const u of [...new Set(tries)]){ try{ return await fetch(u, init); }catch(e){ last = e; } }
+  throw last || new Error("Failed to fetch");
+}
 async function tessie(path, {method="GET", params={}}={}){
   if(demo()) { await new Promise(r=>setTimeout(r,500)); return demoCommand(path, params); }
   const qs = new URLSearchParams(params).toString();
   const url = "https://api.tessie.com/"+path+(qs?"?"+qs:"");
   let r;
-  try{ r = await fetch(px(url), {method, headers:{Authorization:"Bearer "+cfg.token}}); }
+  try{ r = await fetchTessie(url, {method, headers:{Authorization:"Bearer "+cfg.token}}); }
   catch(e){ throw new Error("Sem ligação à API Tessie (rede ou bloqueio do browser)."); }
-  if(r.status===401 || r.status===403) throw new Error("Token Tessie inválido ou sem permissão.");
+  if(r.status===401 || r.status===403) throw new Error("Token Tessie inválido, sem permissão ou chave do proxy errada.");
   if(!r.ok) throw new Error("Tessie respondeu "+r.status+".");
   return r.json();
 }
@@ -2353,7 +2366,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v54";
+const APP_VERSION = "v56";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2543,6 +2556,7 @@ function renderTvList(){
 }
 /* Canais UHD/FHD costumam vir em HEVC, que muitos browsers não descodificam: tenta sozinho a versão HD ou SD do mesmo canal. */
 const chBase = n => String(n||"").normalize("NFKD").toLowerCase().replace(/\b(uhd|fhd|4k|hevc|h ?265|hd|sd|1080p?|720p?|576p?|50fps|60fps)\b/g," ").replace(/[^a-z0-9+]+/g," ").trim();
+const resCap = () => ({"2160":2160,"1080":1080,"720":720,"480":480})[String(cfg.maxRes || "1080")] || 1080;
 const chQual = n => { const t = String(n||"").normalize("NFKD").toLowerCase(); return /\b(uhd|4k)\b/.test(t) ? 4 : /\bfhd\b|1080/.test(t) ? 3 : /\bsd\b|576/.test(t) ? 1 : 2; };
 const autoTried = [new Set(), new Set()];
 function altQuality(c, tried){
@@ -2583,6 +2597,10 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
   if(audioActive()){ playAudioChannel(c); if(currentView!=="tv") show("tv"); return; }
+  if(c.kind==="live" && chQual(c.name)===4 && resCap() < 2160){ // 4K → versão FHD/HD do mesmo canal, se existir
+    const alt = altQuality(c, new Set());
+    if(alt){ toast(`${c.name}: a abrir ${alt.name} (limite de ${resCap()}p nas Definições).`); playChannel(alt, slot, true); return; }
+  }
   radioStop();
   stopSlot(slot);
   const live = c.kind==="live";
@@ -2649,7 +2667,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     const mk = () => {
       const h = new Hls({
         fLoader: makeCapLoader(slot),
-        enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true,
+        enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:15, maxBufferSize:40*1000*1000,
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
@@ -2666,7 +2684,12 @@ function playChannel(c, slot=tvTarget, auto=false){
     const wire = h => {
       h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
-        const lv = data.levels || [];
+        // Tira as qualidades acima do limite escolhido e as de HEVC que o browser não descodifica (mantém sempre pelo menos uma).
+        try{
+          const okC = l => !/^(hvc1|hev1)/i.test(l.videoCodec||"") || (window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`));
+          for(let i = h.levels.length - 1; i >= 0 && h.levels.length > 1; i--){ const l = h.levels[i]; if((l.height && l.height > resCap()) || !okC(l)) h.removeLevel(i); }
+        }catch(e){}
+        const lv = h.levels || data.levels || [];
         const bad = lv.filter(l => /^(hvc1|hev1)/i.test(l.videoCodec||"") && !(window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`)));
         if(lv.length && bad.length===lv.length){ fail("HLS", "vídeo em HEVC/H.265"); return; }
         v.play().catch(()=>{});
@@ -5221,11 +5244,11 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAudioMode").value=cfg.audioMode||"auto"; }
+function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAudioMode").value=cfg.audioMode||"auto"; $("setMaxRes").value=String(cfg.maxRes||"1080"); }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
-  try{ const r=await fetch(px("https://api.tessie.com/vehicles?only_active=true"),{headers:{Authorization:"Bearer "+cfg.token}}); if(!r.ok) throw new Error("Tessie respondeu "+r.status); const j=await r.json(); const v=j.results?.[0]; if(!v){ toast("Nenhum carro encontrado nesta conta.", true); return; } $("setVin").value=v.vin; toast("VIN encontrado: "+(v.last_state?.display_name||v.vin)); }
+  try{ const r=await fetchTessie("https://api.tessie.com/vehicles?only_active=true",{headers:{Authorization:"Bearer "+cfg.token}}); if(r.status===401||r.status===403) throw new Error("token inválido, ou chave do proxy errada ("+r.status+")"); if(!r.ok) throw new Error("Tessie respondeu "+r.status); const j=await r.json(); const v=j.results?.[0]; if(!v){ toast("Nenhum carro encontrado nesta conta.", true); return; } $("setVin").value=v.vin; toast("VIN encontrado: "+(v.last_state?.display_name||v.vin)); }
   catch(e){ toast("Não consegui contactar a Tessie: "+e.message, true); }
 };
 $("setLang").onchange = e=>{ cfg.lang=e.target.value; $("voiceLang").value=cfg.lang; saveCfg(); renderCmdList(); if(!cfg.ui) applyLang(); };
@@ -5235,7 +5258,8 @@ $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
-$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; cfg.directMode=$("setDirect").checked; saveCfg(); loadIptv(true); };
+$("setMaxRes").onchange = e => { cfg.maxRes = e.target.value; saveCfg(); toast("Qualidade máxima: " + (cfg.maxRes === "2160" ? "4K" : cfg.maxRes + "p")); };
+$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; cfg.directMode=$("setDirect").checked; cfg.maxRes=$("setMaxRes").value; saveCfg(); loadIptv(true); };
 $("btnTestDirect").onclick = async () => {
   const out = $("directTestOut"); out.textContent = "A testar…";
   if(!(cfg.xs && cfg.xu && cfg.xp)){ out.textContent = "Configura primeiro o servidor Xtream (TV e IPTV)."; return; }
