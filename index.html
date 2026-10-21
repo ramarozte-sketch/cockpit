@@ -558,6 +558,70 @@ body.layout-tesla .tsclim{flex:0 1 auto;min-width:0;margin:0 clamp(2px,.8vw,14px
 body.layout-tesla .tsclim button{width:clamp(30px,3.6vw,46px)}
 body.layout-tesla .tsclim b{min-width:clamp(54px,6vw,92px);font-size:clamp(24px,3.2vw,34px)}
 body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,8vh,60px);margin-left:clamp(4px,1vw,18px)}
+
+/* Nome completo ao passar o rato / manter premido */
+.item .t b,.rcard .t b{cursor:default}
+/* Layout Android TV */
+.lp-atv{grid-template-columns:repeat(4,1fr);grid-template-rows:38% 1fr 1fr}
+.lp-atv i:first-child{grid-column:1/4;background:var(--accent)}
+#atvHome{display:none}
+body.layout-atv #atvHome{display:inline-flex;align-items:center}
+body.layout-atv .app{grid-template-columns:1fr;grid-template-rows:64px 1fr}
+body.layout-atv .rail{display:none}
+.atv{display:flex;flex-direction:column;gap:clamp(10px,2.2vh,24px);padding-bottom:28px}
+.atvhero{display:grid;grid-template-columns:1.7fr 1fr;gap:18px}
+.atvhero>div{border-radius:22px;padding:clamp(14px,2.6vh,26px);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 38%,var(--panel)),var(--panel));border:1px solid var(--line);min-width:0}
+.atvhero h1{margin:0 0 4px;font-size:clamp(22px,3.4vh,34px)}
+.atvhero .sub{color:var(--muted);margin:0 0 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atvhero .row{gap:10px}
+.atvstats{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap}
+.atvstats b{font:700 clamp(34px,6vh,58px) var(--f-display)}
+.atvrow h2{margin:0 0 4px 4px;font-size:clamp(15px,2.2vh,20px);color:var(--muted);font-weight:600;letter-spacing:.04em}
+.atvscroll{display:flex;gap:clamp(10px,1.6vw,18px);overflow-x:auto;padding:10px 6px 16px;scroll-snap-type:x proximity;scrollbar-width:none}
+.atvscroll::-webkit-scrollbar{display:none}
+.atvcard{flex:none;scroll-snap-align:start;width:clamp(150px,15.5vw,230px);aspect-ratio:16/10;border-radius:18px;border:3px solid transparent;color:#fff;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:10px 12px;position:relative;overflow:hidden;background:var(--panel-2);transition:transform .14s,border-color .14s,box-shadow .14s}
+.atvcard:hover,.atvcard:focus-visible{transform:scale(1.07);border-color:var(--accent);box-shadow:0 10px 28px #0008;outline:none;z-index:2}
+.atvcard .ico{font-size:clamp(26px,4.6vh,44px);line-height:1;margin-bottom:auto;font-weight:800}
+.atvcard b{font-size:clamp(13px,1.9vh,17px);font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.atvcard small{font-size:12px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atvcard.poster{aspect-ratio:2/3;width:clamp(118px,11.5vw,164px);background:#1c1f26}
+.atvcard.poster img,.atvcard.chan img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.atvcard.chan{aspect-ratio:16/10;background:#1c1f26}
+.atvcard.chan img{object-fit:contain;padding:14px 14px 46px}
+.atvcard .shade{position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(transparent,#000c);pointer-events:none}
+.atvcard>*:not(img):not(.shade){position:relative;z-index:1}
+.atvcard .lk{position:absolute;right:8px;top:8px;z-index:2;font-size:18px}
+.atvcard.dim{filter:grayscale(.7) brightness(.7)}
+@media (max-width:900px){.atvhero{grid-template-columns:1fr}}
+
+/* Motor: fundo com o tipo de carro equivalente ao som */
+#v-engine{position:relative;isolation:isolate}
+#v-engine .engbg{position:absolute;inset:0;z-index:-1;overflow:hidden;border-radius:18px;pointer-events:none;transition:background .5s}
+#v-engine .engstage{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:clamp(120px,24vh,230px);margin:-6px 0 -4px}
+#v-engine .engstage svg{height:100%;width:auto;max-width:100%;filter:drop-shadow(0 14px 24px #000a);transition:opacity .4s}
+#v-engine .engstage .cap{font-size:12px;background:#0008;color:#fff;padding:3px 10px;border-radius:999px;margin-top:-2px}
+#v-engine .panel{background:color-mix(in srgb,var(--panel) 62%,transparent)}
+
+#v-engine .engstage.photo{position:relative;height:clamp(170px,32vh,320px);margin:0;border-radius:20px;overflow:hidden;background:#000;justify-content:flex-end}
+#v-engine .engstage.photo img.ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#v-engine .engstage.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0000 45%,#000c);pointer-events:none}
+#v-engine .engstage.photo .cap{position:relative;z-index:2;background:none;font-size:15px;font-weight:600;margin:0 0 22px;padding:0 14px;text-align:center}
+#v-engine .engstage .credit{position:absolute;z-index:2;left:12px;right:12px;bottom:5px;font-size:10px;color:#fffc;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#v-engine .engstage .credit a{color:inherit}
+#v-engine .engstage .pbtn{position:absolute;z-index:3;top:10px;right:10px;display:flex;gap:6px}
+#v-engine .engstage .pbtn button{border:0;border-radius:10px;background:#000a;color:#fff;font-size:15px;padding:6px 10px;min-height:36px}
+
+/* Foto/silhueta do carro por trás do conta-rotações, semitransparente */
+#v-engine .engpan{position:relative;overflow:hidden;background:var(--panel)}
+#v-engine .engpan>*:not(.engstage){position:relative;z-index:1}
+#v-engine .engstage{position:absolute;inset:0;z-index:0;height:auto;margin:0;border-radius:inherit;overflow:hidden;pointer-events:none;display:flex;align-items:center;justify-content:center;background:none}
+#v-engine .engstage.photo{position:absolute;inset:0;height:auto;margin:0;background:none;border-radius:inherit}
+#v-engine .engstage.photo img.ph{opacity:.42}
+#v-engine .engstage.photo::after{background:radial-gradient(ellipse at center,#0000 25%,color-mix(in srgb,var(--panel) 80%,transparent) 100%)}
+#v-engine .engstage svg{height:72%;width:auto;max-width:96%;opacity:.3}
+#v-engine .engstage .cap,#v-engine .engstage.photo .cap{position:absolute;left:14px;top:12px;margin:0;padding:3px 10px;font-size:12px;font-weight:500;background:#0008;color:#fff;border-radius:999px;text-align:left}
+#v-engine .engstage .credit{bottom:6px}
+#v-engine .engstage .pbtn{pointer-events:auto;top:10px;right:10px}
 </style>
 </head>
 <body>
@@ -677,6 +741,7 @@ body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,
     <span class="chip" id="chipCar"><i class="dot"></i><span>Carro</span></span>
     <span class="chip" id="chipDrive" hidden><i class="dot"></i><span>Parado</span></span>
     <span class="chip" id="chipNet"><i class="dot"></i><span>Rede</span></span>
+    <button class="lockbtn" id="atvHome" aria-label="Início">🏠 Início</button>
     <button class="lockbtn" id="lockNow" hidden>Bloquear</button>
     <a class="lockbtn" id="teslaFs" style="text-decoration:none;display:inline-flex;align-items:center" title="Abre a app em ecrã inteiro no browser do Tesla">⛶ Ecrã inteiro Tesla</a>
     <div class="spacer"></div>
@@ -721,6 +786,8 @@ body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,
 
   <main id="main">
     <!-- INÍCIO (layout Condução) -->
+    <section class="view" id="v-atv" hidden><div class="atv" id="atvRoot"></div></section>
+
     <section class="view" id="v-home" hidden>
       <div class="home">
         <div class="hcard hnav">
@@ -909,12 +976,14 @@ body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,
         <div class="panel">
           <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
             <button class="tab" data-kind="free" aria-selected="false">📡 Abertos PT</button>
+            <button class="tab" data-kind="intl" aria-selected="false">🌍 Internacional</button>
             <button class="tab" data-kind="live" aria-selected="true">Live</button>
             <button class="tab" data-kind="movie" aria-selected="false">Filmes</button>
             <button class="tab" data-kind="series" aria-selected="false">Séries</button>
             <button class="tab" data-kind="fav" aria-selected="false">★ Favoritos</button>
           </div>
           <select id="tvGroup" aria-label="Categoria"></select>
+          <div id="freeTools" hidden style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn" id="btnHealth">🩺 Testar canais</button><label class="small muted" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="hideDead" checked> esconder em baixo</label><span class="small muted" id="healthMsg"></span></div>
           <input type="search" id="tvSearch" placeholder="Procurar canal ou título" aria-label="Procurar">
           <button class="btn" id="btnOrg">⚙ Organizar categorias e canais</button>
           <div class="list" id="tvList"></div>
@@ -1070,6 +1139,15 @@ body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,
         <button class="apptile" data-app="google_maps">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11.5A7 7 0 0 1 19 9.5C19 14.7 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
           <b>Google Maps</b><span>Mapas, locais e Street View</span></button>
+        <button class="apptile" data-app="netflix">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>
+          <b>Netflix</b><span>Página própria, só com o carro parado</span></button>
+        <button class="apptile" data-app="primevideo">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>
+          <b>Prime Video</b><span>Página própria, só com o carro parado</span></button>
+        <button class="apptile" data-app="disney">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>
+          <b>Disney+</b><span>Página própria, só com o carro parado</span></button>
         <button class="apptile" data-app="notes">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg></span>
           <b>Notas</b><span>Notas rápidas, guardadas neste Tesla</span></button>
@@ -1330,6 +1408,7 @@ body.layout-tesla .tbmic{flex:none;width:clamp(44px,8vh,60px);height:clamp(44px,
           <div class="layouts" role="group" aria-label="Layout">
             <button class="layoutopt" data-layout="classic" aria-pressed="false"><span class="lprev lp-classic"><i></i><i></i><i></i></span><b>Clássico</b><span class="small muted">Menu com texto e painéis</span></button>
             <button class="layoutopt" data-layout="tesla" aria-pressed="false"><span class="lprev lp-tesla"><i></i><i></i><i></i></span><b>Tesla</b><span class="small muted">Muito parecido com o ecrã do Tesla: carro à esquerda, mapa à direita, barra de ícones em baixo</span></button>
+            <button class="layoutopt" data-layout="atv" aria-pressed="false"><span class="lprev lp-atv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b>Android TV</b><span class="small muted">Ecrã de início com filas de apps, canais, filmes e séries</span></button>
             <button class="layoutopt" data-layout="auto" aria-pressed="false"><span class="lprev lp-auto"><i></i><i></i><i></i><i></i></span><b>Condução</b><span class="small muted">Inspirado no Android Auto: ícones grandes e ecrã de início</span></button>
           </div>
           <label class="row small"><input type="checkbox" id="setFx"> Efeitos de transição entre menus</label>
@@ -1694,6 +1773,7 @@ setInterval(()=>{ if(PIN.isSet() && PIN.until && !PIN.isOpen()) PIN.lock(); }, 1
 
 function show(view){
   if(view === "home" && cfg.layout === "tesla") view = "nav";
+  if(view === "home" && cfg.layout === "atv") view = "atv";
   if((view==="settings" || view==="mail") && !PIN.isOpen()){
     requirePin(view==="mail" ? "PIN para abrir o Email" : "PIN para abrir as Definições").then(ok => { if(ok) show(view); });
     return;
@@ -1704,7 +1784,7 @@ function show(view){
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
-  const order = ["home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
+  const order = ["atv","home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -1727,9 +1807,23 @@ function show(view){
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
   if(view==="tv"){ renderTvList(); if(!show._tvInit){ show._tvInit = 1; setTimeout(tvDefaultTab, 800); } }
+  if(view==="atv") renderAtv();
   if(view==="home"){ renderHome(); if(cfg.gwToken) growattFetch(false).then(renderHome).catch(()=>{}); if(!radioLoaded) loadRadios("").then(renderHome); }
 }
 document.querySelectorAll(".nav").forEach(b => b.onclick = () => show(b.dataset.view));
+
+
+/* Nome completo: ao passar o rato (ou manter premido, no ecrã tátil) aparece o título inteiro de canais, filmes, séries e episódios. */
+(() => {
+  const fullOf = t => { const b = t.closest && t.closest(".item .t b, .rcard .t b, .atvcard, .apptile b, .ltile"); if(!b) return null; const el = b.matches(".atvcard") ? (b.querySelector("b") || b) : b; const txt = (el.textContent || "").trim(); return {el, txt}; };
+  const tip = e => { const f = fullOf(e.target); if(f && f.txt && !f.el.title) f.el.title = f.txt; };
+  document.addEventListener("mouseover", tip, true); document.addEventListener("focusin", tip, true);
+  let tm = 0, sx = 0, sy = 0;
+  document.addEventListener("pointerdown", e => { if(e.pointerType === "mouse") return; const f = fullOf(e.target); if(!f || !f.txt) return; sx = e.clientX; sy = e.clientY; clearTimeout(tm); tm = setTimeout(() => toast(f.txt), 550); }, true);
+  const cancel = () => clearTimeout(tm);
+  document.addEventListener("pointerup", cancel, true); document.addEventListener("pointercancel", cancel, true);
+  document.addEventListener("pointermove", e => { if(Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 12) cancel(); }, true);
+})();
 
 /* ---------- relógio ---------- */
 function tick(){ const d=new Date(), t = d.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"}); $("clock").textContent = t; const tb = document.getElementById("tbClock"); if(tb) tb.textContent = t; }
@@ -1759,6 +1853,7 @@ function driveSet(st){
   DRIVE.state = st; driveChip();
   try{ toast(st === "moving" ? "Em andamento: jogos, janelas e imagem do Cast bloqueados" : "Parado: tudo desbloqueado"); }catch(e){}
   try{ tvDriveSync(); }catch(e){}
+  try{ streamGuard(); }catch(e){}
   try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
 }
 function driveUpdate(fresh){
@@ -2223,7 +2318,7 @@ function orgChannels(list, kind, group){
 }
 const orgKindNow = () => tvKind === "free" ? "free" : tvKind === "fav" ? "fav" : tvKind;
 const ORG = {tab:"grp", grp:""};
-const orgSource = kind => kind === "free" ? freeChans : channels.filter(c => c.kind === kind);
+const orgSource = kind => kind === "free" ? freeChans : kind === "intl" ? intlChans : channels.filter(c => c.kind === kind);
 function orgMove(arr, name, how){
   const i = arr.indexOf(name); if(i < 0) return;
   if(how === "top"){ arr.splice(i, 1); arr.unshift(name); }
@@ -2363,6 +2458,74 @@ async function loadFreeTv(force){
   LS.set("freeTv", {t:Date.now(), list:freeChans.map(({name,logo,id,url,kind,free,group})=>({name,logo,id,url,kind,free,group}))});
   return freeChans;
 }
+
+/* ---------- Lista internacional gratuita (iptv-org) + teste de funcionamento ---------- */
+const INTL_SETS = [
+  ["gb","🇬🇧 Reino Unido"],["us","🇺🇸 EUA"],["es","🇪🇸 Espanha"],["fr","🇫🇷 França"],["de","🇩🇪 Alemanha"],["it","🇮🇹 Itália"],
+  ["br","🇧🇷 Brasil"],["ao","🇦🇴 Angola"],["mz","🇲🇿 Moçambique"],["cv","🇨🇻 Cabo Verde"],
+  ["cat:news","📰 Notícias (mundo)"],["cat:sports","⚽ Desporto (mundo)"],["cat:movies","🎬 Filmes (mundo)"],["cat:music","🎵 Música (mundo)"],["cat:kids","🧸 Infantil (mundo)"],["cat:documentary","🎞 Documentários (mundo)"]
+];
+let intlChans = [], intlSet = "gb", intlLoading = false, intlErr = "";
+const intlSrc = k => k.startsWith("cat:") ? `https://iptv-org.github.io/iptv/categories/${k.slice(4)}.m3u` : `https://iptv-org.github.io/iptv/countries/${k}.m3u`;
+async function loadIntl(k, force){
+  const key = "intl_" + k, c = LS.get(key, null);
+  if(!force && c && Date.now() - c.t < 6*3600e3 && c.list?.length){ intlChans = c.list; return; }
+  const src = intlSrc(k); let txt = null;
+  for(const u of [src, HASPX() ? px(src) : null].filter(Boolean)){
+    try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
+  }
+  if(!txt){ if(c?.list?.length){ intlChans = c.list; return; } throw new Error("não consegui obter a lista"); }
+  const seen = new Set(), lab = (INTL_SETS.find(x=>x[0]===k)||[,k])[1];
+  intlChans = parseM3U(txt).map(x=>({...x, kind:"live", free:true, intl:true, group:lab,
+      name:x.name.replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
+    .filter(x=>x.url && /^https?:/i.test(x.url) && !seen.has(x.url) && seen.add(x.url))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  LS.set(key, {t:Date.now(), list:intlChans.map(({name,logo,id,url,kind,free,intl,group})=>({name,logo,id,url,kind,free,intl,group}))});
+}
+async function ensureIntl(force){
+  intlLoading = true; intlErr = ""; renderTvList();
+  try{ await loadIntl(intlSet, force); }catch(e){ intlErr = "Não consegui carregar a lista: " + e.message + ". Verifica a ligação (e o proxy, se estiver configurado)."; intlChans = []; }
+  intlLoading = false; renderTvList();
+}
+/* Saúde dos canais: pede o manifesto HLS (8 s) e guarda ok / em baixo / desconhecido durante 6 h.
+   "desconhecido" = o browser não deixou ver a resposta (CORS); nesses não se esconde nada. */
+const HEALTH_TTL = 6*3600e3;
+let health = LS.get("chHealth", {}) || {};
+const hState = c => { const h = health[c.url]; return h && Date.now() - h.t < HEALTH_TTL ? h.s : ""; };
+async function probeChan(c){
+  const ref = refFor(c), tries = [];
+  tries.push(directUrl(c.url));
+  if(HASPX()) tries.push(px(c.url, ref, true));
+  let sawResp = false, bad = false;
+  for(const u of tries){
+    const ac = new AbortController(), to = setTimeout(()=>ac.abort(), 8000);
+    try{
+      const r = await fetch(u, {signal:ac.signal}); clearTimeout(to); sawResp = true;
+      if(!r.ok){ bad = true; continue; }
+      const t = (await r.text()).slice(0, 4000);
+      if(/#EXTM3U|#EXT-X-/i.test(t)) return "ok";
+      if(/^\s*</.test(t)){ bad = true; continue; }
+      return "ok"; // outro formato (ts/mp4): respondeu
+    }catch(e){ clearTimeout(to); if(e.name === "AbortError") bad = true; }
+  }
+  return bad ? "dead" : "unk";
+}
+let healthRun = false;
+async function healthCheck(list){
+  if(healthRun) return; healthRun = true;
+  const todo = list.filter(c=>!hState(c)), total = todo.length; let done = 0, ok = 0, dead = 0;
+  const msg = $("healthMsg"), btn = $("btnHealth"); btn.disabled = true;
+  const upd = () => { msg.textContent = `A testar… ${done}/${total} · ✅ ${ok} · ❌ ${dead}`; };
+  upd();
+  let idx = 0;
+  const worker = async () => { while(idx < todo.length){ const c = todo[idx++]; const st = await probeChan(c); health[c.url] = {s:st, t:Date.now()}; done++; if(st==="ok") ok++; else if(st==="dead") dead++; if(done%5===0) upd(); } };
+  await Promise.all(Array.from({length:6}, worker));
+  try{ const keys = Object.keys(health); if(keys.length > 1500) keys.slice(0, keys.length-1500).forEach(k=>delete health[k]); LS.set("chHealth", health); }catch(e){}
+  healthRun = false; btn.disabled = false;
+  const all = list.map(hState); msg.textContent = `Testados ${list.length}: ✅ ${all.filter(x=>x==="ok").length} a funcionar · ❌ ${all.filter(x=>x==="dead").length} em baixo · ❓ ${all.filter(x=>x==="unk").length} sem resposta clara (podem funcionar no player).`;
+  renderTvList();
+}
+const hBadge = c => { const s = hState(c); return s==="ok" ? "✅ " : s==="dead" ? "❌ " : s==="unk" ? "❓ " : ""; };
 function parseM3U(text){
   const out=[]; const lines=text.split(/\r?\n/); let cur=null;
   for(const raw of lines){
@@ -2383,7 +2546,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v57";
+const APP_VERSION = "v65";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2492,7 +2655,7 @@ async function openSeries(c){
     $("tvList").querySelectorAll("[data-ep]").forEach(bt=>bt.onclick=()=>playChannel(eps[+bt.dataset.ep]));
   }catch(e){ toast("Não consegui abrir a série. "+fetchErrorHelp(xBase(), e), true); renderTvList(); }
 }
-function afterIptv(msg){ $("iptvStatus").textContent = msg; $("tvEmpty").hidden = channels.length>0 || tvKind==="free"; fillGroups(); renderTvList(); }
+function afterIptv(msg){ $("iptvStatus").textContent = msg; try{ renderAtv(); }catch(e){} $("tvEmpty").hidden = channels.length>0 || tvKind==="free"; fillGroups(); renderTvList(); }
 function tvDefaultTab(){ if(!channels.length && tvKind==="live"){ const b = document.querySelector('[data-kind="free"]'); if(b) b.click(); } }
 $("m3uFile").onchange = async e => { const f=e.target.files[0]; if(!f) return; channels=parseM3U(await f.text()); await IDB.set("channels", channels); afterIptv("Ficheiro carregado: "+channels.length+" entradas."); };
 async function loadEpg(){
@@ -2541,24 +2704,27 @@ function pumpEpg(){
 const hm = t => new Date(t).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"});
 function fillGroups(){
   if(tvKind==="free"){ $("tvGroup").innerHTML = ""; $("tvGroup").hidden = true; return; }
+  if(tvKind==="intl"){ $("tvGroup").hidden = false; $("tvGroup").innerHTML = INTL_SETS.map(([k,l])=>`<option value="${k}"${k===intlSet?" selected":""}>${esc(l)}</option>`).join(""); return; }
   $("tvGroup").hidden = false;
   const groups = orgGroupList(tvKind==="fav" ? "live" : tvKind, [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))], false);
   $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option>${esc(g)}</option>`).join("");
 }
 function renderTvList(){
   const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
-  let list = tvKind==="free" ? freeChans : channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
+  let list = tvKind==="free" ? freeChans : tvKind==="intl" ? intlChans : channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
+  if(tvKind==="free" || tvKind==="intl"){ $("freeTools").hidden = false; if($("hideDead").checked) list = list.filter(c=>hState(c)!=="dead"); list = [...list].sort((a,b)=>(hState(a)==="ok"?0:1)-(hState(b)==="ok"?0:1)); } else $("freeTools").hidden = true;
   if(tvKind==="fav") list = [...channels, ...freeChans].filter((c,i,a)=>favs.has(c.url) && a.findIndex(x=>x.url===c.url)===i);
-  if(g && tvKind!=="free") list = list.filter(c=>c.group===g);
+  if(g && tvKind!=="free" && tvKind!=="intl") list = list.filter(c=>c.group===g);
   if(q) list = list.filter(c=>norm(c.name).includes(q));
   list = orgChannels(list, orgKindNow(), tvKind==="fav" ? "x" : g);
   const shown = list.slice(0, 300);
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
-    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
+    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
+  if(tvKind==="intl" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${intlLoading ? "A carregar canais…" : esc(intlErr || "Nada para mostrar.")}</p>`;
   if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
-  $("tvCount").textContent = tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
+  $("tvCount").textContent = tvKind==="intl" && list.length ? `${list.length} canais gratuitos (${(INTL_SETS.find(x=>x[0]===intlSet)||[,""])[1]}). Listas públicas da comunidade: alguns estão em baixo ou bloqueados por país. Usa 🩺 Testar canais.` : tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
   // Guia dos canais visíveis
@@ -3383,7 +3549,7 @@ function updateCinemaBar(){
   const has = !!(c && neighbours(c).length > 1);
   $("chPrev").disabled = !has; $("chNext").disabled = !has;
 }
-function neighbours(c){ return orgChannels(c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.free ? "free" : c.kind, c.group || "x"); }
+function neighbours(c){ return orgChannels(c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.intl ? "intl" : c.free ? "free" : c.kind, c.group || "x"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
   const list = neighbours(c); if(list.length < 2) return false;
@@ -3429,7 +3595,11 @@ async function ensureFree(force){
   try{ await loadFreeTv(force); }catch(e){ freeErr = "Não consegui carregar os canais: " + e.message + ". Verifica a ligação (e o proxy, se estiver configurado)."; }
   freeLoading = false; renderTvList();
 }
-document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; if(tvKind==="free") ensureFree(false); document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
+$("tvGroup").addEventListener("change", ()=>{ if(tvKind==="intl"){ intlSet = $("tvGroup").value; LS.set("intlSet", intlSet); ensureIntl(false); } });
+$("btnHealth").onclick = ()=> healthCheck((tvKind==="intl" ? intlChans : freeChans).slice());
+$("hideDead").onchange = renderTvList;
+intlSet = LS.get("intlSet", "gb") || "gb";
+document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; if(tvKind==="free") ensureFree(false); if(tvKind==="intl") ensureIntl(false); document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
 function setTarget(t){ tvTarget=t; fmtDelay(); document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
 document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>{ setTarget(+b.dataset.target); updateCinemaBar(); });
@@ -4151,7 +4321,10 @@ function passengerImport(){
 const APPS = {
   waze: {name:"Waze", url:"https://www.waze.com/live-map/"},
   google_maps: {name:"Google Maps", url:"https://www.google.com/maps"},
-  nos_tv: {name:"NOS TV", url:"https://nostv.pt/"},
+  nos_tv: {name:"NOS TV", url:"https://nostv.pt/", stream:true},
+  netflix: {name:"Netflix", url:"https://www.netflix.com/", login:"https://www.netflix.com/login", stream:true},
+  primevideo: {name:"Prime Video", url:"https://www.primevideo.com/", login:"https://www.primevideo.com/", stream:true},
+  disney: {name:"Disney+", url:"https://www.disneyplus.com/", login:"https://www.disneyplus.com/login", stream:true},
   nav: {name:"Navegação", url:"https://www.google.com/maps"},
   games: {name:"Jogos", url:"https://poki.com/pt"},
   chargers: {name:"Carregadores", url:"https://openchargemap.org/site"},
@@ -4176,10 +4349,18 @@ async function geocode(q){
   return null;
 }
 let webPrev = "apps", webCtx = null;
+/* Apps de vídeo (Netflix, Prime Video, Disney+, NOS TV): fecham e ficam bloqueadas com o carro em andamento. */
+function streamGuard(){
+  if(currentView === "web" && webCtx && webCtx.stream && gamesLocked()){
+    $("webFrame").src = "about:blank"; show(webPrev && webPrev !== "web" ? webPrev : "apps");
+    toast("Vídeo fechado: o carro está em andamento.", true);
+  }
+}
+setInterval(() => { try{ streamGuard(); }catch(e){} }, 2000);
 /* Abre uma app dentro do Cockpit. Waze e Google Maps usam as versões próprias para embutir; a NOS TV tenta a página normal. */
 function openInApp(title, url, outUrl, opts={}){
   if(currentView !== "web") webPrev = currentView || "apps";
-  webCtx = {title, url, outUrl, dest:opts.dest || ""};
+  webCtx = {title, url, outUrl, dest:opts.dest || "", stream:!!opts.stream};
   $("webTitle").textContent = title;
   $("webHint").textContent = opts.hint || "";
   $("webSend").hidden = !opts.dest || !!cfg.passenger;
@@ -4221,6 +4402,12 @@ function openExtPlain(url){ const x = document.createElement("a"); x.href = url;
 function openApp(id){
   if(id === "notes" || id === "mail"){ show(id); return true; }
   const a = APPS[id]; if(!a) return false;
+  if(a.stream && !cfg.passenger && gamesLocked()){ toast("Vídeo só com o carro parado.", true); return true; }
+  if(["netflix","primevideo","disney"].includes(id)){
+    // Estes serviços proíbem ser abertos dentro de outra página (ERR_BLOCKED_BY_RESPONSE), por isso abrem sempre como página própria.
+    toast(a.name + ": a abrir numa página própria (o serviço não deixa abrir dentro do Cockpit).");
+    openExt(a.url); return true;
+  }
   if(id === "games"){ show("games"); return true; }
   if(id === "podcasts"){ show("pod"); return true; }
   if(id === "engine"){ show("engine"); return true; }
@@ -4231,7 +4418,7 @@ function openApp(id){
   // e depois a NOS TV abre dentro do Cockpit, se a NOS deixar usar essa sessão aqui.
   if(id === "nos_tv"){
     if(!cfg.appsIn){ openExt(a.url); return true; }
-    openInApp("NOS TV", a.url, a.url, {hint:"Sem sessão? Faz login numa página própria e volta", extra:{label:"Fazer login", ext:NOS_LOGIN}});
+    openInApp("NOS TV", a.url, a.url, {stream:true, hint:"Sem sessão? Faz login numa página própria e volta", extra:{label:"Fazer login", ext:NOS_LOGIN}});
     return true;
   }
   if(!cfg.appsIn){ openExt(a.url); return true; }
@@ -4689,16 +4876,19 @@ $("btnHomeHere").onclick = async ()=>{
 
 /* ---------- Jogos ---------- */
 const GAMES_LOCAL = [
-  {id:"g2048", name:"2048", desc:"Junta os números até chegar a 2048", ico:"🔢"},
-  {id:"mem", name:"Memória", desc:"Encontra os pares no menor número de jogadas", ico:"🃏"},
-  {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕"},
-  {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍"},
-  {id:"c4", name:"4 em linha", desc:"Contra o Cockpit. Toca numa coluna", ico:"🔴"},
-  {id:"mole", name:"Toupeiras", desc:"Apanha-as em 30 segundos", ico:"🐹"},
-  {id:"simon", name:"Simão diz", desc:"Repete a sequência de cores e sons", ico:"🎵"},
-  {id:"brick", name:"Quebra-blocos", desc:"Arrasta o dedo para mexer a barra", ico:"🧱"},
-  {id:"flap", name:"Voa!", desc:"Toca para voar entre os tubos", ico:"🐤"},
-  {id:"mines", name:"Campo minado", desc:"Toca para abrir, 🚩 para marcar", ico:"💣"}
+  {id:"g2048", name:"2048", desc:"Junta os números até chegar a 2048", ico:"🔢", grp:"Puzzles e cartas"},
+  {id:"mem", name:"Memória", desc:"Encontra os pares no menor número de jogadas", ico:"🃏", grp:"Puzzles e cartas"},
+  {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕", grp:"Puzzles e cartas"},
+  {id:"c4", name:"4 em linha", desc:"Contra o Cockpit. Toca numa coluna", ico:"🔴", grp:"Puzzles e cartas"},
+  {id:"simon", name:"Simão diz", desc:"Repete a sequência de cores e sons", ico:"🎵", grp:"Puzzles e cartas"},
+  {id:"mines", name:"Campo minado", desc:"Toca para abrir, 🚩 para marcar", ico:"💣", grp:"Puzzles e cartas"},
+  {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍", grp:"Arcada de consola (para o toque)"},
+  {id:"brick", name:"Quebra-blocos", desc:"Arrasta o dedo para mexer a barra", ico:"🧱", grp:"Arcada de consola (para o toque)"},
+  {id:"flap", name:"Voa!", desc:"Toca para voar entre os tubos", ico:"🐤", grp:"Arcada de consola (para o toque)"},
+  {id:"mole", name:"Toupeiras", desc:"Apanha-as em 30 segundos", ico:"🐹", grp:"Arcada de consola (para o toque)"},
+  {id:"pong", name:"Ténis de mesa", desc:"Arrasta a raquete. Primeiro a 7 ganha", ico:"🏓", grp:"Arcada de consola (para o toque)"},
+  {id:"run", name:"Corre!", desc:"Toca para saltar os obstáculos", ico:"🏃", grp:"Arcada de consola (para o toque)"},
+  {id:"ship", name:"Naves", desc:"Arrasta para mover, dispara sozinho", ico:"🚀", grp:"Arcada de consola (para o toque)"}
 ];
 // Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
@@ -4726,7 +4916,8 @@ function renderGames(){
   $("gmLock").hidden = !lock;
   if(lock) gmExit();
   const tile = (g, attr) => `<button class="apptile" ${attr} ${lock ? "disabled" : ""}><span class="appicon" style="font-size:30px">${g.ico}</span><b>${esc(g.name)}</b><span>${esc(g.desc)}</span></button>`;
-  $("gmLocal").innerHTML = GAMES_LOCAL.map(g=>tile(g, `data-gm="${g.id}"`)).join("");
+  const lgrp = [...new Set(GAMES_LOCAL.map(g=>g.grp || "Jogos"))];
+  $("gmLocal").innerHTML = lgrp.map(gp=>`<h3 class="gmcat">${esc(gp)}</h3><div class="apps">${GAMES_LOCAL.filter(g=>(g.grp || "Jogos") === gp).map(g=>tile(g, `data-gm="${g.id}"`)).join("")}</div>`).join("");
   const cats = [...new Set(GAMES_ONLINE.map(g=>g.cat))];
   $("gmOnline").innerHTML = cats.map(c=>`<h3 class="gmcat">${esc(c)}</h3><div class="apps">${GAMES_ONLINE.map((g,i)=>g.cat === c ? tile(g, `data-go="${i}"`) : "").join("")}</div>`).join("");
   $("gmLocal").querySelectorAll("[data-gm]").forEach(b=>b.onclick=()=>gmStart(b.dataset.gm));
@@ -4737,7 +4928,7 @@ $("gmBack").onclick = gmExit;
 function gmStart(id){
   if(gamesLocked()) return renderGames();
   gmExit(); $("gmHub").hidden = true; $("gmBack").hidden = false; $("gmStage").hidden = false;
-  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake, c4:gameC4, mole:gameMole, simon:gameSimon, brick:gameBrick, flap:gameFlap, mines:gameMines})[id]($("gmStage"));
+  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake, c4:gameC4, mole:gameMole, simon:gameSimon, brick:gameBrick, flap:gameFlap, mines:gameMines, pong:gamePong, run:gameRun, ship:gameShip})[id]($("gmStage"));
 }
 function gmKeys(fn){ const h = e => { const d = {ArrowLeft:"l", ArrowRight:"r", ArrowUp:"u", ArrowDown:"d"}[e.key]; if(d){ e.preventDefault(); fn(d); } }; document.addEventListener("keydown", h); gmCleanup.push(()=>document.removeEventListener("keydown", h)); }
 function gmSwipe(el, fn){ let s = null;
@@ -4937,6 +5128,84 @@ function gameBrick(st){
   gmCleanup.push(()=>cancelAnimationFrame(raf));
 }
 
+
+/* ---------- Arcada original: Ténis de mesa, Corre!, Naves (jogos próprios, pensados para o toque) ---------- */
+function gamePong(st){
+  const W = 600, H = 420, PH = 78; let py = H/2, ay = H/2, bx, by, vx, vy, ps = 0, as = 0, raf, last, serve = 0, over = false;
+  st.innerHTML = gmBar(gmStat("Tu","pgP",0) + gmStat("Cockpit","pgA",0) + `<button class="btn primary" id="pgNew">Novo jogo</button>`) + `<canvas class="gcv" id="pgC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Arrasta o dedo para cima e para baixo. Primeiro a 7 pontos.</p>`;
+  const c = $("pgC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reset = (dir) => { bx = W/2; by = H/2; const a = (Math.random() - .5) * .8; vx = 300*dir*Math.cos(a); vy = 300*Math.sin(a); serve = .7; };
+  const nu = () => { ps = 0; as = 0; over = false; $("pgP").textContent = 0; $("pgA").textContent = 0; reset(Math.random() < .5 ? 1 : -1); };
+  const frame = t => { const dt = Math.min(.03, (t - (last || t))/1000); last = t;
+    if(!over){
+      if(serve > 0) serve -= dt; else {
+        bx += vx*dt; by += vy*dt;
+        if(by < 6){ by = 6; vy = Math.abs(vy); } if(by > H-6){ by = H-6; vy = -Math.abs(vy); }
+        const hit = (px, dir, cy) => { const rel = (by - cy)/(PH/2); const sp = Math.min(760, Math.hypot(vx, vy)*1.06); const a = rel*.9; vx = dir*sp*Math.cos(a); vy = sp*Math.sin(a); };
+        if(vx < 0 && bx < 28 && bx > 12 && Math.abs(by - py) < PH/2 + 6){ bx = 28; hit(0, 1, py); }
+        if(vx > 0 && bx > W-28 && bx < W-12 && Math.abs(by - ay) < PH/2 + 6){ bx = W-28; hit(0, -1, ay); }
+        if(bx < -10){ as++; $("pgA").textContent = as; if(as >= 7){ over = true; toast("Perdeste " + ps + "–" + as); } else reset(1); }
+        if(bx > W+10){ ps++; $("pgP").textContent = ps; if(ps >= 7){ over = true; toast("Ganhaste " + ps + "–" + as + "!"); } else reset(-1); }
+      }
+      const tgt = vx > 0 && serve <= 0 ? by : H/2; ay += Math.max(-250*dt, Math.min(250*dt, tgt - ay));
+    }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    x.fillStyle = css("--line"); for(let k=0;k<H;k+=28) x.fillRect(W/2-2, k, 4, 14);
+    x.fillStyle = css("--accent"); x.fillRect(14, py - PH/2, 10, PH); x.fillStyle = css("--fg"); x.fillRect(W-24, ay - PH/2, 10, PH);
+    x.beginPath(); x.arc(bx, by, 7, 0, 7); x.fill();
+    raf = requestAnimationFrame(frame); };
+  const move = e => { const r = c.getBoundingClientRect(); py = Math.max(PH/2, Math.min(H - PH/2, (e.clientY - r.top)/r.height*H)); };
+  c.addEventListener("pointermove", move); c.addEventListener("pointerdown", move);
+  gmKeys(d=>{ if(d === "u") py = Math.max(PH/2, py - 36); if(d === "d") py = Math.min(H - PH/2, py + 36); });
+  $("pgNew").onclick = nu; nu(); raf = requestAnimationFrame(frame); gmCleanup.push(()=>cancelAnimationFrame(raf));
+}
+function gameRun(st){
+  const W = 600, H = 420, GY = 340; let y, vy, obs, dist, spd, state = "ready", raf, last, nxt, best = +LS.get("runBest", 0);
+  st.innerHTML = gmBar(gmStat("Metros","rnS",0) + gmStat("Recorde","rnB",best)) + `<canvas class="gcv" id="rnC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Toca no ecrã para saltar (ou ↑ / espaço).</p>`;
+  const c = $("rnC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reset = () => { y = GY; vy = 0; obs = []; dist = 0; spd = 260; nxt = 1; state = "ready"; $("rnS").textContent = 0; };
+  const jump = () => { if(state === "dead"){ reset(); return; } if(state === "ready") state = "play"; if(y >= GY - 1) vy = -640; };
+  const die = () => { state = "dead"; const m = Math.floor(dist/10); if(m > best){ best = m; LS.set("runBest", best); $("rnB").textContent = best; } };
+  const frame = t => { const dt = Math.min(.035, (t - (last || t))/1000); last = t;
+    if(state === "play"){ dist += spd*dt; spd = Math.min(620, spd + 6*dt); vy += 1900*dt; y = Math.min(GY, y + vy*dt); if(y >= GY) vy = 0; nxt -= dt;
+      if(nxt <= 0){ const h = 30 + Math.random()*46, w = 26 + Math.random()*26; obs.push({x:W + 20, w, h}); nxt = (260 + Math.random()*260)/spd; }
+      obs.forEach(o=>o.x -= spd*dt); obs = obs.filter(o=>o.x > -80);
+      for(const o of obs){ if(o.x < 76 && o.x + o.w > 40 && y > GY - o.h - 4) die(); }
+      $("rnS").textContent = Math.floor(dist/10); }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    x.fillStyle = css("--line"); x.fillRect(0, GY + 2, W, 4);
+    x.fillStyle = css("--bad"); obs.forEach(o=>x.fillRect(o.x, GY + 2 - o.h, o.w, o.h));
+    x.fillStyle = state === "dead" ? css("--bad") : css("--accent"); x.fillRect(40, y - 36, 36, 36);
+    if(state !== "play"){ x.fillStyle = css("--fg"); x.font = "600 22px sans-serif"; x.textAlign = "center"; x.fillText(state === "dead" ? "Toca para recomeçar" : "Toca para começar", W/2, 150); }
+    raf = requestAnimationFrame(frame); };
+  c.addEventListener("pointerdown", jump); gmKeys(d=>{ if(d === "u") jump(); });
+  const sp = e => { if(e.code === "Space"){ e.preventDefault(); jump(); } }; document.addEventListener("keydown", sp); gmCleanup.push(()=>document.removeEventListener("keydown", sp));
+  reset(); raf = requestAnimationFrame(frame); gmCleanup.push(()=>cancelAnimationFrame(raf));
+}
+function gameShip(st){
+  const W = 600, H = 420; let sx = W/2, shots, foes, score, lives, raf, last, fire, spawn, over, best = +LS.get("shipBest", 0), inv;
+  st.innerHTML = gmBar(gmStat("Pontos","shS",0) + gmStat("Vidas","shL",3) + gmStat("Recorde","shB",best) + `<button class="btn primary" id="shNew">Novo jogo</button>`) + `<canvas class="gcv" id="shC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Arrasta o dedo para mover a nave. Dispara sozinha.</p>`;
+  const c = $("shC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reset = () => { shots = []; foes = []; score = 0; lives = 3; fire = 0; spawn = 0; over = false; inv = 0; $("shS").textContent = 0; $("shL").textContent = 3; };
+  const frame = t => { const dt = Math.min(.035, (t - (last || t))/1000); last = t;
+    if(!over){ fire -= dt; if(fire <= 0){ shots.push({x:sx, y:H - 50}); fire = .28; }
+      spawn -= dt; if(spawn <= 0){ foes.push({x:20 + Math.random()*(W - 40), y:-20, vy:70 + Math.min(150, score*.8) + Math.random()*40, r:14 + Math.random()*8}); spawn = Math.max(.35, 1.0 - score/400); }
+      shots.forEach(s=>s.y -= 520*dt); shots = shots.filter(s=>s.y > -10); foes.forEach(f=>f.y += f.vy*dt); inv = Math.max(0, inv - dt);
+      for(const f of foes){ for(const s of shots){ if(!s.hit && Math.abs(s.x - f.x) < f.r + 3 && Math.abs(s.y - f.y) < f.r + 6){ s.hit = true; f.dead = true; score += 10; $("shS").textContent = score; if(score > best){ best = score; LS.set("shipBest", best); $("shB").textContent = best; } } }
+        if(!f.dead && inv <= 0 && Math.abs(f.x - sx) < f.r + 16 && Math.abs(f.y - (H - 36)) < f.r + 14){ f.dead = true; lives--; inv = 1.2; $("shL").textContent = lives; if(lives <= 0){ over = true; toast("Fim de jogo. Pontos: " + score); } }
+        if(f.y > H + 20){ f.dead = true; } }
+      shots = shots.filter(s=>!s.hit); foes = foes.filter(f=>!f.dead); }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    x.fillStyle = css("--bad"); foes.forEach(f=>{ x.beginPath(); x.arc(f.x, f.y, f.r, 0, 7); x.fill(); });
+    x.fillStyle = css("--warn"); shots.forEach(s=>x.fillRect(s.x - 2, s.y - 8, 4, 12));
+    if(!(inv > 0 && Math.floor(inv*10) % 2)){ x.fillStyle = css("--accent"); x.beginPath(); x.moveTo(sx, H - 62); x.lineTo(sx + 18, H - 22); x.lineTo(sx - 18, H - 22); x.closePath(); x.fill(); }
+    raf = requestAnimationFrame(frame); };
+  const move = e => { const r = c.getBoundingClientRect(); sx = Math.max(18, Math.min(W - 18, (e.clientX - r.left)/r.width*W)); };
+  c.addEventListener("pointermove", move); c.addEventListener("pointerdown", move);
+  gmKeys(d=>{ if(d === "l") sx = Math.max(18, sx - 40); if(d === "r") sx = Math.min(W - 18, sx + 40); });
+  $("shNew").onclick = reset; reset(); raf = requestAnimationFrame(frame); gmCleanup.push(()=>cancelAnimationFrame(raf));
+}
+
 function gameFlap(st){
   const W = 600, H = 420, G = 135; let y, vy, pipes, score, state = "ready", raf, last, spawn, best = +LS.get("flapBest", 0);
   st.innerHTML = gmBar(gmStat("Pontos","fpS",0) + gmStat("Recorde","fpB",best)) + `<canvas class="gcv" id="fpC" width="${W}" height="${H}"></canvas><p class="small muted" style="margin:0">Toca no ecrã para bater as asas.</p>`;
@@ -4987,13 +5256,85 @@ function gameMines(st){
 if(!cfg.layout) cfg.layout = "classic";
 function applyLayout(){
   document.body.classList.toggle("layout-auto", cfg.layout === "auto");
+  document.body.classList.toggle("layout-atv", cfg.layout === "atv");
   document.body.classList.toggle("layout-tesla", cfg.layout === "tesla"); if(cfg.layout === "tesla") renderTesla();
   document.querySelectorAll(".layoutopt").forEach(b=>b.setAttribute("aria-pressed", b.dataset.layout === cfg.layout ? "true" : "false"));
 }
 document.querySelectorAll(".layoutopt").forEach(b=>b.onclick=()=>{
   cfg.layout = b.dataset.layout; saveCfg(); applyLayout();
-  if(cfg.layout === "auto") show(cfg.passenger ? "tv" : "home"); else if(cfg.layout === "tesla") show(cfg.passenger ? "tv" : "nav"); else if(["home","launcher"].includes(currentView)) show("car");
+  if(cfg.layout === "atv") show(cfg.passenger ? "tv" : "atv"); else if(cfg.layout === "auto") show(cfg.passenger ? "tv" : "home"); else if(cfg.layout === "tesla") show(cfg.passenger ? "tv" : "nav"); else if(["home","launcher","atv"].includes(currentView)) show("car");
 });
+
+/* ---------- Layout "Android TV": ecrã de início com filas ---------- */
+const ATV_APPS = [
+  {n:"Navegação", i:"🧭", c:"#1f6feb,#0b2d6b", f:()=>openApp("nav")},
+  {n:"TV", i:"📺", c:"#e5484d,#6b1020", f:()=>show("tv")},
+  {n:"Netflix", i:"N", c:"#e50914,#4a0207", f:()=>openApp("netflix"), s:1},
+  {n:"Prime Video", i:"▶", c:"#00a8e1,#05344a", f:()=>openApp("primevideo"), s:1},
+  {n:"Disney+", i:"✦", c:"#2a5bd7,#0b1b4d", f:()=>openApp("disney"), s:1},
+  {n:"NOS TV", i:"📡", c:"#7b3fe4,#2a1260", f:()=>openApp("nos_tv"), s:1},
+  {n:"Música e rádio", i:"🎵", c:"#1db954,#08331a", f:()=>show("media")},
+  {n:"Podcasts", i:"🎙️", c:"#c04bd8,#40104d", f:()=>openApp("podcasts")},
+  {n:"Jogos", i:"🎮", c:"#f59f00,#5c3a00", f:()=>show("games")},
+  {n:"Carro", i:"🚗", c:"#4c6ef5,#1a2466", f:()=>show("car")},
+  {n:"Energia", i:"☀️", c:"#f7b731,#6b4a00", f:()=>show("energy")},
+  {n:"Carregadores", i:"⚡", c:"#2fbf71,#0b3d22", f:()=>openApp("chargers")},
+  {n:"Waze", i:"🚦", c:"#33ccff,#06364a", f:()=>openApp("waze")},
+  {n:"Google Maps", i:"📍", c:"#34a853,#0d3a1a", f:()=>openApp("google_maps")},
+  {n:"Desktop", i:"🖥️", c:"#7a869a,#252b36", f:()=>show("desktop")},
+  {n:"Notas", i:"📝", c:"#f2c94c,#5a4600", f:()=>show("notes")},
+  {n:"Email", i:"✉️", c:"#4dabf7,#0b3550", f:()=>show("mail")},
+  {n:"Rede", i:"📶", c:"#20c997,#07372c", f:()=>show("net")},
+  {n:"Definições", i:"⚙️", c:"#868e96,#2a2d31", f:()=>show("settings")}
+];
+let atvActs = [], atvLockState = null;
+function renderAtv(){
+  if(currentView !== "atv") return;
+  atvActs = []; atvLockState = !cfg.passenger && gamesLocked();
+  const lock = atvLockState, reg = f => atvActs.push(f) - 1;
+  const cs = car?.charge_state || {}, cl = car?.climate_state || {};
+  const tv = lastPlayed[0] || lastPlayed[1];
+  const nn = tv ? nowNext(tv) : null;
+  let hTitle = "Bem-vindo", hSub = "Escolhe uma app, um canal ou um filme.", hBtn = "";
+  if(podCur){ hTitle = podCur.title; hSub = podCur.show?.name || "Podcast a tocar"; hBtn = `<button class="btn primary" data-a="${reg(()=>show("pod"))}">Abrir podcasts</button>`; }
+  else if(radioCur){ hTitle = radioCur.name; hSub = "Rádio a tocar"; hBtn = `<button class="btn primary" data-a="${reg(()=>show("media"))}">Abrir rádio</button>`; }
+  else if(tv){ hTitle = tv.name; hSub = nn ? `${hm(nn.now.start)} ${nn.now.title}` : "Último canal visto"; hBtn = `<button class="btn primary" data-a="${reg(()=>playChannel(tv))}">▶ Continuar</button><button class="btn" data-a="${reg(()=>show("tv"))}">Abrir a TV</button>`; }
+  const card = (c, kind) => { const ph = c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ""; const k = reg(()=>c.kind==="series" && c.sid ? openSeries(c) : playChannel(c)); return `<button class="atvcard ${kind}" data-a="${k}" title="${esc(c.name)}">${ph}<span class="shade"></span><span class="ico">${c.logo ? "" : (c.kind==="live" ? "📺" : "🎬")}</span><b>${esc(c.name)}</b></button>`; };
+  const row = (title, items, kind) => items.length ? `<div class="atvrow"><h2>${esc(title)}</h2><div class="atvscroll">${items.map(c=>card(c, kind)).join("")}</div></div>` : "";
+  const allow = n => !cfg.passenger || ["TV","Música e rádio","Netflix","Prime Video","Disney+","NOS TV"].includes(n);
+  const appCards = ATV_APPS.filter(a=>allow(a.n)).map(a=>{ const [c1,c2] = a.c.split(","); const lk = a.s && lock; return `<button class="atvcard ${lk ? "dim" : ""}" style="background:linear-gradient(135deg,${c1},${c2})" data-a="${reg(a.f)}" title="${esc(a.n)}">${lk ? '<span class="lk">🔒</span>' : ""}<span class="ico">${a.i}</span><b>${esc(a.n)}</b>${a.s ? `<small>${lk ? "Só parado" : "Vídeo"}</small>` : ""}</button>`; }).join("");
+  const pool = [...channels, ...(typeof freeChans !== "undefined" ? freeChans : [])];
+  const uniq = (l) => l.filter((c,i,a)=>c && a.findIndex(x=>x.url===c.url)===i);
+  const cont = uniq([lastPlayed[0], lastPlayed[1]]);
+  const fav = uniq(pool.filter(c=>favs.has(c.url))).slice(0, 24);
+  const live = channels.filter(c=>c.kind==="live").slice(0, 24);
+  const mov = channels.filter(c=>c.kind==="movie").slice(0, 24);
+  const ser = channels.filter(c=>c.kind==="series").slice(0, 24);
+  const free = (!live.length && typeof freeChans !== "undefined") ? freeChans.slice(0, 24) : [];
+  const games = !cfg.passenger ? `<div class="atvrow"><h2>Jogos${lock ? " (só com o carro parado)" : ""}</h2><div class="atvscroll">${GAMES_LOCAL.map(g=>`<button class="atvcard ${lock ? "dim" : ""}" style="background:linear-gradient(135deg,#3b3f5c,#171a2b)" data-a="${reg(()=>{ if(gamesLocked()){ toast("Jogos só com o carro parado.", true); return; } show("games"); gmStart(g.id); })}" title="${esc(g.name)}"><span class="ico">${g.ico}</span><b>${esc(g.name)}</b></button>`).join("")}</div></div>` : "";
+  const car1 = cfg.passenger ? "" : `<div><div class="atvstats"><div><span class="muted small">Bateria</span><br><b>${cs.battery_level != null ? Math.round(cs.battery_level) : "--"}%</b></div><div><span class="muted small">Autonomia</span><br><b>${cs.battery_range != null ? Math.round(cs.battery_range*MI) : "--"}</b> km</div><div><span class="muted small">Interior</span><br><b>${cl.inside_temp != null ? Math.round(cl.inside_temp) : "--"}°</b></div></div><div class="row" style="margin-top:12px"><button class="btn" data-a="${reg(()=>show("car"))}">Abrir o carro</button></div></div>`;
+  $("atvRoot").innerHTML = `<div class="atvhero"><div><h1>${esc(hTitle)}</h1><p class="sub">${esc(hSub)}</p><div class="row">${hBtn}</div></div>${car1}</div>`
+    + `<div class="atvrow"><h2>Aplicações</h2><div class="atvscroll">${appCards}</div></div>`
+    + row("Continuar a ver", cont, "chan") + row("Favoritos", fav, "chan") + row("Canais em direto", live, "chan") + row("Canais públicos", free, "chan")
+    + row("Filmes", mov, "poster") + row("Séries", ser, "poster") + games
+    + (!channels.length && !free.length ? `<div class="atvrow"><h2>TV</h2><div class="atvscroll"><button class="atvcard" style="background:linear-gradient(135deg,#444,#222)" data-a="${reg(()=>show("settings"))}"><span class="ico">⚙️</span><b>Configura o IPTV nas Definições</b></button></div></div>` : "");
+  $("atvRoot").querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const f = atvActs[+b.dataset.a]; if(f) f(); });
+}
+$("atvHome").onclick = () => show(cfg.layout === "atv" ? "atv" : "home");
+setInterval(() => { if(currentView === "atv"){ const l = !cfg.passenger && gamesLocked(); if(l !== atvLockState) renderAtv(); } }, 2500);
+/* Setas do teclado / comando: movem o foco entre os cartões. */
+document.addEventListener("keydown", e => {
+  if(currentView !== "atv" || !["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key)) return;
+  const cards = [...document.querySelectorAll("#atvRoot .atvcard, #atvRoot .btn")]; if(!cards.length) return;
+  const cur = document.activeElement && cards.includes(document.activeElement) ? document.activeElement : null;
+  if(!cur){ cards[0].focus(); e.preventDefault(); return; }
+  const r = cur.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2; let best = null, bd = 1e9;
+  for(const c of cards){ if(c === cur) continue; const q = c.getBoundingClientRect(), qx = q.left + q.width/2, qy = q.top + q.height/2, dx = qx - cx, dy = qy - cy;
+    const ok = e.key === "ArrowRight" ? dx > 8 && Math.abs(dy) < r.height : e.key === "ArrowLeft" ? dx < -8 && Math.abs(dy) < r.height : e.key === "ArrowDown" ? dy > 8 : dy < -8;
+    if(!ok) continue; const d = e.key.endsWith("ight") || e.key.endsWith("eft") ? Math.abs(dx) + Math.abs(dy)*3 : Math.abs(dy) + Math.abs(dx)*.5; if(d < bd){ bd = d; best = c; } }
+  if(best){ best.focus(); best.scrollIntoView({block:"nearest", inline:"center", behavior:"smooth"}); e.preventDefault(); }
+});
+
 /* ---------- Layout "Tesla": painel do carro e barra inferior ---------- */
 const TS = {temp:21, tmr:0};
 const TS_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
@@ -5048,7 +5389,7 @@ function buildLauncher(){
   const allowed = v => !cfg.passenger || ["tv","media","apps"].includes(v);
   const views = [...document.querySelectorAll(".rail .nav")].filter(n=>!["launcher","home"].includes(n.dataset.view) && allowed(n.dataset.view))
     .map(n=>({kind:"view", id:n.dataset.view, svg:n.querySelector("svg").outerHTML, label:n.querySelector("span").textContent}));
-  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["podcasts","Podcasts"],["engine","Motor"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"],["notes","Notas"],["mail","Email"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
+  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["podcasts","Podcasts"],["engine","Motor"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"],["netflix","Netflix"],["primevideo","Prime Video"],["disney","Disney+"],["notes","Notas"],["mail","Email"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
   const all = [...views, ...apps];
   $("launcherGrid").innerHTML = all.map((t,i)=>`<button class="ltile" data-li="${i}"><span class="lic">${t.svg}</span><span>${esc(t.label)}</span></button>`).join("");
   $("launcherGrid").querySelectorAll("[data-li]").forEach(b=>b.onclick=()=>{ const t = all[+b.dataset.li]; t.kind==="view" ? show(t.id) : openApp(t.id); });
@@ -5912,8 +6253,22 @@ function engSetSource(){
   if(s === "gps" && !navigator.geolocation){ s = "sim"; E.note = "Este browser não tem GPS: modo simulador."; }
   E.srcNow = s; E.lastTs = null; E.acc = 0; E.pw = null; E.gpsLast = null;
   if(s === "gps") E.gpsId = navigator.geolocation.watchPosition(pos => {
-    const sp = pos.coords.speed; const vk = sp != null && isFinite(sp) ? sp*3.6 : 0;
-    engSample(vk, null, pos.timestamp);
+    /* Muitos browsers (incl. o do Tesla) devolvem speed=null: nesse caso calcula-se a velocidade pela distância entre posições. */
+    const c = pos.coords, ts = pos.timestamp || Date.now(), last = E.gpsLast; let vk = null, how = "GPS";
+    if(c.speed != null && isFinite(c.speed)) vk = c.speed*3.6;
+    if(last && ts > last.ts){
+      const R = 6371000, r = Math.PI/180, dLa = (c.latitude - last.lat)*r, dLo = (c.longitude - last.lon)*r;
+      const h = Math.sin(dLa/2)**2 + Math.cos(last.lat*r)*Math.cos(c.latitude*r)*Math.sin(dLo/2)**2;
+      const d = 2*R*Math.asin(Math.sqrt(h)), dtS = (ts - last.ts)/1000;
+      if(dtS > 0 && dtS < 15){
+        let dv = d/dtS*3.6; if(c.accuracy && d < c.accuracy*.35) dv = 0; /* ruído parado */
+        if(vk == null || (vk === 0 && dv > 8)){ vk = dv; how = "posição"; }
+      }
+    }
+    if(vk == null){ if(last){ E.gpsInfo = "GPS sem velocidade"; } vk = E.vT || 0; }
+    if(!last || ts - last.ts > 700 || how === "GPS"){ E.gpsLast = {lat:c.latitude, lon:c.longitude, ts}; }
+    E.gpsInfo = Math.round(vk) + " km/h (" + how + (c.accuracy ? ", ±" + Math.round(c.accuracy) + " m" : "") + ")";
+    engSample(Math.max(0, Math.min(400, vk)), null, ts);
   }, err => { E.err = "GPS: " + err.message; }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
   $("engSim").hidden = s !== "sim";
   clearInterval(E.pollT); if(s === "tessie"){ engPoll(); E.pollT = setInterval(engPoll, 2000); }
@@ -5992,6 +6347,7 @@ function engStatus(){
   const names = {tessie:"dados do Tesla (Tessie)", gps:"GPS deste ecrã", sim:"simulador"};
   let s = "A tocar · fonte: " + names[E.srcNow];
   if(E.srcNow === "tessie" && E.lastSampleAt) s += " · última leitura há " + Math.round((performance.now() - E.lastSampleAt)/1000) + " s";
+  if(E.srcNow === "gps") s += E.gpsInfo ? " · " + E.gpsInfo : " · à espera do primeiro sinal GPS…";
   if(E.note) s += " · " + E.note; if(E.err) s += " · ⚠ " + E.err;
   el.textContent = s;
 }
@@ -6127,6 +6483,7 @@ function engStop(){
   engUi(); engStatus();
 }
 function engUi(){
+  try{ engBackdrop(); }catch(e){}
   engGaugeBuild(); engPackAuto();
   const c = engCfg(); const b = $("engToggle"); b.textContent = E.on ? "⏹ Desligar motor" : "▶ Ligar motor"; b.classList.toggle("primary", !E.on);
   $("engProf").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.p === c.prof ? "true" : "false"));
@@ -6329,6 +6686,97 @@ function osAutoPlay(slot, c){
 /* ---------- Sons reais (amostras de motor em loop) ---------- */
 let ENG_REAL = null;
 const fetchAny = async url => { try{ const r = await fetch(url); if(r.ok) return r; }catch(e){} return fetchPx(url); };
+
+/* Silhuetas originais (arquétipos genéricos, sem marcas) do tipo de carro que combina com cada som. */
+const ENG_ART = (() => {
+  const W = (x, r = 38) => `<g><circle cx="${x}" cy="228" r="${r}" fill="#0b0d12"/><circle cx="${x}" cy="228" r="${r*.62}" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/><circle cx="${x}" cy="228" r="${r*.16}" fill="currentColor" opacity=".6"/></g>`;
+  const car = (body, win, wheels, extra = "") => `<svg viewBox="30 70 740 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="currentColor"><path d="${body}"/></g><path d="${win}" fill="#0b0d12" opacity=".7"/>${extra}${wheels}</svg>`;
+  const A = {
+    muscle: car("M60 214 C60 190 80 182 120 178 L250 170 C300 120 360 104 430 104 C500 104 560 112 600 140 L650 168 C700 172 740 186 740 214 L740 232 L60 232 Z", "M300 168 C335 128 380 118 430 118 C480 118 520 124 552 148 L560 168 Z", W(190,40)+W(610,42), '<rect x="248" y="150" width="6" height="22" fill="#0b0d12" opacity=".3"/>'),
+    gt: car("M70 220 C70 198 96 190 140 186 L270 172 C320 130 380 112 450 112 C520 112 570 126 610 156 L670 176 C716 184 736 198 736 220 L736 232 L70 232 Z", "M310 170 C345 138 390 126 450 126 C500 126 535 134 565 158 L572 172 Z", W(200,38)+W(600,38)),
+    classic: car("M50 218 C50 200 70 194 110 190 L330 176 C350 140 380 124 420 122 C470 120 520 128 560 150 L640 172 C700 178 750 190 750 218 L750 232 L50 232 Z", "M372 174 C390 146 410 138 430 138 C470 138 500 144 530 162 L536 174 Z", W(185,40)+W(630,40), '<path d="M70 200 L330 188" stroke="#0b0d12" stroke-width="4" opacity=".35"/>'),
+    hatch: car("M90 220 C90 196 110 188 150 184 L250 160 C290 120 340 106 400 106 L560 108 C600 112 620 130 636 160 L690 176 C720 184 730 200 730 220 L730 232 L90 232 Z", "M290 158 C316 128 350 120 400 120 L520 120 C546 124 560 140 568 158 Z", W(200,36)+W(610,36), '<rect x="620" y="100" width="70" height="8" rx="3" fill="currentColor"/><rect x="640" y="104" width="8" height="26" fill="currentColor"/>'),
+    ev: car("M70 218 C70 196 100 188 150 182 L290 166 C340 122 410 104 490 108 C560 112 610 138 640 164 L700 178 C730 186 742 200 742 218 L742 232 L70 232 Z", "M320 164 C360 132 420 120 480 122 C530 126 566 142 592 164 Z", W(200,40)+W(610,40), '<rect x="130" y="196" width="560" height="4" rx="2" fill="#7cc4ff" opacity=".7"/>'),
+    super: car("M50 222 C50 204 90 196 150 192 L330 176 C380 140 440 128 500 136 C560 144 610 168 650 180 C710 184 752 196 752 222 L752 232 L50 232 Z", "M360 172 C395 146 440 140 490 146 C530 152 560 166 580 174 Z", W(205,38)+W(612,40), '<path d="M60 206 L130 196 L130 208 Z" fill="#0b0d12" opacity=".35"/><rect x="650" y="150" width="90" height="6" rx="3" fill="currentColor"/>'),
+    f1: `<svg viewBox="30 70 740 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="currentColor"><path d="M120 214 L330 196 C380 170 430 160 480 164 L690 190 L720 214 L720 226 L120 226 Z"/><path d="M60 150 L140 150 L140 214 L120 214 L120 164 L60 164 Z"/><path d="M700 130 L770 130 L770 144 L744 144 L744 196 L728 196 L728 144 L700 144 Z"/><path d="M400 150 C420 130 450 126 470 140 L470 164 L400 164 Z"/></g><circle cx="430" cy="146" r="14" fill="#0b0d12" opacity=".75"/><g><circle cx="200" cy="222" r="42" fill="#0b0d12"/><circle cx="200" cy="222" r="20" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/><circle cx="640" cy="222" r="46" fill="#0b0d12"/><circle cx="640" cy="222" r="22" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/></g></svg>`,
+    boxer: car("M70 220 C70 198 100 190 150 184 L280 170 C330 128 400 110 470 112 C540 114 590 132 624 160 L680 176 C722 184 738 200 738 220 L738 232 L70 232 Z", "M312 168 C350 136 410 124 470 126 C516 128 552 140 580 162 L586 170 Z", W(205,38)+W(602,40), '<path d="M590 112 L650 108 L654 116 L592 122 Z" fill="currentColor"/>'),
+    estate: car("M70 220 C70 196 96 188 140 184 L250 164 C284 124 330 108 390 108 L620 108 C660 110 676 130 684 164 L720 178 C740 186 748 200 748 220 L748 232 L70 232 Z", "M286 162 C310 130 340 120 390 120 L600 120 C622 122 634 138 640 162 Z", W(200,38)+W(620,38)),
+    rally: car("M90 212 C90 188 110 180 150 176 L250 152 C290 112 340 98 400 98 L560 100 C600 104 620 122 636 152 L690 168 C720 176 730 192 730 212 L730 226 L90 226 Z", "M290 150 C316 120 350 112 400 112 L520 112 C546 116 560 132 568 150 Z", W(200,42)+W(612,42), '<path d="M610 88 L706 80 L710 92 L616 100 Z" fill="currentColor"/><rect x="640" y="94" width="8" height="30" fill="currentColor"/><circle cx="330" cy="150" r="9" fill="#ffd166"/><circle cx="364" cy="146" r="9" fill="#ffd166"/>'),
+    bike: `<svg viewBox="30 70 740 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g><circle cx="230" cy="220" r="52" fill="#0b0d12"/><circle cx="230" cy="220" r="30" fill="none" stroke="currentColor" stroke-width="6" opacity=".55"/><circle cx="580" cy="220" r="52" fill="#0b0d12"/><circle cx="580" cy="220" r="30" fill="none" stroke="currentColor" stroke-width="6" opacity=".55"/></g><g fill="currentColor"><path d="M230 220 L330 140 L440 140 L520 110 L548 120 L520 160 L580 220 L560 222 L500 168 L410 208 L330 208 Z"/><path d="M330 140 C350 116 400 110 440 126 L440 140 Z"/><rect x="520" y="96" width="46" height="10" rx="5"/><path d="M360 160 L450 160 L470 190 L380 196 Z" opacity=".85"/></g></svg>`,
+    kart: `<svg viewBox="30 70 740 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="currentColor"><path d="M210 200 L600 200 L640 224 L180 224 Z"/><path d="M560 150 L640 150 L664 200 L580 200 Z"/><rect x="300" y="160" width="90" height="40" rx="8"/><rect x="420" y="170" width="60" height="30" rx="6"/></g><circle cx="430" cy="130" r="26" fill="currentColor"/><g><circle cx="250" cy="232" r="32" fill="#0b0d12"/><circle cx="250" cy="232" r="14" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/><circle cx="600" cy="232" r="28" fill="#0b0d12"/><circle cx="600" cy="232" r="12" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/></g></svg>`
+  };
+  const M = {
+    v8:["muscle","Muscle car americano (V8 de grande cilindrada)","#ff7a45"], bb:["muscle","Muscle car clássico (big block)","#ff5d5d"],
+    v6t:["gt","Coupé GT de alto desempenho (V6 turbo)","#6ea8ff"], v12:["classic","Grand tourer clássico de motor frontal (V12)","#d6b36a"],
+    b4:["hatch","Compacto desportivo (4 cilindros)","#4fd1a1"], c5t:["hatch","Compacto de 5 cilindros turbo","#b794f4"],
+    ev:["ev","Elétrico futurista de linhas fluidas","#5ac8fa"], f8:["super","Supercarro de motor central","#ff3b3b"],
+    v10:["f1","Monolugar de corrida (V10)","#f5f5f5"], bx6:["boxer","Desportivo de motor boxer","#f6c945"],
+    rot:["boxer","Coupé desportivo de motor rotativo","#ff6bd6"], dsl:["estate","Carrinha diesel","#9aa7b4"],
+    rly:["rally","Carro de rali turbo","#ffd166"], v2:["bike","Moto bicilíndrica","#ff9f43"], kart:["kart","Kart de 2 tempos","#2ee6a6"]
+  };
+  return {A, M};
+})();
+
+/* Fotos reais (Wikimedia Commons, licenças livres; o autor é indicado) ou a tua própria foto. Se não houver rede, fica a silhueta. */
+const ENG_PHOTO_Q = {
+  v8:["Ford Mustang Mach 1","mustang"], bb:["Chevrolet Chevelle SS","chevelle"], v6t:["Nissan GT-R R35","gt-r"], v12:["Ferrari 365 GTB/4 Daytona","daytona"],
+  b4:["Honda Civic Type R","civic"], c5t:["Audi RS3","rs3"], ev:["Tesla Model S Plaid","tesla"], f8:["Ferrari F8 Tributo","f8"],
+  v10:["Lamborghini Huracan","huracan"], bx6:["Porsche 911 GT3","911"], rot:["Mazda RX-7 FD","rx-7"], dsl:["Volkswagen Golf TDI","golf"],
+  rly:["Subaru Impreza WRX STI rally","subaru"], v2:["Ducati Monster motorcycle","ducati"], kart:["racing kart go-kart","kart"]
+};
+const engPhotos = LS.get("engPhotos", {});
+async function engPhotoList(id){
+  const c = engPhotos[id]; if(c && c.list && c.list.length && Date.now() - c.t < 30*864e5) return c;
+  const q = ENG_PHOTO_Q[id]; if(!q) return null;
+  const u = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=30&gsrsearch=" + encodeURIComponent(q[0] + " filetype:bitmap") + "&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1400";
+  const j = await (await fetch(u)).json(), pages = Object.values((j.query || {}).pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  const list = pages.map(p => { const ii = (p.imageinfo || [])[0]; if(!ii || ii.mime !== "image/jpeg") return null; if(!(ii.width >= 1200 && ii.width >= ii.height * 1.25)) return null;
+    const m = ii.extmetadata || {}, lic = (m.LicenseShortName || {}).value || ""; if(!/^(CC|Public|PD)/i.test(lic)) return null;
+    const title = String(p.title || "").replace(/^File:/, ""); if(!title.toLowerCase().includes(q[1])) return null;
+    const art = String((m.Artist || {}).value || "").replace(/<[^>]*>/g, "").trim();
+    return {url:ii.thumburl || ii.url, page:ii.descriptionurl, title, credit:art || "autor desconhecido", lic}; }).filter(Boolean).slice(0, 8);
+  if(!list.length) return null;
+  const e = {list, i:0, t:Date.now()}; engPhotos[id] = e; LS.set("engPhotos", engPhotos); return e;
+}
+async function engShowPhoto(id, stg, next){
+  let url = "", credit = "";
+  try{ const mine = await IDB.get("engImg_" + id); if(mine && !next){ url = mine; credit = "A tua foto"; } }catch(e){}
+  if(!url){
+    const e = await engPhotoList(id).catch(() => null);
+    if(!e) return;
+    if(next) e.i = (e.i + 1) % e.list.length; const ph = e.list[e.i]; LS.set("engPhotos", engPhotos);
+    url = ph.url; credit = `Foto: ${esc(ph.credit)} · ${esc(ph.lic)} · <a href="${esc(ph.page)}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
+  }
+  if(engCfg().prof !== id) return;
+  const img = new Image(); img.className = "ph"; img.alt = ""; img.referrerPolicy = "no-referrer";
+  img.onload = () => { if(engCfg().prof !== id) return; stg.classList.add("photo"); stg.querySelector("svg") && stg.querySelector("svg").remove(); stg.querySelector("img.ph") && stg.querySelector("img.ph").remove(); stg.prepend(img);
+    let cr = stg.querySelector(".credit"); if(!cr){ cr = document.createElement("div"); cr.className = "credit"; stg.append(cr); } cr.innerHTML = credit; };
+  img.src = url;
+}
+function engPhotoButtons(id, stg){
+  if(stg.querySelector(".pbtn")) return;
+  const d = document.createElement("div"); d.className = "pbtn";
+  d.innerHTML = '<button data-a="next" title="Outra foto" aria-label="Outra foto">↻</button><button data-a="mine" title="Usar a minha foto" aria-label="Usar a minha foto">📷</button><input type="file" accept="image/*" hidden>';
+  stg.append(d);
+  d.querySelector('[data-a="next"]').onclick = () => engShowPhoto(engCfg().prof, stg, true);
+  const fi = d.querySelector("input"); d.querySelector('[data-a="mine"]').onclick = () => fi.click();
+  fi.onchange = async () => { const f = fi.files[0]; if(!f) return; const id2 = engCfg().prof;
+    try{ const bm = await createImageBitmap(f), k = Math.min(1, 1400 / bm.width), c = document.createElement("canvas"); c.width = Math.round(bm.width*k); c.height = Math.round(bm.height*k); c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height);
+      await IDB.set("engImg_" + id2, c.toDataURL("image/jpeg", .86)); engShowPhoto(id2, stg, false); toast("Foto guardada para este som."); }catch(e){ toast("Não consegui ler essa imagem.", true); }
+    fi.value = ""; };
+}
+
+function engBackdrop(){
+  const v = $("v-engine"); if(!v) return;
+  let bg = v.querySelector(".engbg"); if(!bg){ bg = document.createElement("div"); bg.className = "engbg"; v.prepend(bg); }
+  const id = engCfg().prof, m = ENG_ART.M[id] || ["gt", (ENG_PROFILES[id] || {}).name || "", "#6ea8ff"], svg = ENG_ART.A[m[0]];
+  bg.style.background = `radial-gradient(ellipse at 50% 30%, color-mix(in srgb, ${m[2]} 38%, transparent), transparent 62%), linear-gradient(180deg, color-mix(in srgb, ${m[2]} 10%, var(--bg)), var(--bg))`;
+  let stg = v.querySelector(".engstage"); if(!stg){ stg = document.createElement("div"); stg.className = "engstage"; const pan = $("engGauge").parentElement; pan.classList.add("engpan"); pan.prepend(stg); }
+  stg.style.color = m[2]; stg.classList.remove("photo");
+  stg.innerHTML = svg + `<span class="cap">${esc(m[1])}</span>`;
+  engPhotoButtons(id, stg); engShowPhoto(id, stg, false);
+}
+
 function engProfChips(){
   $("engProf").innerHTML = Object.entries(ENG_PROFILES).map(([id, p]) => `<button class="btn" data-p="${id}" aria-pressed="false">${p.ico} ${esc(p.name)}</button>`).join("");
   $("engProf").querySelectorAll("button").forEach(b => b.onclick = () => { cfg.engProf = b.dataset.p; saveCfg(); if(E.on){ E.gear = 0; engBuild(); } engUi(); });
@@ -6541,9 +6989,35 @@ function dkWeb(t, url){
 
 /* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
 const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+let rtcTurnMode = "?";
 async function rtcConfig(base, key){
-  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } }catch(e){}
+  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); rtcTurnMode = j.turn || "?"; if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } else rtcTurnMode = "erro " + r.status; }catch(e){ rtcTurnMode = "sem ligação ao Worker"; }
   return rtcCfg;
+}
+/* Diagnóstico do Cast: mostra em que passo está e que tipo de ligação o WebRTC conseguiu (direta, STUN ou relay). */
+const TURN_HELP = "Ativa o relay da Cloudflare: Cloudflare › Realtime › TURN › Create. Guarda o Key ID e o API token no Worker como secrets TURN_KEY_ID e TURN_API_TOKEN e faz Deploy.";
+function rtcDiag(pc, el, t0 = Date.now()){
+  let stop = false, tm = 0, seen = "";
+  const turnTxt = () => rtcTurnMode === "cloudflare" ? "relay Cloudflare ativo" : rtcTurnMode === "openrelay" ? "relay público (fraco)" : rtcTurnMode === "none" ? "sem relay" : "relay: " + rtcTurnMode;
+  const tick = async () => {
+    if(stop) return;
+    let pair = "", rx = "";
+    try{ const stt = await pc.getStats(); let sel = null; const cands = {};
+      stt.forEach(r => { if(r.type === "local-candidate" || r.type === "remote-candidate") cands[r.id] = r; });
+      stt.forEach(r => { if(r.type === "transport" && r.selectedCandidatePairId) sel = stt.get(r.selectedCandidatePairId); });
+      if(!sel) stt.forEach(r => { if(r.type === "candidate-pair" && (r.nominated || r.state === "succeeded") && !sel) sel = r; });
+      if(sel){ const l = cands[sel.localCandidateId], rm = cands[sel.remoteCandidateId]; const ty = x => x ? ({host:"direta", srflx:"STUN", prflx:"STUN", relay:"relay"})[x.candidateType] || x.candidateType : "?"; pair = " · ligação " + ty(l) + "/" + ty(rm); }
+      stt.forEach(r => { if(r.type === "inbound-rtp" && r.kind === "video") rx = " · vídeo " + (r.framesDecoded || 0) + " fotogramas"; });
+    }catch(e){}
+    seen = "ICE " + pc.iceConnectionState + " · " + pc.connectionState + pair + rx + " · " + turnTxt() + " · " + Math.round((Date.now() - t0)/1000) + " s";
+    el.textContent = seen;
+    if((pc.iceConnectionState === "failed" || (pc.iceConnectionState === "checking" && Date.now() - t0 > 20000)) && rtcTurnMode !== "cloudflare") el.textContent = seen + " — não consegue ligar diretamente. " + TURN_HELP;
+    else if(pc.iceConnectionState === "failed") el.textContent = seen + " — a rede bloqueou a ligação mesmo com relay. Tenta outra rede Wi-Fi para o telemóvel.";
+    if(["closed"].includes(pc.connectionState)) return;
+    tm = setTimeout(tick, 1500);
+  };
+  tick();
+  return () => { stop = true; clearTimeout(tm); };
 }
 function rtcLostWatch(pc, fn){ let t = 0; return () => { const s = pc.connectionState; clearTimeout(t); if(s === "failed" || s === "closed") fn(); else if(s === "disconnected") t = setTimeout(() => { if(pc.connectionState === "disconnected" || pc.connectionState === "failed") fn(); }, 8000); }; }
 const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
@@ -6561,7 +7035,7 @@ function dkCast(){
   let alive = true, pc = null;
   if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
   const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
-  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do PC…</p></div></div>`;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do telemóvel ou do PC…</p></div></div>`;
   const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
   const base = cfg.proxy, key = cfg.pkey;
   const apps = new Map(), gridEl = box.querySelector(".dkappgrid"), appsEl = box.querySelector(".dkapps"), btn = a => box.querySelector('.dkctl [data-a="' + a + '"]');
@@ -6608,8 +7082,10 @@ function dkCast(){
       if(!offer) await wait(2000);
     }
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
-    st.textContent = "A ligar…";
+    st.textContent = "Pedido do telemóvel recebido. A ligar…";
     pc = new RTCPeerConnection(await rtcConfig(base, key));
+    let dg = box.querySelector(".castdiag"); if(!dg){ dg = document.createElement("div"); dg.className = "castdiag small mono"; dg.style.cssText = "position:absolute;left:8px;right:8px;bottom:8px;z-index:5;background:#000b;color:#fff;padding:6px 8px;border-radius:8px;font-size:11px"; box.appendChild(dg); }
+    rtcDiag(pc, dg);
     pc.ondatachannel = e => {
       if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
       dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
@@ -6641,6 +7117,12 @@ function castSenderUI(code0){
   let pc = null, stream = null;
   const stop = () => { try{ pc && pc.close(); }catch(e){} try{ stream && stream.getTracks().forEach(t => t.stop()); }catch(e){} pc = stream = null; q("csStop").hidden = true; q("csGo").hidden = false; q("csPrev").hidden = true; };
   q("csStop").onclick = () => { stop(); st("Parado."); };
+  if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)){
+    const m = document.createElement("p"); m.className = "small"; m.style.cssText = "margin:0;color:var(--warn)";
+    m.textContent = "Estás num telemóvel: o browser do telemóvel não deixa partilhar o ecrã. Para transmitir o ecrã do telemóvel usa a app Cockpit Cast (Android) e escreve lá este código. Esta página serve para computadores (Chrome ou Edge).";
+    q("csSt").before(m);
+  }
+  let dgs = document.createElement("p"); dgs.className = "small mono muted"; dgs.style.margin = "0"; q("csSt").after(dgs);
   q("csGo").onclick = async () => {
     const code = q("csCode").value.trim().toUpperCase(), base = q("csBase").value.trim(), key = q("csKey").value;
     if(!/^[A-Z2-9]{6}$/.test(code)){ st("Escreve o código de 6 caracteres que aparece no Tesla."); return; }
@@ -6652,6 +7134,7 @@ function castSenderUI(code0){
       q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
       stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
       pc = new RTCPeerConnection(await rtcConfig(base, key));
+      rtcDiag(pc, dgs);
       const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
       const ch = pc.createDataChannel("ctl");
       ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
