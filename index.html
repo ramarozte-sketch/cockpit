@@ -1296,7 +1296,8 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <p class="small muted" style="margin:0">Podes forçar D à mão (por exemplo se a Tessie estiver lenta). Forçar P não anula um carro que a Tessie diz estar em andamento.</p>
           <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
-          <label class="row small"><input type="checkbox" id="setAutoAudio"> No ecrã do carro, passar a TV a só áudio quando o carro anda (volta à imagem em P)</label>
+          <label class="f">Modo só áudio quando o carro anda
+            <select id="setAudioMode"><option value="auto">Automático (passa logo a só áudio)</option><option value="ask">Perguntar-me cada vez</option><option value="off">Nunca automático (decido eu com o botão “Só áudio”)</option></select></label>
         </div>
       </div>
       <h3 class="setgrp">Aparência e voz</h3>
@@ -1338,14 +1339,17 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
       <div class="setcards">
       <div class="panel setcard">
           <h2>Proxy</h2>
-          <p class="small muted setsub" style="margin:0">Necessário para IPTV, Tessie e vídeo no browser do carro. Usa o teu Cloudflare Worker.</p>
+          <p class="small muted setsub" style="margin:0">Necessário para IPTV, Tessie e vídeo no browser do carro. Com o 2.º proxy (Deno) configurado, o vídeo e as listas passam sempre por ele; o Worker da Cloudflare fica para voz, IA, transferir definições e como reserva.</p>
           <p class="small muted" style="margin:0">Necessário para a maioria dos servidores Xtream (http:// e sem CORS). Usa o teu Cloudflare Worker; também serve para a Tessie e para o vídeo.</p>
           <label class="f">Endereço do proxy<input type="url" id="setProxy" placeholder="https://cockpit-proxy.<conta>.workers.dev"></label>
           <label class="f">Chave do proxy<input type="password" id="setPkey" autocomplete="off"></label>
-          <p class="small muted" style="margin:6px 0 0">Segundo proxy (opcional, para canais que recusam a Cloudflare): usa-se automaticamente quando o primeiro falha. Ver proxy-deno.js.</p>
+          <p class="small muted" style="margin:6px 0 0">Proxy Deno (recomendado para canais que recusam a Cloudflare): se estiver configurado, o vídeo passa sempre por ele. Ver proxy-deno-limpo.js.</p>
           <label class="f">Endereço do 2.º proxy<input type="url" id="setProxy2" placeholder="https://o-teu-projeto.deno.dev"></label>
           <label class="f">Chave do 2.º proxy<input type="password" id="setPkey2" autocomplete="off"></label>
-          <div class="row"><button class="btn primary" id="btnSaveProxy">Guardar proxy</button></div>
+          <label class="f" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" id="setDirect"> Ligação direta (sem proxy) para o vídeo</label>
+          <p class="small muted" style="margin:0">O Tesla liga-se ao fornecedor sozinho (usa o IP do telemóvel). Só funciona se o fornecedor aceitar esse IP e permitir CORS.</p>
+          <div class="row"><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button></div>
+          <div class="small muted" id="directTestOut" style="margin-top:6px;white-space:pre-wrap"></div>
         </div>
       <div class="panel setcard">
           <h2>TV e IPTV</h2>
@@ -2325,19 +2329,26 @@ function parseM3U(text){
 /* Proxy: um Cloudflare Worker teu que acrescenta CORS e serve tudo em https. */
 /* Proxy do telemóvel: quando o Cockpit é aberto a partir da app Cockpit Cast (http://IP-do-telemóvel:8080/c), o vídeo e os pedidos sem CORS saem pela ligação do telemóvel. */
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
-const HASPX = () => !!(PHONE || cfg.proxy);
+const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
+// Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
+const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
+const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
-function px(url, ref, ua){
-  if(PHONE && url) return PHONE.base + "/?k=" + encodeURIComponent(PHONE.key || "") + "&" + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
-  if(!url || !cfg.proxy) return url;
-  const base = cfg.proxy.replace(/\/+$/,"");
-  return base + "/?" + (cfg.pkey ? "k="+encodeURIComponent(cfg.pkey)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
+/* O vídeo e as listas passam SEMPRE pelo proxy Deno (2.º proxy) quando está configurado; o Worker da Cloudflare fica só como reserva. */
+function pxVia(base, key, url, ref, ua){
+  return base.replace(/\/+$/,"") + "/?" + (key ? "k="+encodeURIComponent(key)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
 }
-/* Segundo proxy (opcional, fora da Cloudflare, ex.: Deno Deploy) para servidores que recusam Workers. */
+function px(url, ref, ua){
+  if(!url) return url;
+  if(PHONE) return pxVia(PHONE.base, PHONE.key || "", url, ref, ua);
+  if(cfg.proxy2) return pxVia(cfg.proxy2, cfg.pkey2, url, ref, ua);
+  if(cfg.proxy) return pxVia(cfg.proxy, cfg.pkey, url, ref, ua);
+  return url;
+}
+/* Reserva: o Worker, só se houver Deno configurado. */
 function px2(url, ref, ua){
-  if(!url || !cfg.proxy2) return url;
-  const base = cfg.proxy2.replace(/\/+$/,"");
-  return base + "/?" + (cfg.pkey2 ? "k="+encodeURIComponent(cfg.pkey2)+"&" : "") + (ref ? "ref="+encodeURIComponent(ref)+"&" : "") + (ua ? "ua=1&" : "") + "url=" + encodeURIComponent(url);
+  if(!url || !cfg.proxy2 || !cfg.proxy) return url;
+  return pxVia(cfg.proxy, cfg.pkey, url, ref, ua);
 }
 /* Ligação direta do Tesla ao servidor (sem proxy), em https para não ser bloqueada como conteúdo misto. */
 /* Página aberta em http:// — o Tesla liga-se diretamente aos servidores IPTV (IP do carro), sem proxy. */
@@ -2596,6 +2607,11 @@ function playChannel(c, slot=tvTarget, auto=false){
       stopSlot(slot);
       playTs(v, px2(tsUrl), slot, viaDirect).then(ok => { if(ok && mirrorOn) startMirror(slot); });
     };
+    if(cfg.directMode){ // só ligação direta, sem proxy
+      const okD = await playTs(v, directUrl(tsUrl), slot, () => fail("MPEG-TS", "ligação direta falhou (bloqueio ou CORS) — ver Definições > Testar ligação direta"));
+      if(!okD) fail("MPEG-TS", "biblioteca de vídeo indisponível");
+      return;
+    }
     if(PAGE_HTTP){ // direto primeiro; o proxy fica como reserva
       const ok0 = await playTs(v, tsUrl, slot, () => { if(playId!==playSeq[slot]) return; stopSlot(slot); playTs(v, px(tsUrl), slot, cfg.proxy2 ? viaP2 : () => fail("MPEG-TS", "ligação direta e proxy falharam")).then(ok => { if(ok && mirrorOn) startMirror(slot); }); });
       if(!ok0) fail("MPEG-TS", "biblioteca de vídeo indisponível");
@@ -2617,10 +2633,10 @@ function playChannel(c, slot=tvTarget, auto=false){
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
-      h.loadSource(direct || (via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+      h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
-    let viaProxy = !(PAGE_HTTP || (c.free && /^https:/i.test(c.url) && HASPX()));
+    let viaProxy = !(DIRECT_VIDEO() || (c.free && /^https:/i.test(c.url) && HASPX()));
     const ref = refFor(c); let via2 = false;
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
@@ -2643,10 +2659,10 @@ function playChannel(c, slot=tvTarget, auto=false){
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
         // O servidor de vídeo recusa a Cloudflare (403): pergunta ao proxy para onde redireciona e liga o Tesla diretamente.
         // Falhou pelo 1.º proxy (bloqueio, resposta vazia ou manifesto inválido): tenta o 2.º proxy, se existir.
-        if(viaProxy && cfg.proxy2 && !via2 && (d.type===Hls.ErrorTypes.NETWORK_ERROR) && ((code>=400 && code<500) || code===204 || /manifest(Parsing|Load)Error/.test(d.details||""))){
+        if(viaProxy && VPX() && cfg.proxy2 && !via2 && (d.type===Hls.ErrorTypes.NETWORK_ERROR) && ((code>=400 && code<500) || code===204 || /manifest(Parsing|Load)Error/.test(d.details||""))){
           via2 = true; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 300); return;
         }
-        if(viaProxy && (via2 ? cfg.proxy2 : HASPX()) && !resolveTried && (code===403 || code===401) && !c.free){
+        if(viaProxy && VPX() && (via2 ? cfg.proxy2 : HASPX()) && !resolveTried && (code===403 || code===401) && !c.free){
           resolveTried = true; h.destroy();
           fetch((via2 ? px2 : px)(c.url) + "&resolve=1").then(r => r.json()).then(j => {
             if(playId!==playSeq[slot]) return;
@@ -2655,7 +2671,7 @@ function playChannel(c, slot=tvTarget, auto=false){
           }).catch(() => { if(playId!==playSeq[slot]) return; direct = directUrl(c.url); h = mk(); wire(h); });
           return;
         }
-        if(!viaProxy && d.type===Hls.ErrorTypes.NETWORK_ERROR){ // direto falhou (CORS ou bloqueio): tenta pelo proxy
+        if(!viaProxy && VPX() && d.type===Hls.ErrorTypes.NETWORK_ERROR){ // direto falhou (CORS ou bloqueio): tenta pelo proxy
           viaProxy = true; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 300); return;
         }
         // Falhas momentâneas (502/503/504 ou ligação cortada): volta a pedir tudo, até 2 vezes.
@@ -2673,15 +2689,15 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(live) watchStall(slot, v, () => { const cur = hlsInst[slot]; if(cur){ cur.stopLoad(); cur.startLoad(-1); } });
   } else {
     // Filmes e episódios (ficheiro direto): 1.º proxy → 2.º proxy → versão HLS (.m3u8) do mesmo ficheiro, se o painel a oferecer.
-    let stage = PAGE_HTTP ? -1 : 0, triedDirect = PAGE_HTTP;
-    v.src = PAGE_HTTP ? c.url : px(c.url);
+    let stage = DIRECT_VIDEO() ? -1 : 0, triedDirect = DIRECT_VIDEO();
+    v.src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
-      if(stage === -1){ stage = 0; if(HASPX()){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
-      if(stage === 0 && HASPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
+      if(stage === -1){ stage = 0; if(VPX()){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
+      if(stage === 0 && VPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
       // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
-      if(stage <= 1 && HASPX() && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
+      if(stage <= 1 && VPX() && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
       if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
@@ -3981,15 +3997,31 @@ DRIVE.hold = holdClamp(cfg.parkHold || 6) * 1000; $("setParkHold").value = DRIVE
 $("setParkHold").onchange = e => { const v = holdClamp(e.target.value); e.target.value = v; cfg.parkHold = v; DRIVE.hold = v * 1000; saveCfg(); toast("Desbloqueia ao fim de " + v + " s em P."); };
 driveChip();
 $("acBack").onclick = () => setAudio(false, audioAuto);
-if(cfg.autoAudio === undefined) cfg.autoAudio = true;
-$("setAutoAudio").checked = !!cfg.autoAudio;
-$("setAutoAudio").onchange = e => { cfg.autoAudio = e.target.checked; saveCfg(); if(!cfg.autoAudio && audioAuto) setAudio(audioManual, false); };
+if(!cfg.audioMode) cfg.audioMode = (cfg.autoAudio === false) ? "off" : "auto";
+$("setAudioMode").value = cfg.audioMode;
+$("setAudioMode").onchange = e => { cfg.audioMode = e.target.value; cfg.autoAudio = cfg.audioMode === "auto"; saveCfg(); askAudioHide(); if(cfg.audioMode !== "auto" && audioAuto) setAudio(audioManual, false); drivingNow = false; tvDriveSync(); };
+/* "Perguntar": aviso com botões quando o carro começa a andar com a TV aberta. Não altera nenhum bloqueio. */
+let askAudioEl = null;
+function askAudioHide(){ if(askAudioEl){ askAudioEl.remove(); askAudioEl = null; } }
+function askAudioShow(){
+  if(askAudioEl) return;
+  const d = askAudioEl = document.createElement("div");
+  d.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:var(--panel,#1b2535);color:inherit;border:1px solid var(--line,#456);border-radius:14px;padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 6px 24px #0008;font-size:16px";
+  d.innerHTML = '<span>O carro está em andamento. Passar a TV a só áudio?</span><button class="btn primary" id="aaYes">🔊 Só áudio</button><button class="btn" id="aaNo">Não</button>';
+  document.body.appendChild(d);
+  d.querySelector("#aaYes").onclick = () => { askAudioHide(); setAudio(true, audioAuto); };
+  d.querySelector("#aaNo").onclick = askAudioHide;
+}
 /* TV e estado de condução: em andamento passa a só som; em P a imagem volta. Reage logo que o estado muda e confirma de 15 em 15 s pela Tessie. */
 function tvDriveSync(){
-  if(!cfg.autoAudio || cfg.passenger || demo()) return;
+  if(cfg.audioMode === "off" || cfg.passenger || demo()) return;
   if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
   const driving = drivingEff();
-  if(driving !== drivingNow){ drivingNow = driving; setAudio(audioManual, driving); }
+  if(driving !== drivingNow){
+    drivingNow = driving;
+    if(cfg.audioMode === "ask"){ if(driving && !audioActive()) askAudioShow(); else askAudioHide(); }
+    else setAudio(audioManual, driving);
+  }
 }
 /* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
@@ -5165,7 +5197,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
+function fillSettings(){ $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAutoAudio").checked=!!cfg.autoAudio; }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -5179,7 +5211,19 @@ $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
-$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; saveCfg(); loadIptv(true); };
+$("btnLoadIptv").onclick = ()=>{ cfg.m3u=$("setM3u").value.trim(); cfg.xs=$("setXs").value.trim(); cfg.xu=$("setXu").value.trim(); cfg.xp=$("setXp").value; cfg.epg=$("setEpg").value.trim(); cfg.proxy=$("setProxy").value.trim(); cfg.pkey=$("setPkey").value; cfg.proxy2=$("setProxy2").value.trim(); cfg.pkey2=$("setPkey2").value; cfg.directMode=$("setDirect").checked; saveCfg(); loadIptv(true); };
+$("btnTestDirect").onclick = async () => {
+  const out = $("directTestOut"); out.textContent = "A testar…";
+  if(!(cfg.xs && cfg.xu && cfg.xp)){ out.textContent = "Configura primeiro o servidor Xtream (TV e IPTV)."; return; }
+  const u = directUrl(`${xBase()}/player_api.php?${xQ()}`); const L = [];
+  L.push("Endereço testado: " + hideCreds(u));
+  try{ const r = await fetch(u, {cache:"no-store"}); L.push("✔ Resposta HTTP " + r.status + " com CORS — o vídeo direto deve funcionar."); }
+  catch(e){
+    try{ await fetch(u, {mode:"no-cors", cache:"no-store"}); L.push("✘ O servidor responde, mas sem CORS: o browser não deixa ler. Ligação direta impossível neste servidor (o fornecedor tem de enviar Access-Control-Allow-Origin)."); }
+    catch(e2){ L.push("✘ Sem resposta: servidor bloqueia este IP, não tem HTTPS válido na porta, ou está inacessível. Se o endereço é http://, o fornecedor tem de oferecer https."); }
+  }
+  out.textContent = L.join("\n");
+};
 $("btnExport").onclick = ()=>{ const b=$("backupBox"); b.hidden=false; b.value=JSON.stringify({cfg:Object.assign({},cfg,{token:"", xp:"", pkey:"", pinHash:"", pinSalt:"", gwToken:""}), notes, mfavs, tvfavs:[...favs]}); b.select(); try{ navigator.clipboard.writeText(b.value).then(()=>toast("Copiado (sem token, palavras-passe, chave nem PIN)"), ()=>{}); }catch(e){} };
 $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.trim()){ b.hidden=false; b.value=""; b.placeholder="Cola aqui a cópia e toca outra vez em Importar"; b.focus(); return; } try{ const d=JSON.parse(b.value); if(d.cfg){ const keep={token:cfg.token, xp:cfg.xp, pkey:cfg.pkey, pinHash:cfg.pinHash, pinSalt:cfg.pinSalt}; Object.assign(cfg,d.cfg); for(const k in keep) if(!cfg[k]) cfg[k]=keep[k]; saveCfg(); } if(d.notes){ notes=d.notes; LS.set("notes",notes); } if(d.mfavs){ mfavs=d.mfavs; LS.set("mfavs",mfavs); } if(d.tvfavs){ favs=new Set(d.tvfavs); LS.set("tvfavs",d.tvfavs); } fillSettings(); applyTheme(); renderNotes(); renderFavs(); renderCmdList(); toast("Importado ✓"); }catch(e){ toast("Texto inválido.", true); } };
 
