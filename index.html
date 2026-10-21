@@ -3023,10 +3023,8 @@ function makeCapLoader(slot){
 function mp4Init(slot){
   if(!(mirrorOn && WC_OK)) return;
   const c = lastPlayed[slot], v = $("vid"+slot);
-  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)){
-    if(c && /\.mkv(\?|$)/i.test(c.url)) toast("Filmes .mkv ainda não têm imagem em andamento (para já só .mp4).", true);
-    return;
-  }
+  if(c && /\.mkv(\?|$)/i.test(c.url)){ mkvInit(slot); return; }
+  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)) return;
   const st = MIR[slot] = MIR[slot] || {};
   if(st.movie) return;
   st.movie = true; st.fixedOff = 0;
@@ -3106,10 +3104,93 @@ function mp4Run(slot, st, src){
     })();
   });
 }
+/* MKV experimental: usa Web-Demuxer (FFmpeg/WASM) para extrair pacotes Matroska.
+   Mantém o relógio do <video> como referência e desenha no mesmo canvas do MP4.
+   O modo exige WebCodecs nativo; h264soft.js recebe amostras num formato diferente. */
+const MKV_DEMUX_URL = "https://cdn.jsdelivr.net/npm/web-demuxer@4.0.0/+esm";
+const MKV_WASM_URL = "https://cdn.jsdelivr.net/npm/web-demuxer@4.0.0/dist/wasm-files/web-demuxer.wasm";
+let mkvModulePromise = null;
+function loadMkvDemuxer(){
+  if(!mkvModulePromise) mkvModulePromise = import(MKV_DEMUX_URL).then(m=>m.WebDemuxer).catch(e=>{ mkvModulePromise=null; throw e; });
+  return mkvModulePromise;
+}
+function mkvInit(slot){
+  if(!(mirrorOn && WC_NATIVE)) {
+    if(mirrorOn) toast("A imagem em andamento para MKV requer WebCodecs nativo; não está disponível no modo HTTP/software.", true);
+    return;
+  }
+  const c=lastPlayed[slot], v=$("vid"+slot);
+  if(!c || !/\\.mkv(\\?|$)/i.test(c.url)) return;
+  const st=MIR[slot]=MIR[slot]||{};
+  if(st.mkvStarting || st.mkv) return;
+  st.mkvStarting=true; st.movie=true; st.fixedOff=0; st.q=[]; st.lastFrame=0;
+  (async()=>{
+    try{
+      const WebDemuxer=await loadMkvDemuxer();
+      if(!WebDemuxer || MIR[slot]!==st || !mirrorOn) return;
+      const demuxer=new WebDemuxer({wasmFilePath:MKV_WASM_URL});
+      st.mkv=demuxer;
+      const src=v.currentSrc||v.src||directUrl(c.url);
+      await demuxer.load(src);
+      if(MIR[slot]!==st || !mirrorOn) return;
+      st.mkvConfig=await demuxer.getDecoderConfig("video");
+      if(!st.mkvConfig || !/^(avc1|avc3)/i.test(st.mkvConfig.codec||"")){
+        st.err="o MKV não contém vídeo H.264/AVC compatível";
+        toast("MKV: a imagem em andamento requer vídeo H.264/AVC suportado pelo browser.", true);
+        return;
+      }
+      st.decoder=new VideoDecoder({
+        output:frame=>{
+          if(MIR[slot]!==st){try{frame.close()}catch(e){};return;}
+          st.q.push(frame);
+          if(st.q.length>120){const f=st.q.shift();try{f.close()}catch(e){}}
+          startPresent(slot);
+        },
+        error:e=>{st.err="MKV decoder: "+e.message;}
+      });
+      st.decoder.configure(st.mkvConfig);
+      st.mkvGeneration=0;
+      st.mkvRun=async(startAt)=>{
+        const gen=++st.mkvGeneration;
+        try{if(st.mkvReader) await st.mkvReader.cancel();}catch(e){}
+        if(MIR[slot]!==st || !mirrorOn) return;
+        try{
+          const info=await demuxer.getMediaInfo();
+          const stream=(info.streams||[]).find(x=>x.codec_type_string==="video");
+          let fps=25;
+          const rate=(stream&&(stream.avg_frame_rate||stream.r_frame_rate)||"").split("/").map(Number);
+          if(rate.length===2 && rate[0]>0 && rate[1]>0) fps=Math.max(1,Math.min(60,rate[0]/rate[1]));
+          st.mkvReader=demuxer.read("video",Math.max(0,startAt)).getReader();
+          while(MIR[slot]===st && mirrorOn && gen===st.mkvGeneration){
+            while(v.paused && MIR[slot]===st && gen===st.mkvGeneration) await new Promise(r=>setTimeout(r,150));
+            if(MIR[slot]!==st || gen!==st.mkvGeneration) break;
+            const item=await st.mkvReader.read();
+            if(item.done) break;
+            if(item.value && st.decoder.state==="configured") st.decoder.decode(item.value);
+            startPresent(slot);
+            await new Promise(r=>setTimeout(r,1000/fps));
+          }
+        }catch(e){if(MIR[slot]===st && gen===st.mkvGeneration) st.err="MKV stream: "+(e.message||e);}
+      };
+      st.onSeek=()=>{
+        if(MIR[slot]!==st)return;
+        try{st.mkvGeneration++; if(st.decoder.state!=="closed"){st.decoder.reset();st.decoder.configure(st.mkvConfig)}}catch(e){}
+        st.mkvRun(v.currentTime||0);
+      };
+      v.addEventListener("seeking",st.onSeek);
+      st.mkvRun(v.currentTime||0);
+      toast("MKV: suporte experimental iniciado; a compatibilidade depende do codec e do servidor.", false);
+    }catch(e){
+      if(MIR[slot]===st) {st.err="MKV: "+(e.message||e);toast("Não foi possível abrir o descodificador MKV. Verifica CDN, CORS e suporte a Range no servidor.",true);}
+    }finally{st.mkvStarting=false;}
+  })();
+}
 function wcDestroy(slot){
   const st = MIR[slot]; if(!st) return;
   st.presenting = false;
   try{ st.abort && st.abort.abort(); }catch(e){}
+  try{ st.mkvGeneration++; if(st.mkvReader) st.mkvReader.cancel(); }catch(e){}
+  try{ if(st.mkv && st.mkv.destroy) st.mkv.destroy(); }catch(e){}
   const v = $("vid"+slot);
   if(v){ if(st.onMeta) v.removeEventListener("loadedmetadata", st.onMeta); if(st.onSeek) v.removeEventListener("seeking", st.onSeek); }
   if(st.q){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q=null; }
