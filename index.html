@@ -646,8 +646,6 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
     <button class="nav tb" data-view="media"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg><span>Media</span></button>
     <button class="nav tb" data-view="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>Apps</span></button>
     <button class="nav" data-view="desktop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Desktop</span></button>
-    <button class="nav" data-view="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg><span>Notas</span></button>
-    <button class="nav" data-view="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Email</span></button>
     <button class="nav" data-view="net"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg><span>Rede</span></button>
     <button class="nav" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9.7 4.4V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 20.6 9H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 2z"/></svg><span>Definições</span></button>
     <button class="nav tb tbonly" data-view="launcher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Todas as apps</span></button>
@@ -882,7 +880,6 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
         <button class="btn" id="btnAudio" aria-pressed="false">🔊 Só áudio</button>
-        <button class="btn" id="btnGear" title="Modo de marcha: automático (Tessie), P ou D">🚗 Marcha: Auto</button>
         <button class="btn" id="btnGuide">📅 Guia EPG</button>
         <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnLeavePassenger" hidden>Sair do modo passageiro</button>
@@ -1054,6 +1051,12 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
         <button class="apptile" data-app="google_maps">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11.5A7 7 0 0 1 19 9.5C19 14.7 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
           <b>Google Maps</b><span>Mapas, locais e Street View</span></button>
+        <button class="apptile" data-app="notes">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg></span>
+          <b>Notas</b><span>Notas rápidas, guardadas neste Tesla</span></button>
+        <button class="apptile" data-app="mail">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+          <b>Email</b><span>Lê e responde ao teu email</span></button>
         <button class="apptile" data-app="nos_tv">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M10 9l4 2-4 2z"/></svg></span>
           <b>NOS TV</b><span>Canais e gravações da tua conta NOS</span></button>
@@ -1286,7 +1289,6 @@ details summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;
           <h2>Condução e passageiro</h2>
           <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV passa a só som.</p>
           <p class="small" id="driveInfo" style="margin:0">Estado agora: 🅿️ parado</p>
-          <label class="f">Modo de marcha<select id="setGear"><option value="auto">Automático (segue o carro pela Tessie)</option><option value="park">P — parado</option><option value="moving">D — em andamento (TV só com som, bloqueios ativos)</option></select></label>
           <label class="f">Segundos em P (e a 0 km/h) até voltar a desbloquear<input type="number" id="setParkHold" min="3" max="3600" step="1" inputmode="numeric"></label>
           <label class="f">Verificar o carro de quantos em quantos segundos (em repouso)<input type="number" id="setDriveCheck" min="5" max="300" step="1" inputmode="numeric"></label>
           <p class="small muted" style="margin:0">De 5 a 300 s (por defeito 10) quando não há nada bloqueável aberto. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) verifica sempre pelo menos de 60 em 60 s, e logo ao entrar. Ao primeiro sinal de andamento, o bloqueio é imediato.</p>
@@ -1699,22 +1701,13 @@ const MI = 1.60934;
    Sem dados novos há mais de DRIVE.stale ms mantém o último estado se era "andamento" (falha para o lado seguro). */
 const DRIVE = {state:"park", parkSince:0, lastData:0, hold:6000, check:10, stale:600000, minKmh:3};
 function driveFrom(ds){ const g = ds.shift_state, kmh = (ds.speed || 0) * MI; return ["D","R","N"].includes(g) || kmh >= DRIVE.minKmh ? "moving" : "park"; }
-/* Marcha manual: "auto" segue a Tessie; "moving" força D; "park" só vale se a Tessie não indicar andamento. */
-function drivingEff(){ return false; }
+/* Em andamento segundo a Tessie (shift_state D/R/N ou velocidade). */
+function drivingEff(){ return DRIVE.state === "moving"; }
 function driveChip(){
-  const eff = drivingEff(), man = cfg.gearMode === "moving";
-  const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento" + (man ? " (forçado à mão)" : "") + " — bloqueios ativos" : "🅿️ parado");
-  const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (eff ? "warn" : "ok"); c.querySelector("span").textContent = eff ? (man ? "D (manual)" : "Em andamento") : (cfg.gearMode === "park" ? "P (manual)" : "Parado"); }
-  const g = document.getElementById("btnGear"); if(g) g.textContent = "🚗 Marcha: " + ({auto:"Auto", park:"P", moving:"D"}[cfg.gearMode || "auto"]);
-  const sg = document.getElementById("setGear"); if(sg && sg.value !== (cfg.gearMode || "auto")) sg.value = cfg.gearMode || "auto";
+  const eff = drivingEff();
+  const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento — bloqueios ativos" : "🅿️ parado");
+  const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (eff ? "warn" : "ok"); c.querySelector("span").textContent = eff ? "Em andamento" : "Parado"; }
   document.body.classList.toggle("driving", eff);
-}
-function gearSet(m){
-  if(m === "park" && DRIVE.state === "moving"){ toast("O carro está em andamento: não dá para forçar P.", true); m = "auto"; }
-  cfg.gearMode = m; saveCfg(); driveChip();
-  try{ tvDriveSync(); }catch(e){}
-  try{ if(currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
-  toast("Marcha: " + ({auto:"automática", park:"P (parado)", moving:"D (em andamento)"}[m]));
 }
 function driveSet(st){
   if(st === DRIVE.state) return;
@@ -2495,7 +2488,7 @@ function renderTvList(){
     const nn = nowNext(c);
     return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
-  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : (freeErr || "Nada para mostrar.")}</p>`;
+  if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
   $("tvCount").textContent = tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
@@ -3975,8 +3968,6 @@ function setAudio(manual, auto){
   return true;
 }
 $("btnAudio").onclick = () => setAudio(!audioManual, audioAuto);
-$("btnGear").onclick = () => gearSet({auto:"park", park:"moving", moving:"auto"}[cfg.gearMode || "auto"]);
-$("setGear").onchange = e => gearSet(e.target.value);
 const checkClamp = v => Math.min(300, Math.max(5, Math.round(+v) || 10));
 DRIVE.check = checkClamp(cfg.driveCheck || 10); $("setDriveCheck").value = DRIVE.check; driveLoop();
 $("setDriveCheck").onchange = e => { const v = checkClamp(e.target.value); e.target.value = v; cfg.driveCheck = v; DRIVE.check = v; saveCfg(); driveLoop(); toast("Em repouso, verifica o carro de " + v + " em " + v + " s."); };
@@ -3999,11 +3990,18 @@ function tvDriveSync(){
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
 function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] || audioChan); }catch(e){ return true; } }
-async function driveCheckNow(){
-  try{
-    if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
-  }catch(e){}
+let driveBusy = null;
+function driveCheckNow(){
+  if(driveBusy) return driveBusy;
+  driveBusy = (async () => {
+    try{
+      if(!cfg.passenger && !demo() && !document.hidden){ car = await tessie(cfg.vin + "/state"); driveUpdate(true); tvDriveSync(); }
+    }catch(e){}
+    finally{ driveBusy = null; }
+  })();
+  return driveBusy;
 }
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ try{ driveUpdate(false); tvDriveSync(); driveLoop(true); }catch(e){} } });
 function driveLoop(immediate){
   clearTimeout(DRIVE.timer);
   const secs = driveWatching() ? Math.min(DRIVE.check, 60) : DRIVE.check;
@@ -4120,6 +4118,7 @@ function openExt(url){
 /* Abre num separador normal (sem o truque do ecrã inteiro), para logins que têm de correr numa página própria. */
 function openExtPlain(url){ const x = document.createElement("a"); x.href = url; x.target = "_blank"; x.rel = "noopener"; document.body.appendChild(x); x.click(); x.remove(); }
 function openApp(id){
+  if(id === "notes" || id === "mail"){ show(id); return true; }
   const a = APPS[id]; if(!a) return false;
   if(id === "games"){ show("games"); return true; }
   if(id === "podcasts"){ show("pod"); return true; }
@@ -4948,7 +4947,7 @@ function buildLauncher(){
   const allowed = v => !cfg.passenger || ["tv","media","apps"].includes(v);
   const views = [...document.querySelectorAll(".rail .nav")].filter(n=>!["launcher","home"].includes(n.dataset.view) && allowed(n.dataset.view))
     .map(n=>({kind:"view", id:n.dataset.view, svg:n.querySelector("svg").outerHTML, label:n.querySelector("span").textContent}));
-  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["podcasts","Podcasts"],["engine","Motor"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
+  const apps = [["nav","Navegação"],["chargers","Carregadores"],["games","Jogos"],["podcasts","Podcasts"],["engine","Motor"],["waze","Waze"],["google_maps","Google Maps"],["nos_tv","NOS TV"],["notes","Notas"],["mail","Email"]].map(([id,label])=>({kind:"app", id, label, svg:document.querySelector(`[data-app="${id}"] svg`).outerHTML}));
   const all = [...views, ...apps];
   $("launcherGrid").innerHTML = all.map((t,i)=>`<button class="ltile" data-li="${i}"><span class="lic">${t.svg}</span><span>${esc(t.label)}</span></button>`).join("");
   $("launcherGrid").querySelectorAll("[data-li]").forEach(b=>b.onclick=()=>{ const t = all[+b.dataset.li]; t.kind==="view" ? show(t.id) : openApp(t.id); });
@@ -5182,7 +5181,7 @@ $("btnImport").onclick = ()=>{ const b=$("backupBox"); if(b.hidden||!b.value.tri
 /* ---------- Transferência cifrada telemóvel → Tesla ---------- */
 // O código tem 18 caracteres: os 6 primeiros identificam o envelope no servidor, os outros 12 (60 bits) são a chave.
 // A cifra (AES-GCM, chave via PBKDF2) é feita neste aparelho; o servidor nunca vê o código nem os dados em claro.
-const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","gearMode","layout","srBroken","pvState","__proto__","constructor","prototype"];
+const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
 const b64e = u => { let s = ""; for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); };
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 function syncUrl(base, key, id){ return String(base).replace(/\/+$/,"") + "/sync?" + (key ? "k="+encodeURIComponent(key)+"&" : "") + "id=" + id; }
@@ -6183,6 +6182,11 @@ function dkWeb(t, url){
 
 /* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
 const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
+async function rtcConfig(base, key){
+  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } }catch(e){}
+  return rtcCfg;
+}
+function rtcLostWatch(pc, fn){ let t = 0; return () => { const s = pc.connectionState; clearTimeout(t); if(s === "failed" || s === "closed") fn(); else if(s === "disconnected") t = setTimeout(() => { if(pc.connectionState === "disconnected" || pc.connectionState === "failed") fn(); }, 8000); }; }
 const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
 const castRev = s => s.split("").reverse().join("");
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -6246,14 +6250,14 @@ function dkCast(){
     }
     if(!offer || !alive){ if(alive) st.textContent = "O código expirou. Fecha e abre o Cast outra vez."; return; }
     st.textContent = "A ligar…";
-    pc = new RTCPeerConnection(rtcCfg);
+    pc = new RTCPeerConnection(await rtcConfig(base, key));
     pc.ondatachannel = e => {
       if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
       dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
     pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
-    pc.onconnectionstatechange = () => { if(["failed","disconnected","closed"].includes(pc.connectionState)){ box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; } };
+    pc.onconnectionstatechange = rtcLostWatch(pc, () => { box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; });
     await pc.setRemoteDescription(offer);
     await pc.setLocalDescription(await pc.createAnswer());
     await iceDone(pc);
@@ -6288,7 +6292,7 @@ function castSenderUI(code0){
       stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30}, audio:true});
       q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
       stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
-      pc = new RTCPeerConnection(rtcCfg);
+      pc = new RTCPeerConnection(await rtcConfig(base, key));
       const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
       const ch = pc.createDataChannel("ctl");
       ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
@@ -6303,7 +6307,7 @@ function castSenderUI(code0){
       for(let i = 0; i < 150 && pc && !ans; i++){ await wait(2000); try{ const a = await fetch(syncUrl(base, key, aid)); if(a.ok) ans = await a.json(); }catch(e){} }
       if(!ans || !pc){ if(pc){ st("O Tesla não respondeu. Confirma que o Cast está aberto com o mesmo código."); stop(); } return; }
       await pc.setRemoteDescription(ans);
-      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); if(pc && ["failed","disconnected"].includes(pc.connectionState)){ st("Ligação perdida."); } };
+      pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); }; const lostW = rtcLostWatch(pc, () => st("Ligação perdida.")); pc.addEventListener("connectionstatechange", lostW);
       st("✓ A transmitir para o Tesla.");
     }catch(e){ st("Erro: " + (e.name === "NotAllowedError" ? "cancelaste a partilha." : e.message)); stop(); }
   };
