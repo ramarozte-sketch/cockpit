@@ -2575,7 +2575,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v80";
+const APP_VERSION = "v81";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6664,6 +6664,9 @@ function engSetSource(){
   if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; }
   if(s === "tessie" && demo()){ s = "sim"; E.note = "Sem Tessie ligado: modo simulador."; } else E.note = "";
   if(s === "gps" && !navigator.geolocation){ s = "sim"; E.note = "Este browser não tem GPS: modo simulador."; }
+  if(s === "gps" && window.isSecureContext === false) E.note = "Página em http: o browser pode bloquear o GPS. Abre pelo endereço https.";
+  clearTimeout(E.gpsWd);
+  if(s === "gps") E.gpsWd = setTimeout(() => { if(E.srcNow === "gps" && !E.gpsInfo){ E.err = "sem sinal GPS após 20 s"; if(!demo()){ E.note = "A usar a velocidade do Tessie."; E.srcNow = "tessie"; if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; } clearInterval(E.pollT); engPoll(); E.pollT = setInterval(engPoll, 2000); $("engSim").hidden = true; } } }, 20000);
   E.srcNow = s; E.lastTs = null; E.acc = 0; E.pw = null; E.gpsLast = null;
   if(s === "gps") E.gpsId = navigator.geolocation.watchPosition(pos => {
     /* A velocidade do próprio GPS manda sempre (como antes). Só quando o browser não a dá (speed=null) se calcula pela distância, numa janela de 2 s ou mais e ignorando o ruído do GPS parado. */
@@ -6686,7 +6689,7 @@ function engSetSource(){
     }
     E.gpsInfo = Math.round(vk) + " km/h (" + how + (c.accuracy ? ", ±" + Math.round(c.accuracy) + " m" : "") + ")";
     engSample(Math.max(0, Math.min(400, vk)), null, ts);
-  }, err => { E.err = "GPS: " + err.message; }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+  }, err => { E.err = "GPS: " + (err.code === 1 ? "permissão negada (ativa a localização para este site)" : err.code === 2 ? "posição indisponível" : err.code === 3 ? "tempo esgotado" : err.message); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
   $("engSim").hidden = s !== "sim";
   clearInterval(E.pollT); if(s === "tessie"){ engPoll(); E.pollT = setInterval(engPoll, 2000); }
 }
@@ -7704,7 +7707,7 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
       ready = true; patch();
       try{ if(channels.length) renderTvList(); }catch(e){}
     });
-    document.head.insertAdjacentHTML("beforeend", "<style>.item img,.gch img,#tvList img{object-fit:contain!important}</style>");
+    document.head.insertAdjacentHTML("beforeend", "<style>.item img,.gch img,#tvList img{object-fit:contain!important}</sty"+"le>");
   })();
 
   
