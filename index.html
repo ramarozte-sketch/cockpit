@@ -181,12 +181,23 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .orgrow{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent)}.orgrow.off{opacity:.45}
 .orgpos{width:72px;min-height:46px;text-align:center;flex:none;font-weight:700}
 .orgrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.orgrow .btn{min-height:46px;min-width:46px;padding:0 10px;flex:none}
-.gdp{display:grid;grid-template-columns:62px minmax(0,1fr);gap:4px 12px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent);cursor:pointer}
-.gdp.now{outline:2px solid var(--accent)}.gdp.past{opacity:.55}.gdp .tm{font-weight:700}.gdp .d{grid-column:2;font-size:13px;opacity:.8;display:none}.gdp.open .d{display:block}
-.gdp .bar{grid-column:2;height:5px;margin:2px 0}
+.gdp{display:grid;grid-template-columns:116px minmax(0,1fr) 128px;gap:2px 14px;padding:9px 12px;border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent);cursor:pointer;align-items:start}
+.gdp.now{outline:2px solid var(--accent)}.gdp.past{opacity:.55}
+.gdp .tm{font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}.gdp .tm small{display:block;font-weight:400;opacity:.7;font-size:12px}
+.gdp .mt{min-width:0;display:flex;flex-direction:column;gap:3px}.gdp .mt b{font-size:15px;line-height:1.25}
+.gdp .ds{font-size:12.5px;opacity:.78;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gdp.open .ds{-webkit-line-clamp:unset;display:block}
+.gdp .st{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12px;text-align:right}
+.gdp .chip{display:inline-block;padding:1px 8px;border-radius:99px;border:1px solid color-mix(in srgb,currentColor 30%,transparent);font-size:11.5px;white-space:nowrap}
+.gdp .chip.live{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.gdp .bar{grid-column:2 / 4;height:5px;margin:3px 0 0}
+.gch .t .nx{font-size:12px;opacity:.6}.gch .t .pb{height:3px;border-radius:3px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden;margin:2px 0}.gch .t .pb i{display:block;height:100%;background:var(--accent)}
+.gdbox{width:min(1480px,98vw)!important;height:min(94vh,980px)!important}
+.gdgrid{grid-template-columns:minmax(260px,380px) minmax(0,1fr)!important}
 @media(max-width:820px){.gdgrid{grid-template-columns:1fr;grid-template-rows:36% minmax(0,1fr)}}
 .trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
 .trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
+.trkStyle{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}.trkStyle .lb{font-size:14px;opacity:.8}.trkStyle .opts{display:flex;flex-wrap:wrap;gap:6px}.trkStyle .btn{min-height:44px;padding:0 14px}.trkStyle .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .trklist{display:flex;flex-wrap:wrap;gap:8px}.trklist .btn{min-height:52px}.trklist .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 video::cue{background:rgba(0,0,0,.72);color:#fff;font-size:1.35em;line-height:1.25}
 .cinename{font:600 18px var(--f-display);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1626,6 +1637,7 @@ body.layout-atv .rail{display:none}
   <div class="small muted" id="trkWhich"></div>
   <h3>Áudio</h3><div class="trklist" id="trkAudio"></div>
   <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
+  <h3>Aspeto das legendas</h3><div id="trkStyle" class="trkStyle"></div>
   <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
   <h3>Legendas online (OpenSubtitles)</h3>
   <div class="row"><input type="text" id="osQuery" placeholder="Título do filme ou série (ex.: Duna 2021, ou The Office S02E03)" style="flex:1;min-width:220px"><button class="btn" id="osGo">🔎 Procurar</button><button class="btn primary" id="osAuto">⚡ Automático</button></div>
@@ -2575,7 +2587,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v81";
+const APP_VERSION = "v84";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3067,7 +3079,7 @@ function gdRenderList(){
   const list = gdFiltered(); GD.list = list;
   $("gdList").innerHTML = list.map((c, i) => {
     const nn = nowNext(c);
-    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + " " + nn.now.title) : ""}</span></span></button>`;
+    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + "–" + hm(nn.now.stop) + " " + nn.now.title) : ""}</span>${nn ? `<span class="pb"><i style="width:${Math.max(0, Math.min(100, (Date.now() - nn.now.start)/(nn.now.stop - nn.now.start)*100)).toFixed(0)}%"></i></span>${nn.next ? `<span class="nx">A seguir ${esc(hm(nn.next.start) + " " + nn.next.title)}</span>` : ""}` : ""}</span></button>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nenhum canal encontrado.</p>`;
   $("gdList").querySelectorAll(".gch").forEach(b => b.onclick = () => gdSelect(GD.list[+b.dataset.i]));
   if(GD.obs) GD.obs.disconnect(); epgQueue = [];
@@ -3104,9 +3116,12 @@ function gdRenderDays(days){
 }
 function gdRenderProg(scroll){
   const now = Date.now(), list = GD.prog.filter(p => dayKey(p.start) === GD.day);
+  const fmtD = m => m >= 60 ? Math.floor(m/60) + "h" + (m%60 ? String(m%60).padStart(2,"0") : "") : m + " min";
   $("gdSched").innerHTML = list.map((p, i) => {
-    const isNow = p.start <= now && p.stop > now, past = p.stop <= now, pct = Math.max(0, Math.min(100, (now - p.start)/(p.stop - p.start)*100));
-    return `<div class="gdp${isNow ? " now" : ""}${past ? " past" : ""}" data-i="${i}"><span class="tm">${hm(p.start)}</span><span><b>${esc(p.title)}</b> <span class="muted small">${Math.max(1, Math.round((p.stop - p.start)/60000))} min</span></span>${isNow ? `<div class="bar"><i style="width:${pct.toFixed(1)}%;background:var(--accent)"></i></div>` : ""}<div class="d">${p.desc ? esc(p.desc) : "Sem descrição."}</div></div>`;
+    const isNow = p.start <= now && p.stop > now, past = p.stop <= now, dur = Math.max(1, Math.round((p.stop - p.start)/60000)), pct = Math.max(0, Math.min(100, (now - p.start)/(p.stop - p.start)*100));
+    const inMin = Math.round((p.start - now)/60000);
+    const state = isNow ? `<span class="chip live">A DECORRER</span><span>faltam ${fmtD(Math.max(1, Math.round((p.stop - now)/60000)))}</span>` : past ? `<span class="chip">Terminou</span>` : `<span class="chip">${inMin < 60 ? "Daqui a " + Math.max(1, inMin) + " min" : "Em " + fmtD(inMin)}</span>`;
+    return `<div class="gdp${isNow ? " now" : ""}${past ? " past" : ""}" data-i="${i}"><span class="tm">${hm(p.start)}<small>até ${hm(p.stop)}</small></span><span class="mt"><b>${esc(p.title)}</b><span class="ds">${p.desc ? esc(p.desc) : "Sem descrição."}</span></span><span class="st"><span class="chip">${fmtD(dur)}</span>${state}</span>${isNow ? `<div class="bar"><i style="width:${pct.toFixed(1)}%;background:var(--accent)"></i></div>` : ""}</div>`;
   }).join("");
   $("gdSched").querySelectorAll(".gdp").forEach(el => el.onclick = () => el.classList.toggle("open"));
   if(scroll){ const n = $("gdSched").querySelector(".gdp.now"); if(n) n.scrollIntoView({block:"start"}); }
@@ -7004,13 +7019,47 @@ function trkRender(){
   $("trkAuto").checked = cfg.subAuto !== false;
   $("trkNote").textContent = !a.items.length && subs.length <= (TRK.ext[slot] ? 1 : 0) ? "Os canais e filmes que vêm em HLS com várias faixas mostram-nas aqui. Ficheiros simples (.mkv, .mp4) só deixam o browser usar a faixa por defeito; nesse caso podes carregar legendas em português (.srt ou .vtt) por ficheiro ou endereço." : "";
 }
-function trkOpen(){ trkRender(); osFill(); $("trkDlg").hidden = false; }
+function trkOpen(){ trkRender(); osFill(); SUBST.render(); $("trkDlg").hidden = false; }
 $("chTracks").onclick = trkOpen;
 $("trkClose").onclick = () => { $("trkDlg").hidden = true; };
 $("trkDlg").onclick = e => { if(e.target === $("trkDlg")) $("trkDlg").hidden = true; };
 $("trkAuto").onchange = e => { cfg.subAuto = e.target.checked; saveCfg(); };
 $("trkM").onclick = () => trkShift(tvTarget, -.5);
 $("trkP").onclick = () => trkShift(tvTarget, .5);
+/* Aspeto das legendas: tamanho, cor, fundo, contorno e posição (leitor da página e leitor nativo da app Android) */
+const SUBST = (() => {
+  const D = {size:1, color:0, bg:1, edge:1, pos:0};
+  const O = {
+    size:["Tamanho", ["Pequeno","Normal","Grande","Enorme"], [70,100,140,190]],
+    color:["Cor", ["Branco","Amarelo","Verde","Ciano"], ["#ffffff","#ffeb3b","#66ff66","#00e5ff"]],
+    bg:["Fundo", ["Sem fundo","Transparente","Preto"], ["transparent","rgba(0,0,0,.6)","#000"]],
+    edge:["Contorno", ["Nenhum","Sombra","Contorno"], [0,1,2]],
+    pos:["Posição", ["Em baixo","Meio","Alto"], [.08,.2,.35]]
+  };
+  const get = () => Object.assign({}, D, cfg.subStyle || {});
+  const hex = c => parseInt(c.replace("#", ""), 16) | 0xFF000000;
+  const apply = () => {
+    const v = get(), px = O.size[2][v.size], fg = O.color[2][v.color], bg = O.bg[2][v.bg], ed = O.edge[2][v.edge];
+    let st = document.getElementById("subStyleCss");
+    if(!st){ st = document.createElement("style"); st.id = "subStyleCss"; document.head.appendChild(st); }
+    const sh = ed === 1 ? "1px 1px 3px #000,0 0 4px #000" : ed === 2 ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none";
+    st.textContent = "video::cue{color:" + fg + ";background-color:" + bg + ";font-size:" + px + "%;text-shadow:" + sh + "}";
+    try{
+      if(window.ANDROID && typeof Android.nsubstyle === "function"){
+        const bgi = v.bg === 0 ? 0 : v.bg === 1 ? 0x99000000 : 0xFF000000;
+        Android.nsubstyle(px, hex(fg) | 0, bgi | 0, ed, O.pos[2][v.pos]);
+      }
+    }catch(e){}
+  };
+  const render = () => {
+    const box = document.getElementById("trkStyle"); if(!box) return; const v = get();
+    box.innerHTML = Object.entries(O).map(([k, [lb, names]]) => `<span class="lb">${lb}</span><span class="opts">${names.map((n, i) => `<button class="btn" data-k="${k}" data-i="${i}" aria-pressed="${v[k] === i}">${n}</button>`).join("")}</span>`).join("") + `<span class="lb"></span><span class="opts"><button class="btn" data-reset="1">Repor predefinições</button></span>`;
+    box.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { cfg.subStyle = Object.assign(get(), {[b.dataset.k]: +b.dataset.i}); saveCfg(); apply(); render(); });
+    const r = box.querySelector("[data-reset]"); if(r) r.onclick = () => { cfg.subStyle = null; saveCfg(); apply(); render(); };
+  };
+  apply();
+  return {apply, render};
+})();
 $("trkFile").onchange = async e => {
   const f = e.target.files && e.target.files[0]; if(!f) return;
   try{ trkAddExt(tvTarget, decodeSub(await f.arrayBuffer()), "Português · " + f.name.slice(0, 24)); toast("Legendas carregadas ✓"); trkRender(); }catch(x){ toast("Não consegui ler o ficheiro de legendas.", true); }
@@ -7630,6 +7679,7 @@ else if(cfg.layout==="tesla") show("nav");
 else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings" || v==="mail") && PIN.isSet() ? "car" : v); }
 /* ===== Picons: logótipos de canais em alta resolução (PT), guardados no aparelho ===== */
   (function(){
+    if(window.ANDROID) return;   /* a app Android já traz os picons */
     const BASE = "https://cdn.jsdelivr.net/gh/tv-logo/tv-logos@main/countries/portugal/";
     const FB = new Map();            /* candidato -> próximo candidato / logótipo do fornecedor */
     let PIC = {}, MISS = {}, ready = false, dirty = 0, saveT = 0;
@@ -7713,6 +7763,7 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
   
 /* ===== Formato da imagem (ajustar, zoom/panscan, esticar, 16:9, 4:3, 21:9) no leitor da página ===== */
 (function(){
+  if(window.ANDROID) return;   /* a app Android tem o seu próprio formato de imagem */
   const ASP = [["fit", "Ajustar"], ["zoom", "Zoom / Panscan"], ["stretch", "Esticar"], ["16:9", "16:9"], ["4:3", "4:3"], ["21:9", "21:9 cinema"]];
   const getA = () => LS.get("tvAspect", "fit") || "fit";
   const labelOf = k => (ASP.find(a => a[0] === k) || ASP[0])[1];
