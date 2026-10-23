@@ -76,6 +76,7 @@ h2{font:600 15px var(--f-display);letter-spacing:.1em;text-transform:uppercase;c
 .setsub{margin:-6px 0 2px}
 .setsubh{margin:6px 0 0;font:600 13px var(--f-display);color:var(--muted);letter-spacing:.06em}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px}
+#tsHead .stats{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}#tsHead .stat b{font-size:20px;line-height:1.25}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}.app{grid-template-columns:76px 1fr}.nav span{font-size:10px}}
 .muted{color:var(--muted)}
 .small{font-size:14px}
@@ -440,7 +441,6 @@ body.layout-tesla .app.cinema .top{grid-column:1}body.layout-tesla .app.cinema m
 .rcard.on{border-color:var(--accent)}
 .radionow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb, var(--accent) 14%, var(--panel-2))}
 .radionow .aico{font-size:26px}
-#btnAudio[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 body.passenger .nav:not([data-view="tv"]):not([data-view="media"]):not([data-view="apps"]){display:none}
 body.passenger #chipDrive,body.passenger #chipCar,body.passenger #micBtn,body.passenger #heard,body.passenger #lockNow,body.passenger #teslaFs{display:none!important}
 @media (max-width:900px){.brand{font-size:11px;letter-spacing:.04em}}
@@ -622,6 +622,14 @@ body.layout-atv .rail{display:none}
 #v-engine .engstage .cap,#v-engine .engstage.photo .cap{position:absolute;left:14px;top:12px;margin:0;padding:3px 10px;font-size:12px;font-weight:500;background:#0008;color:#fff;border-radius:999px;text-align:left}
 #v-engine .engstage .credit{bottom:6px}
 #v-engine .engstage .pbtn{pointer-events:auto;top:10px;right:10px}
+
+.stchart{margin:8px 0}.stbars{display:flex;align-items:flex-end;gap:2px;height:150px;border-bottom:1px solid var(--line,#444)}
+.stbar{flex:1;min-width:3px;height:100%;display:flex;align-items:flex-end;background:none;border:0;padding:0;cursor:pointer}
+.stcol{display:flex;flex-direction:column-reverse;width:100%;height:100%;justify-content:flex-start}
+.stcol i{display:block;width:100%}.stbar.on{outline:2px solid var(--accent);outline-offset:1px}
+.stcol{justify-content:flex-start}.stlabs{display:flex;gap:2px;font-size:11px;color:var(--muted)}.stlabs span{flex:1;min-width:3px;overflow:visible;white-space:nowrap}
+.stdetail{margin-top:6px;min-height:20px}.stdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.stmap{height:300px;border-radius:12px;margin:10px 0;overflow:hidden}.stline{width:100%;height:auto;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -880,20 +888,24 @@ body.layout-atv .rail{display:none}
 
     <!-- ENERGIA -->
     <section class="view" id="v-energy" hidden>
-      <div class="row"><h1>Energia</h1><span class="spacer"></span><button class="btn" id="enRefresh">Atualizar</button></div>
-      <div class="grid2">
-        <div class="panel">
-          <h2>Produção solar agora</h2>
-          <div class="banner" id="solarSetup" hidden>Para ver a produção solar, põe o token da Growatt e o Plant ID em Definições › Energia.</div>
-          <div class="gauge"><div class="big" id="pvNow">--</div><div class="muted" style="padding-bottom:10px">kW · hoje <span id="pvToday">--</span> kWh</div></div>
-          <div class="stats">
-            <div class="stat"><span>Excedente estimado</span><b id="pvSurplus">--</b></div>
-            <div class="stat"><span>Amperes sugeridos</span><b id="pvAmps">--</b></div>
-            <div class="stat"><span>Carga atual</span><b id="chNowA">--</b></div>
-          </div>
-          <div class="row"><button class="btn primary" id="pvApply" disabled>Ajustar carga ao excedente</button><span class="small muted" id="pvUpdated"></span></div>
-          <p class="small muted" style="margin:0">Ajuste único: define os amperes de carga para o excedente de agora. Se a app SolarCharge estiver a correr, ela continua a ajustar sozinha e vai sobrepor-se.</p>
+      <div class="row"><h1>Energia</h1><span class="spacer"></span><button class="btn" id="enStats">📊 Estatísticas</button><button class="btn" id="enRefresh">Atualizar</button></div>
+      <div class="panel" id="tsHead">
+        <div class="row"><h2 id="tsName" style="margin:0">Tesla</h2><span class="spacer"></span><span class="small muted" id="tsUpd"></span></div>
+        <div class="banner" id="tsAlert" hidden></div>
+        <div class="stats">
+          <div class="stat"><span>Bateria</span><b id="tsSoc">--</b></div>
+          <div class="stat"><span>Autonomia</span><b id="tsRange">--</b></div>
+          <div class="stat"><span>Carga</span><b id="tsPlug">--</b></div>
+          <div class="stat"><span>Estado</span><b id="tsMove">--</b></div>
+          <div class="stat"><span>Interior / exterior</span><b id="tsTemp">--</b></div>
+          <div class="stat"><span>Climatização</span><b id="tsClimate">--</b></div>
+          <div class="stat"><span>Trancado / Sentinela</span><b id="tsLock">--</b></div>
+          <div class="stat"><span>Pneus (bar)</span><b id="tsTyres">--</b></div>
+          <div class="stat"><span>Odómetro</span><b id="enOdo">--</b></div>
+          <div class="stat"><span>Software</span><b id="tsSw">--</b></div>
         </div>
+      </div>
+      <div class="grid2">
         <div class="panel">
           <h2>Carga a decorrer</h2>
           <div class="stats">
@@ -911,6 +923,18 @@ body.layout-atv .rail{display:none}
             <div class="stat"><span>Energia gasta</span><b id="scKwh">--</b></div>
             <div class="stat"><span>Consumo</span><b id="scEff">--</b></div>
           </div>
+        </div>
+        <div class="panel">
+          <h2>Produção solar agora <span class="small muted">· Growatt</span></h2>
+          <div class="banner" id="solarSetup" hidden>Para ver a produção solar, põe o token da Growatt e o Plant ID em Definições › Energia.</div>
+          <div class="gauge"><div class="big" id="pvNow">--</div><div class="muted" style="padding-bottom:10px">kW · hoje <span id="pvToday">--</span> kWh</div></div>
+          <div class="stats">
+            <div class="stat"><span>Excedente estimado</span><b id="pvSurplus">--</b></div>
+            <div class="stat"><span>Amperes sugeridos</span><b id="pvAmps">--</b></div>
+            <div class="stat"><span>Carga atual</span><b id="chNowA">--</b></div>
+          </div>
+          <div class="row"><button class="btn primary" id="pvApply" disabled>Ajustar carga ao excedente</button><span class="small muted" id="pvUpdated"></span></div>
+          <p class="small muted" style="margin:0">Ajuste único: define os amperes de carga para o excedente de agora. Se a app SolarCharge estiver a correr, ela continua a ajustar sozinha e vai sobrepor-se.</p>
         </div>
       </div>
       <div class="panel">
@@ -934,6 +958,15 @@ body.layout-atv .rail{display:none}
           <div class="stat"><span>Custo por 100 km</span><b id="m30per100">--</b></div>
         </div>
         <div class="tablewrap"><table class="ctable" id="chargeTable"><thead><tr><th>Data</th><th>Local</th><th>Bateria</th><th>Energia</th><th>Custo</th></tr></thead><tbody></tbody></table></div>
+        <button class="btn" id="chargeMore" hidden style="margin-top:8px;width:100%">Mostrar mais</button>
+      </div>
+      <div class="panel" id="stPanel">
+        <div class="row"><h2 style="margin:0">📊 Estatísticas</h2><span class="spacer"></span><span class="small muted" id="stNote"></span></div>
+        <div class="banner" id="stDemo" hidden>Para ver as estatísticas do teu Tesla, cola o token Tessie e o VIN em Definições.</div>
+        <div class="tabs" id="stPeriods" role="tablist" aria-label="Período"></div>
+        <div class="row" id="stCustom" hidden><label class="f" style="flex:1;min-width:150px">De<input type="date" id="stFrom"></label><label class="f" style="flex:1;min-width:150px">Até<input type="date" id="stTo"></label><button class="btn primary" id="stApply">Aplicar</button></div>
+        <div class="tabs" id="stTabs" role="tablist" aria-label="Secção"></div>
+        <div id="stBody"><p class="muted small" style="margin:6px 0">Carrega em “Estatísticas” ou desce até aqui para carregar os dados da Tessie.</p></div>
       </div>
     </section>
 
@@ -965,13 +998,13 @@ body.layout-atv .rail{display:none}
           <button class="tab" data-mode="split" aria-selected="false">50 / 50</button>
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
-        <button class="btn" id="btnAudio" aria-pressed="false">🔊 Só áudio</button>
         <button class="btn" id="btnGuide">📅 Guia EPG</button>
         <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnLeavePassenger" hidden>Sair do modo passageiro</button>
         <button class="btn" id="btnFull">Ecrã inteiro</button>
       </div>
       <div class="banner" id="tvEmpty" hidden>Ainda não há lista. Em Definições, coloca o link M3U ou os dados Xtream do teu fornecedor IPTV. Esta app não fornece canais nem subscrições.</div>
+      <div class="banner" id="tvLock" hidden>🔒 TV bloqueada: o carro está em andamento. Volta a funcionar quando parares em P. (Rádio e podcasts continuam disponíveis.)</div>
       <div class="tvwrap">
         <div class="panel">
           <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
@@ -992,7 +1025,6 @@ body.layout-atv .rail{display:none}
         <div class="panel">
           <div class="stage single" id="stage">
             <div class="slot s1 active" data-slot="0"><span class="lbl">USER 1</span><button class="rot" data-rot="0" aria-label="Rodar ecrã USER 1">⟳ <span>0°</span></button><video id="vid0" playsinline controls></video><canvas id="cv0" class="mirror" data-testid="tv-canvas-0"></canvas></div>
-            <div class="audiocard" id="audioCard" hidden><div class="aico">🔊</div><b id="acName"></b><div class="muted" id="acEpg"></div><div class="small muted" id="acWhy"></div><button class="btn" id="acBack">Voltar ao vídeo</button></div>
             <div class="slot s2" data-slot="1"><span class="lbl">USER 2</span><button class="rot" data-rot="1" aria-label="Rodar ecrã USER 2">⟳ <span>0°</span></button><video id="vid1" playsinline controls muted></video><canvas id="cv1" class="mirror" data-testid="tv-canvas-1"></canvas></div>
           </div>
           <div class="cinebar" data-testid="tv-cinebar">
@@ -1056,7 +1088,7 @@ body.layout-atv .rail{display:none}
           <form id="ytForm" class="row" style="flex-wrap:nowrap"><input type="search" id="ytQ" placeholder="Procurar no YouTube"><button class="btn primary">Procurar</button></form>
           <label class="row small"><input type="checkbox" id="fsTrick" checked> Abrir em ecrã inteiro (truque do YouTube no Tesla)</label>
           <h2>Vídeo ou música por link</h2>
-          <form id="urlForm" class="row" style="flex-wrap:nowrap"><input type="url" id="mediaUrl" placeholder="https://…/video.mp4 ou .m3u8 ou .mp3"><button class="btn">Tocar</button></form>
+          <form id="urlForm" class="row" style="flex-wrap:nowrap"><input type="url" id="mediaUrl" placeholder="https://…/video.mp4, .mkv, .webm, .flv, .m3u8, .mpd ou .mp3"><button class="btn">Tocar</button></form>
           <video id="mediaVid" controls playsinline style="width:100%;border-radius:12px;background:#000;aspect-ratio:16/9" hidden></video>
         </div>
         <div class="panel">
@@ -1385,17 +1417,11 @@ body.layout-atv .rail{display:none}
       <div class="panel setcard">
           <h2>Condução e passageiro</h2>
           <p class="small muted" style="margin:0">Versão do Cockpit: <b id="appVer"></b></p>
-          <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV passa a só som.</p>
+          <p class="small muted setsub" style="margin:0">Parado desbloqueia tudo; em andamento bloqueia jogos, janelas e a imagem do Cast, e a TV fica bloqueada.</p>
           <p class="small" id="driveInfo" style="margin:0">Estado agora: 🅿️ parado</p>
-          <label class="f">Segundos em P (e a 0 km/h) até voltar a desbloquear<input type="number" id="setParkHold" min="3" max="3600" step="1" inputmode="numeric"></label>
-          <label class="f">Verificar o carro de quantos em quantos segundos (em repouso)<input type="number" id="setDriveCheck" min="5" max="300" step="1" inputmode="numeric"></label>
-          <p class="small muted" style="margin:0">De 5 a 300 s (por defeito 10) quando não há nada bloqueável aberto. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) verifica sempre pelo menos de 60 em 60 s, e logo ao entrar. Ao primeiro sinal de andamento, o bloqueio é imediato.</p>
-          <p class="small muted" style="margin:0">Espera para desbloquear: de 3 a 3600 s (por defeito 6). Mais baixo, a imagem e as janelas voltam mais depressa; mais alto, evita que oscile em semáforos. Passar a «em andamento» é sempre imediato.</p>
           <p class="small muted" style="margin:0">Podes forçar D à mão (por exemplo se a Tessie estiver lenta). Forçar P não anula um carro que a Tessie diz estar em andamento.</p>
           <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
-          <label class="f">Modo só áudio quando o carro anda
-            <select id="setAudioMode"><option value="auto">Automático (passa logo a só áudio)</option><option value="ask">Perguntar-me cada vez</option><option value="off">Nunca automático (decido eu com o botão “Só áudio”)</option></select></label>
         </div>
       </div>
       <h3 class="setgrp">Aparência e voz</h3>
@@ -1588,6 +1614,8 @@ body.layout-atv .rail{display:none}
     <div class="gdside"><select id="gdGroup" aria-label="Categoria"></select><input type="search" id="gdSearch" placeholder="Procurar canal" aria-label="Procurar canal"><div class="gdlist" id="gdList"></div></div>
     <div class="gdmain">
       <div class="row gdhead" style="flex-wrap:nowrap"><button class="btn" id="gdPrev" aria-label="Canal anterior">◀</button><b class="gdname" id="gdName">Escolhe um canal</b><button class="btn" id="gdNext" aria-label="Canal seguinte">▶</button><button class="btn primary" id="gdPlay">▶ Ver canal</button></div>
+      <div class="row" style="flex-wrap:nowrap"><input type="search" id="gdProgQ" placeholder="Procurar programa em todos os canais (ex.: futebol, telejornal)" aria-label="Procurar programa" style="flex:1;min-width:0"><button class="btn primary" id="gdProgGo">🔎 Procurar</button></div>
+      <div class="gdsched" id="gdRes" hidden></div>
       <div class="tabs" id="gdDays" role="tablist" aria-label="Dia"></div>
       <div class="gdsched" id="gdSched"></div>
     </div>
@@ -1803,6 +1831,7 @@ function show(view){
   if(view==="chargers") renderChargers();
   if(view==="pod" && typeof podEnter === "function") podEnter();
   if(view==="engine" && typeof engUi === "function") engUi();
+  if(view==="tv" && typeof tvLockUi === "function") tvLockUi();
   if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
@@ -2086,7 +2115,6 @@ const VOICE = [
   {d:{pt:"abre a NOS TV", en:"open NOS TV", fr:"ouvre NOS TV"}, re:[/\bnos tv\b|\bnostv\b/], run:()=>openApp("nos_tv")},
   {d:{pt:"desliga a rádio", en:"stop the radio", fr:"arrête la radio"}, re:[/^(para|parar|desliga|desligar|stop|arrete)\s+(a\s+|the\s+|la\s+)?radio$/], run:()=>{ radioStop(); return true; }},
   {d:{pt:"põe a rádio Comercial", en:"play radio TSF", fr:"mets la radio RFM"}, re:[/(?:^|\s)radio\s+(.+)$/], run:(m)=>playRadioByName(m[1])},
-  {d:{pt:"modo só áudio", en:"audio only", fr:"audio seulement"}, re:[/^(modo )?so (o )?(audio|som)$|^audio only$|^audio seulement$/], run:()=>setAudio(!audioManual, audioAuto)},
   {d:{pt:"canal seguinte", en:"next channel", fr:"chaîne suivante"}, re:[/(canal )?(seguinte|proximo)( canal)?$|next channel|chaine suivante/], run:()=>zap(1)},
   {d:{pt:"canal anterior", en:"previous channel", fr:"chaîne précédente"}, re:[/canal anterior|previous channel|chaine precedente/], run:()=>zap(-1)},
   {d:{pt:"modo cinema", en:"cinema mode", fr:"mode cinéma"}, re:[/^(modo )?cinema$|^cinema mode$|^mode cinema$/], run:()=>{ show("tv"); setCinema(!$("v-tv").classList.contains("cinema")); return true; }},
@@ -2171,7 +2199,6 @@ const AI_ACTIONS = {
   compose_email: a=>{ mailCompose({to:a.to||"", subject:a.subject||"", body:a.body||""}); return true; },
   play_radio: a=>playRadioByName(String(a.name||"")),
   stop_radio: ()=>{ radioStop(); return true; },
-  audio_only: a=>setAudio(a.on!==false, audioAuto),
   navigate: a=>navigateTo(String(a.destination||""), ({waze:"waze", google_maps:"google_maps", google:"google_maps"})[a.app] || "tesla"),
   open_app: a=>openApp(({waze:"waze", google_maps:"google_maps", maps:"google_maps", nos_tv:"nos_tv", nostv:"nos_tv", games:"games", jogos:"games", navigation:"nav", nav:"nav"})[String(a.app||"").toLowerCase()] || "")
 };
@@ -2300,18 +2327,20 @@ const hlsInst = [null, null];
 // TVORG = {grp:{live:[nomes]}, grpHide:{live:[nomes]}, ch:{"live|Categoria":[urls]}, chHide:[urls]}
 let TVORG = LS.get("tvOrg", null) || {};
 const orgSave = () => LS.set("tvOrg", TVORG);
+/* Categorias começadas por PT (PT | Desporto, PT: Filmes, Portugal…) aparecem primeiro, a menos que a ordem tenha sido definida à mão */
+const isPtGroup = n => /^[\s\W_]*(PT|PORTUGAL|PORTUGUES)(?![A-Za-zÀ-ÿ])/i.test(String(n || ""));
 function orgGroupList(kind, names, withHidden){
   const ord = (TVORG.grp || {})[kind] || [], hid = new Set((TVORG.grpHide || {})[kind] || []);
-  const idx = n => { const i = ord.indexOf(n); return i < 0 ? 1e6 : i; };
+  const idx = n => { const i = ord.indexOf(n); return i < 0 ? (isPtGroup(n) ? -1 : 1e6) : i; };
   const l = [...names].sort((a, b) => idx(a) - idx(b) || a.localeCompare(b));
   return withHidden ? l : l.filter(n => !hid.has(n));
 }
 function orgChannels(list, kind, group){
   const hid = new Set(TVORG.chHide || []), gh = new Set((TVORG.grpHide || {})[kind] || []);
   let l = list.filter(c => !hid.has(c.url) && (kind === "free" || kind === "fav" || !gh.has(c.group)));
-  const gord = (TVORG.grp || {})[kind] || [], has = gord.length || Object.keys(TVORG.ch || {}).some(k => k.startsWith(kind + "|"));
+  const gord = (TVORG.grp || {})[kind] || [], has = gord.length || Object.keys(TVORG.ch || {}).some(k => k.startsWith(kind + "|")) || l.some(c => isPtGroup(c.group));
   if(!has) return l;
-  const gi = c => { const i = gord.indexOf(c.group); return i < 0 ? 1e6 : i; }, seen = new Map(), maps = {};
+  const gi = c => { const i = gord.indexOf(c.group); return i < 0 ? (isPtGroup(c.group) ? -1 : 1e6) : i; }, seen = new Map(), maps = {};
   l.forEach(c => { if(!seen.has(c.group)) seen.set(c.group, seen.size); });
   const ci = c => { const key = kind + "|" + (kind === "free" ? "" : c.group); const m = maps[key] || (maps[key] = new Map((((TVORG.ch || {})[key]) || []).map((u, i) => [u, i]))); return m.has(c.url) ? m.get(c.url) : 1e6; };
   return l.map((c, i) => [c, i]).sort((a, b) => (group ? 0 : gi(a[0]) - gi(b[0]) || seen.get(a[0].group) - seen.get(b[0].group)) || ci(a[0]) - ci(b[0]) || a[1] - b[1]).map(x => x[0]);
@@ -2535,7 +2564,7 @@ function parseM3U(text){
       const comma = line.lastIndexOf(",");
       cur = {name:(comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name"), logo:attr("tvg-logo"), group:attr("group-title")||"Sem categoria", id:attr("tvg-id")};
     } else if(!line.startsWith("#") && cur){
-      cur.url=line; cur.kind = /\/movie\//i.test(line) ? "movie" : /\/series\//i.test(line) ? "series" : "live";
+      cur.url=line; cur.kind = /\/movie\//i.test(line) ? "movie" : /\/series\//i.test(line) ? "series" : (VID_EXT.test(line) && !/\.(m3u8|ts)(\?|$)/i.test(line)) ? "movie" : "live";
       out.push(cur); cur=null;
     }
   }
@@ -2546,7 +2575,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v65";
+const APP_VERSION = "v79";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2775,20 +2804,21 @@ function freeAltQuality(c, tried){
 }
 function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
+  if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); tvLockUi(); return; }
   if(!auto) autoTried[slot].clear();
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
-  if(audioActive()){ playAudioChannel(c); if(currentView!=="tv") show("tv"); return; }
   if(c.kind==="live" && chQual(c.name)===4 && resCap() < 2160){ // 4K → versão FHD/HD do mesmo canal, se existir
     const alt = altQuality(c, new Set());
     if(alt){ toast(`${c.name}: a abrir ${alt.name} (limite de ${resCap()}p nas Definições).`); playChannel(alt, slot, true); return; }
   }
   radioStop();
   stopSlot(slot);
-  const live = c.kind==="live";
+  const live = c.kind==="live"; let fileViaHls = null;
   const isTs = /\.ts(\?|$)/i.test(c.url);
-  const isHls = /\.m3u8(\?|$)/i.test(c.url) || (live && !isTs);
+  const fext = fileExt(c.url), isFlv = fext === "flv", isDash = fext === "mpd", isFileTs = !live && /^(ts|m2ts|mts)$/.test(fext);
+  const isHls = /\.m3u8(\?|$)/i.test(c.url) || (live && !isTs && !FILE_EXT(c.url) && !isDash);
   const playId = ++playSeq[slot]; trkReset(slot);
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
@@ -2802,6 +2832,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       autoTried[slot].add(c.url); const alt = altQuality(c, autoTried[slot]);
       if(alt){ toast(`${c.name} usa um formato que este browser não suporta. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
     }
+    { const hm = /HINT:(.*)$/.exec(String(extra||"")); if(hm && hm[1]){ toast(hm[1], true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(hm[1])}</div>`; return; } }
     if(/HEVC/.test(extra||"")){
       const msg = "Este canal usa vídeo HEVC (H.265), que o browser do Tesla não descodifica. Escolhe a versão HD ou SD do mesmo canal (as UHD/FHD costumam ser HEVC).";
       toast(msg, true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`; return;
@@ -2845,6 +2876,25 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(!ok) fail("MPEG-TS", "biblioteca de vídeo indisponível");
   };
   if(isTs && live){ tryTs(); }
+  else if(isFlv || isFileTs){
+    const src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
+    loadMpegts().then(ok => {
+      if(playId !== playSeq[slot]) return;
+      if(!ok || !mpegts.isSupported()) return fail("vídeo", "formato ." + fext + " HINT:A biblioteca para ." + fext + " não carregou (sem rede?).");
+      const p = mpegts.createPlayer({type: isFlv ? "flv" : "mpegts", isLive:false, url:src}, {enableWorker:true, lazyLoad:true}); tsInst[slot] = p;
+      p.attachMediaElement(v); p.load(); let bad = false;
+      p.on(mpegts.Events.ERROR, () => { if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
+      v.play().catch(()=>{});
+    });
+  }
+  else if(isDash){
+    loadDash().then(ok => {
+      if(playId !== playSeq[slot]) return;
+      if(!ok) return fail("vídeo", "formato .mpd HINT:A biblioteca DASH não carregou (sem rede?).");
+      const d = dashjs.MediaPlayer().create(); dashInst[slot] = d; d.initialize(v, DIRECT_VIDEO() ? directUrl(c.url) : px(c.url), true);
+      d.on("error", () => { if(playId === playSeq[slot]) fail("vídeo", "formato .mpd HINT:Este stream DASH não pôde ser reproduzido (pode estar protegido por DRM)."); });
+    });
+  }
   else if(isHls && window.Hls && Hls.isSupported()){
     // Afinado para o browser do Tesla: pouca memória, qualidade ajustada ao tamanho do ecrã, muitas tentativas de rede.
     const mk = () => {
@@ -2869,7 +2919,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         // Tira as qualidades acima do limite escolhido e as de HEVC que o browser não descodifica (mantém sempre pelo menos uma).
         try{
-          const okC = l => !/^(hvc1|hev1)/i.test(l.videoCodec||"") || (window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`));
+          const okC = l => (!/^(hvc1|hev1)/i.test(l.videoCodec||"") || (window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`))) && audioOk(l.audioCodec);
           for(let i = h.levels.length - 1; i >= 0 && h.levels.length > 1; i--){ const l = h.levels[i]; if((l.height && l.height > resCap()) || !okC(l)) h.removeLevel(i); }
         }catch(e){}
         const lv = h.levels || data.levels || [];
@@ -2919,6 +2969,8 @@ function playChannel(c, slot=tvTarget, auto=false){
   } else {
     // Filmes e episódios (ficheiro direto): 1.º proxy → 2.º proxy → versão HLS (.m3u8) do mesmo ficheiro, se o painel a oferecer.
     let stage = DIRECT_VIDEO() ? -1 : 0, triedDirect = DIRECT_VIDEO();
+    const hlsPattern = /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i;
+    fileViaHls = () => { if(stage >= 2 || !hlsPattern.test(c.url) || !(window.Hls && Hls.isSupported())) return false; stage = 1; triedDirect = true; v.onerror && v.onerror(); return true; };
     v.src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
@@ -2927,7 +2979,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(stage === 0 && VPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
       // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
       if(stage <= 1 && VPX() && !triedDirect){ triedDirect = true; v.src = directUrl(c.url); v.load(); v.play().catch(()=>{}); return; }
-      if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
+      if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
         const go = src => {
@@ -2946,11 +2998,12 @@ function playChannel(c, slot=tvTarget, auto=false){
         go("proxy");
         return;
       }
-      fail("vídeo", "código " + code);
+      fail("vídeo", "código " + code + ((code === 3 || code === 4) && fmtHint(c.url) ? " HINT:" + fmtHint(c.url) : ""));
     };
   }
-  v.muted = slot!==audioSlot;
+  v.muted = slot!==audioSlot; if(slot === audioSlot) v.volume = 1;
   v.play().catch(()=>{});
+  audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
   if(mirrorOn) startMirror(slot);
   updateCinemaBar(); keepAwake(true);
@@ -3027,7 +3080,7 @@ function gdRenderList(){
   }
 }
 async function gdSelect(c){
-  if(!c) return; GD.sel = c; const tk = ++GD.token;
+  if(!c) return; if(typeof gdSearchClear === "function" && !$("gdRes").hidden) gdSearchClear(); GD.sel = c; const tk = ++GD.token;
   $("gdName").textContent = c.name;
   $("gdList").querySelectorAll(".gch").forEach(b => b.setAttribute("aria-pressed", String(GD.list[+b.dataset.i]?.url === c.url)));
   $("gdDays").innerHTML = ""; $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">A carregar o guia…</p>`;
@@ -3078,6 +3131,53 @@ $("gdGroup").onchange = gdRenderList; $("gdSearch").oninput = gdRenderList;
 $("gdPrev").onclick = () => gdStep(-1); $("gdNext").onclick = () => gdStep(1);
 $("gdPlay").onclick = () => { if(GD.sel){ $("gdDlg").hidden = true; playChannel(GD.sel); } };
 setInterval(() => { if(!$("gdDlg").hidden && GD.prog.length) gdRenderProg(false); }, 60000);
+/* Pesquisa de programas: procura o texto no título e na descrição do guia de todos os canais (XMLTV já carregado + guia Xtream canal a canal). Ao escolher um resultado, o canal passa a transmitir. */
+const GS = {token:0};
+function gdSearchClear(){ GS.token++; $("gdRes").hidden = true; $("gdRes").innerHTML = ""; $("gdDays").hidden = false; $("gdSched").hidden = false; }
+async function gdSearchProgs(){
+  const raw = $("gdProgQ").value.trim(); if(!raw){ gdSearchClear(); return; }
+  const q = norm(raw), tk = ++GS.token, now = Date.now();
+  $("gdDays").hidden = true; $("gdSched").hidden = true; $("gdRes").hidden = false;
+  const chans = gdChannels(), hits = []; let done = 0, total = chans.length, partial = false;
+  const xt = !!(cfg.xs && cfg.xu && cfg.xp);
+  const draw = (final) => {
+    if(tk !== GS.token) return;
+    hits.sort((a, b) => (a.p.start <= now && a.p.stop > now ? 0 : 1) - (b.p.start <= now && b.p.stop > now ? 0 : 1) || a.p.start - b.p.start);
+    const shown = hits.slice(0, 120);
+    $("gdRes").innerHTML = `<p class="muted small" style="margin:4px 8px">${final ? "" : "A procurar… " + done + "/" + total + " canais. "}${hits.length} programa(s) com “${esc(raw)}”${hits.length > 120 ? " (a mostrar 120)" : ""}.${partial ? " Só foram verificados os primeiros 250 canais do guia Xtream: usa a categoria para restringir." : ""}</p>` +
+      shown.map((h, i) => {
+        const live = h.p.start <= now && h.p.stop > now, day = new Date(h.p.start).toLocaleDateString("pt-PT", {weekday:"short", day:"numeric", month:"short"});
+        return `<div class="gdp${live ? " now" : ""}" data-i="${i}" style="cursor:pointer"><span class="tm">${hm(h.p.start)}</span><span><b>${esc(h.p.title)}</b> <span class="muted small">${live ? "● a dar agora" : esc(day)} · ${esc(h.c.name)}</span></span></div>`;
+      }).join("") || (final ? `<p class="muted small" style="margin:8px">Nenhum programa encontrado. ${xt || Object.keys(epg).length ? "" : "Em Definições, coloca o link do guia XMLTV (ou liga uma conta Xtream) para haver guia."}</p>` : "");
+    $("gdRes").querySelectorAll(".gdp").forEach(el => el.onclick = () => {
+      const h = shown[+el.dataset.i]; if(!h) return;
+      $("gdDlg").hidden = true; if(currentView !== "tv") show("tv");
+      const startsIn = h.p.start - Date.now();
+      playChannel(h.c);
+      if(startsIn > 60000) toast("“" + h.p.title + "” começa às " + hm(h.p.start) + ". A abrir " + h.c.name + ".");
+    });
+  };
+  const test = p => p.stop > now && p.title && (norm(p.title).includes(q) || (p.desc && norm(p.desc).includes(q)));
+  const todo = [];
+  for(const c of chans){
+    const x = c.id && epg[c.id];
+    if(x && x.length){ x.forEach(p => { if(test(p)) hits.push({c, p:{start:p.start, stop:p.stop, title:p.title, desc:p.desc || ""}}); }); done++; }
+    else if(xt && xStreamId(c)) todo.push(c); else done++;
+  }
+  if(todo.length > 250){ todo.length = 250; partial = true; total = done + 250; }
+  draw(!todo.length);
+  let idx = 0;
+  const worker = async () => { while(idx < todo.length && tk === GS.token){
+    const c = todo[idx++]; const list = await xEpgFull(c); done++;
+    list.forEach(p => { if(test(p)) hits.push({c, p}); });
+    if(done % 8 === 0) draw(false);
+  } };
+  if(todo.length){ await Promise.all(Array.from({length:5}, worker)); draw(true); }
+}
+$("gdProgGo").onclick = gdSearchProgs;
+$("gdProgQ").addEventListener("keydown", e => { if(e.key === "Enter") gdSearchProgs(); });
+$("gdProgQ").addEventListener("input", () => { if(!$("gdProgQ").value.trim()) gdSearchClear(); });
+
 const tsInst = [null, null];
 const playSeq = [0, 0];
 const lastPlayed = [null, null];
@@ -3452,10 +3552,86 @@ async function keepAwake(on){
   }catch(e){}
 }
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && (lastPlayed[0]||lastPlayed[1])) keepAwake(true); });
+/* ---------- Som dos filmes ---------- */
+/* O browser do Tesla não descodifica AC3 / E-AC3 / DTS / TrueHD (muito comuns em MKV e MP4): o vídeo toca, mas fica sem som. */
+const audioOk = codec => {
+  const c = String(codec || "").toLowerCase(); if(!c) return true;
+  if(/^(mp4a|aac|opus|vorbis|flac|mp3|mp4a\.40)/.test(c)) return true;
+  try{ if(window.MediaSource && MediaSource.isTypeSupported(`audio/mp4; codecs="${c}"`)) return true; }catch(e){}
+  return !/(ac-3|ec-3|ac3|eac3|dts|dtsc|dtse|dtsh|mlpa|truehd)/.test(c);
+};
+const audioWatchT = [0, 0];
+const audioTried = [new Set(), new Set()];
+function noAudioNow(v){
+  if(v.paused || v.ended || v.muted || v.volume === 0 || v.currentTime < 1.5 || v.readyState < 3) return false;
+  const n = v.webkitAudioDecodedByteCount;
+  if(typeof n === "number") return n === 0;
+  if(v.audioTracks && typeof v.audioTracks.length === "number" && v.videoTracks && v.videoTracks.length > 0) return v.audioTracks.length === 0;
+  return false;
+}
+/* Depois de começar a tocar, confirma que há som. Se não houver: 1) outra faixa de áudio, 2) versão HLS do servidor (costuma vir em AAC), 3) explica porquê. */
+function audioWatch(slot, c, playId, viaHls){
+  clearInterval(audioWatchT[slot]); if(!c || c.kind === "live") return;
+  const v = $("vid" + slot); let ticks = 0;
+  audioWatchT[slot] = setInterval(() => {
+    if(playId !== playSeq[slot] || ++ticks > 12){ clearInterval(audioWatchT[slot]); return; }
+    if(!noAudioNow(v)) { if(typeof v.webkitAudioDecodedByteCount === "number" && v.webkitAudioDecodedByteCount > 0) clearInterval(audioWatchT[slot]); return; }
+    if(ticks < 3) return; // dá tempo ao arranque
+    clearInterval(audioWatchT[slot]);
+    const h = hlsInst[slot], tr = h && h.audioTracks ? h.audioTracks : [];
+    if(tr.length > 1){
+      audioTried[slot].add(h.audioTrack);
+      const next = tr.findIndex((t, i) => !audioTried[slot].has(i));
+      if(next >= 0){ toast("Sem som nesta faixa de áudio. A tentar a seguinte…"); h.audioTrack = next; audioWatch(slot, c, playId, viaHls); return; }
+    }
+    if(viaHls && viaHls()) { toast("O áudio deste ficheiro (AC3/DTS) não é suportado. A tentar a versão HLS do servidor…"); return; }
+    const msg = "Este filme não tem som porque o áudio usa um formato que o browser do Tesla não descodifica (AC3, E-AC3, DTS ou TrueHD). Procura outra versão do filme com áudio AAC, ou escolhe outra faixa em 🎚 Áudio.";
+    toast(msg, true); const bx = $("epgBox"); if(bx) bx.innerHTML = `<b>${slot ? "USER 2" : "USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`;
+  }, 1000);
+}
+/* ---------- Formatos de ficheiro ---------- */
+const VID_EXT = /\.(mp4|m4v|mov|mkv|webm|ogv|avi|wmv|flv|mpe?g|3gp|vob|m2ts|mts)(\?|#|$)/i;
+const AUD_EXT = /\.(mp3|aac|m4a|flac|wav|ogg|oga|opus)(\?|#|$)/i;
+const FILE_EXT = u => VID_EXT.test(String(u||"")) || AUD_EXT.test(String(u||""));
+const fileExt = u => ((String(u||"").split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})$/i) || [])[1] || "").toLowerCase();
+const NO_BROWSER = new Set(["avi","wmv","mpg","mpeg","vob","3gp","rmvb","asf"]);
+function fmtHint(url){
+  const e = fileExt(url);
+  if(NO_BROWSER.has(e)) return `Os browsers não reproduzem ficheiros .${e}. Pede ao fornecedor a versão .mp4 ou .mkv (H.264 + AAC) ou HLS (.m3u8).`;
+  if(["mkv","mp4","mov","m4v","webm","m2ts","mts","ts","flv"].includes(e)) return `O ficheiro .${e} chegou, mas o vídeo ou o áudio usam um codec que este browser não suporta (os mais comuns: HEVC/H.265, AC3, E-AC3 e DTS). Procura uma versão H.264 + AAC.`;
+  return "";
+}
+const dashInst = [null, null]; let dashLoading = null;
+function loadDash(){
+  if(window.dashjs) return Promise.resolve(true);
+  if(dashLoading) return dashLoading;
+  dashLoading = (async () => {
+    for(const u of ["https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.7.4/dash.all.min.js", "https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js"]){
+      const ok = await new Promise(res => { const el = document.createElement("script"); el.src = u; el.onload = () => res(!!window.dashjs); el.onerror = () => res(false); document.head.appendChild(el); });
+      if(ok) return true;
+    }
+    dashLoading = null; return false;
+  })();
+  return dashLoading;
+}
+/* Toca qualquer URL de media no elemento <video>: HLS, DASH, FLV, TS, ou ficheiro direto (mp4/mkv/webm/mov/mp3…). Devolve uma função que pára e limpa. */
+async function playMediaUrl(u, v, onFail){
+  const e = fileExt(u); let h = null, ts = null, d = null;
+  const stop = () => { try{ h && h.destroy(); }catch(x){} try{ ts && ts.destroy(); }catch(x){} try{ d && d.reset(); }catch(x){} h = ts = d = null; };
+  if(/\.m3u8(\?|#|$)/i.test(u) && window.Hls && Hls.isSupported()){ h = new Hls(); h.loadSource(u); h.attachMedia(v); h.on(Hls.Events.ERROR, (ev, x) => { if(x.fatal && onFail) onFail("HLS " + x.details); }); }
+  else if(e === "mpd" && await loadDash()){ d = dashjs.MediaPlayer().create(); d.initialize(v, u, true); d.on("error", () => { if(onFail) onFail("DASH"); }); }
+  else if((e === "flv" || e === "ts" || e === "m2ts" || e === "mts") && await loadMpegts() && mpegts.isSupported()){
+    ts = mpegts.createPlayer({type: e === "flv" ? "flv" : "mpegts", isLive:false, url:u}, {enableWorker:true, lazyLoad:true}); ts.attachMediaElement(v); ts.load();
+    ts.on(mpegts.Events.ERROR, () => { if(onFail) onFail("formato ." + e); });
+  } else { v.src = u; v.onerror = () => { if(onFail) onFail("formato ." + e); }; }
+  v.play().catch(() => {});
+  return stop;
+}
 function stopSlot(slot){
-  clearInterval(stallTimers[slot]);
+  clearInterval(stallTimers[slot]); clearInterval(audioWatchT[slot]); audioTried[slot] = new Set();
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
+  if(dashInst[slot]){ try{ dashInst[slot].reset(); }catch(e){} dashInst[slot]=null; }
   const v=$("vid"+slot); v.onerror=null; v.removeAttribute("src"); v.load();
   if(typeof stopMirror==="function") stopMirror(slot);
 }
@@ -3629,7 +3805,8 @@ function renderFavs(){
 $("btnAddFav").onclick = ()=>{ $("favForm").hidden = !$("favForm").hidden; };
 $("favForm").onsubmit = e => { e.preventDefault(); const n=$("favName").value.trim(), u=$("favUrl").value.trim(); if(!n||!u) return; mfavs.push({name:n,url:u}); LS.set("mfavs",mfavs); $("favName").value=$("favUrl").value=""; $("favForm").hidden=true; renderFavs(); };
 let mediaHls=null;
-$("urlForm").onsubmit = e => { e.preventDefault(); const u=$("mediaUrl").value.trim(); if(!u) return; const v=$("mediaVid"); v.hidden=false; if(mediaHls){mediaHls.destroy();mediaHls=null;} if(/\.m3u8/i.test(u) && window.Hls && Hls.isSupported()){ mediaHls=new Hls(); mediaHls.loadSource(u); mediaHls.attachMedia(v);} else v.src=u; v.play().catch(()=>{}); };
+let mediaStop = null;
+$("urlForm").onsubmit = async e => { e.preventDefault(); const u=$("mediaUrl").value.trim(); if(!u) return; const v=$("mediaVid"); v.hidden=false; if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){mediaHls.destroy();mediaHls=null;} v.removeAttribute("src"); mediaStop = await playMediaUrl(directUrl(u), v, why => toast("Não consegui tocar: " + why + ". " + (fmtHint(u) || "Confirma o endereço."), true)); };
 
 /* ---------- YouTube na app ---------- */
 let ytFavs = LS.get("ytfavs", []), ytCurrent = null, ytLoaded = false;
@@ -4006,7 +4183,41 @@ function isCharging(cs){
   // alguns carros/caches trazem o estado atrasado: se há corrente ou potência reais, está a carregar
   return cs.charging_state !== "Complete" && cs.charging_state !== "Disconnected" && (num(cs.charger_actual_current,0) > 0 || num(cs.charger_power,0) > 0);
 }
+function renderTeslaHead(){
+  if(!$("tsHead")) return;
+  const cs = car?.charge_state || {}, cl = car?.climate_state || {}, vs = car?.vehicle_state || {}, ds = car?.drive_state || {};
+  const D = (id, t) => { $(id).textContent = t; };
+  D("tsName", (car?.display_name || vs.vehicle_name || "Tesla") + (cfg.vin ? "" : " (exemplo)"));
+  const bl = num(cs.battery_level, NaN);
+  D("tsSoc", isFinite(bl) ? Math.round(bl) + " %" + (cs.charge_limit_soc ? " → " + cs.charge_limit_soc + " %" : "") : "--");
+  const rg = num(cs.battery_range, NaN); D("tsRange", isFinite(rg) ? Math.round(rg*MI) + " km" : "--");
+  const charging = isCharging(cs), mins = num(cs.minutes_to_full_charge, 0);
+  const A = num(cs.charger_actual_current, NaN), V = num(cs.charger_voltage, NaN); let kw = num(cs.charger_power, NaN);
+  if(!(kw > 0) && A > 0 && V > 0) kw = A*V*(num(cs.charger_phases, 1) >= 2 ? 3 : 1)/1000;
+  D("tsPlug", charging ? "A carregar" + (isFinite(kw) ? " · " + kw.toLocaleString("pt-PT",{maximumFractionDigits:1}) + " kW" : "") + (mins > 0 ? " · fim " + hm(Date.now() + mins*60e3) : "") : chargeLabel(cs.charging_state));
+  const sp = num(ds.speed, 0)*MI, sh = ds.shift_state;
+  D("tsMove", sh && sh !== "P" ? "Em andamento" + (sp > 0 ? " · " + Math.round(sp) + " km/h" : "") + " (" + sh + ")" : (car ? "Estacionado" : "--"));
+  const it = num(cl.inside_temp, NaN), ot = num(cl.outside_temp, NaN);
+  D("tsTemp", (isFinite(it) ? it.toFixed(1) + " °C" : "--") + " / " + (isFinite(ot) ? ot.toFixed(1) + " °C" : "--"));
+  D("tsClimate", cl.is_climate_on ? "Ligada" + (cl.driver_temp_setting ? " · " + cl.driver_temp_setting + " °C" : "") : (car ? "Desligada" : "--"));
+  D("tsLock", car ? (vs.locked ? "🔒 Trancado" : "🔓 Destrancado") + " · " + (vs.sentry_mode ? "👁 Sentinela" : "sem sentinela") : "--");
+  const tp = ["fl","fr","rl","rr"].map(k => num(vs["tpms_pressure_" + k], NaN)).filter(isFinite);
+  D("tsTyres", tp.length ? tp.map(x => x.toFixed(1)).join(" · ") : "--");
+  const od = num(vs.odometer, NaN); D("enOdo", isFinite(od) ? Math.round(od*MI).toLocaleString("pt-PT") + " km" : "--");
+  const sw = vs.software_update || {}, ver = String(vs.car_version || "").split(" ")[0];
+  D("tsSw", sw.status && sw.status !== "" ? "Atualização: " + sw.status : (ver || "--"));
+  // avisos importantes
+  const al = [];
+  if(isFinite(bl) && bl <= 20 && !charging) al.push("Bateria baixa (" + Math.round(bl) + " %).");
+  if(cs.charging_state === "Disconnected" && isFinite(bl) && bl < 50) al.push("Carro sem ligação ao carregador.");
+  if(vs.locked === false && sh === "P") al.push("O carro está destrancado.");
+  if(vs.df || vs.dr || vs.pf || vs.pr || vs.ft || vs.rt) al.push("Há portas ou mala abertas.");
+  if(tp.some(x => x < 2.2)) al.push("Pressão de um pneu baixa.");
+  $("tsAlert").hidden = !al.length; $("tsAlert").textContent = al.join(" ");
+  D("tsUpd", car ? "Atualizado " + hm(Date.now()) : "");
+}
 function renderLiveCharge(){
+  try{ renderTeslaHead(); }catch(e){}
   const cs = car?.charge_state || {};
   const charging = isCharging(cs);
   const A = num(cs.charger_actual_current, NaN), V = num(cs.charger_voltage, NaN);
@@ -4028,6 +4239,15 @@ function chargeCost(c){
   const kwh = num(c.energy_used, num(c.energy_added, NaN));
   if(c.is_supercharger) return isFinite(tarSc()) ? num(c.energy_added, kwh) * tarSc() : NaN;
   return kwh * tarIn();
+}
+let EN_ROWS = [], EN_OPEN = false;
+const EN_LIMIT = 10;
+function renderChargeRows(){
+  const rows = EN_ROWS, shown = EN_OPEN ? rows : rows.slice(0, EN_LIMIT);
+  $("chargeTable").querySelector("tbody").innerHTML = shown.join("") || `<tr><td colspan="5" class="muted">Sem carregamentos nos últimos 30 dias.</td></tr>`;
+  const b = $("chargeMore"); b.hidden = rows.length <= EN_LIMIT;
+  b.textContent = EN_OPEN ? "Mostrar só as últimas " + EN_LIMIT : "Mostrar mais (" + (rows.length - EN_LIMIT) + ")";
+  b.setAttribute("aria-expanded", EN_OPEN ? "true" : "false");
 }
 async function loadEnergy(){
   renderSolar(); renderLiveCharge(); renderSolarForecast().catch(()=>{});
@@ -4054,15 +4274,267 @@ async function loadEnergy(){
     $("m30eff").textContent = km ? Math.round(used*1000/km) + " Wh/km" : "--";
     $("m30per100").textContent = km && cost ? eur(cost/km*100) : "--";
     $("enNote").textContent = (known.length < costs.length ? "* sem os Superchargers: põe a tarifa em Definições › Energia. " : "") + "Cargas em casa ao preço da rede; a parte solar custa-te menos.";
-    $("chargeTable").querySelector("tbody").innerHTML = charges.slice(0, 30).map((c,i)=>{
+    EN_ROWS = charges.map((c,i)=>{
       const cc = costs[i];
       return `<tr><td>${new Date(c.started_at*1000).toLocaleDateString("pt-PT",{day:"2-digit",month:"short"})} ${hm(c.started_at*1000)}</td><td class="loc">${esc(c.location||"—")}${c.is_supercharger?'<span class="tag">Supercharger</span>':""}</td><td>${c.starting_battery ?? "?"}% → ${c.ending_battery ?? "?"}%</td><td>${kwhFmt(num(c.energy_added,NaN))}</td><td>${eur(cc)}</td></tr>`;
-    }).join("") || `<tr><td colspan="5" class="muted">Sem carregamentos nos últimos 30 dias.</td></tr>`;
+    });
+    renderChargeRows();
     if(sc){ const d = num(sc.distance_driven,0)*MI, e = num(sc.energy_used,NaN);
       $("scKm").textContent = Math.round(d) + " km"; $("scKwh").textContent = kwhFmt(isFinite(e) ? Math.max(0, e) : e); $("scEff").textContent = d > 1 && isFinite(e) ? Math.round(e*1000/d) + " Wh/km" : "--"; }
   }catch(e){ $("enNote").textContent = "Tessie: " + e.message; }
 }
+$("chargeMore").onclick = () => { EN_OPEN = !EN_OPEN; renderChargeRows(); };
 $("enRefresh").onclick = ()=>{ growattFetch(true).then(renderSolar).catch(e=>{ $("pvUpdated").textContent = "Growatt: "+e.message; }); loadState().then(renderLiveCharge); loadEnergy(); };
+/* ---------- Estatísticas (equivalente ao «Estatísticas de carregamento» da app Tesla, mais condução, paragens e bateria; dados da Tessie) ---------- */
+const ST = {period:"12m", tab:"charge", metric:"kwh", cache:new Map(), cf:"", ct:"", loaded:false, seq:0, map:null, mapLayer:null, sel:-1};
+const ST_PERIODS = [["7d","7 dias"],["31d","31 dias"],["3m","3 meses"],["12m","12 meses"],["all","Total"],["custom","Personalizado"]];
+const ST_TABS = [["charge","⚡ Carregamento"],["drive","🚗 Condução"],["idle","🅿 Parado"],["batt","🔋 Bateria"]];
+const ST_COL = {home:"#2ecc71", sc:"#e74c3c", work:"#3498db", other:"#a66bff"};
+const ST_NAME = {home:"Casa", sc:"Supercharger", work:"Trabalho", other:"Outros"};
+const stN = (v, d=1) => isFinite(v) ? v.toLocaleString("pt-PT", {maximumFractionDigits:d}) : "--";
+const stRange = () => {
+  const now = Math.floor(Date.now()/1000), D = 86400;
+  if(ST.period === "7d") return [now - 7*D, now];
+  if(ST.period === "31d") return [now - 31*D, now];
+  if(ST.period === "3m") return [now - 92*D, now];
+  if(ST.period === "12m") return [now - 365*D, now];
+  if(ST.period === "all") return [Math.floor(new Date("2022-01-01T00:00:00").getTime()/1000), now];
+  const f = ST.cf ? Math.floor(new Date(ST.cf + "T00:00:00").getTime()/1000) : now - 31*D;
+  const t = ST.ct ? Math.floor(new Date(ST.ct + "T23:59:59").getTime()/1000) : now;
+  return [Math.min(f, t), Math.max(f, t)];
+};
+async function stGet(path, params){
+  const [from, to] = stRange(); const p = Object.assign({distance_format:"km", timezone:"Europe/Lisbon"}, params || {});
+  if(!p.noRange){ p.from = from; p.to = to; } delete p.noRange;
+  const key = path + "|" + JSON.stringify(p), hit = ST.cache.get(key);
+  if(hit && Date.now() - hit.t < 10*60e3) return hit.v;
+  const v = await tessie(cfg.vin + "/" + path, {params:p});
+  ST.cache.set(key, {t:Date.now(), v}); return v;
+}
+const stDist = (a, b, c, d) => { const R = 6371000, r = x => x*Math.PI/180, dl = r(c - a), dn = r(d - b); const h = Math.sin(dl/2)**2 + Math.cos(r(a))*Math.cos(r(c))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+const stPos = (la, lo) => isFinite(num(la, NaN)) && isFinite(num(lo, NaN)) && (num(la, 0) || num(lo, 0));
+/* Casa: a posição das Definições › Energia, ou (se vazia) o local de carga mais repetido que não é Supercharger. */
+function stPlaces(charges){
+  let home = stPos(cfg.homeLat, cfg.homeLon) ? {lat:num(cfg.homeLat, 0), lon:num(cfg.homeLon, 0), auto:false} : null;
+  if(!home){
+    const g = new Map();
+    charges.filter(c => !c.is_supercharger && stPos(c.latitude, c.longitude)).forEach(c => { const k = c.latitude.toFixed(3) + "," + c.longitude.toFixed(3); const o = g.get(k) || {n:0, la:0, lo:0}; o.n++; o.la += c.latitude; o.lo += c.longitude; g.set(k, o); });
+    const best = [...g.values()].sort((a, b) => b.n - a.n)[0];
+    if(best && best.n >= 3) home = {lat:best.la/best.n, lon:best.lo/best.n, auto:true};
+  }
+  const work = stPos(cfg.workLat, cfg.workLon) ? {lat:num(cfg.workLat, 0), lon:num(cfg.workLon, 0)} : null;
+  return {home, work};
+}
+const stKind = (c, pl) => c.is_supercharger ? "sc" : (pl.home && stDist(c.latitude, c.longitude, pl.home.lat, pl.home.lon) <= 250) ? "home" : (pl.work && stDist(c.latitude, c.longitude, pl.work.lat, pl.work.lon) <= 250) ? "work" : "other";
+function stBuckets(from, to){
+  const span = (to - from)/86400, gran = span <= 35 ? "day" : span <= 130 ? "week" : "month";
+  const keyOf = t => { const d = new Date(t*1000);
+    if(gran === "day") return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    if(gran === "month") return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+    const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)); return m.getFullYear() + "-" + String(m.getMonth()+1).padStart(2,"0") + "-" + String(m.getDate()).padStart(2,"0"); };
+  const labelOf = k => { const p = k.split("-").map(Number); const d = new Date(p[0], p[1]-1, p[2] || 1);
+    return gran === "month" ? d.toLocaleDateString("pt-PT", {month:"short", year:"2-digit"}) : d.toLocaleDateString("pt-PT", {day:"2-digit", month:"short"}); };
+  const keys = [], seen = new Set(); const step = gran === "day" ? 86400 : gran === "week" ? 7*86400 : 28*86400;
+  for(let t = from; t <= to + step; t += step){ const k = keyOf(Math.min(t, to)); if(!seen.has(k)){ seen.add(k); keys.push(k); } }
+  const lk = keyOf(to); if(!seen.has(lk)) keys.push(lk);
+  return {gran, keyOf, labelOf, keys};
+}
+function stBarChart(B, rows, valOf, fmt, cols, unit){
+  const tot = B.keys.map(k => cols.reduce((s, c) => s + (rows[k] ? (rows[k][c] || 0) : 0), 0)), max = Math.max(...tot, 0.0001);
+  const bars = B.keys.map((k, i) => { const r = rows[k] || {};
+    const segs = cols.map(c => r[c] > 0 ? `<i style="height:${(r[c]/max*100).toFixed(1)}%;background:${ST_COL[c] || "var(--accent)"}"></i>` : "").join("");
+    const tip = B.labelOf(k) + ": " + fmt(tot[i]) + (cols.length > 1 ? " · " + cols.filter(c => r[c] > 0).map(c => ST_NAME[c] + " " + fmt(r[c])).join(" · ") : "");
+    return `<button class="stbar" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><span class="stcol">${segs}</span></button>`; }).join("");
+  const every = Math.max(1, Math.ceil(B.keys.length/8)), labs = B.keys.map((k, i) => `<span>${i % every === 0 ? esc(B.labelOf(k)) : ""}</span>`).join("");
+  return `<div class="stchart"><div class="stbars">${bars}</div><div class="stlabs">${labs}</div><div class="small muted stdetail" id="stDetail">Toca numa barra para ver o detalhe. Máximo: ${fmt(max)}${unit || ""}</div></div>`;
+}
+function stStat(label, val, sub){ return `<div class="stat"><span>${label}</span><b>${val}</b>${sub ? `<span class="small muted">${sub}</span>` : ""}</div>`; }
+function stLine(pts, w, h, fmtY){
+  if(pts.length < 2) return `<p class="small muted">Poucos dados para o gráfico.</p>`;
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), pad = 24;
+  const X = x => pad + (x - x0)/((x1 - x0) || 1)*(w - 2*pad), Y = y => h - pad - (y - y0)/((y1 - y0) || 1)*(h - 2*pad);
+  const d = pts.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" class="stline" role="img"><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/><text x="4" y="14" fill="currentColor" font-size="11" opacity=".7">${fmtY(y1)}</text><text x="4" y="${h-6}" fill="currentColor" font-size="11" opacity=".7">${fmtY(y0)}</text><text x="${w-4}" y="${h-6}" text-anchor="end" fill="currentColor" font-size="11" opacity=".7">${new Date(x1*1000).toLocaleDateString("pt-PT",{month:"short",year:"2-digit"})}</text><text x="${pad}" y="${h-6}" fill="currentColor" font-size="11" opacity=".7">${new Date(x0*1000).toLocaleDateString("pt-PT",{month:"short",year:"2-digit"})}</text></svg>`;
+}
+const stDate = t => new Date(t*1000).toLocaleDateString("pt-PT", {day:"2-digit", month:"short", year:"2-digit"});
+const stDur = s => { const m = Math.round(s/60); return m >= 60 ? Math.floor(m/60) + " h " + String(m%60).padStart(2,"0") + " min" : m + " min"; };
+const stFuel = () => ({price:num(cfg.fuelPrice, 1.75), cons:num(cfg.fuelCons, 7)});
+const stOff = () => ({s:num(cfg.offStart, 22), e:num(cfg.offEnd, 8)});
+const stIsOff = (h, o) => o.s > o.e ? (h >= o.s || h < o.e) : (h >= o.s && h < o.e);
+
+async function stCharge(){
+  const [from, to] = stRange();
+  const [ch, dr] = await Promise.all([stGet("charges"), stGet("drives").catch(() => ({results:[]}))]);
+  const charges = (ch.results || []).filter(c => num(c.energy_added, 0) > 0.05).sort((a, b) => a.started_at - b.started_at);
+  if(!charges.length) return `<p class="muted">Sem carregamentos neste período.</p>`;
+  const pl = stPlaces(charges), B = stBuckets(from, to), by = {}, agg = {home:{}, sc:{}, work:{}, other:{}};
+  let unknown = 0, spent = 0, kwh = 0;
+  const kwhRows = {}, eurRows = {};
+  charges.forEach(c => { const k = stKind(c, pl), e = num(c.energy_added, 0), cost = chargeCost(c), t = (c.ended_at - c.started_at) || 0;
+    const a = agg[k]; a.n = (a.n || 0) + 1; a.kwh = (a.kwh || 0) + e; a.t = (a.t || 0) + t; if(isFinite(cost)){ a.cost = (a.cost || 0) + cost; a.ckwh = (a.ckwh || 0) + e; spent += cost; } else unknown++;
+    kwh += e; const b = B.keyOf(c.started_at); (kwhRows[b] = kwhRows[b] || {})[k] = (kwhRows[b][k] || 0) + e; if(isFinite(cost)) (eurRows[b] = eurRows[b] || {})[k] = (eurRows[b][k] || 0) + cost; c._k = k; });
+  const km = (dr.results || []).reduce((s, d) => s + num(d.odometer_distance, 0), 0), eff = tripModel().eff, kmAdded = kwh*1000/eff;
+  const f = stFuel(), gasKm = km > 0 ? km : kmAdded, gasCost = gasKm/100*f.cons*f.price, saved = Math.max(0, gasCost - spent);
+  const scs = charges.filter(c => c.is_supercharger), sites = new Map();
+  scs.forEach(c => { const k = c.latitude.toFixed(3) + "," + c.longitude.toFixed(3); const o = sites.get(k) || {n:0, kwh:0, name:c.location || "Supercharger", la:c.latitude, lo:c.longitude}; o.n++; o.kwh += num(c.energy_added, 0); sites.set(k, o); });
+  const top = [...sites.values()].sort((a, b) => b.n - a.n || b.kwh - a.kwh).slice(0, 5);
+  /* selos calculados aqui (não são os oficiais da Tesla) */
+  const wk = [...new Set(scs.map(c => B.gran === "week" ? B.keyOf(c.started_at) : (() => { const d = new Date(c.started_at*1000); const m = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7)); return Math.floor(m.getTime()/604800000); })()))].map(x => typeof x === "number" ? x : Math.floor(new Date(x + "T00:00:00").getTime()/604800000)).sort((a, b) => a - b);
+  let streak = 0, run = 0; wk.forEach((w, i) => { run = i && w - wk[i-1] <= 1 ? run + 1 : 1; streak = Math.max(streak, run); });
+  /* casa: vazio / fora do vazio */
+  const o = stOff(); let offE = 0, onE = 0;
+  charges.filter(c => c._k === "home").forEach(c => { const d = Math.max(c.ended_at - c.started_at, 900), n = Math.ceil(d/900), e = num(c.energy_added, 0); let off = 0; for(let i = 0; i < n; i++){ const h = new Date((c.started_at + i*900)*1000).getHours(); if(stIsOff(h, o)) off++; } offE += e*off/n; onE += e*(n - off)/n; });
+  const metric = ST.metric, rows = metric === "kwh" ? kwhRows : eurRows, fmt = metric === "kwh" ? (v => stN(v) + " kWh") : (v => eur(v));
+  const cols = ["home", "sc", "work", "other"].filter(k => agg[k].n);
+  const tot = kwh || 1;
+  const table = cols.map(k => { const a = agg[k]; return `<tr><td><span class="stdot" style="background:${ST_COL[k]}"></span>${ST_NAME[k]}${k === "home" && pl.home && pl.home.auto ? ' <span class="small muted">(estimado)</span>' : ""}</td><td>${a.n}</td><td>${stN(a.kwh)} kWh</td><td>${stN(a.kwh/tot*100, 0)} %</td><td>${a.cost != null ? eur(a.cost) : "—"}</td><td>${a.ckwh > 0 && a.cost != null ? eur(a.cost/a.ckwh) + "/kWh" : "—"}</td><td>${stDur(a.t || 0)}</td></tr>`; }).join("");
+  return `
+    <div class="stats">
+      ${stStat("Sessões de carga", charges.length)}
+      ${stStat("Energia carregada", stN(kwh) + " kWh")}
+      ${stStat("Total gasto", eur(spent) + (unknown ? "*" : ""), unknown ? "* " + unknown + " sessões sem preço (define a tarifa)" : "")}
+      ${stStat("Custo médio", kwh && spent ? eur(spent/kwh) + "/kWh" : "--")}
+      ${stStat("Autonomia adicionada", stN(kmAdded, 0) + " km", "estimada a " + Math.round(eff) + " Wh/km")}
+      ${stStat("Poupança vs gasolina", eur(saved), "equivalente a " + eur(gasCost) + " em gasolina")}
+    </div>
+    <div class="row" style="margin-top:6px"><div class="tabs" id="stMetric"><button class="tab" data-m="kwh" aria-selected="${metric === "kwh"}">Total carregado</button><button class="tab" data-m="eur" aria-selected="${metric === "eur"}">Total gasto</button></div><span class="spacer"></span><span class="small muted">${B.gran === "day" ? "por dia" : B.gran === "week" ? "por semana" : "por mês"}</span></div>
+    ${stBarChart(B, rows, null, fmt, cols, "")}
+    <div class="tablewrap"><table class="ctable"><thead><tr><th>Tipo de local</th><th>Sessões</th><th>Energia</th><th>% do total</th><th>Gasto</th><th>Custo médio</th><th>Tempo</th></tr></thead><tbody>${table}</tbody></table></div>
+    <h3 style="margin:10px 0 4px">Superchargers</h3>
+    <div class="stats">${stStat("Superchargers únicos", sites.size)}${stStat("Sessões em Supercharger", scs.length)}${stStat("Energia em Superchargers", stN(agg.sc.kwh || 0) + " kWh")}${stStat("Sequência (semanas seguidas)", streak)}</div>
+    <div id="stMap" class="stmap"></div>
+    ${top.length ? `<div class="tablewrap"><table class="ctable"><thead><tr><th>Mais visitados</th><th>Visitas</th><th>Energia</th></tr></thead><tbody>${top.map(s => `<tr><td class="loc">${esc(s.name)}</td><td>${s.n}</td><td>${stN(s.kwh)} kWh</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <h3 style="margin:10px 0 4px">Selos <span class="small muted">· calculados aqui; os selos oficiais da Tesla só existem na app deles</span></h3>
+    <div class="stats">${stStat("🧭 Explorador", sites.size >= 10 ? "Conquistado" : sites.size + " / 10", "10 Superchargers diferentes")}${stStat("🔥 Sequência", streak >= 4 ? "Conquistado" : streak + " / 4", "4 semanas seguidas em Supercharger")}</div>
+    ${pl.home ? `<h3 style="margin:10px 0 4px">Em casa: horário</h3><div class="stats">${stStat("Vazio (" + o.s + "h–" + o.e + "h)", stN(offE) + " kWh", stN(offE/((offE + onE) || 1)*100, 0) + " % da carga em casa")}${stStat("Fora do vazio", stN(onE) + " kWh", stN(onE/((offE + onE) || 1)*100, 0) + " %")}</div>` : ""}
+    <details style="margin-top:10px"><summary class="small" style="cursor:pointer">Ajustes das estatísticas</summary>
+      <div class="row" style="margin-top:8px"><label class="f" style="flex:1;min-width:140px">Preço da gasolina (€/L)<input type="text" id="stFuelP" inputmode="decimal" value="${esc(cfg.fuelPrice || "")}" placeholder="1,75"></label><label class="f" style="flex:1;min-width:140px">Consumo equivalente (L/100 km)<input type="text" id="stFuelC" inputmode="decimal" value="${esc(cfg.fuelCons || "")}" placeholder="7"></label></div>
+      <div class="row"><label class="f" style="flex:1;min-width:140px">Início do vazio (h)<input type="text" id="stOffS" inputmode="numeric" value="${esc(cfg.offStart || "")}" placeholder="22"></label><label class="f" style="flex:1;min-width:140px">Fim do vazio (h)<input type="text" id="stOffE" inputmode="numeric" value="${esc(cfg.offEnd || "")}" placeholder="8"></label></div>
+      <div class="row"><button class="btn" id="stSetHome">Usar a posição do carro como Casa</button><button class="btn" id="stSetWork">Usar a posição do carro como Trabalho</button><button class="btn" id="stClrWork">Limpar Trabalho</button></div>
+      <div class="row"><button class="btn primary" id="stSaveAdj">Guardar ajustes</button><span class="small muted">Tarifas da casa e do Supercharger: Definições › Energia. A Tessie também usa o custo que lá definires por sessão.</span></div>
+    </details>
+    <p class="small muted" style="margin:8px 0 0">Como na app da Tesla: casa e trabalho são identificados pela posição (raio de 250 m). A Tesla estima a autonomia adicionada com a eficiência ideal do modelo; aqui usa-se a tua eficiência real recente.</p>`
+    + `<script type="application/json" id="stSites">${JSON.stringify([...sites.values()].map(s => [s.la, s.lo, s.n, Math.round(s.kwh), s.name])).replace(/</g, "\\u003c")}<\/script>`;
+}
+async function stDrive(){
+  const [from, to] = stRange();
+  const dr = await stGet("drives"); const d = (dr.results || []).filter(x => num(x.odometer_distance, 0) > 0.05).sort((a, b) => a.started_at - b.started_at);
+  if(!d.length) return `<p class="muted">Sem viagens neste período.</p>`;
+  const B = stBuckets(from, to), rows = {}; let km = 0, e = 0, secs = 0, ap = 0, used = 0, tw = 0, tsum = 0;
+  d.forEach(x => { const k = num(x.odometer_distance, 0), b = B.keyOf(x.started_at); km += k; e += num(x.energy_used, 0); secs += Math.max(0, x.ended_at - x.started_at); ap += num(x.autopilot_distance, 0);
+    used += num(x.starting_battery, 0) - num(x.ending_battery, 0); (rows[b] = rows[b] || {})["km"] = (rows[b]["km"] || 0) + k;
+    if(isFinite(num(x.average_outside_temperature, NaN))){ tw += k; tsum += num(x.average_outside_temperature, 0)*k; } });
+  const longest = [...d].sort((a, b) => b.odometer_distance - a.odometer_distance).slice(0, 5);
+  const eff = x => num(x.energy_used, 0)*1000/num(x.odometer_distance, 1), long10 = d.filter(x => x.odometer_distance >= 10 && num(x.energy_used, 0) > 0);
+  const best = [...long10].sort((a, b) => eff(a) - eff(b))[0], worst = [...long10].sort((a, b) => eff(b) - eff(a))[0];
+  const tb = [["< 5 °C", -99, 5], ["5–15 °C", 5, 15], ["15–25 °C", 15, 25], ["> 25 °C", 25, 99]].map(([l, a, b]) => { const s = d.filter(x => isFinite(num(x.average_outside_temperature, NaN)) && x.average_outside_temperature >= a && x.average_outside_temperature < b); const k = s.reduce((t, x) => t + x.odometer_distance, 0), en = s.reduce((t, x) => t + num(x.energy_used, 0), 0); return `<tr><td>${l}</td><td>${s.length}</td><td>${stN(k, 0)} km</td><td>${k > 5 ? Math.round(en*1000/k) + " Wh/km" : "—"}</td></tr>`; }).join("");
+  const mk = x => `<tr><td>${stDate(x.started_at)}</td><td class="loc">${esc(x.starting_location || "—")} → ${esc(x.ending_location || "—")}</td><td>${stN(x.odometer_distance, 1)} km</td><td>${Math.round(eff(x))} Wh/km</td></tr>`;
+  return `
+    <div class="stats">
+      ${stStat("Viagens", d.length)}${stStat("Distância", stN(km, 0) + " km")}${stStat("Tempo ao volante", stDur(secs))}
+      ${stStat("Energia usada", stN(e) + " kWh")}${stStat("Consumo médio", km ? Math.round(e*1000/km) + " Wh/km" : "--")}${stStat("Velocidade média", secs ? stN(km/(secs/3600), 0) + " km/h" : "--")}
+      ${stStat("Autopilot", km ? stN(ap/km*100, 0) + " %" : "--", stN(ap, 0) + " km")}${stStat("Temperatura média", tw ? stN(tsum/tw, 0) + " °C" : "--")}${stStat("Bateria por viagem", stN(used/d.length, 1) + " %")}
+    </div>
+    <h3 style="margin:10px 0 4px">Distância ${B.gran === "day" ? "por dia" : B.gran === "week" ? "por semana" : "por mês"}</h3>
+    ${stBarChart(B, rows, null, v => stN(v, 0) + " km", ["km"], "")}
+    <h3 style="margin:10px 0 4px">Consumo conforme a temperatura</h3>
+    <div class="tablewrap"><table class="ctable"><thead><tr><th>Temperatura exterior</th><th>Viagens</th><th>Distância</th><th>Consumo</th></tr></thead><tbody>${tb}</tbody></table></div>
+    <h3 style="margin:10px 0 4px">Recordes</h3>
+    <div class="tablewrap"><table class="ctable"><thead><tr><th>Data</th><th>Percurso</th><th>Distância</th><th>Consumo</th></tr></thead><tbody>${longest.map(mk).join("")}${best ? `<tr><td colspan="4" class="muted small">Mais eficiente (≥ 10 km)</td></tr>${mk(best)}` : ""}${worst ? `<tr><td colspan="4" class="muted small">Menos eficiente (≥ 10 km)</td></tr>${mk(worst)}` : ""}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">As cinco primeiras linhas são as viagens mais longas do período.</p>`;
+}
+async function stIdle(){
+  const id = await stGet("idles"); const a = (id.results || []).sort((x, y) => x.started_at - y.started_at);
+  if(!a.length) return `<p class="muted">Sem paragens registadas neste período.</p>`;
+  let e = 0, secs = 0, bat = 0, se = 0, ce = 0;
+  a.forEach(x => { const en = Math.max(0, num(x.energy_used, 0)); e += en; secs += Math.max(0, x.ended_at - x.started_at); bat += Math.max(0, num(x.starting_battery, 0) - num(x.ending_battery, 0)); se += en*num(x.sentry_fraction, 0); ce += en*num(x.climate_fraction, 0); });
+  const days = secs/86400, top = [...a].sort((x, y) => num(y.energy_used, 0) - num(x.energy_used, 0)).slice(0, 5);
+  return `
+    <div class="stats">
+      ${stStat("Paragens", a.length)}${stStat("Tempo parado", stDur(secs), stN(days, 1) + " dias")}${stStat("Energia gasta parado", stN(e) + " kWh")}
+      ${stStat("Perda média", days > 0.2 ? stN(e/days, 2) + " kWh/dia" : "--", days > 0.2 ? stN(bat/days, 1) + " % de bateria por dia" : "")}
+      ${stStat("Sentinela", e > 0 ? stN(se/e*100, 0) + " %" : "--", "da energia parado")}${stStat("Climatização", e > 0 ? stN(ce/e*100, 0) + " %" : "--", "da energia parado")}
+    </div>
+    <h3 style="margin:10px 0 4px">Paragens com mais consumo</h3>
+    <div class="tablewrap"><table class="ctable"><thead><tr><th>Data</th><th>Local</th><th>Duração</th><th>Bateria</th><th>Energia</th></tr></thead><tbody>${top.map(x => `<tr><td>${stDate(x.started_at)}</td><td class="loc">${esc(x.location || "—")}</td><td>${stDur(x.ended_at - x.started_at)}</td><td>${Math.round(num(x.starting_battery, 0))} → ${Math.round(num(x.ending_battery, 0))} %</td><td>${stN(num(x.energy_used, 0), 2)} kWh</td></tr>`).join("")}</tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">«Perda média» é a bateria que o carro gasta parado (Sentinela, climatização, sistemas). Os valores vêm da Tessie.</p>`;
+}
+async function stBatt(){
+  const [all, live, meas] = await Promise.all([
+    tessie("battery_health", {params:{distance_format:"km", only_active:true}}).catch(() => null),
+    tessie(cfg.vin + "/battery").catch(() => null),
+    tessie(cfg.vin + "/battery_health", {params:{distance_format:"km"}}).catch(() => null)
+  ]);
+  const me = ((all && all.results) || []).find(x => x.vin === cfg.vin) || null;
+  const list = (meas && meas.results) ? [...meas.results].filter(x => num(x.capacity, 0) > 0).sort((a, b) => a.timestamp - b.timestamp) : [];
+  if(!me && !live && !list.length) return `<p class="muted">A Tessie ainda não tem dados de saúde da bateria para este carro.</p>`;
+  const cap = me ? num(me.capacity, NaN) : (list.length ? list[list.length-1].capacity : NaN), orig = me ? num(me.original_capacity, NaN) : NaN;
+  const health = me && isFinite(num(me.health_percent, NaN)) ? me.health_percent : (isFinite(orig) && isFinite(cap) ? cap/orig*100 : NaN);
+  const degr = me && isFinite(num(me.degradation_percent, NaN)) ? me.degradation_percent : (isFinite(health) ? 100 - health : NaN);
+  const L = live || {}, lifeKwh = num(L.lifetime_energy_used, NaN), odo = me ? num(me.odometer, NaN) : NaN;
+  return `
+    <div class="stats">
+      ${stStat("Saúde da bateria", isFinite(health) ? stN(health, 1) + " %" : "--")}${stStat("Degradação", isFinite(degr) ? stN(degr, 1) + " %" : "--")}
+      ${stStat("Capacidade", isFinite(cap) ? stN(cap, 1) + " kWh" : "--", isFinite(orig) ? "nova: " + stN(orig, 1) + " kWh" : "")}${stStat("Autonomia máxima", me && me.max_range ? stN(me.max_range, 0) + " km" : "--")}
+      ${stStat("Perda parado (reportada)", L.phantom_drain_percent != null ? stN(L.phantom_drain_percent, 1) + " %" : "--")}${stStat("Energia restante", L.energy_remaining != null ? stN(L.energy_remaining, 1) + " kWh" : "--")}
+      ${stStat("Energia gasta (vida)", isFinite(lifeKwh) ? stN(lifeKwh, 0) + " kWh" : "--", isFinite(lifeKwh) && odo > 100 ? Math.round(lifeKwh*1000/odo) + " Wh/km médios" : "")}${stStat("Odómetro", isFinite(odo) ? stN(odo, 0) + " km" : "--")}
+      ${stStat("Pack", L.pack_voltage != null ? stN(L.pack_voltage, 0) + " V" : "--", L.pack_current != null ? stN(L.pack_current, 1) + " A" : "")}${stStat("Temperatura módulos", L.module_temp_min != null ? stN(L.module_temp_min, 0) + "–" + stN(L.module_temp_max, 0) + " °C" : "--")}
+    </div>
+    <h3 style="margin:10px 0 4px">Capacidade ao longo do tempo</h3>
+    ${stLine(list.map(x => [x.timestamp, x.capacity]), 640, 170, v => stN(v, 1) + " kWh")}
+    <p class="small muted" style="margin:8px 0 0">${list.length} medições. A capacidade estimada varia com a temperatura e o estado de carga; vê a tendência, não cada ponto.</p>`;
+}
+const stRenderMap = () => {
+  const el = $("stMap"), js = $("stSites"); if(!el || !js) return;
+  let sites = []; try{ sites = JSON.parse(js.textContent); }catch(e){}
+  if(!sites.length){ el.hidden = true; return; }
+  loadLeaflet().then(LF => {
+    if(!LF){ el.innerHTML = '<p class="small muted" style="padding:12px">Não consegui carregar o mapa.</p>'; return; }
+    if(ST.map){ try{ ST.map.remove(); }catch(e){} ST.map = null; }
+    const m = ST.map = LF.map(el, {zoomControl:true, attributionControl:true, scrollWheelZoom:false});
+    LF.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:18, attribution:'© OpenStreetMap'}).addTo(m);
+    el.classList.toggle("mapdark", nvDark());
+    const pts = sites.map(s => { LF.circleMarker([s[0], s[1]], {radius:5 + Math.min(10, Math.sqrt(s[2])*2), color:"#e74c3c", weight:2, fillColor:"#e74c3c", fillOpacity:.55}).bindPopup(`<b>${esc(s[4])}</b><br>${s[2]} visitas · ${s[3]} kWh`).addTo(m); return [s[0], s[1]]; });
+    try{ m.fitBounds(pts, {padding:[24, 24], maxZoom:10}); }catch(e){}
+    setTimeout(() => m.invalidateSize(), 80);
+  });
+};
+function stBind(){
+  const body = $("stBody");
+  body.querySelectorAll("#stMetric .tab").forEach(b => b.onclick = () => { ST.metric = b.dataset.m; stLoad(false); });
+  body.querySelectorAll(".stbar").forEach(b => { const show = () => { $("stDetail").textContent = b.dataset.tip; body.querySelectorAll(".stbar").forEach(x => x.classList.toggle("on", x === b)); }; b.onclick = show; b.onfocus = show; b.onmouseenter = show; });
+  const sv = $("stSaveAdj");
+  if(sv) sv.onclick = () => { cfg.fuelPrice = $("stFuelP").value.trim(); cfg.fuelCons = $("stFuelC").value.trim(); cfg.offStart = $("stOffS").value.trim(); cfg.offEnd = $("stOffE").value.trim(); saveCfg(); toast("Ajustes guardados"); stLoad(false); };
+  const setPos = async which => { try{ const l = await tessie(cfg.vin + "/location"); if(!isFinite(l.latitude)) throw new Error("sem posição"); cfg[which + "Lat"] = (+l.latitude).toFixed(5); cfg[which + "Lon"] = (+l.longitude).toFixed(5); saveCfg(); toast((which === "home" ? "Casa" : "Trabalho") + " definido na posição do carro."); stLoad(false); }catch(e){ toast("Não consegui obter a posição: " + e.message, true); } };
+  const h = $("stSetHome"), w = $("stSetWork"), c = $("stClrWork");
+  if(h) h.onclick = () => setPos("home"); if(w) w.onclick = () => setPos("work"); if(c) c.onclick = () => { cfg.workLat = ""; cfg.workLon = ""; saveCfg(); stLoad(false); };
+  stRenderMap();
+}
+async function stLoad(force){
+  const body = $("stBody"), seq = ++ST.seq;
+  $("stDemo").hidden = !demo(); if(demo()){ body.innerHTML = ""; return; }
+  if(force) ST.cache.clear();
+  $("stPeriods").querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.p === ST.period)));
+  $("stTabs").querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.t === ST.tab)));
+  $("stCustom").hidden = ST.period !== "custom";
+  body.innerHTML = `<p class="muted small" style="margin:8px 0">A carregar dados da Tessie…</p>`;
+  try{
+    const html = await ({charge:stCharge, drive:stDrive, idle:stIdle, batt:stBatt}[ST.tab])();
+    if(seq !== ST.seq) return;
+    body.innerHTML = html; $("stNote").textContent = ""; ST.loaded = true; stBind();
+  }catch(e){ if(seq !== ST.seq) return; body.innerHTML = `<p class="muted">Não consegui carregar: ${esc(e.message)}</p>`; }
+}
+(function(){
+  $("stPeriods").innerHTML = ST_PERIODS.map(([k, t]) => `<button class="tab" data-p="${k}" aria-selected="${k === ST.period}">${t}</button>`).join("");
+  $("stTabs").innerHTML = ST_TABS.map(([k, t]) => `<button class="tab" data-t="${k}" aria-selected="${k === ST.tab}">${t}</button>`).join("");
+  $("stPeriods").onclick = e => { const b = e.target.closest("[data-p]"); if(!b) return; ST.period = b.dataset.p; if(ST.period === "custom"){ $("stCustom").hidden = false; if(!$("stFrom").value){ const t = new Date(); $("stTo").value = t.toLocaleDateString("sv-SE"); t.setDate(t.getDate() - 31); $("stFrom").value = t.toLocaleDateString("sv-SE"); ST.cf = $("stFrom").value; ST.ct = $("stTo").value; } } stLoad(false); };
+  $("stTabs").onclick = e => { const b = e.target.closest("[data-t]"); if(!b) return; ST.tab = b.dataset.t; stLoad(false); };
+  $("stApply").onclick = () => { ST.cf = $("stFrom").value; ST.ct = $("stTo").value; stLoad(false); };
+  $("enStats").onclick = () => { $("stPanel").scrollIntoView({behavior:"smooth", block:"start"}); stLoad(false); };
+  if("IntersectionObserver" in window) new IntersectionObserver((es, ob) => { if(es.some(x => x.isIntersecting) && currentView === "energy" && !ST.loaded){ stLoad(false); } }, {threshold:.15}).observe($("stPanel"));
+  const prev = $("enRefresh").onclick; $("enRefresh").onclick = function(){ if(prev) prev.apply(this, arguments); if(ST.loaded) stLoad(true); };
+})();
+
 $("pvApply").onclick = async ()=>{
   const s = surplusAmps(); if(!s || s.amps < 5) return;
   const ok = await doCmd("set_charging_amps", {amps:s.amps}, "Carga a " + s.amps + " A");
@@ -4158,7 +4630,7 @@ function radioStop(){
 }
 function playRadio(st){
   if(!st) return false;
-  stopTvAudio(); stopSlot(0); stopSlot(1); radioStop(); radioCur = st;
+  stopSlot(0); stopSlot(1); radioStop(); radioCur = st;
   const a = $("radioAud"), src = (/^http:/i.test(st.url) && location.protocol==="https:") ? px(st.url) : st.url;
   const failed = () => { if(radioCur===st){ toast(`A ${st.name} não está a responder. Experimenta outra.`, true); radioStop(); } };
   if(st.hls && window.Hls && Hls.isSupported()){ radioHls = new Hls({maxBufferLength:20}); radioHls.loadSource(src); radioHls.attachMedia(a); radioHls.on(Hls.Events.ERROR, (e,d)=>{ if(d.fatal) failed(); }); }
@@ -4182,85 +4654,26 @@ $("rnStop").onclick = radioStop;
 $("radioForm").onsubmit = e => { e.preventDefault(); loadRadios($("radioQ").value.trim()); };
 document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.rt==="fav"){ radioTab="fav"; document.querySelectorAll("[data-rt]").forEach(x=>x.setAttribute("aria-selected", x===b)); renderRadios(radioFavs, "Ainda não tens rádios favoritas. Toca numa rádio e depois em ☆."); } else { $("radioQ").value=""; loadRadios(""); } });
 
-/* ---------- TV só áudio (manual ou automático em andamento) ---------- */
-let audioManual = false, audioAuto = false, audioHls = null, audioTs = null, audioChan = null, drivingNow = false;
-const audioActive = () => audioManual || audioAuto;
-function stopTvAudio(){
-  if(audioHls){ audioHls.destroy(); audioHls = null; }
-  if(audioTs){ try{ audioTs.destroy(); }catch(e){} audioTs = null; }
-  const a = $("tvAud"); a.pause(); a.removeAttribute("src"); a.load();
-}
-async function playAudioChannel(c){
-  radioStop(); stopSlot(0); stopSlot(1); stopTvAudio();
-  audioChan = c; lastPlayed[tvTarget] = c;
-  const a = $("tvAud"), live = c.kind==="live", isTs = /\.ts(\?|$)/i.test(c.url);
-  if(!isTs && (live || /\.m3u8/i.test(c.url)) && window.Hls && Hls.isSupported()){
-    audioHls = new Hls({maxBufferLength:30, backBufferLength:10, manifestLoadingMaxRetry:4, fragLoadingMaxRetry:6});
-    audioHls.loadSource(px(c.url)); audioHls.attachMedia(a);
-    audioHls.on(Hls.Events.ERROR, (e,d)=>{ if(d.fatal && audioChan===c) toast("Não foi possível tocar o som de " + c.name + ".", true); });
-  } else if(isTs && live && await loadMpegts()){
-    audioTs = mpegts.createPlayer({type:"mpegts", isLive:true, url:px(c.url)}, {enableWorker:true}); audioTs.attachMediaElement(a); audioTs.load();
-  } else { a.src = px(c.url); }
-  a.play().catch(()=>{});
-  if(live) xEpg(c).then(renderAudioCard);
-  renderAudioCard(); updateCinemaBar(); keepAwake(true);
-}
-function renderAudioCard(){
-  const on = audioActive() && !!audioChan;
-  $("audioCard").hidden = !on; $("btnAudio").setAttribute("aria-pressed", audioActive() ? "true" : "false");
-  if(!on) return;
-  $("acName").textContent = audioChan.name;
-  const nn = nowNext(audioChan); $("acEpg").textContent = nn ? `${hm(nn.now.start)} ${nn.now.title}` : "";
-  $("acWhy").textContent = audioAuto ? "O carro está em andamento: só som. A imagem volta quando parares em P." : "Modo só áudio.";
-  $("acBack").hidden = audioAuto;
-}
-function setAudio(manual, auto){
-  const was = audioActive(); audioManual = manual; audioAuto = auto;
-  const now = audioActive(), c = audioChan || lastPlayed[audioSlot] || lastPlayed[0] || lastPlayed[1];
-  if(now && !was && c) playAudioChannel(c);
-  else if(!now && was){ stopTvAudio(); const cc = audioChan; audioChan = null; renderAudioCard(); if(cc) playChannel(cc, 0); }
-  else renderAudioCard();
-  return true;
-}
-$("btnAudio").onclick = () => setAudio(!audioManual, audioAuto);
-const checkClamp = v => Math.min(300, Math.max(5, Math.round(+v) || 10));
-DRIVE.check = checkClamp(cfg.driveCheck || 10); $("setDriveCheck").value = DRIVE.check; driveLoop();
-$("setDriveCheck").onchange = e => { const v = checkClamp(e.target.value); e.target.value = v; cfg.driveCheck = v; DRIVE.check = v; saveCfg(); driveLoop(); toast("Em repouso, verifica o carro de " + v + " em " + v + " s."); };
-const holdClamp = v => Math.min(3600, Math.max(3, Math.round(+v) || 6));
-DRIVE.hold = holdClamp(cfg.parkHold || 6) * 1000; $("setParkHold").value = DRIVE.hold / 1000;
-$("setParkHold").onchange = e => { const v = holdClamp(e.target.value); e.target.value = v; cfg.parkHold = v; DRIVE.hold = v * 1000; saveCfg(); toast("Desbloqueia ao fim de " + v + " s em P."); };
+/* ---------- TV bloqueada com o carro em andamento (o modo "só áudio" foi removido) ---------- */
+let drivingNow = false;
+const tvBlocked = () => !cfg.passenger && !demo() && drivingEff();
+function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !tvBlocked(); }
+function tvHaltPlayback(){ try{ stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false); }catch(e){} }
+/* Valores fixos: verificação em repouso de 10 em 10 s (mín. de 60 em 60 s com a TV/Jogos/Desktop abertos) e 6 s em P para desbloquear. */
+DRIVE.check = 10; DRIVE.hold = 6000; driveLoop();
 driveChip();
-$("acBack").onclick = () => setAudio(false, audioAuto);
-if(!cfg.audioMode) cfg.audioMode = (cfg.autoAudio === false) ? "off" : "auto";
-$("setAudioMode").value = cfg.audioMode;
-$("setAudioMode").onchange = e => { cfg.audioMode = e.target.value; cfg.autoAudio = cfg.audioMode === "auto"; saveCfg(); askAudioHide(); if(cfg.audioMode !== "auto" && audioAuto) setAudio(audioManual, false); drivingNow = false; tvDriveSync(); };
-/* "Perguntar": aviso com botões quando o carro começa a andar com a TV aberta. Não altera nenhum bloqueio. */
-let askAudioEl = null;
-function askAudioHide(){ if(askAudioEl){ askAudioEl.remove(); askAudioEl = null; } }
-function askAudioShow(){
-  if(askAudioEl) return;
-  const d = askAudioEl = document.createElement("div");
-  d.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:var(--panel,#1b2535);color:inherit;border:1px solid var(--line,#456);border-radius:14px;padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 6px 24px #0008;font-size:16px";
-  d.innerHTML = '<span>O carro está em andamento. Passar a TV a só áudio?</span><button class="btn primary" id="aaYes">🔊 Só áudio</button><button class="btn" id="aaNo">Não</button>';
-  document.body.appendChild(d);
-  d.querySelector("#aaYes").onclick = () => { askAudioHide(); setAudio(true, audioAuto); };
-  d.querySelector("#aaNo").onclick = askAudioHide;
-}
-/* TV e estado de condução: em andamento passa a só som; em P a imagem volta. Reage logo que o estado muda e confirma de 15 em 15 s pela Tessie. */
+if(cfg.audioMode !== undefined){ delete cfg.audioMode; delete cfg.autoAudio; saveCfg(); }
+/* Em andamento a TV pára e fica bloqueada; em P volta a poder abrir-se. */
 function tvDriveSync(){
-  if(cfg.audioMode === "off" || cfg.passenger || demo()) return;
-  if(!(lastPlayed[0] || lastPlayed[1] || audioChan)) return;
-  const driving = drivingEff();
-  if(driving !== drivingNow){
-    drivingNow = driving;
-    if(cfg.audioMode === "ask"){ if(driving && !audioActive()) askAudioShow(); else askAudioHide(); }
-    else setAudio(audioManual, driving);
-  }
+  const blocked = tvBlocked();
+  if(blocked && !drivingNow){ drivingNow = true; tvHaltPlayback(); }
+  else if(!blocked) drivingNow = false;
+  tvLockUi();
 }
 /* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
-function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] || audioChan); }catch(e){ return true; } }
+function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] ); }catch(e){ return true; } }
 let driveBusy = null;
 function driveCheckNow(){
   if(driveBusy) return driveBusy;
@@ -5406,10 +5819,10 @@ function renderHome(){
   $("hPv").textContent = pvState && isFinite(pvState.w) ? (pvState.w/1000).toLocaleString("pt-PT", {maximumFractionDigits:1}) + " kW" : "--";
   $("hCharge").textContent = cs.charging_state === "Charging" ? `${cs.charger_actual_current ?? "?"} A · ${cs.charger_power ?? 0} kW` : chargeLabel(cs.charging_state);
   let ico = "🎵", name = "Nada a tocar", sub = "Escolhe uma rádio ou um canal";
-  const tv = audioChan || lastPlayed[0] || lastPlayed[1];
+  const tv = lastPlayed[0] || lastPlayed[1];
   if(podCur){ ico = "🎙️"; name = podCur.title; sub = podCur.show?.name || "Podcast"; }
   else if(radioCur){ ico = "📻"; name = radioCur.name; sub = "Rádio"; }
-  else if(tv){ ico = audioChan ? "🔊" : "📺"; name = tv.name; const nn = nowNext(tv); sub = nn ? `${hm(nn.now.start)} ${nn.now.title}` : (audioChan ? "TV só áudio" : "TV"); }
+  else if(tv){ ico = "📺"; name = tv.name; const nn = nowNext(tv); sub = nn ? `${hm(nn.now.start)} ${nn.now.title}` : "TV"; }
   $("hPlayIco").textContent = ico; $("hPlayName").textContent = name; $("hPlaySub").textContent = sub;
   const quick = (radioFavs.length ? radioFavs : radioList).slice(0, 6);
   $("hRadios").innerHTML = quick.map((r,i)=>`<button class="tab" data-hr="${i}">${esc(r.name)}</button>`).join("");
@@ -5425,8 +5838,8 @@ function radioZap(dir){
 }
 function stopAllPlayback(){
   if(typeof engStop === "function") engStop();
-  radioStop(); stopTvAudio(); audioChan = null; audioManual = false;
-  stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; renderAudioCard(); updateCinemaBar(); keepAwake(false);
+  radioStop();
+  stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false);
 }
 $("hPrev").onclick = ()=>{ if(podCur){ podSkip(-15); return; } radioCur ? radioZap(-1) : zap(-1); setTimeout(renderHome, 300); };
 $("hNext").onclick = ()=>{ if(podCur){ podSkip(30); return; } radioCur ? radioZap(1) : zap(1); setTimeout(renderHome, 300); };
@@ -5602,7 +6015,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setAudioMode").value=cfg.audioMode||"auto"; $("setMaxRes").value=String(cfg.maxRes||"1080"); }
+function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setMaxRes").value=String(cfg.maxRes||"1080"); }
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -6093,7 +6506,7 @@ function podSavePos(force){
 }
 function podPlay(ep, sh){
   if(!ep || !ep.url) return false;
-  stopTvAudio(); stopSlot(0); stopSlot(1); radioStop(); // radioStop também pára o podcast anterior
+  stopSlot(0); stopSlot(1); radioStop(); // radioStop também pára o podcast anterior
   podCur = {url:ep.url, title:ep.title, dur:ep.dur, show:sh ? {id:sh.id, name:sh.name, artist:sh.artist, art:sh.art, feed:sh.feed} : null};
   const a = $("podAud"); let viaProxy = false;
   const src = u => (/^http:/i.test(u) && location.protocol === "https:") ? px(u) : u;
@@ -6253,20 +6666,24 @@ function engSetSource(){
   if(s === "gps" && !navigator.geolocation){ s = "sim"; E.note = "Este browser não tem GPS: modo simulador."; }
   E.srcNow = s; E.lastTs = null; E.acc = 0; E.pw = null; E.gpsLast = null;
   if(s === "gps") E.gpsId = navigator.geolocation.watchPosition(pos => {
-    /* Muitos browsers (incl. o do Tesla) devolvem speed=null: nesse caso calcula-se a velocidade pela distância entre posições. */
-    const c = pos.coords, ts = pos.timestamp || Date.now(), last = E.gpsLast; let vk = null, how = "GPS";
-    if(c.speed != null && isFinite(c.speed)) vk = c.speed*3.6;
-    if(last && ts > last.ts){
-      const R = 6371000, r = Math.PI/180, dLa = (c.latitude - last.lat)*r, dLo = (c.longitude - last.lon)*r;
-      const h = Math.sin(dLa/2)**2 + Math.cos(last.lat*r)*Math.cos(c.latitude*r)*Math.sin(dLo/2)**2;
-      const d = 2*R*Math.asin(Math.sqrt(h)), dtS = (ts - last.ts)/1000;
-      if(dtS > 0 && dtS < 15){
-        let dv = d/dtS*3.6; if(c.accuracy && d < c.accuracy*.35) dv = 0; /* ruído parado */
-        if(vk == null || (vk === 0 && dv > 8)){ vk = dv; how = "posição"; }
+    /* A velocidade do próprio GPS manda sempre (como antes). Só quando o browser não a dá (speed=null) se calcula pela distância, numa janela de 2 s ou mais e ignorando o ruído do GPS parado. */
+    const c = pos.coords, ts = pos.timestamp || Date.now(); let vk, how = "GPS";
+    if(c.speed != null && isFinite(c.speed)){ vk = c.speed*3.6; E.gpsLast = null; }
+    else {
+      how = "posição"; const b = E.gpsLast;
+      if(!b){ E.gpsLast = {lat:c.latitude, lon:c.longitude, ts}; vk = E.vT || 0; }
+      else {
+        const dtS = (ts - b.ts)/1000;
+        if(dtS < 2) vk = E.vT || 0;
+        else {
+          const R = 6371000, r = Math.PI/180, dLa = (c.latitude - b.lat)*r, dLo = (c.longitude - b.lon)*r;
+          const h = Math.sin(dLa/2)**2 + Math.cos(b.lat*r)*Math.cos(c.latitude*r)*Math.sin(dLo/2)**2;
+          const d = 2*R*Math.asin(Math.sqrt(h));
+          vk = dtS > 20 || d < Math.max(10, (c.accuracy || 0)*.6) ? 0 : d/dtS*3.6;
+          E.gpsLast = {lat:c.latitude, lon:c.longitude, ts};
+        }
       }
     }
-    if(vk == null){ if(last){ E.gpsInfo = "GPS sem velocidade"; } vk = E.vT || 0; }
-    if(!last || ts - last.ts > 700 || how === "GPS"){ E.gpsLast = {lat:c.latitude, lon:c.longitude, ts}; }
     E.gpsInfo = Math.round(vk) + " km/h (" + how + (c.accuracy ? ", ±" + Math.round(c.accuracy) + " m" : "") + ")";
     engSample(Math.max(0, Math.min(400, vk)), null, ts);
   }, err => { E.err = "GPS: " + err.message; }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
@@ -6989,16 +7406,16 @@ function dkWeb(t, url){
 
 /* Cast: o PC partilha o ecrã (getDisplayMedia) e o Tesla recebe por WebRTC. A troca de ofertas passa pelo /sync do teu Worker. */
 const rtcCfg = {iceServers:[{urls:"stun:stun.l.google.com:19302"}]};
-let rtcTurnMode = "?";
+let rtcTurnMode = "?", rtcTurnErr = "";
 async function rtcConfig(base, key){
-  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); rtcTurnMode = j.turn || "?"; if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } else rtcTurnMode = "erro " + r.status; }catch(e){ rtcTurnMode = "sem ligação ao Worker"; }
+  try{ const r = await fetch(String(base).replace(/\/+$/,"") + "/turn" + (key ? "?k=" + encodeURIComponent(key) : "")); if(r.ok){ const j = await r.json(); rtcTurnMode = j.turn || "?"; rtcTurnErr = j.turnErr || ""; if(j.iceServers && j.iceServers.length) return {iceServers:j.iceServers}; } else rtcTurnMode = "erro " + r.status; }catch(e){ rtcTurnMode = "sem ligação ao Worker"; }
   return rtcCfg;
 }
 /* Diagnóstico do Cast: mostra em que passo está e que tipo de ligação o WebRTC conseguiu (direta, STUN ou relay). */
 const TURN_HELP = "Ativa o relay da Cloudflare: Cloudflare › Realtime › TURN › Create. Guarda o Key ID e o API token no Worker como secrets TURN_KEY_ID e TURN_API_TOKEN e faz Deploy.";
 function rtcDiag(pc, el, t0 = Date.now()){
   let stop = false, tm = 0, seen = "";
-  const turnTxt = () => rtcTurnMode === "cloudflare" ? "relay Cloudflare ativo" : rtcTurnMode === "openrelay" ? "relay público (fraco)" : rtcTurnMode === "none" ? "sem relay" : "relay: " + rtcTurnMode;
+  const turnTxt = () => rtcTurnMode === "cloudflare" ? "relay Cloudflare ativo" : rtcTurnMode === "openrelay" ? "relay público (fraco)" : rtcTurnMode === "none" ? "sem relay" + (rtcTurnErr ? " (" + rtcTurnErr + ")" : "") : "relay: " + rtcTurnMode;
   const tick = async () => {
     if(stop) return;
     let pair = "", rx = "";
@@ -7009,7 +7426,9 @@ function rtcDiag(pc, el, t0 = Date.now()){
       if(sel){ const l = cands[sel.localCandidateId], rm = cands[sel.remoteCandidateId]; const ty = x => x ? ({host:"direta", srflx:"STUN", prflx:"STUN", relay:"relay"})[x.candidateType] || x.candidateType : "?"; pair = " · ligação " + ty(l) + "/" + ty(rm); }
       stt.forEach(r => { if(r.type === "inbound-rtp" && r.kind === "video") rx = " · vídeo " + (r.framesDecoded || 0) + " fotogramas"; });
     }catch(e){}
-    seen = "ICE " + pc.iceConnectionState + " · " + pc.connectionState + pair + rx + " · " + turnTxt() + " · " + Math.round((Date.now() - t0)/1000) + " s";
+    const cnt = sdp => { const o = {host:0, srflx:0, relay:0}; (String(sdp || "").match(/ typ (host|srflx|relay)/g) || []).forEach(x => o[x.trim().split(" ")[1]]++); return o; };
+    let cd = ""; try{ const L = cnt(pc.localDescription && pc.localDescription.sdp), R = cnt(pc.remoteDescription && pc.remoteDescription.sdp); const f = o => o.host + "/" + o.srflx + "/" + o.relay; cd = " · candidatos (direta/STUN/relay) aqui " + f(L) + ", telemóvel " + f(R); }catch(e){}
+    seen = "ICE " + pc.iceConnectionState + " · " + pc.connectionState + pair + rx + cd + " · " + turnTxt() + " · " + Math.round((Date.now() - t0)/1000) + " s";
     el.textContent = seen;
     if((pc.iceConnectionState === "failed" || (pc.iceConnectionState === "checking" && Date.now() - t0 > 20000)) && rtcTurnMode !== "cloudflare") el.textContent = seen + " — não consegue ligar diretamente. " + TURN_HELP;
     else if(pc.iceConnectionState === "failed") el.textContent = seen + " — a rede bloqueou a ligação mesmo com relay. Tenta outra rede Wi-Fi para o telemóvel.";
@@ -7018,6 +7437,28 @@ function rtcDiag(pc, el, t0 = Date.now()){
   };
   tick();
   return () => { stop = true; clearTimeout(tm); };
+}
+/* Cast rápido: o emissor (libwebrtc) começa por estimar ~300 kbps e demora segundos a subir. Pedimos já no SDP um bitrate inicial alto,
+   que o emissor lê da resposta (x-google-start-bitrate / x-google-min-bitrate). */
+function castTuneSdp(sdp, startK, minK){
+  const L = String(sdp || "").split(/\r?\n/), vpt = new Set(); let sec = "";
+  L.forEach(l => { if(l.startsWith("m=")) sec = l.split(" ")[0].slice(2); });
+  sec = "";
+  L.forEach(l => { if(l.startsWith("m=")){ sec = l.split(" ")[0].slice(2); return; } if(sec === "video"){ const m = /^a=rtpmap:(\d+) (VP8|VP9|H264|H265|AV1)\//i.exec(l); if(m) vpt.add(m[1]); } });
+  if(!vpt.size) return sdp;
+  const tune = "x-google-start-bitrate=" + startK + ";x-google-min-bitrate=" + minK;
+  const hasFmtp = new Set(); sec = "";
+  L.forEach(l => { if(l.startsWith("m=")){ sec = l.split(" ")[0].slice(2); return; } const m = /^a=fmtp:(\d+) /.exec(l); if(sec === "video" && m) hasFmtp.add(m[1]); });
+  const out = []; sec = "";
+  for(const l of L){
+    if(l.startsWith("m=")) sec = l.split(" ")[0].slice(2);
+    const f = /^a=fmtp:(\d+) /.exec(l);
+    if(sec === "video" && f && vpt.has(f[1]) && !/x-google-start-bitrate/.test(l)){ out.push(l + ";" + tune); continue; }
+    out.push(l);
+    const r = /^a=rtpmap:(\d+) /.exec(l);
+    if(sec === "video" && r && vpt.has(r[1]) && !hasFmtp.has(r[1])) out.push("a=fmtp:" + r[1] + " " + tune);
+  }
+  return out.join("\r\n");
 }
 function rtcLostWatch(pc, fn){ let t = 0; return () => { const s = pc.connectionState; clearTimeout(t); if(s === "failed" || s === "closed") fn(); else if(s === "disconnected") t = setTimeout(() => { if(pc.connectionState === "disconnected" || pc.connectionState === "failed") fn(); }, 8000); }; }
 const castId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => SYNC_ALPHA[b % SYNC_ALPHA.length]).join("");
@@ -7035,7 +7476,7 @@ function dkCast(){
   let alive = true, pc = null;
   if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
   const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
-  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do telemóvel ou do PC…</p></div></div>`;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline disablepictureinpicture></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do telemóvel ou do PC…</p></div></div>`;
   const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
   const base = cfg.proxy, key = cfg.pkey;
   const apps = new Map(), gridEl = box.querySelector(".dkappgrid"), appsEl = box.querySelector(".dkapps"), btn = a => box.querySelector('.dkctl [data-a="' + a + '"]');
@@ -7089,12 +7530,22 @@ function dkCast(){
     pc.ondatachannel = e => {
       if(e.channel.label === "aud"){ e.channel.binaryType = "arraybuffer"; e.channel.onmessage = ev => { if(typeof ev.data !== "string"){ if(btn("snd").hidden){ btn("snd").hidden = false; sndLabel(); } playPcm(ev.data); } }; return; }
       dc = e.channel; dc.onmessage = onDc; dc.onopen = sendQ; if(dc.readyState === "open") sendQ(); };
-    pc.ontrack = e => { vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
+    pc.ontrack = e => { try{ if(e.receiver){ if("jitterBufferTarget" in e.receiver) e.receiver.jitterBufferTarget = 60; if("playoutDelayHint" in e.receiver) e.receiver.playoutDelayHint = 0.06; } }catch(x){} vid.srcObject = e.streams[0] || new MediaStream([e.track]); vid.play().catch(() => { vid.muted = true; vid.play().catch(()=>{}); }); box.classList.add("live"); };
     const fitWin = () => { if(!vid.videoWidth || w.el.classList.contains("max")) return; const area = $("dkWins"), bar = w.el.querySelector(".dkbar").offsetHeight; let ww = w.el.offsetWidth, hh = Math.round(ww * vid.videoHeight / vid.videoWidth) + bar; const mh = area.clientHeight - w.el.offsetTop - 6; if(hh > mh){ hh = mh; ww = Math.round((hh - bar) * vid.videoWidth / vid.videoHeight); } w.el.style.width = Math.max(260, ww) + "px"; w.el.style.height = Math.max(180, hh) + "px"; };
     vid.addEventListener("loadedmetadata", fitWin); let lastAR = 0; vid.addEventListener("resize", () => { const ar = vid.videoWidth / vid.videoHeight; if(Math.abs(ar - lastAR) > 0.05){ lastAR = ar; fitWin(); } });
-    pc.onconnectionstatechange = rtcLostWatch(pc, () => { box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; });
+    const lostW = rtcLostWatch(pc, () => { box.classList.remove("live"); st.textContent = "Ligação terminada. Fecha e abre o Cast para voltar a ligar."; box.querySelector(".castdiag") && (box.querySelector(".castdiag").style.display = ""); });
+    let hideDg = 0;
+    pc.onconnectionstatechange = () => {
+      if(pc.connectionState === "connected"){ // (re)ligou: tira o painel do código e o aviso de ligação terminada
+        box.classList.add("live"); st.textContent = "";
+        clearTimeout(hideDg); hideDg = setTimeout(() => { const d = box.querySelector(".castdiag"); if(d && pc.connectionState === "connected") d.style.display = "none"; }, 6000);
+      }
+      lostW();
+    };
+    vid.addEventListener("playing", () => box.classList.add("live"));
     await pc.setRemoteDescription(offer);
-    await pc.setLocalDescription(await pc.createAnswer());
+    const ans = await pc.createAnswer(); { const q0 = QS[qi]; ans.sdp = castTuneSdp(ans.sdp, q0.br > 0 ? Math.min(q0.br, 6000) : 4000, 1200); }
+    await pc.setLocalDescription(ans);
     await iceDone(pc);
     const r = await fetch(syncUrl(base, key, castRev(code)), {method:"POST", body:JSON.stringify(pc.localDescription)});
     if(!r.ok) st.textContent = "Não consegui responder ao PC (" + r.status + ").";
@@ -7130,12 +7581,13 @@ function castSenderUI(code0){
     if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){ st("Este browser não deixa partilhar o ecrã. Usa o Chrome ou o Edge num computador."); return; }
     try{
       st("Escolhe o ecrã ou a janela a partilhar…");
-      stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30}, audio:true});
+      stream = await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:60, max:60}}, audio:true});
       q("csPrev").srcObject = stream; q("csPrev").hidden = false; q("csStop").hidden = false; q("csGo").hidden = true;
       stream.getVideoTracks()[0].addEventListener("ended", () => { stop(); st("Partilha terminada."); });
       pc = new RTCPeerConnection(await rtcConfig(base, key));
       rtcDiag(pc, dgs);
-      const senders = stream.getTracks().map(t => pc.addTrack(t, stream));
+      const senders = stream.getTracks().map(t => { try{ if(t.kind === "video") t.contentHint = "motion"; }catch(e){} return pc.addTrack(t, stream); });
+      const tuneSend = async () => { try{ const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; p.degradationPreference = "maintain-framerate"; p.encodings[0].maxFramerate = 60; p.encodings[0].priority = "high"; p.encodings[0].networkPriority = "high"; await sd.setParameters(p); }catch(e){} };
       const ch = pc.createDataChannel("ctl");
       ch.onmessage = async ev => { try{ const m = JSON.parse(ev.data); if(m.t) return; const sd = senders.find(x => x.track && x.track.kind === "video"); if(!sd) return; const p = sd.getParameters(); if(!p.encodings || !p.encodings.length) p.encodings = [{}]; const e0 = p.encodings[0]; if(m.br > 0) e0.maxBitrate = m.br * 1000; else delete e0.maxBitrate; if(m.fps) e0.maxFramerate = m.fps; if(m.sc >= 1) e0.scaleResolutionDownBy = m.sc; await sd.setParameters(p); }catch(e){} };
       await pc.setLocalDescription(await pc.createOffer());
@@ -7148,7 +7600,7 @@ function castSenderUI(code0){
       const aid = castRev(code); let ans = null;
       for(let i = 0; i < 150 && pc && !ans; i++){ await wait(2000); try{ const a = await fetch(syncUrl(base, key, aid)); if(a.ok) ans = await a.json(); }catch(e){} }
       if(!ans || !pc){ if(pc){ st("O Tesla não respondeu. Confirma que o Cast está aberto com o mesmo código."); stop(); } return; }
-      await pc.setRemoteDescription(ans);
+      await pc.setRemoteDescription(ans); tuneSend();
       pc.onconnectionstatechange = () => { if(pc && pc.connectionState === "connected") st("✓ A transmitir para o Tesla."); }; const lostW = rtcLostWatch(pc, () => st("Ligação perdida.")); pc.addEventListener("connectionstatechange", lostW);
       st("✓ A transmitir para o Tesla.");
     }catch(e){ st("Erro: " + (e.name === "NotAllowedError" ? "cancelaste a partilha." : e.message)); stop(); }
