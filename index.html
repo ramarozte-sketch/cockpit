@@ -1031,7 +1031,7 @@ body.layout-atv .rail{display:none}
             <div class="cinename" id="chName">Escolhe um canal</div>
             <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
             <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio e legendas">🎚 Áudio</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
-            <button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
+            <button class="btn" id="chAspect" data-testid="tv-aspect" aria-label="Formato da imagem">▭ Ajustar</button><button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
             <div class="tabs" role="tablist" aria-label="Ecrã de destino">
@@ -2575,7 +2575,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v79";
+const APP_VERSION = "v80";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -7625,6 +7625,114 @@ else if(cfg.passenger) show("tv");
 else if(cfg.layout==="auto") show("home");
 else if(cfg.layout==="tesla") show("nav");
 else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings" || v==="mail") && PIN.isSet() ? "car" : v); }
+/* ===== Picons: logótipos de canais em alta resolução (PT), guardados no aparelho ===== */
+  (function(){
+    const BASE = "https://cdn.jsdelivr.net/gh/tv-logo/tv-logos@main/countries/portugal/";
+    const FB = new Map();            /* candidato -> próximo candidato / logótipo do fornecedor */
+    let PIC = {}, MISS = {}, ready = false, dirty = 0, saveT = 0;
+    const slug = n => String(n || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+      .replace(/^[\s\W_]*(pt|portugal)\b[\s|:\-\/]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+      .replace(/\b(fhd|uhd|hd|sd|4k|8k|hevc|h265|raw)\b/g, " ")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const ptc = c => c.kind === "live" && (isPtGroup(c.group) || /^[\s\W_]*(PT|PORTUGAL)\b/i.test(c.name || ""));
+    const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { idle(() => { try{ IDB.set("picons", PIC); IDB.set("picons_miss", MISS); }catch(e){} }); }, 15000); };
+    function patch(){
+      if(!ready) return;
+      try{
+        for(const c of channels){
+          if(!ptc(c)) continue;
+          if(c.logo0 === undefined) c.logo0 = c.logo || "";
+          const sl = slug(c.name); if(!sl || sl.length < 2) continue;
+          const cand = [...new Set([sl + "-pt.png", sl.replace(/-(\d)/g, "$1") + "-pt.png", sl.replace(/^(canal|tv)-/, "").replace(/-(canal|tv)$/, "") + "-pt.png", sl + ".png"])].map(x => BASE + x);
+          const hit = cand.find(u => PIC[u]);
+          if(hit){ c.logo = PIC[hit]; continue; }                           /* já guardado no aparelho */
+          const left = cand.filter(u => !MISS[u]);                           /* ignora os que já sabemos que não existem */
+          if(!left.length){ c.logo = c.logo0; continue; }
+          left.forEach((u, i) => FB.set(u, i + 1 < left.length ? left[i + 1] : c.logo0));
+          c.logo = left[0];
+        }
+      }catch(e){}
+    }
+    /* Para outras listas (TV Direto): devolve o logótipo guardado no aparelho, ou o 1.º endereço a tentar (a cadeia de alternativas e a gravação local tratam do resto) */
+    window.__piconFor = name => {
+      try{
+        const sl = slug(name); if(!sl || sl.length < 2) return "";
+        const cand = [...new Set([sl + "-pt.png", sl.replace(/([a-z])(\d)/g, "$1-$2") + "-pt.png", sl.replace(/-(\d)/g, "$1") + "-pt.png", sl.replace(/^(canal|tv)-/, "").replace(/-(canal|tv)$/, "") + "-pt.png", sl + ".png"])].map(x => BASE + x);
+        const hit = cand.find(u => PIC[u]); if(hit) return PIC[hit];
+        const left = cand.filter(u => !MISS[u]); if(!left.length) return "";
+        left.forEach((u, i) => FB.set(u, i + 1 < left.length ? left[i + 1] : ""));
+        return left[0];
+      }catch(e){ return ""; }
+    };
+    /* falhou: lembra-se para não voltar a pedir */
+    document.addEventListener("error", ev => {
+      const im = ev.target; if(!im || im.tagName !== "IMG" || !FB.has(im.src)) return;
+      const bad = im.src; if(bad.indexOf(BASE) === 0){ MISS[bad] = 1; dirty++; persist(); }
+      const o = FB.get(bad); ev.stopImmediatePropagation();
+      if(o) im.src = o; else im.remove();
+    }, true);
+    /* carregou: guarda uma miniatura pequena (≈160 px) no aparelho, feita quando a TV está livre */
+    const q = [];
+    let busy = false;
+    const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, {timeout:4000}) : setTimeout(fn, 600));
+    function pump(){
+      if(busy || !q.length) return; busy = true;
+      idle(async () => {
+        const u = q.shift();
+        try{
+          if(!PIC[u] && Object.keys(PIC).length < 700){
+            const r = await fetch(u, {cache:"force-cache"}); const blob = r.ok ? await r.blob() : null;
+            if(blob && blob.size < 400000){
+              const bm = await createImageBitmap(blob), k = Math.min(1, 160 / Math.max(bm.width, bm.height));
+              const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(bm.width * k)); cv.height = Math.max(1, Math.round(bm.height * k));
+              cv.getContext("2d").drawImage(bm, 0, 0, cv.width, cv.height);
+              const d = cv.toDataURL("image/webp", 0.85);
+              if(d && d.length < 40000){ PIC[u] = d; dirty++; persist(); }
+            }
+          }
+        }catch(e){}
+        busy = false; setTimeout(pump, 250);
+      });
+    }
+    document.addEventListener("load", ev => {
+      const im = ev.target; if(!im || im.tagName !== "IMG" || !im.src || im.src.indexOf(BASE) !== 0 || PIC[im.src] || q.includes(im.src)) return;
+      if(q.length < 200) q.push(im.src); pump();
+    }, true);
+    const _ai = window.afterIptv;
+    if(typeof _ai === "function") window.afterIptv = function(){ patch(); return _ai.apply(this, arguments); };
+    Promise.all([IDB.get("picons"), IDB.get("picons_miss")]).then(([a, m]) => { if(a && typeof a === "object") PIC = a; if(m && typeof m === "object") MISS = m; }).catch(() => {}).then(() => {
+      ready = true; patch();
+      try{ if(channels.length) renderTvList(); }catch(e){}
+    });
+    document.head.insertAdjacentHTML("beforeend", "<style>.item img,.gch img,#tvList img{object-fit:contain!important}</style>");
+  })();
+
+  
+/* ===== Formato da imagem (ajustar, zoom/panscan, esticar, 16:9, 4:3, 21:9) no leitor da página ===== */
+(function(){
+  const ASP = [["fit", "Ajustar"], ["zoom", "Zoom / Panscan"], ["stretch", "Esticar"], ["16:9", "16:9"], ["4:3", "4:3"], ["21:9", "21:9 cinema"]];
+  const getA = () => LS.get("tvAspect", "fit") || "fit";
+  const labelOf = k => (ASP.find(a => a[0] === k) || ASP[0])[1];
+  const applyA = () => {
+    const mode = getA();
+    document.querySelectorAll("#stage .slot").forEach(slot => {
+      const v = slot.querySelector("video"); if(!v) return;
+      const r = slot.getBoundingClientRect(), W = r.width, H = r.height;
+      const ratio = {"16:9": 16 / 9, "4:3": 4 / 3, "21:9": 21 / 9}[mode];
+      if(ratio && W > 0 && H > 0){
+        let w = W, h = W / ratio; if(h > H){ h = H; w = H * ratio; }
+        Object.assign(v.style, {position: "absolute", width: w + "px", height: h + "px", left: ((W - w) / 2) + "px", top: ((H - h) / 2) + "px"}); v.style.setProperty("object-fit", "fill", "important");
+      } else {
+        ["position", "width", "height", "left", "top"].forEach(k => { v.style[k] = ""; });
+        v.style.setProperty("object-fit", mode === "zoom" ? "cover" : mode === "stretch" ? "fill" : "contain", "important");
+      }
+    });
+    const b = $("chAspect"); if(b) b.textContent = "▭ " + labelOf(mode);
+  };
+  const cycle = () => { const i = ASP.findIndex(a => a[0] === getA()); LS.set("tvAspect", ASP[(i + 1) % ASP.length][0]); applyA(); try{ toast("Formato da imagem: " + labelOf(getA())); }catch(e){} };
+  const b = $("chAspect"); if(b) b.onclick = cycle;
+  window.addEventListener("resize", applyA); setInterval(applyA, 1500); applyA();
+})();
 loadState(); loadIptv(false);
 setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
 </script>
