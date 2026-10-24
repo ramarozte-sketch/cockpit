@@ -2587,7 +2587,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v84";
+const APP_VERSION = "v85";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2748,7 +2748,8 @@ function fillGroups(){
   if(tvKind==="intl"){ $("tvGroup").hidden = false; $("tvGroup").innerHTML = INTL_SETS.map(([k,l])=>`<option value="${k}"${k===intlSet?" selected":""}>${esc(l)}</option>`).join(""); return; }
   $("tvGroup").hidden = false;
   const groups = orgGroupList(tvKind==="fav" ? "live" : tvKind, [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))], false);
-  $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option>${esc(g)}</option>`).join("");
+  const gcn = new Map(); channels.forEach(c => { if(tvKind==="fav" || c.kind===tvKind){ gcn.set(c.group, (gcn.get(c.group)||0)+1); } });
+  $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option value="${esc(g)}">${esc(g)}  ·  ${gcn.get(g)||0}</option>`).join("");
 }
 function renderTvList(){
   const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
@@ -2758,7 +2759,9 @@ function renderTvList(){
   if(g && tvKind!=="free" && tvKind!=="intl") list = list.filter(c=>c.group===g);
   if(q) list = list.filter(c=>norm(c.name).includes(q));
   list = orgChannels(list, orgKindNow(), tvKind==="fav" ? "x" : g);
-  const shown = list.slice(0, 300);
+  const _k = tvKind+"|"+g+"|"+q; if(window.__tvK !== _k){ window.__tvK = _k; window.__tvLim = 25; }
+  const paged = tvKind==="movie" || tvKind==="series";
+  const shown = list.slice(0, paged ? window.__tvLim : 300);
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
     return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
@@ -2768,6 +2771,7 @@ function renderTvList(){
   $("tvCount").textContent = tvKind==="intl" && list.length ? `${list.length} canais gratuitos (${(INTL_SETS.find(x=>x[0]===intlSet)||[,""])[1]}). Listas públicas da comunidade: alguns estão em baixo ou bloqueados por país. Usa 🩺 Testar canais.` : tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
   $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
+  if(paged && list.length > shown.length){ const mb = document.createElement("button"); mb.className = "btn"; mb.id = "tvMore"; mb.style.cssText = "width:100%;margin:10px 0;min-height:52px"; mb.textContent = "Carregar mais 25 (" + shown.length + " de " + list.length + ")"; mb.onclick = () => { const st = $("tvList").scrollTop; window.__tvLim += 25; renderTvList(); $("tvList").scrollTop = st; const n = $("tvMore"); if(!n){ const it = $("tvList").querySelectorAll("div.item[data-i]"); if(it.length) it[Math.max(0, it.length - 1)].querySelector("button").focus({preventScroll:true}); } }; $("tvList").appendChild(mb); }
   // Guia dos canais visíveis
   epgQueue = []; if(epgObserver) epgObserver.disconnect();
   if(cfg.xs && cfg.xu && cfg.xp && "IntersectionObserver" in window){
