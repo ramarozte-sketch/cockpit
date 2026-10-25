@@ -165,6 +165,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 /* Leitor: barra de canais e modo cinema */
 .cinebar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;min-width:0}
 .cinebar .cinename{flex:1 0 100%}
+.cineepg{flex:1 0 100%;text-align:center;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.2em}
+#vStats{margin:0;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.35);font-size:12px;white-space:pre-wrap;color:#9fd0ff}
 .cinebar .btn{flex:1 1 auto;min-width:0;padding:8px 4px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-content:center}
 .cinebar .btn.av{flex:0 1 auto;padding-inline:8px}
 .cinebar .avval{flex:0 0 auto;align-self:center;min-width:44px;text-align:center}
@@ -195,6 +197,12 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .gdbox{width:min(1480px,98vw)!important;height:min(94vh,980px)!important}
 .gdgrid{grid-template-columns:minmax(260px,380px) minmax(0,1fr)!important}
 @media(max-width:820px){.gdgrid{grid-template-columns:1fr;grid-template-rows:36% minmax(0,1fr)}}
+.mvbox{display:flex;flex-direction:row;align-items:flex-start;gap:22px;width:min(980px,94vw);max-height:90vh;padding:22px;box-sizing:border-box;overflow:hidden}
+.mvposter{flex:0 0 200px;aspect-ratio:2/3;border-radius:14px;background:#14203a;display:flex;align-items:center;justify-content:center;overflow:hidden}.mvposter img{width:100%;height:100%;object-fit:cover}.mvposter b{font-size:48px;opacity:.4}
+.mvtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:calc(90vh - 44px)}.mvtx h2{margin:0;font-size:26px;line-height:1.15}
+.mvmeta{font-size:16px;opacity:.9}.mvrate{color:#ffd166;margin-right:6px}.mvplot{font-size:16px;line-height:1.45}.mvcrew{font-size:14px;opacity:.8;display:flex;flex-direction:column;gap:4px}
+.mvbt{display:flex;gap:10px;flex-wrap:wrap;padding-top:6px}
+@media (max-width:700px){.mvbox{flex-direction:column}.mvposter{flex-basis:auto;width:130px}}
 .trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
 .trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
 .trkStyle{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}.trkStyle .lb{font-size:14px;opacity:.8}.trkStyle .opts{display:flex;flex-wrap:wrap;gap:6px}.trkStyle .btn{min-height:44px;padding:0 14px}.trkStyle .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -1040,16 +1048,22 @@ body.layout-atv .rail{display:none}
           </div>
           <div class="cinebar" data-testid="tv-cinebar">
             <div class="cinename" id="chName">Escolhe um canal</div>
+            <div class="cineepg" id="chEpg"></div>
             <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
-            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio e legendas">🎚 Áudio</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
+            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🔊 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
             <button class="btn" id="chAspect" data-testid="tv-aspect" aria-label="Formato da imagem">▭ Ajustar</button><button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
+          <div class="cinebar" id="cinebar2">
+            <button class="btn" id="tsBack" aria-label="Recuar 10 segundos">⏪ 10 s</button><button class="btn" id="tsPlay" aria-label="Pausa">⏯ Pausa</button><button class="btn" id="tsFwd" aria-label="Avançar 30 segundos">30 s ⏩</button><button class="btn" id="tsLive" aria-label="Voltar ao direto">⏭ Direto</button><button class="btn" id="chInfo" aria-pressed="false">📊 Info</button>
+          </div>
+          <pre id="vStats" hidden></pre>
           <div class="row"><span class="muted small">Próximo canal vai para:</span>
             <div class="tabs" role="tablist" aria-label="Ecrã de destino">
               <button class="tab" data-target="0" aria-selected="true">USER 1</button>
               <button class="tab" data-target="1" aria-selected="false">USER 2</button>
             </div>
             <button class="btn" id="btnSwapAudio">Som: USER 1</button>
+            <select id="comboSel" aria-label="Combinações guardadas" style="max-width:220px"></select><button class="btn" id="comboOpen">▶ Abrir</button><button class="btn" id="comboSave">💾 Guardar combinação</button><button class="btn" id="comboDel" aria-label="Apagar combinação">🗑</button>
           </div>
           <div class="epg" id="epgBox"></div>
         </div>
@@ -1563,6 +1577,12 @@ body.layout-atv .rail{display:none}
           <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
         </div>
       <div class="panel setcard">
+          <h2>Diagnóstico e informação</h2>
+          <p class="small muted setsub" style="margin:0">Versão, listas, memória e erros recentes.</p>
+          <div class="row"><button class="btn" id="tsDgRef">Atualizar</button><button class="btn" id="tsDgCp">Copiar</button></div>
+          <pre id="tsDgOut" class="mono small" style="white-space:pre-wrap;max-height:46vh;overflow:auto;user-select:text">(toca em Atualizar)</pre>
+        </div>
+      <div class="panel setcard">
           <h2>Cofre no servidor (password)</h2>
           <p class="small muted setsub" style="margin:0">Guarda todas as definições no teu servidor e importa-as noutro aparelho só com a password.</p>
           <p class="small muted" style="margin:0">Guarda tudo (definições, chaves, notas, favoritos) cifrado neste aparelho antes de sair; o servidor só vê texto cifrado. Quem não souber a password não consegue ler nem encontrar o cofre. Usa uma password longa (8 ou mais caracteres) e não a percas: não há recuperação. Precisa do proxy Cloudflare com o KV «SYNC». Funciona também em páginas http.</p>
@@ -1633,27 +1653,32 @@ body.layout-atv .rail{display:none}
   </div>
 </div></div>
 <div class="trkdlg" id="trkDlg" hidden><div class="panel trkbox" role="dialog" aria-label="Áudio e legendas">
-  <div class="row"><h2 style="margin:0">Áudio e legendas</h2><span class="spacer"></span><button class="btn" id="trkClose">Fechar</button></div>
+  <div class="row"><h2 style="margin:0" id="trkTitle">Áudio e legendas</h2><span class="spacer"></span><button class="btn" id="trkClose">Fechar</button></div>
   <div class="small muted" id="trkWhich"></div>
-  <h3>Áudio</h3><div class="trklist" id="trkAudio"></div>
-  <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
-  <h3>Aspeto das legendas</h3><div id="trkStyle" class="trkStyle"></div>
-  <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
-  <h3>Legendas online (OpenSubtitles)</h3>
-  <div class="row"><input type="text" id="osQuery" placeholder="Título do filme ou série (ex.: Duna 2021, ou The Office S02E03)" style="flex:1;min-width:220px"><button class="btn" id="osGo">🔎 Procurar</button><button class="btn primary" id="osAuto">⚡ Automático</button></div>
-  <div class="trklist" id="osRes"></div>
-  <p class="small muted" id="osNote" style="margin:0"></p>
-  <details><summary class="small muted" style="cursor:pointer">Conta OpenSubtitles (só é preciso configurar uma vez)</summary>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-      <input type="text" id="osKey" placeholder="Chave da API (API key)" autocomplete="off">
-      <input type="text" id="osUser" placeholder="Utilizador" autocomplete="off"><input type="password" id="osPass" placeholder="Palavra-passe" autocomplete="off">
-      <div class="row"><button class="btn" id="osSave">Guardar</button><span class="small muted">Cria conta grátis em opensubtitles.com e gera a chave em opensubtitles.com/consumers.</span></div>
-    </div>
-  </details>
-  <label class="row small"><input type="checkbox" id="osAutoOn"> Procurar sozinho ao abrir filmes e episódios sem legendas em português</label>
-  <div class="row"><input type="url" id="trkUrl" placeholder="Endereço de um ficheiro de legendas .srt ou .vtt" style="flex:1;min-width:220px"><button class="btn" id="trkUrlGo">Carregar</button></div>
-  <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiro .srt / .vtt<input type="file" id="trkFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" hidden></label>
-    <span class="small muted">Sincronia</span><button class="btn" id="trkM">−0,5 s</button><b id="trkOff" class="small">0 s</b><button class="btn" id="trkP">+0,5 s</button></div>
+  <div id="trkSecA"><h3>Áudio</h3><div class="trklist" id="trkAudio"></div></div>
+  <div id="trkSecS">
+    <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
+    <div class="row"><button class="btn primary" id="osAuto">⚡ Português automático</button><span class="small muted">Sincronia</span><button class="btn" id="trkM">−0,5 s</button><b id="trkOff" class="small">0 s</b><button class="btn" id="trkP">+0,5 s</button></div>
+    <p class="small muted" id="osNote" style="margin:0"></p>
+    <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
+    <label class="row small"><input type="checkbox" id="osAutoOn"> Procurar sozinho ao abrir filmes e episódios sem legendas em português</label>
+    <details><summary class="small" style="cursor:pointer;padding:8px 0">Mais opções: procurar, ficheiro, aspeto</summary>
+      <h3>Procurar online (OpenSubtitles)</h3>
+      <div class="row"><input type="text" id="osQuery" placeholder="Título (ex.: Duna 2021, ou The Office S02E03)" style="flex:1;min-width:220px"><button class="btn" id="osGo">🔎 Procurar</button></div>
+      <div class="trklist" id="osRes"></div>
+      <h3>Ficheiro ou endereço</h3>
+      <div class="row"><input type="url" id="trkUrl" placeholder="Endereço de um ficheiro .srt ou .vtt" style="flex:1;min-width:220px"><button class="btn" id="trkUrlGo">Carregar</button></div>
+      <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiro .srt / .vtt<input type="file" id="trkFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" hidden></label></div>
+      <h3>Aspeto das legendas</h3><div id="trkStyle" class="trkStyle"></div>
+      <details><summary class="small muted" style="cursor:pointer">Conta OpenSubtitles (só é preciso configurar uma vez)</summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <input type="text" id="osKey" placeholder="Chave da API (API key)" autocomplete="off">
+          <input type="text" id="osUser" placeholder="Utilizador" autocomplete="off"><input type="password" id="osPass" placeholder="Palavra-passe" autocomplete="off">
+          <div class="row"><button class="btn" id="osSave">Guardar</button><span class="small muted">Cria conta grátis em opensubtitles.com e gera a chave em opensubtitles.com/consumers.</span></div>
+        </div>
+      </details>
+    </details>
+  </div>
   <p class="small muted" id="trkNote" style="margin:0"></p>
 </div></div>
 <div class="pinwrap" id="qrModal" hidden role="dialog" aria-modal="true" aria-labelledby="qrTitle">
@@ -2437,8 +2462,10 @@ $("orgReset").onclick = () => {
   orgSave(); orgRender(); orgRefreshMain();
 };
 /* Exportar / importar as definições feitas à mão na IPTV */
+const LS_SKIP = /^ck_(tok_|oauth|mailAcct|cfg$|last$|navRecent|notes|parPin)/;
+function lsGrab(){ const o = {}; for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k && k.indexOf("ck_") === 0 && !LS_SKIP.test(k)) o[k] = localStorage.getItem(k); } return o; }
 function orgExport(withAcc){
-  const o = {app:"cockpit-iptv", v:1, saved:new Date().toISOString(), org:TVORG, favs:[...favs], opts:{subAuto:cfg.subAuto, osAuto:!!cfg.osAuto}};
+  const o = {app:"cockpit-iptv", v:2, ls:lsGrab(), saved:new Date().toISOString(), org:TVORG, favs:[...favs], opts:{subAuto:cfg.subAuto, osAuto:!!cfg.osAuto}};
   if(withAcc) o.acc = {m3u:cfg.m3u, xs:cfg.xs, xu:cfg.xu, xp:cfg.xp, epg:cfg.epg};
   return o;
 }
@@ -2451,6 +2478,7 @@ function orgImport(text){
   let acc = false;
   if(o.acc && typeof o.acc === "object"){ ["m3u","xs","xu","xp","epg"].forEach(k => { if(typeof o.acc[k] === "string") cfg[k] = o.acc[k]; }); acc = true; }
   saveCfg(); orgRender(); orgRefreshMain();
+  if(o.ls && typeof o.ls === "object"){ let n = 0; Object.keys(o.ls).forEach(k => { if(k.indexOf("ck_") === 0 && !LS_SKIP.test(k) && typeof o.ls[k] === "string"){ try{ localStorage.setItem(k, o.ls[k]); n++; }catch(e){} } }); if(n) setTimeout(() => { try{ location.reload(); }catch(e){} }, 1200); }
   return {favs:(o.favs || []).length, hidden:(TVORG.chHide || []).length, acc};
 }
 const orgXferMsg = (t, bad) => { const m = $("orgXferMsg"); m.textContent = t; m.style.color = bad ? "var(--bad)" : ""; };
@@ -2587,7 +2615,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v85";
+const APP_VERSION = "v90";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2638,11 +2666,13 @@ async function loadXtream(){
   const auth = await (await fetchPx(`${xBase()}/player_api.php?${xQ()}`)).json();
   if(auth?.user_info && String(auth.user_info.auth)==="0") throw new Error("utilizador ou palavra-passe errados");
   if(auth?.user_info?.status && auth.user_info.status!=="Active") throw new Error("conta "+auth.user_info.status);
-  const [lc, ls, vc, vs, sc, ss] = await Promise.all([
-    xApi("get_live_categories"), xApi("get_live_streams"),
-    xApi("get_vod_categories").catch(()=>[]), xApi("get_vod_streams").catch(()=>[]),
-    xApi("get_series_categories").catch(()=>[]), xApi("get_series").catch(()=>[])
-  ]);
+  /* pedidos em 3 vagas e com repetição: muitos fornecedores recusam pedidos em paralelo, e sem as categorias todos os filmes ficavam em «Sem categoria» */
+  const xApiR = async (action, tries = 4) => { let last; for(let i = 0; i < tries; i++){ try{ return await xApi(action); }catch(e){ last = e; await new Promise(r => setTimeout(r, 800 * (i + 1))); } } throw last; };
+  const [lc, ls] = await Promise.all([xApiR("get_live_categories"), xApiR("get_live_streams")]);
+  let [vc, vs] = await Promise.all([xApiR("get_vod_categories").catch(()=>[]), xApiR("get_vod_streams").catch(()=>[])]);
+  let [sc, ss] = await Promise.all([xApiR("get_series_categories").catch(()=>[]), xApiR("get_series").catch(()=>[])]);
+  if(Array.isArray(vs) && vs.length && !(Array.isArray(vc) && vc.length)) vc = await xApiR("get_vod_categories", 6).catch(()=>[]);
+  if(Array.isArray(ss) && ss.length && !(Array.isArray(sc) && sc.length)) sc = await xApiR("get_series_categories", 6).catch(()=>[]);
   const cat = list => Object.fromEntries((Array.isArray(list)?list:[]).map(c=>[String(c.category_id), c.category_name]));
   const lcm=cat(lc), vcm=cat(vc), scm=cat(sc), b=xBase(), u=encodeURIComponent(cfg.xu), p=encodeURIComponent(cfg.xp);
   const fmts = auth?.user_info?.allowed_output_formats || [];
@@ -2655,7 +2685,9 @@ async function loadXtream(){
   return out;
 }
 async function loadIptv(force){
-  if(!force){ const cached = await IDB.get("channels"); if(cached && cached.length){ channels=cached; afterIptv("Lista em cache: "+channels.length+" entradas."); loadEpg(); return; } }
+  if(!force){ const cached = await IDB.get("channels"); if(cached && cached.length && !window.__badCatTried && cfg.xs && cfg.xu && cfg.xp){
+      const mv = cached.filter(c => c.kind === "movie"); if(mv.length > 50 && mv.filter(c => c.group === "Sem categoria").length > mv.length * 0.5){ window.__badCatTried = true; return loadIptv(true); } }
+    if(cached && cached.length){ channels=cached; afterIptv("Lista em cache: "+channels.length+" entradas."); loadEpg(); return; } }
   const isX = cfg.xs && cfg.xu && cfg.xp;
   if(!isX && !cfg.m3u){ afterIptv(""); return; }
   $("iptvStatus").textContent = isX ? "A ligar ao servidor Xtream…" : "A descarregar lista…";
@@ -2739,10 +2771,12 @@ function queueEpg(el, c){ epgQueue.push([el,c]); pumpEpg(); }
 function pumpEpg(){
   while(epgBusy < 3 && epgQueue.length){
     const [el, c] = epgQueue.shift(); epgBusy++;
-    xEpg(c).then(()=>{ const nn = nowNext(c); const s = el.querySelector(".t span"); if(nn && s) s.textContent = `${hm(nn.now.start)} ${nn.now.title}`; }).finally(()=>{ epgBusy--; pumpEpg(); });
+    xEpg(c).then(()=>{ const nn = nowNext(c); const s = el.querySelector(".t span"); if(nn && s) s.textContent = `${hm(nn.now.start)}–${hm(nn.now.stop)} ${nn.now.title}`; }).finally(()=>{ epgBusy--; pumpEpg(); });
   }
 }
 const hm = t => new Date(t).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"});
+/* Capas e logos: em páginas https os endereços http:// são bloqueados (conteúdo misto). Passa pelo proxy se existir, senão tenta https. */
+function imgSrc(u){ u = String(u||""); if(!/^http:/i.test(u) || PAGE_HTTP) return u; try{ return HASPX() ? px(u) : u.replace(/^http:/i,"https:"); }catch(e){ return u.replace(/^http:/i,"https:"); } }
 function fillGroups(){
   if(tvKind==="free"){ $("tvGroup").innerHTML = ""; $("tvGroup").hidden = true; return; }
   if(tvKind==="intl"){ $("tvGroup").hidden = false; $("tvGroup").innerHTML = INTL_SETS.map(([k,l])=>`<option value="${k}"${k===intlSet?" selected":""}>${esc(l)}</option>`).join(""); return; }
@@ -2761,10 +2795,10 @@ function renderTvList(){
   list = orgChannels(list, orgKindNow(), tvKind==="fav" ? "x" : g);
   const _k = tvKind+"|"+g+"|"+q; if(window.__tvK !== _k){ window.__tvK = _k; window.__tvLim = 25; }
   const paged = tvKind==="movie" || tvKind==="series";
-  const shown = list.slice(0, paged ? window.__tvLim : 300);
+  const shown = list.slice(0, paged ? window.__tvLim : 300); window.__tvShown = shown;
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
-    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
+    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+"–"+hm(nn.now.stop)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
   if(tvKind==="intl" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${intlLoading ? "A carregar canais…" : esc(intlErr || "Nada para mostrar.")}</p>`;
   if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
@@ -2782,9 +2816,66 @@ function renderTvList(){
     $("tvList").querySelectorAll("div.item[data-i]").forEach(el=>epgObserver.observe(el));
   }
 }
+
+/* ---------- Pressão longa num filme/série: informação (sinopse, nota, elenco, trailer) ---------- */
+(function(){
+  if(window.ANDROID) return;   /* a app Android já tem o seu ecrã de detalhes */
+  const dlg = document.createElement("div"); dlg.className = "trkdlg"; dlg.id = "mvDlg"; dlg.hidden = true;
+  dlg.innerHTML = '<div class="panel mvbox" role="dialog" aria-label="Informação"><div class="mvposter" id="mvPoster"></div><div class="mvtx"><h2 id="mvTitle"></h2><div class="mvmeta" id="mvMeta"></div><div class="mvplot" id="mvPlot"></div><div class="mvcrew" id="mvCrew"></div><div class="mvbt"><button class="btn primary" id="mvGo"></button><button class="btn" id="mvTrailer">🎞 Trailer</button><button class="btn" id="mvClose">Fechar</button></div></div></div>';
+  document.body.appendChild(dlg);
+  const cache = new Map(); let cur = null, tk = 0, trailer = "";
+  const close = () => { dlg.hidden = true; tk++; };
+  dlg.onclick = e => { if(e.target === dlg) close(); };
+  document.getElementById("mvClose").onclick = close;
+  document.getElementById("mvGo").onclick = () => { const c = cur; close(); if(!c) return; c.kind === "series" && c.sid ? openSeries(c) : playChannel(c); };
+  document.getElementById("mvTrailer").onclick = () => {
+    const t = String(trailer || "").trim();
+    const id = /^[\w-]{11}$/.test(t) ? t : ((/(?:v=|youtu\.be\/)([\w-]{11})/.exec(t) || [])[1] || "");
+    const q = ((typeof osParse === "function" ? osParse(cur.name).title : "") || cur.name) + " trailer oficial";
+    window.open(id ? "https://www.youtube.com/watch?v=" + id : "https://www.youtube.com/results?search_query=" + encodeURIComponent(q) + "&sp=CAI%3D", "_blank");
+  };
+  async function load(c){
+    if(cache.has(c.url)) return cache.get(c.url);
+    let info = {};
+    try{
+      if(c.kind === "series" && c.sid) info = Object.assign({}, (await xApi("get_series_info", "&series_id=" + c.sid)).info || {});
+      else { const m = /\/movie\/[^/]+\/[^/]+\/(\d+)\./.exec(c.url || ""); if(m) info = Object.assign({}, (await xApi("get_vod_info", "&vod_id=" + m[1])).info || {}); }
+    }catch(e){}
+    cache.set(c.url, info); return info;
+  }
+  async function open(c){
+    const my = ++tk; cur = c; trailer = "";
+    const $$ = id => document.getElementById(id);
+    $$("mvTitle").textContent = c.name; $$("mvMeta").textContent = c.group || ""; $$("mvPlot").textContent = "A carregar informação…"; $$("mvCrew").textContent = "";
+    $$("mvPoster").innerHTML = c.logo ? '<img src="' + esc(imgSrc(c.logo)) + '" alt="" onerror="this.remove()">' : "<b>" + esc((c.name || "?").slice(0, 2).toUpperCase()) + "</b>";
+    $$("mvGo").textContent = c.kind === "series" ? "📺 Ver episódios" : "▶ Ver agora";
+    dlg.hidden = false;
+    const i = await load(c); if(my !== tk) return;
+    const y = String(i.releasedate || i.releaseDate || i.year || "").slice(0, 4);
+    const rt = parseFloat(i.rating) || (parseFloat(i.rating_5based) || 0) * 2;
+    const dur = i.duration || (i.episode_run_time ? i.episode_run_time + " min" : "");
+    $$("mvMeta").innerHTML = (rt ? '<b class="mvrate">⭐ ' + rt.toFixed(1) + '/10</b> ' : "") + esc([y, dur, i.genre, i.country, i.age].filter(Boolean).join(" · ") || c.group || "");
+    $$("mvPlot").textContent = i.plot || i.description || "Sem sinopse disponível para este título.";
+    $$("mvCrew").innerHTML = (i.director ? "<div><b>Realização:</b> " + esc(i.director) + "</div>" : "") + (i.cast || i.actors ? "<div><b>Elenco:</b> " + esc(i.cast || i.actors) + "</div>" : "");
+    trailer = i.youtube_trailer || i.trailer || "";
+    const img = i.movie_image || i.cover || (Array.isArray(i.backdrop_path) ? i.backdrop_path[0] : "") || c.logo;
+    if(img) $$("mvPoster").innerHTML = '<img src="' + esc(imgSrc(img)) + '" alt="" onerror="this.remove()">';
+  }
+  window.showMovieInfo = open;
+  /* pressão longa (toque ou rato) ou menu de contexto num item da lista */
+  const L = $("tvList"); let timer = 0, sx = 0, sy = 0, fired = 0;
+  const item = e => { const b = e.target.closest && e.target.closest("[data-play]"); if(!b) return null; const c = (window.__tvShown || [])[+b.dataset.play]; return c && (c.kind === "movie" || c.kind === "series") ? c : null; };
+  const fire = c => { fired = Date.now(); open(c); };
+  L.addEventListener("pointerdown", e => { const c = item(e); if(!c) return; sx = e.clientX; sy = e.clientY; clearTimeout(timer); timer = setTimeout(() => fire(c), 550); });
+  L.addEventListener("pointermove", e => { if(timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 12){ clearTimeout(timer); timer = 0; } });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(t => L.addEventListener(t, () => { clearTimeout(timer); timer = 0; }));
+  L.addEventListener("contextmenu", e => { const c = item(e); if(!c) return; e.preventDefault(); if(Date.now() - fired > 900) fire(c); });
+  L.addEventListener("click", e => { if(Date.now() - fired < 900){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+})();
 /* Canais UHD/FHD costumam vir em HEVC, que muitos browsers não descodificam: tenta sozinho a versão HD ou SD do mesmo canal. */
 const chBase = n => String(n||"").normalize("NFKD").toLowerCase().replace(/\b(uhd|fhd|4k|hevc|h ?265|hd|sd|1080p?|720p?|576p?|50fps|60fps)\b/g," ").replace(/[^a-z0-9+]+/g," ").trim();
-const resCap = () => ({"2160":2160,"1080":1080,"720":720,"480":480})[String(cfg.maxRes || "1080")] || 1080;
+const resCap = () => { const b = ({"2160":2160,"1080":1080,"720":720,"480":480})[String(cfg.maxRes || "1080")] || 1080; const st = document.getElementById("stage"); return st && !st.classList.contains("single") ? Math.min(b, 720) : b; };   /* vista dupla/PIP: máx. 720p por ecrã */
+function applyCaps(){ [0, 1].forEach(sl => { const h = hlsInst[sl]; if(!h || !h.levels) return; let idx = -1; h.levels.forEach((l, i) => { if(!l.height || l.height <= resCap()) idx = Math.max(idx, i); }); try{ h.autoLevelCapping = idx; }catch(e){} }); }
 const chQual = n => { const t = String(n||"").normalize("NFKD").toLowerCase(); return /\b(uhd|4k)\b/.test(t) ? 4 : /\bfhd\b|1080/.test(t) ? 3 : /\bsd\b|576/.test(t) ? 1 : 2; };
 const autoTried = [new Set(), new Set()];
 function altQuality(c, tried){
@@ -2917,7 +3008,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       const h = new Hls({
         fLoader: makeCapLoader(slot),
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
-        maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:15, maxBufferSize:40*1000*1000,
+        maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:90, maxBufferSize:40*1000*1000,
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
@@ -3024,7 +3115,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(mirrorOn) startMirror(slot);
   updateCinemaBar(); keepAwake(true);
   epgSlot[slot] = c; renderEpgBox(slot); osAutoPlay(slot, c);
-  if(live) xEpg(c).then(()=>{ if(lastPlayed[slot]===c) renderEpgBox(slot); });
+  if(live) xEpg(c).then(()=>{ if(lastPlayed[slot]===c) renderEpgBox(slot); renderCineEpg(); });
   if(currentView!=="tv") show("tv");
   hudFlashAll();
 }
@@ -3083,7 +3174,7 @@ function gdRenderList(){
   const list = gdFiltered(); GD.list = list;
   $("gdList").innerHTML = list.map((c, i) => {
     const nn = nowNext(c);
-    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + "–" + hm(nn.now.stop) + " " + nn.now.title) : ""}</span>${nn ? `<span class="pb"><i style="width:${Math.max(0, Math.min(100, (Date.now() - nn.now.start)/(nn.now.stop - nn.now.start)*100)).toFixed(0)}%"></i></span>${nn.next ? `<span class="nx">A seguir ${esc(hm(nn.next.start) + " " + nn.next.title)}</span>` : ""}` : ""}</span></button>`;
+    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + "–" + hm(nn.now.stop) + " " + nn.now.title) : ""}</span>${nn ? `<span class="pb"><i style="width:${Math.max(0, Math.min(100, (Date.now() - nn.now.start)/(nn.now.stop - nn.now.start)*100)).toFixed(0)}%"></i></span>${nn.next ? `<span class="nx">A seguir ${esc(hm(nn.next.start) + " " + nn.next.title)}</span>` : ""}` : ""}</span></button>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nenhum canal encontrado.</p>`;
   $("gdList").querySelectorAll(".gch").forEach(b => b.onclick = () => gdSelect(GD.list[+b.dataset.i]));
   if(GD.obs) GD.obs.disconnect(); epgQueue = [];
@@ -3743,7 +3834,11 @@ function updateCinemaBar(){
   $("chName").textContent = c ? c.name : "Escolhe um canal"; fmtDelay();
   const has = !!(c && neighbours(c).length > 1);
   $("chPrev").disabled = !has; $("chNext").disabled = !has;
+  renderCineEpg();
 }
+const nowTxt = nn => nn && nn.now ? hm(nn.now.start) + "–" + hm(nn.now.stop) + " · " + nn.now.title : "";
+function renderCineEpg(){ const e = $("chEpg"); if(!e) return; const c = lastPlayed[tvTarget]; e.textContent = c ? nowTxt(nowNext(c)) : ""; }
+setInterval(renderCineEpg, 60000);
 function neighbours(c){ return orgChannels(c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.intl ? "intl" : c.free ? "free" : c.kind, c.group || "x"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
@@ -3795,7 +3890,7 @@ $("btnHealth").onclick = ()=> healthCheck((tvKind==="intl" ? intlChans : freeCha
 $("hideDead").onchange = renderTvList;
 intlSet = LS.get("intlSet", "gb") || "gb";
 document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{ tvKind=b.dataset.kind; if(tvKind==="free") ensureFree(false); if(tvKind==="intl") ensureIntl(false); document.querySelectorAll("[data-kind]").forEach(x=>x.setAttribute("aria-selected", x===b)); fillGroups(); renderTvList(); });
-document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); });
+document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ $("stage").className="stage "+b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x=>x.setAttribute("aria-selected", x===b)); if(b.dataset.mode==="single") setTarget(0); try{ applyCaps(); }catch(e){} });
 function setTarget(t){ tvTarget=t; fmtDelay(); document.querySelectorAll("[data-target]").forEach(x=>x.setAttribute("aria-selected", +x.dataset.target===t)); document.querySelectorAll(".slot").forEach(s=>s.classList.toggle("active", +s.dataset.slot===t)); }
 document.querySelectorAll("[data-target]").forEach(b=>b.onclick=()=>{ setTarget(+b.dataset.target); updateCinemaBar(); });
 document.querySelectorAll(".slot").forEach(s=>s.addEventListener("click", ()=>setTarget(+s.dataset.slot)));
@@ -7023,8 +7118,15 @@ function trkRender(){
   $("trkAuto").checked = cfg.subAuto !== false;
   $("trkNote").textContent = !a.items.length && subs.length <= (TRK.ext[slot] ? 1 : 0) ? "Os canais e filmes que vêm em HLS com várias faixas mostram-nas aqui. Ficheiros simples (.mkv, .mp4) só deixam o browser usar a faixa por defeito; nesse caso podes carregar legendas em português (.srt ou .vtt) por ficheiro ou endereço." : "";
 }
-function trkOpen(){ trkRender(); osFill(); SUBST.render(); $("trkDlg").hidden = false; }
-$("chTracks").onclick = trkOpen;
+/* modo: "a" só áudio, "s" só legendas, nada = ambos */
+function trkOpen(mode){
+  mode = mode === "a" || mode === "s" ? mode : "";
+  $("trkSecA").hidden = mode === "s"; $("trkSecS").hidden = mode === "a";
+  $("trkTitle").textContent = mode === "a" ? "Áudio" : mode === "s" ? "Legendas" : "Áudio e legendas";
+  trkRender(); osFill(); SUBST.render(); $("trkDlg").hidden = false;
+}
+$("chTracks").onclick = () => trkOpen("a");
+$("chSubs").onclick = () => trkOpen("s");
 $("trkClose").onclick = () => { $("trkDlg").hidden = true; };
 $("trkDlg").onclick = e => { if(e.target === $("trkDlg")) $("trkDlg").hidden = true; };
 $("trkAuto").onchange = e => { cfg.subAuto = e.target.checked; saveCfg(); };
@@ -7793,6 +7895,90 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
 })();
 loadState(); loadIptv(false);
 setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
+
+/* ===== v90: diagnóstico, combinações, info do vídeo, controlos de direto, picons lazy ===== */
+(function(){
+  window.__errRing = window.__errRing || [];
+  const tm = () => new Date().toTimeString().slice(0, 8);
+  const push = t => { window.__errRing.push(tm() + " " + t); if(window.__errRing.length > 30) window.__errRing.shift(); };
+  try{ window.addEventListener("error", e => push("erro: " + (e.message || e))); window.addEventListener("unhandledrejection", e => push("promessa: " + (e.reason && e.reason.message || e.reason))); }catch(e){}
+  try{ const t0 = window.toast; if(typeof t0 === "function" && !t0.__w){ const w = function(m, bad){ if(bad) push("aviso: " + m); return t0.apply(this, arguments); }; w.__w = 1; window.toast = toast = w; } }catch(e){}
+
+  /* Diagnóstico */
+  const host = u => { try{ return new URL(u).host; }catch(e){ return u ? "(inválido)" : "—"; } };
+  const dgBuild = () => {
+    const ch = typeof channels !== "undefined" ? channels : [];
+    const cnt = k => ch.filter(c => c.kind === k).length;
+    const mem = performance && performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + "/" + Math.round(performance.memory.jsHeapSizeLimit / 1048576) + " MB" : "n/d";
+    let lsKb = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); lsKb += (k.length + (localStorage.getItem(k) || "").length) * 2; } }catch(e){}
+    const L = [];
+    L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "—"));
+    L.push("Navegador: " + navigator.userAgent.slice(0, 110));
+    L.push("Ecrã: " + innerWidth + "×" + innerHeight + " · memória JS: " + mem + " · definições guardadas: " + Math.round(lsKb / 1024) + " KB");
+    L.push("Canais: " + cnt("live") + " · Filmes: " + cnt("movie") + " · Séries: " + cnt("series") + " · Sem categoria: " + ch.filter(c => !c.group || /sem categoria/i.test(c.group)).length);
+    L.push("Xtream: " + host(cfg.xs) + " · M3U: " + host(cfg.m3u) + " · Guia: " + host(cfg.epg) + " · Proxy: " + host(cfg.proxy));
+    L.push("Qualidade máx.: " + (cfg.maxRes || "1080") + "p (vista dupla: 720p) · " + (navigator.onLine ? "online" : "offline"));
+    L.push("", "Erros e avisos recentes:");
+    (window.__errRing.length ? window.__errRing.slice().reverse() : ["(nenhum)"]).forEach(x => L.push(" " + x));
+    return L.join("\n");
+  };
+  const dgOut = $("tsDgOut");
+  if(dgOut){
+    $("tsDgRef").onclick = () => { dgOut.textContent = dgBuild(); };
+    $("tsDgCp").onclick = () => { dgOut.textContent = dgBuild(); try{ navigator.clipboard.writeText(dgOut.textContent); toast("Copiado ✓"); }catch(e){ toast("Não consegui copiar.", true); } };
+  }
+
+  /* Combinações da vista dupla */
+  const slim = c => ({id:c.id, url:c.url, name:c.name, group:c.group, kind:c.kind, logo:c.logo, free:c.free, intl:c.intl, sid:c.sid});
+  const modeNow = () => ["single", "pip", "split", "splitv"].find(m => $("stage").classList.contains(m)) || "single";
+  const MODE_L = {single:"1 ecrã", pip:"PIP", split:"50/50", splitv:"Cima/baixo"};
+  const combos = () => LS.get("tvCombos", []);
+  const fillCombos = () => { const sel = $("comboSel"); if(!sel) return; const l = combos(); sel.innerHTML = l.length ? l.map((x, i) => '<option value="' + i + '">' + esc(x.name) + "</option>").join("") : '<option value="">(sem combinações)</option>'; };
+  if($("comboSave")){
+    $("comboSave").onclick = () => {
+      const a = lastPlayed[0], b = lastPlayed[1];
+      if(!a || !b){ toast("Põe um canal em USER 1 e outro em USER 2 antes de guardar.", true); return; }
+      const l = combos(); const m = modeNow();
+      l.push({name:(MODE_L[m] || m) + " · " + a.name + " + " + b.name, mode:m, a:slim(a), b:slim(b), audio:audioSlot});
+      LS.set("tvCombos", l.slice(-20)); fillCombos(); $("comboSel").value = String(Math.min(l.length, 20) - 1); toast("Combinação guardada ✓");
+    };
+    $("comboOpen").onclick = () => {
+      const x = combos()[+$("comboSel").value]; if(!x){ toast("Escolhe uma combinação.", true); return; }
+      const t = document.querySelector('[data-mode="' + x.mode + '"]'); if(t) t.click();
+      playChannel(x.a, 0); playChannel(x.b, 1);
+      audioSlot = x.audio ? 1 : 0; $("vid0").muted = audioSlot !== 0; $("vid1").muted = audioSlot !== 1; $("btnSwapAudio").textContent = "Som: USER " + (audioSlot + 1);
+    };
+    $("comboDel").onclick = () => { const l = combos(), i = +$("comboSel").value; if(!(i >= 0) || !l[i]) return; l.splice(i, 1); LS.set("tvCombos", l); fillCombos(); toast("Combinação apagada."); };
+    fillCombos();
+  }
+
+  /* Controlos de direto (timeshift) */
+  const vsel = () => $("vid" + tvTarget);
+  const seekable = v => v && v.seekable && v.seekable.length;
+  if($("tsBack")){
+    $("tsBack").onclick = () => { const v = vsel(); if(!seekable(v)){ toast("Este vídeo não permite recuar.", true); return; } v.currentTime = Math.max(v.seekable.start(0), v.currentTime - 10); };
+    $("tsFwd").onclick = () => { const v = vsel(); if(!seekable(v)) return; v.currentTime = Math.min(v.seekable.end(v.seekable.length - 1), v.currentTime + 30); };
+    $("tsPlay").onclick = () => { const v = vsel(); if(!v) return; if(v.paused){ v.play().catch(() => {}); $("tsPlay").textContent = "⏯ Pausa"; } else { v.pause(); $("tsPlay").textContent = "▶ Retomar"; } };
+    $("tsLive").onclick = () => { const v = vsel(), h = hlsInst[tvTarget]; if(!v) return; try{ if(h && h.liveSyncPosition) v.currentTime = h.liveSyncPosition; else if(seekable(v)) v.currentTime = v.seekable.end(v.seekable.length - 1) - 1; v.play().catch(() => {}); $("tsPlay").textContent = "⏯ Pausa"; }catch(e){} };
+  }
+
+  /* Info do vídeo */
+  let stT = 0;
+  const stTick = () => {
+    const v = vsel(), h = hlsInst[tvTarget], o = $("vStats"); if(!v || !o) return;
+    const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+    let buf = 0; try{ for(let i = 0; i < v.buffered.length; i++) if(v.buffered.start(i) <= v.currentTime && v.buffered.end(i) >= v.currentTime) buf = v.buffered.end(i) - v.currentTime; }catch(e){}
+    const L = [(v.videoWidth || 0) + "×" + (v.videoHeight || 0) + (h && h.levels && h.currentLevel >= 0 && h.levels[h.currentLevel] ? " · " + Math.round(h.levels[h.currentLevel].bitrate / 1e5) / 10 + " Mbps · " + (h.levels[h.currentLevel].videoCodec || "") : "")];
+    L.push("buffer " + buf.toFixed(1) + " s" + (q ? " · perdidos " + q.droppedVideoFrames + "/" + q.totalVideoFrames : "") + (h && h.latency ? " · atraso " + h.latency.toFixed(1) + " s" : "") + (h && h.bandwidthEstimate ? " · rede " + Math.round(h.bandwidthEstimate / 1e5) / 10 + " Mbps" : "") + (v.paused ? " · em pausa" : ""));
+    o.textContent = L.join("\n");
+  };
+  if($("chInfo")) $("chInfo").onclick = () => { const on = $("vStats").hidden; $("vStats").hidden = !on; $("chInfo").setAttribute("aria-pressed", on); clearInterval(stT); if(on){ stTick(); stT = setInterval(stTick, 1000); } };
+
+  /* Picons: carregam só perto do ecrã, em segundo plano */
+  const fix = im => { try{ if(im.tagName !== "IMG" || im.dataset.eager) return; if(!im.loading) im.loading = "lazy"; if(!im.decoding || im.decoding === "auto") im.decoding = "async"; if(!im.fetchPriority || im.fetchPriority === "auto") im.fetchPriority = "low"; }catch(e){} };
+  try{ document.querySelectorAll("img").forEach(fix); new MutationObserver(ms => { for(const m of ms) m.addedNodes.forEach(n => { if(n.nodeType !== 1) return; if(n.tagName === "IMG") fix(n); else if(n.querySelectorAll) n.querySelectorAll("img").forEach(fix); }); }).observe(document.body, {childList:true, subtree:true}); }catch(e){}
+  renderCineEpg();
+})();
 </script>
 </body>
 </html>
