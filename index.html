@@ -2615,7 +2615,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v91";
+const APP_VERSION = "v92";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5112,12 +5112,33 @@ $("nvDest").oninput = ()=>{
   nvSugT = setTimeout(async ()=>{ const l = await nvFind(q); if($("nvDest").value.trim() === q) nvRenderSugg(l); }, 350);
 };
 $("nvForm").onsubmit = e => { e.preventDefault(); const q = $("nvDest").value.trim(); if(q) nvPlan(nv.sugg?.length ? nv.sugg[0] : q); };
+/* GPS do browser, mais robusto: tenta alta precisão e, se falhar (posição indisponível ou tempo esgotado), repete com precisão normal.
+   O browser do Tesla nem sempre devolve a posição em alta precisão. Os erros ficam em GEO.err para os avisos. */
+const GEO = {err:"", last:0, n:0, map:{}};
+GEO.perm = () => { try{ if(navigator.permissions) navigator.permissions.query({name:"geolocation"}).then(r => { GEO.state = r.state; r.onchange = () => { GEO.state = r.state; }; }).catch(()=>{}); }catch(e){} };
+GEO.perm();
+GEO.msg = e => e.code === 1 ? "permissão de localização negada para este site (no browser do Tesla: toca no ícone junto ao endereço → Localização → Permitir; depois recarrega a página)" : e.code === 2 ? "posição indisponível (o carro ainda não tem sinal GPS)" : e.code === 3 ? "tempo esgotado à espera do GPS" : (e.message || "erro de GPS");
+function geoWatch(ok, fail){
+  if(!navigator.geolocation) return null;
+  const h = ++GEO.n; let hi = true, rid = null, t = null;
+  const start = () => {
+    clearTimeout(t);
+    try{ rid = navigator.geolocation.watchPosition(pos => { GEO.last = Date.now(); GEO.err = ""; ok(pos); }, e => {
+      GEO.err = GEO.msg(e);
+      if(e.code !== 1 && hi){ hi = false; try{ navigator.geolocation.clearWatch(rid); }catch(x){} start(); return; }
+      if(fail) fail(e);
+    }, hi ? {enableHighAccuracy:true, maximumAge:0, timeout:12000} : {enableHighAccuracy:false, maximumAge:15000, timeout:30000}); }catch(e){ GEO.err = String(e); if(fail) fail(e); }
+    GEO.map[h] = () => { clearTimeout(t); try{ navigator.geolocation.clearWatch(rid); }catch(x){} };
+  };
+  start(); return h;
+}
+function geoClear(h){ try{ if(h != null && GEO.map[h]){ GEO.map[h](); delete GEO.map[h]; } }catch(e){} }
 async function nvOrigin(){
   if(nv.pos) return nv.pos;
   const p = carPos(); if(p.z > 7) return {lat:p.lat, lon:p.lon};
   if(!demo()){ try{ const l = await tessie(cfg.vin + "/location"); if(isFinite(l.latitude)) return {lat:+l.latitude, lon:+l.longitude}; }catch(e){} }
   if(navigator.geolocation){
-    const g = await new Promise(res=>navigator.geolocation.getCurrentPosition(x=>res({lat:x.coords.latitude, lon:x.coords.longitude}), ()=>res(null), {timeout:6000}));
+    const g = await new Promise(res=>navigator.geolocation.getCurrentPosition(x=>res({lat:x.coords.latitude, lon:x.coords.longitude}), e=>{ GEO.err = GEO.msg(e); res(null); }, {enableHighAccuracy:false, timeout:10000, maximumAge:60000}));
     if(g) return g;
   }
   return null;
@@ -5198,14 +5219,14 @@ function nvTrack(){
     nv.sim = setInterval(()=>{ if(!nv.r) return; const s = Math.min(nv.r.total, nv.s + 120); let i = nv.r.cum.findIndex(c=>c >= s); if(i < 0) i = nv.r.pts.length-1; nv.s = s; const p = nv.r.pts[i]; nvOnPos(p[0], p[1], "sim"); }, 1000);
     return;
   }
-  if(navigator.geolocation){ try{ nv.watch = navigator.geolocation.watchPosition(p=>nvOnPos(p.coords.latitude, p.coords.longitude, "gps"), ()=>{}, {enableHighAccuracy:true, maximumAge:2000}); }catch(e){} }
+  if(navigator.geolocation){ try{ nv.watch = geoWatch(p=>nvOnPos(p.coords.latitude, p.coords.longitude, "gps"), ()=>{}); }catch(e){} }
   nv.poll = setInterval(async ()=>{
     if(Date.now() - nv.lastGps < 8000) return; // o GPS do browser está a responder
     try{ const l = await tessie(cfg.vin + "/location"); nvOnPos(+l.latitude, +l.longitude, "car"); }catch(e){}
   }, 5000);
 }
 function nvUntrack(){
-  if(nv.watch !== null && navigator.geolocation){ try{ navigator.geolocation.clearWatch(nv.watch); }catch(e){} }
+  if(nv.watch !== null){ geoClear(nv.watch); }
   nv.watch = null; clearInterval(nv.poll); clearInterval(nv.sim); nv.poll = nv.sim = null;
 }
 function nvStart(){
@@ -6775,14 +6796,14 @@ async function engPoll(){
 }
 function engSetSource(){
   const c = engCfg(); let s = c.src;
-  if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; }
+  if(E.gpsId != null){ geoClear(E.gpsId); E.gpsId = null; }
   if(s === "tessie" && demo()){ s = "sim"; E.note = "Sem Tessie ligado: modo simulador."; } else E.note = "";
   if(s === "gps" && !navigator.geolocation){ s = "sim"; E.note = "Este browser não tem GPS: modo simulador."; }
   if(s === "gps" && window.isSecureContext === false) E.note = "Página em http: o browser pode bloquear o GPS. Abre pelo endereço https.";
   clearTimeout(E.gpsWd);
-  if(s === "gps") E.gpsWd = setTimeout(() => { if(E.srcNow === "gps" && !E.gpsInfo){ E.err = "sem sinal GPS após 20 s"; if(!demo()){ E.note = "A usar a velocidade do Tessie."; E.srcNow = "tessie"; if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; } clearInterval(E.pollT); engPoll(); E.pollT = setInterval(engPoll, 2000); $("engSim").hidden = true; } } }, 20000);
+  if(s === "gps") E.gpsWd = setTimeout(() => { if(E.srcNow === "gps" && !E.gpsInfo){ E.err = "sem sinal GPS após 20 s"; if(!demo()){ E.note = "A usar a velocidade do Tessie."; E.srcNow = "tessie"; if(E.gpsId != null){ geoClear(E.gpsId); E.gpsId = null; } clearInterval(E.pollT); engPoll(); E.pollT = setInterval(engPoll, 2000); $("engSim").hidden = true; } } }, 20000);
   E.srcNow = s; E.lastTs = null; E.acc = 0; E.pw = null; E.gpsLast = null;
-  if(s === "gps") E.gpsId = navigator.geolocation.watchPosition(pos => {
+  if(s === "gps") E.gpsId = geoWatch(pos => {
     /* A velocidade do próprio GPS manda sempre (como antes). Só quando o browser não a dá (speed=null) se calcula pela distância, numa janela de 2 s ou mais e ignorando o ruído do GPS parado. */
     const c = pos.coords, ts = pos.timestamp || Date.now(); let vk, how = "GPS";
     if(c.speed != null && isFinite(c.speed)){ vk = c.speed*3.6; E.gpsLast = null; }
@@ -6803,7 +6824,7 @@ function engSetSource(){
     }
     E.gpsInfo = Math.round(vk) + " km/h (" + how + (c.accuracy ? ", ±" + Math.round(c.accuracy) + " m" : "") + ")";
     engSample(Math.max(0, Math.min(400, vk)), null, ts);
-  }, err => { E.err = "GPS: " + (err.code === 1 ? "permissão negada (ativa a localização para este site)" : err.code === 2 ? "posição indisponível" : err.code === 3 ? "tempo esgotado" : err.message); }, {enableHighAccuracy:true, maximumAge:0, timeout:15000});
+  }, err => { E.err = "GPS: " + GEO.msg(err); try{ if(err.code === 1) toast("GPS: " + GEO.msg(err), true); }catch(x){} });
   $("engSim").hidden = s !== "sim";
   clearInterval(E.pollT); if(s === "tessie"){ engPoll(); E.pollT = setInterval(engPoll, 2000); }
 }
@@ -7010,7 +7031,7 @@ function engStart(){
 }
 function engStop(){
   if(!E.on) return; E.on = false; clearInterval(E.timer); clearInterval(E.stT); clearInterval(E.pollT);
-  if(E.gpsId != null){ navigator.geolocation.clearWatch(E.gpsId); E.gpsId = null; }
+  if(E.gpsId != null){ geoClear(E.gpsId); E.gpsId = null; }
   try{ E.g.gain.setTargetAtTime(0, E.ctx.currentTime, .1); }catch(e){}
   const ctx = E.ctx; setTimeout(()=>{ engDispose(); try{ ctx.close(); }catch(e){} }, 500); E.ctx = null;
   if(!lastPlayed[0] && !lastPlayed[1] && !radioCur && !podCur) keepAwake(false);
@@ -7913,6 +7934,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let lsKb = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); lsKb += (k.length + (localStorage.getItem(k) || "").length) * 2; } }catch(e){}
     const L = [];
     L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "—"));
+  try{ L.push("GPS do browser: " + (navigator.geolocation ? (GEO.state ? "permissão " + GEO.state : "disponível") : "indisponível") + (GEO.last ? ", último sinal há " + Math.round((Date.now()-GEO.last)/1000) + " s" : ", sem sinal ainda") + (GEO.err ? " · erro: " + GEO.err : "")); }catch(e){}
     L.push("Navegador: " + navigator.userAgent.slice(0, 110));
     L.push("Ecrã: " + innerWidth + "×" + innerHeight + " · memória JS: " + mem + " · definições guardadas: " + Math.round(lsKb / 1024) + " KB");
     L.push("Canais: " + cnt("live") + " · Filmes: " + cnt("movie") + " · Séries: " + cnt("series") + " · Sem categoria: " + ch.filter(c => !c.group || /sem categoria/i.test(c.group)).length);
