@@ -2635,7 +2635,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v102";
+const APP_VERSION = "v103";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8663,6 +8663,7 @@ body.pfull.ctlOn #vExit{opacity:1}
   let lastAt = 0;
   const peek = () => { lastAt = Date.now(); document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), 5000); };
   setInterval(() => { if(document.body.classList.contains("ctlOn") && Date.now() - lastAt > 5200) document.body.classList.remove("ctlOn"); }, 500);
+  window.__ctlPeek = peek;
   const sync = () => {
     const on = vt.classList.contains("cinema") && currentView === "tv";
     const was = document.body.classList.contains("pfull");
@@ -9028,7 +9029,7 @@ body.pfull #v-tv.cinema .cinebar .cinename{font-size:14px}body.pfull #v-tv.cinem
 body.pfull #vExit{padding:7px 12px!important;font-size:14px!important;left:8px!important;top:8px!important;border-radius:10px!important}
 body.pfull:not(.ctlOn) #vExit{opacity:0!important;visibility:hidden}
 body.pfull .trkdlg,body.pfull .epgdlg{z-index:300!important}
-body.pfull .toast{z-index:320!important}
+body.pfull .toast{z-index:320!important;pointer-events:none;top:72px!important;bottom:auto!important}
 .mvtr{font-size:12px;opacity:.7}.mvtr a{color:inherit;text-decoration:underline;cursor:pointer}
 </style>
 <script>
@@ -9080,6 +9081,44 @@ body.pfull .toast{z-index:320!important}
     return r;
   };
   }catch(e){ console.log("tradução", e); }
+})();
+</script>
+<style>
+/* ecrã total: só os botões essenciais (o A/V só aparece com «Andamento» ligado); etiquetas USER e rodar escondidas */
+body.pfull:not(.mirOn) #mirDelMinus,body.pfull:not(.mirOn) #mirDelVal,body.pfull:not(.mirOn) #mirDelPlus{display:none!important}
+body.pfull #stage .lbl,body.pfull #stage .rot{display:none!important}
+body.pfull #v-tv.cinema .cinebar:not(#cinebar2){flex-wrap:wrap!important;justify-content:center;overflow:visible!important}
+body.pfull #v-tv.cinema #cinebar2{flex-wrap:wrap!important}
+/* barra do tempo (filmes e episódios) */
+#vSeek{display:none;flex:1 0 100%;align-items:center;gap:10px;color:#fff;font:600 13px/1 inherit;font-variant-numeric:tabular-nums;padding:0 6px 4px}
+body.pfull #vSeek.on{display:flex}
+#vSeek input{flex:1;min-width:0;height:28px;accent-color:var(--accent,#7cc4ff);cursor:pointer}
+#vSeek span{flex:none;min-width:52px;text-align:center}
+</style>
+<script>
+/* ===== Tesla: barra para andar no tempo do filme em ecrã total ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const b2 = $("cinebar2"); if(!b2) return;
+  const w = document.createElement("div"); w.id = "vSeek";
+  w.innerHTML = '<span id="vSeekC">0:00</span><input type="range" id="vSeekR" min="0" max="1000" step="1" value="0" aria-label="Posição no vídeo"><span id="vSeekD">0:00</span>';
+  b2.insertBefore(w, b2.firstChild);
+  const R = $("vSeekR"); let drag = false;
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const vid = () => $("vid" + tvTarget);
+  const vod = () => { try{ const c = lastPlayed[tvTarget], v = vid(); return c && (c.kind === "movie" || c.kind === "episode") && v && isFinite(v.duration) && v.duration > 0 ? v : null; }catch(e){ return null; } };
+  setInterval(() => {
+    const v = vod(); w.classList.toggle("on", !!v);
+    document.body.classList.toggle("mirOn", !!(typeof mirrorOn !== "undefined" && mirrorOn));
+    if(!v || drag) return;
+    R.value = String(Math.round(v.currentTime / v.duration * 1000)); $("vSeekC").textContent = fmt(v.currentTime); $("vSeekD").textContent = "-" + fmt(v.duration - v.currentTime);
+  }, 500);
+  const keep = () => { try{ window.__ctlPeek ? window.__ctlPeek() : document.body.classList.add("ctlOn"); }catch(e){} };
+  R.addEventListener("input", () => { const v = vod(); if(!v) return; drag = true; keep(); $("vSeekC").textContent = fmt(R.value / 1000 * v.duration); });
+  R.addEventListener("change", () => { const v = vod(); drag = false; if(!v) return; try{ v.currentTime = R.value / 1000 * v.duration; }catch(e){} });
+  ["pointerdown", "touchstart"].forEach(t => R.addEventListener(t, keep, {passive:true}));
+  }catch(e){ console.log("barra do tempo", e); }
 })();
 </script>
 </body>
