@@ -2635,7 +2635,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v101";
+const APP_VERSION = "v102";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8660,7 +8660,9 @@ body.pfull.ctlOn #vExit{opacity:1}
   const vt = $("v-tv"), st = $("stage");
   const ex = document.createElement("button"); ex.id = "vExit"; ex.type = "button"; ex.textContent = "✕ Sair"; document.body.appendChild(ex);
   let hT = 0;
-  const peek = () => { document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), 5000); };
+  let lastAt = 0;
+  const peek = () => { lastAt = Date.now(); document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), 5000); };
+  setInterval(() => { if(document.body.classList.contains("ctlOn") && Date.now() - lastAt > 5200) document.body.classList.remove("ctlOn"); }, 500);
   const sync = () => {
     const on = vt.classList.contains("cinema") && currentView === "tv";
     const was = document.body.classList.contains("pfull");
@@ -9015,6 +9017,69 @@ body.pfull.ctlOn #vExit{opacity:1}
     }
   }catch(e){ console.log("países", e); }
   }catch(e){ console.log("funções Android", e); }
+})();
+</script>
+<style>
+/* ecrã total: botões mais pequenos; janelas (legendas, áudio, guia, detalhes) por cima do vídeo */
+body.pfull #v-tv.cinema .cinebar .btn{min-height:0!important;height:auto!important;padding:6px 11px!important;font-size:13px!important;border-radius:10px!important;line-height:1.2}
+body.pfull #v-tv.cinema .cinebar:not(#cinebar2){padding:8px 10px 22px 92px!important;gap:6px!important}
+body.pfull #v-tv.cinema #cinebar2{padding:22px 10px 8px!important;gap:6px!important}
+body.pfull #v-tv.cinema .cinebar .cinename{font-size:14px}body.pfull #v-tv.cinema .cinebar .cineepg{font-size:12px}
+body.pfull #vExit{padding:7px 12px!important;font-size:14px!important;left:8px!important;top:8px!important;border-radius:10px!important}
+body.pfull:not(.ctlOn) #vExit{opacity:0!important;visibility:hidden}
+body.pfull .trkdlg,body.pfull .epgdlg{z-index:300!important}
+body.pfull .toast{z-index:320!important}
+.mvtr{font-size:12px;opacity:.7}.mvtr a{color:inherit;text-decoration:underline;cursor:pointer}
+</style>
+<script>
+/* ===== Tesla: sinopse traduzida para a língua da app (com cache) ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const UL = () => { try{ return uiLang() || "pt"; }catch(e){ return "pt"; } };
+  const hash = t => { let h = 5381; for(let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + t.length; };
+  const chunks = (t, max) => { const out = []; let cur = ""; String(t).split(/(?<=[.!?…])\s+/).forEach(sn => { while(sn.length > max){ if(cur){ out.push(cur); cur = ""; } out.push(sn.slice(0, max)); sn = sn.slice(max); } if((cur + " " + sn).length > max){ if(cur) out.push(cur); cur = sn; } else cur = cur ? cur + " " + sn : sn; }); if(cur) out.push(cur); return out; };
+  async function one(q, tl){
+    const g = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + tl + "&dt=t&q=" + encodeURIComponent(q);
+    const rd = async r => { if(!r || !r.ok) return null; const j = await r.json(); const o = (j[0] || []).map(x => x[0]).join(""); return o || null; };
+    try{ const o = await rd(await fetch(g)); if(o) return o; }catch(e){}
+    try{ if(typeof HASPX === "function" && HASPX()){ const o = await rd(await fetchPx(g)); if(o) return o; } }catch(e){}
+    try{ const r = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(q.slice(0, 480)) + "&langpair=Autodetect|" + tl); if(r.ok){ const j = await r.json(); const o = j && j.responseData && j.responseData.translatedText; if(o && !/MYMEMORY WARNING|INVALID/i.test(o)) return o; } }catch(e){}
+    return null;
+  }
+  async function tr(text){
+    text = String(text || "").trim(); const tl = UL(); if(!text) return null;
+    const key = "trc|" + tl + "|" + hash(text);
+    try{ const c = localStorage.getItem(key); if(c) return c; }catch(e){}
+    const out = []; for(const q of chunks(text, 1200)){ const o = await one(q, tl); if(o == null) return null; out.push(o); }
+    const res = out.join(" ");
+    try{ localStorage.setItem(key, res); }catch(e){}
+    return res;
+  }
+  window.__trText = tr;
+  const _sm = window.showMovieInfo;
+  if(typeof _sm !== "function") return;
+  let tk = 0;
+  window.showMovieInfo = function(c){
+    const my = ++tk, r = _sm.apply(this, arguments);
+    const pl = $("mvPlot"); if(!pl) return r;
+    let tag = $("mvTr"); if(!tag){ tag = document.createElement("div"); tag.id = "mvTr"; tag.className = "mvtr"; pl.parentNode.insertBefore(tag, pl.nextSibling); }
+    tag.textContent = "";
+    Promise.resolve(r).then(async () => {
+      if(my !== tk) return;
+      const orig = pl.textContent; if(!orig || /^(A carregar|Sem sinopse)/.test(orig)) return;
+      tag.textContent = "A traduzir…";
+      const t = await tr(orig); if(my !== tk || $("mvDlg").hidden) return;
+      if(!t || t.trim() === orig.trim()){ tag.textContent = ""; return; }
+      let showOrig = false;
+      const paint = () => { pl.textContent = showOrig ? orig : t; tag.innerHTML = (showOrig ? "Texto original · " : "Traduzido automaticamente · ") + '<a id="mvTrT">' + (showOrig ? "Ver tradução" : "Ver original") + "</a>"; $("mvTrT").onclick = () => { showOrig = !showOrig; paint(); }; };
+      paint();
+      /* género também traduzido */
+      try{ const mt = $("mvMeta"); const parts = mt.innerHTML.split(/(<b class="mvrate">.*?<\/b>\s*)/); const tail = parts[parts.length - 1]; const tt = await tr(mt.textContent.replace(/⭐\s*[\d.,]+\/10\s*/, "")); if(tt && my === tk) mt.innerHTML = parts.slice(0, -1).join("") + esc(tt); }catch(e){}
+    }).catch(() => { tag.textContent = ""; });
+    return r;
+  };
+  }catch(e){ console.log("tradução", e); }
 })();
 </script>
 </body>
