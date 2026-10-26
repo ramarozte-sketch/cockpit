@@ -2634,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v94";
+const APP_VERSION = "v95";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3161,7 +3161,7 @@ function renderEpgBox(slot){
 }
 setInterval(()=>{ if(currentView==="tv" && epgSlot[tvTarget] && lastPlayed[tvTarget]===epgSlot[tvTarget]) renderEpgBox(tvTarget); }, 60000);
 /* ---------- Guia de programação (EPG) ---------- */
-const GD = {sel:null, prog:[], day:"", token:0, obs:null};
+const GD = {sel:null, prog:[], day:"", token:0, obs:null, skipTk:0};
 const gdChannels = () => { const live = channels.filter(c => c.kind === "live"); return live.length ? orgChannels(live, "live", "") : orgChannels(freeChans, "free", ""); };
 const epgFullCache = new Map();
 async function xEpgFull(c){
@@ -3196,11 +3196,12 @@ function gdFiltered(){
   let l = gdChannels(); if(g) l = l.filter(c => c.group === g); if(q) l = l.filter(c => norm(c.name).includes(q));
   return l.slice(0, 200);
 }
+const gdIni = n => String(n || "").replace(/^\s*(?:[|\[(][A-Za-z]{2,3}[|\])]|[A-Za-z]{2}\s*[-:|])\s*/, "").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase() || "TV";
 function gdRenderList(){
   const list = gdFiltered(); GD.list = list;
   $("gdList").innerHTML = list.map((c, i) => {
     const nn = nowNext(c);
-    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + "–" + hm(nn.now.stop) + " " + nn.now.title) : ""}</span>${nn ? `<span class="pb"><i style="width:${Math.max(0, Math.min(100, (Date.now() - nn.now.start)/(nn.now.stop - nn.now.start)*100)).toFixed(0)}%"></i></span>${nn.next ? `<span class="nx">A seguir ${esc(hm(nn.next.start) + " " + nn.next.title)}</span>` : ""}` : ""}</span></button>`;
+    return `<button class="btn gch" data-i="${i}" aria-pressed="${GD.sel && GD.sel.url === c.url}">${c.logo ? `<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',textContent:this.dataset.ini||''}))" data-ini="${esc(gdIni(c.name))}">` : `<span class="ph">${esc(gdIni(c.name))}</span>`}<span class="t"><b><i class="no">${i + 1}</i>${esc(c.name)}</b><span>${nn ? esc(hm(nn.now.start) + "–" + hm(nn.now.stop) + " " + nn.now.title) : ""}</span>${nn ? `<span class="pb"><i style="width:${Math.max(0, Math.min(100, (Date.now() - nn.now.start)/(nn.now.stop - nn.now.start)*100)).toFixed(0)}%"></i></span>${nn.next ? `<span class="nx">A seguir ${esc(hm(nn.next.start) + " " + nn.next.title)}</span>` : ""}` : ""}</span></button>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nenhum canal encontrado.</p>`;
   $("gdList").querySelectorAll(".gch").forEach(b => b.onclick = () => gdSelect(GD.list[+b.dataset.i]));
   if(GD.obs) GD.obs.disconnect(); epgQueue = [];
@@ -3220,7 +3221,9 @@ async function gdSelect(c){
   const prog = await gdProgrammes(c); if(tk !== GD.token) return;
   GD.prog = prog;
   if(!prog.length){
-    $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">Este canal não tem guia de programação. ${cfg.xs ? "O teu fornecedor não o disponibiliza para este canal." : "Em Definições, coloca o link do guia XMLTV (ou liga uma conta Xtream) para ver a programação."}</p>`; return;
+    $("gdSched").innerHTML = `<div class="gdnone"><b>Sem guia para este canal</b><p class="muted small" style="margin:0">${cfg.xs ? "O teu fornecedor não disponibiliza a programação deste canal." : "Em Definições, coloca o link do guia XMLTV (ou liga uma conta Xtream) para ver a programação."}</p><div class="row"><button class="btn primary" data-gdx="play">▶ Ver este canal</button><button class="btn" data-gdx="next">Próximo canal com guia ▶</button></div></div>`;
+    $("gdSched").querySelectorAll("[data-gdx]").forEach(b => b.onclick = () => { if(b.dataset.gdx === "play") $("gdPlay").click(); else gdNextEpg(); });
+    return;
   }
   const today = dayKey(Date.now()), days = [...new Set(prog.map(p => dayKey(p.start)))];
   GD.day = days.includes(today) ? today : days[0];
@@ -3246,6 +3249,19 @@ function gdRenderProg(scroll){
   }).join("");
   $("gdSched").querySelectorAll(".gdp").forEach(el => el.onclick = () => el.classList.toggle("open"));
   if(scroll){ const n = $("gdSched").querySelector(".gdp.now"); if(n) n.scrollIntoView({block:"start"}); }
+}
+async function gdNextEpg(){
+  const l = GD.list || []; if(!l.length) return;
+  let i = l.findIndex(c => GD.sel && c.url === GD.sel.url); const tk = ++GD.skipTk;
+  const max = Math.min(40, l.length - 1);
+  for(let n = 0; n < max; n++){
+    i = (i + 1) % l.length;
+    $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">A procurar o próximo canal com guia… (${n + 1}/${max})</p>`;
+    let prog = []; try{ prog = await gdProgrammes(l[i]); }catch(e){}
+    if(tk !== GD.skipTk) return;
+    if(prog.length){ gdSelect(l[i]); const b = $("gdList").querySelector(`.gch[data-i="${i}"]`); if(b) b.scrollIntoView({block:"nearest"}); return; }
+  }
+  $("gdSched").innerHTML = `<p class="muted small" style="margin:8px">Não encontrei guia nos próximos canais desta lista. Experimenta outra categoria.</p>`;
 }
 function gdStep(dir){
   const l = GD.list || []; if(!l.length) return;
@@ -8160,7 +8176,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   const isPoster = c => c.kind === "movie" || c.kind === "series";
   const subOf = c => { let s = c._sub || c.group || ""; try{ if(!c._sub && c.kind === "live"){ const nn = nowNext(c); if(nn && nn.now) s = hm(nn.now.start) + " " + nn.now.title; } }catch(e){} return s; };
   function card(c, k){
-    const ini = sx(String(c.name || "?").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase());
+    const ini = sx(gdIni(c.name));
     return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c.logo ? '<img src="' + sx(img(c.logo)) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
   }
   function row(title, list, total, lm){
@@ -8179,7 +8195,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let hero;
     if(cur){
       AH.flat.push(cur);
-      hero = '<div class="ahHeroArt">' + (cur.logo ? '<img src="' + sx(img(cur.logo)) + '" alt="" onerror="this.remove()">' : '<b>' + sx(String(cur.name || "?").slice(0, 2).toUpperCase()) + '</b>') + '</div><div class="ahHeroTx"><small>Continuar a ver</small><h2>' + sx(cur.name) + '</h2><p>' + sx(subOf(cur)) + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-k="0">▶ Ver agora</button><button class="ahBtn" data-go="explore">🔎 Explorar</button></div></div>';
+      hero = '<div class="ahHeroArt">' + (cur.logo ? '<img src="' + sx(img(cur.logo)) + '" alt="" onerror="this.remove()">' : '<b>' + sx(gdIni(cur.name)) + '</b>') + '</div><div class="ahHeroTx"><small>Continuar a ver</small><h2>' + sx(cur.name) + '</h2><p>' + sx(subOf(cur)) + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-k="0">▶ Ver agora</button><button class="ahBtn" data-go="explore">🔎 Explorar</button></div></div>';
     } else {
       hero = '<div class="ahHeroTx"><small>Cockpit TV</small><h2>Bem-vindo</h2><p>' + (channels.length ? "Escolhe um canal em baixo para começar." : "Os canais abertos portugueses já estão disponíveis. Para ver mais, adiciona a tua lista IPTV nas Definições.") + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-go="explore">🔎 Explorar canais</button><button class="ahBtn" data-go="settings">⚙ Definições</button></div></div>';
     }
@@ -8287,6 +8303,150 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     else if(on() && currentView === "tv" && !(lastPlayed[0] || lastPlayed[1])) show("tvinicio");
   }catch(e){} }, 300);
   }catch(e){ console.log("Início TV", e); }
+})();
+</script>
+
+<style>
+/* ===== Tesla: guia mais arrumado ===== */
+.gch .no,.gdfilt,#gdProgBtn{display:none}
+body.gdNew .gch .no{display:inline-block;min-width:2.1em;margin-right:6px;font-style:normal;font-weight:600;opacity:.5;font-variant-numeric:tabular-nums}
+body.gdNew #gdDlg .gdbox{gap:8px;padding:14px 16px}
+body.gdNew #gdDlg .gdtop{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+body.gdNew #gdDlg .gdtop h2{margin:0;font-size:20px;text-transform:none;letter-spacing:0;white-space:nowrap}
+body.gdNew #gdDlg .gdtop .gdcat{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.65;font-size:14px}
+body.gdNew #gdProgBtn{display:inline-flex}
+body.gdNew .gdfilt{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+body.gdNew .gdfilt select,body.gdNew .gdfilt input{min-width:0;width:100%;box-sizing:border-box;min-height:44px}
+body.gdNew .gdfilt select[hidden]+input{grid-column:1/-1}
+body.gdNew #gdList{gap:4px}
+body.gdNew #gdList .gch{flex:none;height:auto!important;min-height:50px;padding:6px 10px;gap:10px;border-radius:10px;justify-content:flex-start;text-align:left}
+body.gdNew #gdList .gch .t{flex:1;min-width:0;align-items:flex-start}
+body.gdNew #gdList .gch .t b{font-size:15px;font-weight:600}
+body.gdNew #gdList .gch img,body.gdNew #gdList .gch .ph{width:36px;height:36px}
+body.gdNew #gdList .gch .ph{display:flex;align-items:center;justify-content:center;border-radius:8px;background:linear-gradient(135deg,#1d2a47,#0d1424);color:#fff;font:800 13px/1 inherit;opacity:.85}
+body.gdNew #gdList .gch[aria-pressed="true"]{outline:none;background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:inset 4px 0 0 var(--accent)}
+body.gdNew .gdhead{gap:8px}
+body.gdNew .gdhead .btn{min-height:44px;padding:6px 14px}
+body.gdNew .gdname{font-size:19px}
+body.gdNew #gdProgRow[hidden]{display:none}
+body.gdNew #gdDays{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+body.gdNew #gdDays .tab{flex:none}
+.gdnone{display:flex;flex-direction:column;gap:10px;margin:8px;padding:18px;border-radius:14px;background:color-mix(in srgb,currentColor 6%,transparent)}
+.gdnone b{font-size:17px}
+@media (max-height:600px){
+  body.gdNew #gdDlg .gdbox{height:96vh!important;padding:10px 12px}
+  body.gdNew #gdDlg .gdtop h2{font-size:17px}
+  body.gdNew #gdDlg .btn{min-height:40px}
+  body.gdNew #gdList .gch{min-height:44px;padding:4px 8px}
+  body.gdNew #gdList .gch .t .nx,body.gdNew #gdList .gch .t .pb{display:none}
+  body.gdNew .gdp{padding:6px 10px}
+}
+@media (max-width:820px){body.gdNew .gdgrid{grid-template-rows:42% minmax(0,1fr)!important}}
+/* ===== Tesla: brilho e som no ecrã total ===== */
+#vGest{position:absolute;top:50%;transform:translateY(-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 12px;border-radius:16px;background:#000a;color:#fff;font:700 16px/1 inherit;pointer-events:none;opacity:0;transition:opacity .2s}
+#vGest.on{opacity:1}
+#vGest .tr{width:10px;height:150px;border-radius:6px;background:#ffffff33;position:relative;overflow:hidden}
+#vGest .tr i{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:6px}
+#vGest .ic{font-size:22px}
+body.vgOn #stage{touch-action:none}
+/* ===== Tesla: zoom do Início ===== */
+#v-tvinicio{touch-action:pan-x pan-y}
+#ahZoomTag{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:60;padding:8px 16px;border-radius:999px;background:#000c;color:#fff;font:700 16px/1 inherit;pointer-events:none;opacity:0;transition:opacity .25s}
+#ahZoomTag.on{opacity:1}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  /* ===== Guia: cabeçalho compacto, filtros lado a lado, pesquisa de programas escondida ===== */
+  try{
+    document.body.classList.add("gdNew");
+    const box = document.querySelector("#gdDlg .gdbox"), top = box.firstElementChild;
+    top.classList.add("gdtop");
+    const h = top.querySelector("h2"); if(h){ h.removeAttribute("style"); h.textContent = "📅 Guia"; }
+    const cat = document.createElement("span"); cat.className = "gdcat"; top.insertBefore(cat, top.querySelector(".spacer"));
+    const pb = document.createElement("button"); pb.className = "btn"; pb.id = "gdProgBtn"; pb.textContent = "🔎 Programas"; pb.setAttribute("aria-pressed", "false");
+    top.insertBefore(pb, $("gdClose"));
+    const side = box.querySelector(".gdside"), f = document.createElement("div"); f.className = "gdfilt";
+    side.insertBefore(f, side.firstChild); f.appendChild($("gdGroup")); f.appendChild($("gdSearch"));
+    const pr = $("gdProgQ").closest(".row"); pr.id = "gdProgRow"; pr.hidden = true;
+    pb.onclick = () => { const o = pr.hidden; pr.hidden = !o; pb.setAttribute("aria-pressed", String(o)); if(o) setTimeout(() => { try{ $("gdProgQ").focus(); }catch(e){} }, 30); else { $("gdProgQ").value = ""; try{ gdSearchClear(); }catch(e){} } };
+    const upd = () => { const g = $("gdGroup").value, n = (GD.list || []).length; cat.textContent = (g || "Todas as categorias") + " · " + n + " canais"; };
+    $("gdGroup").addEventListener("change", () => setTimeout(upd, 0)); $("gdSearch").addEventListener("input", () => setTimeout(upd, 0));
+    const _rl = window.gdRenderList; window.gdRenderList = function(){ const r = _rl.apply(this, arguments); try{ upd(); }catch(e){} return r; };
+  }catch(e){ console.log("guia", e); }
+
+  /* ===== Ecrã total / modo cinema: deslizar à esquerda = brilho, à direita = som ===== */
+  try{
+    const st = $("stage"), tag = document.createElement("div"); tag.id = "vGest"; tag.innerHTML = '<span class="ic"></span><span class="tr"><i></i></span><span class="vl"></span>'; st.appendChild(tag);
+    const G = window.__vg = {b:+LS.get("tvBright", 1) || 1, v:LS.get("tvVol", 1)};
+    if(!(G.v >= 0 && G.v <= 1)) G.v = 1;
+    const vids = () => [$("vid0"), $("vid1")];
+    const full = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || $("v-tv").classList.contains("cinema");
+    const applyB = () => vids().forEach(v => { if(v) v.style.filter = Math.abs(G.b - 1) < 0.01 ? "" : "brightness(" + G.b.toFixed(2) + ")"; });
+    const applyV = () => { try{ const v = $("vid" + audioSlot); if(v && !v.muted) v.volume = G.v; }catch(e){} };
+    applyB();
+    vids().forEach(v => v && ["playing", "loadeddata"].forEach(ev => v.addEventListener(ev, applyV)));
+    let hideT = 0;
+    const show = (kind, val, txt) => {
+      tag.querySelector(".ic").textContent = kind === "b" ? "☀️" : val === 0 ? "🔇" : "🔊";
+      tag.querySelector(".tr i").style.height = Math.round(Math.min(1, val / (kind === "b" ? 2 : 1)) * 100) + "%";
+      tag.querySelector(".vl").textContent = txt;
+      tag.style.left = kind === "b" ? "24px" : ""; tag.style.right = kind === "b" ? "" : "24px";
+      tag.classList.add("on"); clearTimeout(hideT); hideT = setTimeout(() => tag.classList.remove("on"), 900);
+    };
+    const sync = () => document.body.classList.toggle("vgOn", full() && currentView === "tv");
+    document.addEventListener("fullscreenchange", sync); new MutationObserver(sync).observe($("v-tv"), {attributes:true, attributeFilter:["class"]});
+    let s = null;
+    st.addEventListener("pointerdown", e => {
+      if(!full() || e.target.closest("button,a,input,select,textarea,.cinebar")) return;
+      const r = st.getBoundingClientRect();
+      if(e.clientY > r.bottom - Math.min(64, r.height * 0.16)) return;   /* barra de controlos do vídeo */
+      s = {id:e.pointerId, x:e.clientX, y:e.clientY, h:r.height, side:(e.clientX - r.left) < r.width / 2 ? "b" : "v", b0:G.b, v0:G.v, on:false};
+    });
+    st.addEventListener("pointermove", e => {
+      if(!s || e.pointerId !== s.id) return;
+      const dy = s.y - e.clientY, dx = e.clientX - s.x;
+      if(!s.on){ if(Math.abs(dy) < 14 || Math.abs(dy) < Math.abs(dx) * 1.3) return; s.on = true; G.drag = true; try{ st.setPointerCapture(e.pointerId); }catch(x){} }
+      e.preventDefault();
+      const k = dy / (s.h * 0.75);
+      if(s.side === "b"){ G.b = Math.max(0.3, Math.min(2, s.b0 + k * 1.7)); applyB(); show("b", G.b, Math.round(G.b * 100) + "%"); }
+      else { G.v = Math.max(0, Math.min(1, s.v0 + k)); applyV(); show("v", G.v, Math.round(G.v * 100) + "%"); }
+    });
+    const end = e => { if(!s || (e && e.pointerId !== s.id)) return; if(s.on){ LS.set("tvBright", +G.b.toFixed(2)); LS.set("tvVol", +G.v.toFixed(2)); G.lastGest = Date.now(); } s = null; setTimeout(() => { G.drag = false; }, 50); };
+    st.addEventListener("pointerup", end, true); st.addEventListener("pointercancel", end);
+    /* um gesto não conta como toque/duplo toque para sair do ecrã total */
+    st.addEventListener("pointerup", e => { if(G.lastGest && Date.now() - G.lastGest < 60){ e.stopImmediatePropagation(); } }, true);
+    st.addEventListener("dblclick", e => { if(G.lastGest && Date.now() - G.lastGest < 500){ e.stopImmediatePropagation(); } }, true);
+    let hinted = LS.get("vgHint", 0);
+    document.addEventListener("fullscreenchange", () => { if(document.fullscreenElement && !hinted){ hinted = 1; LS.set("vgHint", 1); setTimeout(() => toast("Desliza para cima ou para baixo: à esquerda muda o brilho, à direita o som."), 1600); } });
+    $("btnCinema").addEventListener("click", () => { if(!hinted && $("v-tv").classList.contains("cinema")){ hinted = 1; LS.set("vgHint", 1); setTimeout(() => toast("Desliza no vídeo para cima ou para baixo: à esquerda muda o brilho, à direita o som."), 1600); } });
+  }catch(e){ console.log("gestos", e); }
+
+  /* ===== Início da TV: zoom com dois dedos (afastar = maior, juntar = menor) ===== */
+  try{
+    const sec = $("v-tvinicio"); if(!sec) return;
+    const tag = document.createElement("div"); tag.id = "ahZoomTag"; document.body.appendChild(tag);
+    let z = +cfg.tvHomeZoom || 1, p = null, tT = 0;
+    const apply = () => { sec.style.zoom = Math.abs(z - 1) < 0.01 ? "" : String(z); };
+    const say = () => { tag.textContent = "Zoom " + Math.round(z * 100) + "%"; tag.classList.add("on"); clearTimeout(tT); tT = setTimeout(() => tag.classList.remove("on"), 900); };
+    const save = () => { cfg.tvHomeZoom = +z.toFixed(2); saveCfg(); const r = $("ahSetZoom"); if(r) r.textContent = Math.round(z * 100) + "%"; };
+    apply();
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    sec.addEventListener("touchstart", e => { if(e.touches.length === 2){ p = {d:dist(e.touches), z}; e.preventDefault(); } }, {passive:false});
+    sec.addEventListener("touchmove", e => {
+      if(!p || e.touches.length !== 2) return; e.preventDefault();
+      const nz = Math.max(0.6, Math.min(1.8, p.z * dist(e.touches) / p.d));
+      if(Math.abs(nz - z) > 0.01){ z = nz; apply(); say(); }
+    }, {passive:false});
+    sec.addEventListener("touchend", e => { if(p && e.touches.length < 2){ p = null; save(); } });
+    /* rato/trackpad: Ctrl + roda */
+    sec.addEventListener("wheel", e => { if(!e.ctrlKey) return; e.preventDefault(); z = Math.max(0.6, Math.min(1.8, z * (e.deltaY < 0 ? 1.06 : 1 / 1.06))); apply(); say(); clearTimeout(sec._zs); sec._zs = setTimeout(save, 300); }, {passive:false});
+    /* Definições: mostrar e repor */
+    const w = $("ahSet");
+    if(w){ const d = document.createElement("div"); d.className = "row"; d.style.marginTop = "6px";
+      d.innerHTML = '<span class="small">Zoom do Início (dois dedos no ecrã): <b id="ahSetZoom">' + Math.round(z * 100) + '%</b></span><button class="btn" id="ahSetZoomR">Repor 100%</button>';
+      w.appendChild(d); $("ahSetZoomR").onclick = () => { z = 1; apply(); save(); toast("Zoom do Início reposto ✓"); }; }
+  }catch(e){ console.log("zoom", e); }
 })();
 </script>
 
