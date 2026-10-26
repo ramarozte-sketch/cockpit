@@ -2634,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v93";
+const APP_VERSION = "v94";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8028,5 +8028,267 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   renderCineEpg();
 })();
 </script>
+<style>
+/* ===== Tesla: Início da TV ao estilo Android TV (Definições → TV e IPTV → Ecrã inicial da TV) ===== */
+#v-tvinicio{padding:4px 6px 40px;box-sizing:border-box}
+.ahTop{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+.ahTop h1{margin:0}
+.ahHero{display:flex;align-items:center;gap:28px;padding:22px 28px;margin:2px 0 12px;border-radius:24px;min-height:190px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 38%,#0d1526),#0d1526 72%);box-shadow:0 18px 50px #0007;color:#fff}
+.ahHeroArt{flex:0 0 240px;aspect-ratio:16/9;border-radius:18px;background:#0b1220cc;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ahHeroArt img{max-width:70%;max-height:70%;object-fit:contain}
+.ahHeroArt b{font-size:44px;opacity:.6}
+.ahHeroTx{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.ahHeroTx small{font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+.ahHeroTx h2{margin:0;font-size:36px;line-height:1.1;text-transform:none;letter-spacing:0;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ahHeroTx p{margin:0;font-size:18px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ahHeroBt{display:flex;gap:12px;margin-top:6px;flex-wrap:wrap}
+.ahBtn{min-height:52px;padding:8px 24px;border:0;border-radius:14px;background:#ffffff24;color:inherit;font:600 18px/1 inherit;cursor:pointer}
+.ahBtn.pri{background:var(--accent);color:var(--accent-ink,#06101f)}
+.ahKinds{display:flex;gap:10px;margin:4px 0;flex-wrap:wrap}
+.ahKind{min-width:140px}
+.ahKind[aria-pressed=true]{background:#7cc4ff;color:#06101f}
+.ahRow h3{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 4px 0;font-size:22px;font-weight:700}
+.ahRow h3 span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ahRow h3 em{flex:none;font-style:normal;font-size:.62em;font-weight:600;opacity:.7;background:#ffffff1f;border-radius:999px;padding:2px 12px}
+.ahScroll{display:flex;gap:16px;overflow-x:auto;padding:12px 8px 24px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ahScroll::-webkit-scrollbar{display:none}
+.ahCard{flex:0 0 230px;border:0;border-radius:18px;background:var(--panel,#121b2e);color:inherit;padding:0;text-align:left;overflow:hidden;box-shadow:0 6px 18px #0006;cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative}
+.ahCard:active{transform:scale(.97)}
+@media (hover:hover){.ahCard:hover{transform:scale(1.05);box-shadow:0 0 0 3px var(--accent),0 14px 34px #000b;z-index:3}}
+.ahArt{display:flex;align-items:center;justify-content:center;aspect-ratio:16/9;background:linear-gradient(135deg,#1d2a47,#0d1424);position:relative}
+.ahArt img{max-width:60%;max-height:62%;object-fit:contain}
+.ahArt img+.ahInit{display:none}
+.ahInit{font-size:32px;font-weight:800;opacity:.45;color:#fff}
+.ahMeta{display:block;padding:10px 14px 12px}
+.ahMeta b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ahMeta small{display:block;margin-top:3px;font-size:13px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ahCard.poster{flex-basis:180px;align-self:flex-start}
+.ahCard.poster .ahArt{aspect-ratio:2/3}
+.ahCard.poster .ahArt img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover}
+.ahCard.poster .ahMeta b{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;line-height:1.2}
+.ahMore{display:flex;align-items:center;justify-content:center;min-height:150px;font:700 18px/1.3 inherit;background:#ffffff14;text-align:center}
+.ahEmpty{padding:26px 6px;font-size:19px;opacity:.75}
+/* modelos */
+#v-tvinicio.ah-cinema .ahCard{flex-basis:330px}#v-tvinicio.ah-cinema .ahCard.poster{flex-basis:240px}#v-tvinicio.ah-cinema .ahHero{min-height:280px}#v-tvinicio.ah-cinema .ahHeroTx h2{font-size:48px}#v-tvinicio.ah-cinema .ahHeroArt{flex-basis:330px}
+#v-tvinicio.ah-compacto .ahHero{display:none}#v-tvinicio.ah-compacto .ahCard{flex-basis:180px}#v-tvinicio.ah-compacto .ahCard.poster{flex-basis:140px}#v-tvinicio.ah-compacto .ahMeta small{display:none}#v-tvinicio.ah-compacto .ahScroll{gap:10px;padding-bottom:12px}
+#v-tvinicio.ah-grelha .ahScroll{flex-wrap:wrap;overflow:visible}
+#v-tvinicio.ah-netflix .ahHero{border-radius:10px;background:linear-gradient(90deg,#000,color-mix(in srgb,var(--accent) 20%,#0c0c0e));min-height:clamp(200px,34vh,400px)}
+#v-tvinicio.ah-netflix .ahHeroArt{flex-basis:clamp(260px,40%,620px);border-radius:8px}
+#v-tvinicio.ah-netflix .ahHeroTx h2{font-size:clamp(28px,5vh,52px);font-weight:800;white-space:normal}
+#v-tvinicio.ah-netflix .ahBtn{border-radius:6px;background:#6d6d6eb3;color:#fff}#v-tvinicio.ah-netflix .ahBtn.pri{background:#fff;color:#000}
+#v-tvinicio.ah-netflix .ahKind{border-radius:999px;background:transparent;border:1px solid #ffffff55}#v-tvinicio.ah-netflix .ahKind[aria-pressed=true]{background:#fff;color:#000}
+#v-tvinicio.ah-netflix .ahRow h3 em{display:none}
+#v-tvinicio.ah-netflix .ahCard{border-radius:6px;box-shadow:none;background:#181818}
+#v-tvinicio.ah-netflix .ahMeta{position:absolute;left:0;right:0;bottom:0;padding:30px 10px 8px;background:linear-gradient(transparent,#000d);color:#fff}
+#v-tvinicio.ah-netflix .ahMeta small{display:none}
+/* animações ao deslizar */
+@keyframes ahUp{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes ahZoom{from{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.06)}to{opacity:1;transform:none}}
+#v-tvinicio.ahArm .ahCard:not(.in){opacity:0}
+#v-tvinicio.an-suave .ahCard.rev{animation:ahUp .5s cubic-bezier(.2,.8,.2,1) backwards}
+#v-tvinicio.an-cascata .ahCard.rev{animation:ahUp .6s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:var(--d,0ms)}
+#v-tvinicio.an-zoom .ahCard.rev{animation:ahZoom .55s cubic-bezier(.2,.9,.3,1.1) backwards;animation-delay:var(--d,0ms)}
+/* pesquisa */
+#ahSrch{position:fixed;inset:0;z-index:9999;background:rgba(5,9,16,.9);display:flex;justify-content:center;padding:4vh 3vw}
+#ahSrch[hidden]{display:none}
+#ahSrch .box{width:min(900px,100%);display:flex;flex-direction:column;gap:12px;max-height:92vh}
+#ahSrch .top{display:flex;gap:10px}#ahSrch input{flex:1;font-size:20px;padding:12px 16px;border-radius:14px;border:1px solid #ffffff40;background:#141e32;color:#fff}
+#ahSrch .res{overflow:auto;display:flex;flex-direction:column;gap:6px}
+#ahSrch .res .ahBtn{text-align:left;display:flex;gap:8px;align-items:center}#ahSrch .res small{opacity:.65}
+@media (max-width:900px){.ahHero{flex-direction:column;align-items:stretch}.ahHeroArt{flex:none;width:100%}.ahCard{flex-basis:46vw}.ahCard.poster{flex-basis:36vw}}
+</style>
+<script>
+/* ===== Tesla: Início da TV ao estilo Android TV ===== */
+(function(){
+  if(window.ANDROID) return;   /* a app Android tem o seu próprio Início */
+  try{
+  const TPL = [["equilibrado", "Equilibrado"], ["cinema", "Cinema"], ["compacto", "Compacto"], ["grelha", "Grelha"], ["netflix", "Estilo Netflix"]];
+  const ANS = [["suave", "Suave"], ["cascata", "Cascata"], ["zoom", "Zoom"], ["nenhuma", "Sem animação"]];
+  const on = () => cfg.tvHome !== "classic";
+  const AH = window.__ah = {flat:[], kind:(LS.get("ahKind", "live") || "live"), lim:{}, pass:0, hh:null, rr:null, n:-1};
+  const sx = s => esc(s);
+  const img = u => { try{ return typeof imgSrc === "function" ? imgSrc(u) : u; }catch(e){ return u; } };
+
+  /* vista */
+  const sec = document.createElement("section"); sec.className = "view"; sec.id = "v-tvinicio"; sec.hidden = true;
+  sec.innerHTML = '<div class="ahTop"><h1>TV</h1><span class="spacer"></span><button class="btn" data-go="explore">🔎 Explorar lista</button><button class="btn" data-go="guide">📅 Guia</button></div><div class="ahHero" id="ahHero"></div><div id="ahRows"></div>';
+  $("v-tv").parentNode.insertBefore(sec, $("v-tv"));
+  const srch = document.createElement("div"); srch.id = "ahSrch"; srch.hidden = true;
+  srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX">✕ Fechar</button></div><div class="res" id="ahSrRes"></div></div>';
+  document.body.appendChild(srch);
+
+  /* botão para voltar ao Início a partir da lista */
+  const back = document.createElement("button"); back.className = "btn"; back.id = "btnTvHome"; back.textContent = "🏠 Início";
+  const tvRow = $("v-tv").querySelector(".row"); if(tvRow) tvRow.insertBefore(back, tvRow.querySelector(".spacer") || tvRow.firstChild);
+  back.onclick = () => show("tvinicio");
+  const syncBack = () => { back.hidden = !on(); };
+
+  /* recentes */
+  const recents = () => LS.get("tvRecent", []) || [];
+  const pushRecent = c => { try{ const a = recents().filter(x => x.url !== c.url); a.unshift({name:c.name, logo:c.logo || "", url:c.url, kind:c.kind, group:c.group, id:c.id, free:c.free, intl:c.intl, sid:c.sid}); LS.set("tvRecent", a.slice(0, 24)); }catch(e){} };
+
+  /* abrir um canal ou filme a partir do Início: a lista normal mostra o vídeo */
+  const _pc = window.playChannel;
+  window.playChannel = function(c){ AH.pass = Date.now() + 3000; try{ if(c && c.url && c.kind !== "series") pushRecent(c); }catch(e){} return _pc.apply(this, arguments); };
+  const _os = window.openSeries;
+  if(typeof _os === "function") window.openSeries = function(c){ AH.pass = Date.now() + 3000; try{ if(c && c.url) pushRecent(c); }catch(e){} if(currentView !== "tv") show("tv"); return _os.apply(this, arguments); };
+
+  /* «TV» no menu abre o Início; dentro da TV, a lista continua acessível */
+  const _show = window.show;
+  window.show = function(v){
+    if(v === "tv" && on() && Date.now() > AH.pass && currentView !== "tv") v = "tvinicio";
+    if(v === "tvinicio" && !on()) v = "tv";
+    const r = _show.apply(this, [v].concat([].slice.call(arguments, 1)));
+    if(v === "tvinicio"){
+      document.querySelectorAll('.nav[data-view="tv"]').forEach(b => b.setAttribute("aria-current", "page"));
+      try{ if(typeof tvLockUi === "function") tvLockUi(); }catch(e){}
+      ensureData(); render(true); replay();
+    }
+    return r;
+  };
+
+  /* dados */
+  let dataTried = false;
+  const ensureData = () => {
+    if(dataTried) return; dataTried = true;
+    try{ if(!channels.length && typeof ensureFree === "function") ensureFree().then(() => render(true)).catch(() => {}); }catch(e){}
+  };
+  setInterval(() => { try{ if(currentView !== "tvinicio") return; const n = channels.length + freeChans.length; if(n !== AH.n){ AH.n = n; render(true); } }catch(e){} }, 2000);
+
+  const uniq = l => { const s = new Set(); return l.filter(c => c && c.url && !s.has(c.url) && s.add(c.url)); };
+  const groupsOf = kind => { const m = new Map(); channels.filter(c => c.kind === kind).forEach(c => { const g = c.group || "Outros"; if(!m.has(g)) m.set(g, []); m.get(g).push(c); }); return m; };
+  const isPoster = c => c.kind === "movie" || c.kind === "series";
+  const subOf = c => { let s = c._sub || c.group || ""; try{ if(!c._sub && c.kind === "live"){ const nn = nowNext(c); if(nn && nn.now) s = hm(nn.now.start) + " " + nn.now.title; } }catch(e){} return s; };
+  function card(c, k){
+    const ini = sx(String(c.name || "?").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase());
+    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c.logo ? '<img src="' + sx(img(c.logo)) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
+  }
+  function row(title, list, total, lm){
+    list = uniq(list); if(!list.length) return "";
+    const k0 = AH.flat.length; list.forEach(c => AH.flat.push(c));
+    const more = lm && total > list.length ? '<button class="ahCard ahMore" data-lm="' + sx(lm) + '">Carregar mais 25<br><small>' + list.length + ' de ' + total + '</small></button>' : "";
+    return '<div class="ahRow"><h3><span>' + title + '</span><em>' + (total || list.length) + '</em></h3><div class="ahScroll">' + list.map((c, i) => card(c, k0 + i)).join("") + more + '</div></div>';
+  }
+  const favList = kind => { try{ return uniq([...channels, ...freeChans].filter(c => favs.has(c.url) && (kind === "live" ? !isPoster(c) && c.kind !== "episode" : c.kind === kind))); }catch(e){ return []; } };
+
+  function render(force){
+    if(currentView !== "tvinicio") return;
+    sec.classList.remove(...TPL.map(t => "ah-" + t[0])); sec.classList.add("ah-" + (cfg.tvHomeTpl || "equilibrado"));
+    AH.flat = [];
+    const cur = (lastPlayed && (lastPlayed[0] || lastPlayed[1])) || recents()[0] || null;
+    let hero;
+    if(cur){
+      AH.flat.push(cur);
+      hero = '<div class="ahHeroArt">' + (cur.logo ? '<img src="' + sx(img(cur.logo)) + '" alt="" onerror="this.remove()">' : '<b>' + sx(String(cur.name || "?").slice(0, 2).toUpperCase()) + '</b>') + '</div><div class="ahHeroTx"><small>Continuar a ver</small><h2>' + sx(cur.name) + '</h2><p>' + sx(subOf(cur)) + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-k="0">▶ Ver agora</button><button class="ahBtn" data-go="explore">🔎 Explorar</button></div></div>';
+    } else {
+      hero = '<div class="ahHeroTx"><small>Cockpit TV</small><h2>Bem-vindo</h2><p>' + (channels.length ? "Escolhe um canal em baixo para começar." : "Os canais abertos portugueses já estão disponíveis. Para ver mais, adiciona a tua lista IPTV nas Definições.") + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-go="explore">🔎 Explorar canais</button><button class="ahBtn" data-go="settings">⚙ Definições</button></div></div>';
+    }
+    if(force || AH.hh !== hero){ $("ahHero").innerHTML = hero; AH.hh = hero; }
+    const K = [["live", "📺 Live"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
+    let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
+    const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
+    const rv = recents().filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(cur && cur.url === x.url)).slice(0, 20);
+    if(rv.length) rows += row("🕘 Vistos recentemente", rv);
+    const gm = groupsOf(AH.kind);
+    let names = []; try{ names = orgGroupList(AH.kind, [...gm.keys()], false); }catch(e){ names = [...gm.keys()]; }
+    let sel = names.filter(n => isPtGroup(n));
+    if(!sel.length && AH.kind !== "live"){ const re = /(^|[^A-Za-zÀ-ÿ])(PT|PT-PT|PORTUGAL|PORTUGU[EÊ]S|PORTUGUESA)([^A-Za-zÀ-ÿ]|$)|🇵🇹/i; sel = names.filter(n => re.test(n)); if(!sel.length) sel = names; }
+    for(const g of sel.slice(0, 14)){ const l = gm.get(g) || []; const lk = AH.kind + "|" + g; const n = AH.kind === "live" ? 40 : (AH.lim[lk] || 25); rows += row(sx(g), l.slice(0, n), l.length, AH.kind === "live" ? "" : lk); }
+    if(AH.kind === "live" && !channels.some(c => c.kind === "live") && freeChans.length) rows += row("📡 Canais abertos PT", freeChans.slice(0, 40), freeChans.length);
+    if(!rows.includes("ahRow")){
+      const kl = AH.kind === "live" ? "canais" : AH.kind === "movie" ? "filmes" : "séries";
+      const tot = channels.filter(c => c.kind === AH.kind).length;
+      rows += '<p class="ahEmpty">' + (tot ? "Tens " + tot + " " + kl + ", mas nenhuma categoria visível. Abre a lista para os ver." : (typeof freeLoading !== "undefined" && freeLoading) ? "A carregar canais…" : "Sem " + kl + " carregados. Adiciona a tua lista IPTV nas Definições ou abre a lista.") + '</p>';
+    }
+    try{ AH.n = channels.length + freeChans.length; }catch(e){}
+    if(force || AH.rr !== rows){
+      const keep = {}; sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); if(h && s) keep[AH.kind + "|" + h.textContent] = s.scrollLeft; });
+      $("ahRows").innerHTML = rows; AH.rr = rows;
+      sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); const v = h && keep[AH.kind + "|" + h.textContent]; if(s && v) s.scrollLeft = v; });
+      armAnim();
+    }
+  }
+  AH.render = render;
+
+  /* animações (repetem sempre que um cartão entra no ecrã) */
+  let io = null, ioFired = false;
+  function armAnim(){
+    const an = cfg.tvHomeAnim || "suave";
+    ANS.forEach(a => sec.classList.toggle("an-" + a[0], an === a[0]));
+    try{ if(io) io.disconnect(); }catch(e){} io = null; sec.classList.remove("ahArm");
+    const cards = [...sec.querySelectorAll("#ahRows .ahCard")];
+    if(an === "nenhuma" || typeof IntersectionObserver !== "function"){ cards.forEach(c => c.classList.add("in")); return; }
+    ioFired = false;
+    io = new IntersectionObserver(es => {
+      ioFired = true; let n = 0;
+      es.filter(e => e.isIntersecting).sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top) || (a.boundingClientRect.left - b.boundingClientRect.left)).forEach(e => {
+        const el = e.target; if(el.classList.contains("in")) return;
+        el.style.setProperty("--d", Math.min(n++, 10) * 70 + "ms"); el.classList.add("in", "rev"); setTimeout(() => el.classList.remove("rev"), 1400);
+      });
+      es.filter(e => !e.isIntersecting).forEach(e => e.target.classList.remove("in", "rev"));
+    }, {threshold:0.1});
+    sec.classList.add("ahArm"); cards.forEach(c => io.observe(c));
+    setTimeout(() => { if(!ioFired){ cards.forEach(c => c.classList.add("in")); sec.classList.remove("ahArm"); } }, 2500);   /* rede de segurança */
+  }
+  function replay(){ sec.querySelectorAll("#ahRows .ahCard").forEach(c => c.classList.remove("in", "rev")); armAnim(); }
+
+  /* toques */
+  sec.addEventListener("click", e => {
+    const b = e.target.closest("[data-k],[data-go],[data-kind],[data-lm],[data-srch]"); if(!b) return;
+    if(b.dataset.lm){ AH.lim[b.dataset.lm] = (AH.lim[b.dataset.lm] || 25) + 25; render(true); return; }
+    if(b.dataset.kind){ AH.kind = b.dataset.kind; LS.set("ahKind", AH.kind); render(true); return; }
+    if(b.dataset.srch){ openSearch(); return; }
+    if(b.dataset.go === "explore"){ AH.pass = Date.now() + 1500; show("tv"); return; }
+    if(b.dataset.go === "guide"){ try{ if(typeof openGuide === "function") openGuide(); else $("btnGuide").click(); }catch(x){} return; }
+    if(b.dataset.go){ show(b.dataset.go); return; }
+    if(b.dataset.k != null) watch(AH.flat[+b.dataset.k]);
+  });
+  function watch(c){
+    if(!c) return;
+    if(c.kind === "series" && c.sid){ window.openSeries(c); return; }
+    window.playChannel(c);
+  }
+
+  /* pesquisa global */
+  let found = [];
+  const nz = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  function openSearch(){ srch.hidden = false; $("ahSrIn").value = ""; runSearch(); setTimeout(() => { try{ $("ahSrIn").focus(); }catch(e){} }, 50); }
+  function runSearch(){
+    const q = nz($("ahSrIn").value).split(/\s+/).filter(Boolean), res = $("ahSrRes");
+    if(!q.length){ res.innerHTML = '<p class="ahEmpty">Escreve para pesquisar.</p>'; found = []; return; }
+    found = uniq([...channels, ...freeChans].filter(c => c && q.every(w => nz(c.name).includes(w)))).slice(0, 80);
+    const ic = c => c.kind === "movie" ? "🎬" : c.kind === "series" ? "🍿" : "📺";
+    res.innerHTML = found.length ? found.map((c, i) => '<button class="ahBtn" data-i="' + i + '">' + ic(c) + ' <b>' + sx(c.name) + '</b><small> ' + sx(c.group || "") + '</small></button>').join("") : '<p class="ahEmpty">Sem resultados.</p>';
+  }
+  let st = 0; $("ahSrIn").addEventListener("input", () => { clearTimeout(st); st = setTimeout(runSearch, 180); });
+  $("ahSrX").onclick = () => { srch.hidden = true; };
+  $("ahSrRes").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if(!b) return; const c = found[+b.dataset.i]; srch.hidden = true; watch(c); });
+
+  /* Definições → TV e IPTV */
+  const card0 = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV");
+  if(card0){
+    const w = document.createElement("div"); w.id = "ahSet";
+    w.innerHTML = '<h3 style="margin:14px 0 6px">Ecrã inicial da TV</h3>' +
+      '<label class="f">Ao abrir a TV mostrar<select id="ahSetOn"><option value="android">Início estilo Android TV (destaque e filas)</option><option value="classic">Lista clássica de canais</option></select></label>' +
+      '<label class="f">Modelo do Início<select id="ahSetTpl">' + TPL.map(t => '<option value="' + t[0] + '">' + t[1] + '</option>').join("") + '</select></label>' +
+      '<label class="f">Animação ao deslizar<select id="ahSetAn">' + ANS.map(t => '<option value="' + t[0] + '">' + t[1] + '</option>').join("") + '</select></label>';
+    const sub = card0.querySelector(".setsub"); card0.insertBefore(w, sub ? sub.nextSibling : card0.children[1] || null);
+    const fill = () => { $("ahSetOn").value = on() ? "android" : "classic"; $("ahSetTpl").value = cfg.tvHomeTpl || "equilibrado"; $("ahSetAn").value = cfg.tvHomeAnim || "suave"; syncBack(); };
+    $("ahSetOn").onchange = () => { cfg.tvHome = $("ahSetOn").value; saveCfg(); syncBack(); toast($("ahSetOn").value === "classic" ? "A TV abre na lista clássica." : "A TV abre no Início estilo Android TV ✓"); };
+    $("ahSetTpl").onchange = () => { cfg.tvHomeTpl = $("ahSetTpl").value; saveCfg(); };
+    $("ahSetAn").onchange = () => { cfg.tvHomeAnim = $("ahSetAn").value; saveCfg(); };
+    fill();
+    const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fill(); }catch(e){} return r; };
+  }
+  syncBack();
+  /* se a app abriu já na TV (última vista), passa para o Início */
+  setTimeout(() => { try{
+    if(currentView === "tvinicio") show(on() ? "tvinicio" : "tv");   /* a app abriu no Início antes de ele existir */
+    else if(on() && currentView === "tv" && !(lastPlayed[0] || lastPlayed[1])) show("tvinicio");
+  }catch(e){} }, 300);
+  }catch(e){ console.log("Início TV", e); }
+})();
+</script>
+
 </body>
 </html>
