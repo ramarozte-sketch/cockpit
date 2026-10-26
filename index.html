@@ -2634,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v95";
+const APP_VERSION = "v96";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -7976,6 +7976,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let lsKb = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); lsKb += (k.length + (localStorage.getItem(k) || "").length) * 2; } }catch(e){}
     const L = [];
     L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "— (não carregou)") + (window.__hlsSrc ? " de " + (/^https?:/.test(window.__hlsSrc) ? new URL(window.__hlsSrc).host : "este site") : ""));
+  try{ const mv = (channels || []).filter(c => c.kind === "movie"), sr = (channels || []).filter(c => c.kind === "series"); const C = window.__ahCovers; L.push("Capas na lista: filmes " + mv.filter(c => c.logo).length + "/" + mv.length + " · séries " + sr.filter(c => c.logo).length + "/" + sr.length + (C ? " · pedidas ao servidor: " + C.stat.ok + " obtidas, " + C.stat.none + " sem capa, " + C.stat.fail + " erro" : "")); const ex = mv.find(c => c.logo); if(ex) L.push("Exemplo de capa: " + String(ex.logo).slice(0, 90)); }catch(e){}
   try{ L.push("GPS do browser: " + (navigator.geolocation ? (GEO.state ? "permissão " + GEO.state : "disponível") : "indisponível") + (GEO.last ? ", último sinal há " + Math.round((Date.now()-GEO.last)/1000) + " s" : ", sem sinal ainda") + (GEO.err ? " · erro: " + GEO.err : "")); }catch(e){}
     L.push("Navegador: " + navigator.userAgent.slice(0, 110));
     L.push("Ecrã: " + innerWidth + "×" + innerHeight + " · memória JS: " + mem + " · definições guardadas: " + Math.round(lsKb / 1024) + " KB");
@@ -8039,7 +8040,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   if($("chInfo")) $("chInfo").onclick = () => { const on = $("vStats").hidden; $("vStats").hidden = !on; $("chInfo").setAttribute("aria-pressed", on); clearInterval(stT); if(on){ stTick(); stT = setInterval(stTick, 1000); } };
 
   /* Picons: carregam só perto do ecrã, em segundo plano */
-  const fix = im => { try{ if(im.tagName !== "IMG" || im.dataset.eager) return; if(!im.loading) im.loading = "lazy"; if(!im.decoding || im.decoding === "auto") im.decoding = "async"; if(!im.fetchPriority || im.fetchPriority === "auto") im.fetchPriority = "low"; }catch(e){} };
+  const fix = im => { try{ if(im.tagName !== "IMG" || im.dataset.eager) return; if(im.closest && im.closest("#tvList,#gdList,#v-tvinicio,#mvDlg,#ahSrch")) im.referrerPolicy = "no-referrer"; if(!im.loading) im.loading = "lazy"; if(!im.decoding || im.decoding === "auto") im.decoding = "async"; if(!im.fetchPriority || im.fetchPriority === "auto") im.fetchPriority = "low"; }catch(e){} };
   try{ document.querySelectorAll("img").forEach(fix); new MutationObserver(ms => { for(const m of ms) m.addedNodes.forEach(n => { if(n.nodeType !== 1) return; if(n.tagName === "IMG") fix(n); else if(n.querySelectorAll) n.querySelectorAll("img").forEach(fix); }); }).observe(document.body, {childList:true, subtree:true}); }catch(e){}
   renderCineEpg();
 })();
@@ -8175,9 +8176,45 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   const groupsOf = kind => { const m = new Map(); channels.filter(c => c.kind === kind).forEach(c => { const g = c.group || "Outros"; if(!m.has(g)) m.set(g, []); m.get(g).push(c); }); return m; };
   const isPoster = c => c.kind === "movie" || c.kind === "series";
   const subOf = c => { let s = c._sub || c.group || ""; try{ if(!c._sub && c.kind === "live"){ const nn = nowNext(c); if(nn && nn.now) s = hm(nn.now.start) + " " + nn.now.title; } }catch(e){} return s; };
+  /* ===== Capas de filmes e séries: se a lista não as traz (ou o endereço falha), pede-as ao servidor Xtream ===== */
+  const CV = {map:(function(){ try{ return LS.get("ahCovers", {}) || {}; }catch(e){ return {}; } })(), q:[], busy:0, tried:new Set(), stat:{ok:0, fail:0, none:0}};
+  window.__ahCovers = CV;
+  const vodId = c => (/\/movie\/[^/]+\/[^/]+\/(\d+)\./.exec(c.url || "") || [])[1];
+  const cvSave = () => { try{ const k = Object.keys(CV.map); if(k.length > 900) k.slice(0, k.length - 900).forEach(x => delete CV.map[x]); LS.set("ahCovers", CV.map); }catch(e){} };
+  async function cvFetch(c){
+    if(!(cfg.xs && cfg.xu && cfg.xp) || typeof xApi !== "function") return "";
+    let i = {};
+    if(c.kind === "series" && c.sid) i = (await xApi("get_series_info", "&series_id=" + c.sid)).info || {};
+    else { const id = vodId(c); if(!id) return ""; i = (await xApi("get_vod_info", "&vod_id=" + id)).info || {}; }
+    const u = i.movie_image || i.cover_big || i.cover || (Array.isArray(i.backdrop_path) ? i.backdrop_path[0] : "") || "";
+    return /^https?:\/\//i.test(u) && u !== c.logo ? u : "";
+  }
+  const cvPump = () => {
+    while(CV.busy < 3 && CV.q.length){
+      const el = CV.q.shift(); const c = AH.flat[+el.dataset.k]; if(!c || CV.tried.has(c.url)) continue;
+      CV.tried.add(c.url); CV.busy++;
+      cvFetch(c).then(u => {
+        if(!u){ CV.stat.none++; return; }
+        CV.map[c.url] = u; cvSave(); CV.stat.ok++;
+        sec.querySelectorAll('.ahCard[data-k]').forEach(b => { const x = AH.flat[+b.dataset.k]; if(!x || x.url !== c.url) return;
+          const art = b.querySelector(".ahArt"); let im = art.querySelector("img"); if(!im){ im = document.createElement("img"); im.alt = ""; art.insertBefore(im, art.firstChild); }
+          im.referrerPolicy = "no-referrer"; im.onerror = () => im.remove(); im.src = img(u); });
+      }).catch(() => { CV.stat.fail++; }).finally(() => { CV.busy--; cvPump(); });
+    }
+  };
+  const cvNeed = el => { const c = AH.flat[+el.dataset.k]; if(c && isPoster(c) && !CV.tried.has(c.url)){ CV.q.push(el); cvPump(); } };
+  window.__ahImgErr = im => { const b = im.closest(".ahCard"); im.remove(); if(b) cvNeed(b); };
+  let cvIo = null;
+  const cvScan = () => {
+    try{ if(cvIo) cvIo.disconnect(); }catch(e){}
+    if(typeof IntersectionObserver !== "function") return;
+    cvIo = new IntersectionObserver(es => es.forEach(e => { if(!e.isIntersecting) return; cvIo.unobserve(e.target); if(!e.target.querySelector(".ahArt img")) cvNeed(e.target); }), {rootMargin:"300px"});
+    sec.querySelectorAll("#ahRows .ahCard.poster[data-k]").forEach(b => cvIo.observe(b));
+  };
   function card(c, k){
     const ini = sx(gdIni(c.name));
-    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c.logo ? '<img src="' + sx(img(c.logo)) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
+    const lg = (isPoster(c) && CV.map[c.url]) || c.logo;
+    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
   }
   function row(title, list, total, lm){
     list = uniq(list); if(!list.length) return "";
@@ -8221,7 +8258,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
       const keep = {}; sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); if(h && s) keep[AH.kind + "|" + h.textContent] = s.scrollLeft; });
       $("ahRows").innerHTML = rows; AH.rr = rows;
       sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); const v = h && keep[AH.kind + "|" + h.textContent]; if(s && v) s.scrollLeft = v; });
-      armAnim();
+      armAnim(); cvScan();
     }
   }
   AH.render = render;
