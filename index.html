@@ -2394,6 +2394,7 @@ function orgGroupList(kind, names, withHidden){
 function orgChannels(list, kind, group){
   const hid = new Set(TVORG.chHide || []), gh = new Set((TVORG.grpHide || {})[kind] || []);
   let l = list.filter(c => !hid.has(c.url) && (kind === "free" || kind === "fav" || !gh.has(c.group)));
+  if(window.__parHide) l = l.filter(c => !window.__parHide(c));
   const gord = (TVORG.grp || {})[kind] || [], has = gord.length || Object.keys(TVORG.ch || {}).some(k => k.startsWith(kind + "|")) || l.some(c => isPtGroup(c.group));
   if(!has) return l;
   const gi = c => { const i = gord.indexOf(c.group); return i < 0 ? (isPtGroup(c.group) ? -1 : 1e6) : i; }, seen = new Map(), maps = {};
@@ -2634,7 +2635,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v100";
+const APP_VERSION = "v101";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2744,7 +2745,7 @@ async function openSeries(c){
     $("tvList").innerHTML = `<button class="item" id="epBack"><span class="t"><b>← ${esc(c.name)}</b><span>Voltar às séries</span></span></button>` + eps.map((e,i)=>`<button class="item" data-ep="${i}"><span class="t"><b>${esc(e.name)}</b></span></button>`).join("");
     $("tvCount").textContent = eps.length+" episódios";
     $("epBack").onclick = renderTvList;
-    $("tvList").querySelectorAll("[data-ep]").forEach(bt=>bt.onclick=()=>playChannel(eps[+bt.dataset.ep]));
+    window.EPL = {list:eps, series:c}; $("tvList").querySelectorAll("[data-ep]").forEach(bt=>bt.onclick=()=>playChannel(eps[+bt.dataset.ep]));
   }catch(e){ toast("Não consegui abrir a série. "+fetchErrorHelp(xBase(), e), true); renderTvList(); }
 }
 function afterIptv(msg){ $("iptvStatus").textContent = msg; try{ renderAtv(); }catch(e){} $("tvEmpty").hidden = channels.length>0 || tvKind==="free"; fillGroups(); renderTvList(); }
@@ -2964,6 +2965,10 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(/HEVC|descodificar|formato/.test(extra||"") && c.kind === "live"){
       autoTried[slot].add(c.url); const alt = altQuality(c, autoTried[slot]);
       if(alt){ toast(`${c.name} usa um formato que este browser não suporta. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
+    }
+    if(c.kind === "live" && !c.free && window.__altFor && !/HEVC|descodificar|formato/.test(String(extra||""))){
+      autoTried[slot].add(c.url); const alt = window.__altFor(c, autoTried[slot]);
+      if(alt){ toast(`${c.name} falhou. A tentar outra fonte: ${alt.name}…`); playChannel(alt, slot, true); return; }
     }
     { const hm = /HINT:(.*)$/.exec(String(extra||"")); if(hm && hm[1]){ toast(hm[1], true); $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(hm[1])}</div>`; return; } }
     if(/HEVC/.test(extra||"")){
@@ -8228,15 +8233,16 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   function card(c, k){
     const ini = sx(gdIni(c.name));
     const lg = (isPoster(c) && CV.map[c.url]) || c.logo;
-    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
+    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c._pct ? '<span class="ahBar"><i style="width:' + c._pct + '%"></i></span>' : "") + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
   }
   function row(title, list, total, lm){
-    list = uniq(list); if(!list.length) return "";
+    list = uniq(list).filter(c => !(window.__parHide && window.__parHide(c))); if(!list.length) return "";
     const k0 = AH.flat.length; list.forEach(c => AH.flat.push(c));
     const more = lm && total > list.length ? '<button class="ahCard ahMore" data-lm="' + sx(lm) + '">Carregar mais 25<br><small>' + list.length + ' de ' + total + '</small></button>' : "";
     return '<div class="ahRow"><h3><span>' + title + '</span><em>' + (total || list.length) + '</em></h3><div class="ahScroll">' + list.map((c, i) => card(c, k0 + i)).join("") + more + '</div></div>';
   }
-  const favList = kind => { try{ return uniq([...channels, ...freeChans].filter(c => favs.has(c.url) && (kind === "live" ? !isPoster(c) && c.kind !== "episode" : c.kind === kind))); }catch(e){ return []; } };
+  const favList = kind => { try{ const ord = LS.get("favOrd", []) || [], rk = c => { const i = ord.indexOf(c.url); return i < 0 ? 1e6 : i; }; return uniq([...channels, ...freeChans].filter(c => favs.has(c.url) && (kind === "live" ? !isPoster(c) && c.kind !== "episode" : c.kind === kind))).sort((a, b) => rk(a) - rk(b)); }catch(e){ return []; } };
+  AH.favList = favList;
 
   function render(force){
     if(currentView !== "tvinicio") return;
@@ -8253,6 +8259,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     if(AH.hh !== hero || !$("ahHero").firstChild){ $("ahHero").innerHTML = hero; AH.hh = hero; }
     const K = [["live", "📺 Live"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
     let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
+    if(AH.kind !== "live" && window.RES){ const rl = window.RES.list(AH.kind).slice(0, 20).map(e => Object.assign({}, e, {_pct:Math.round(e.p / e.d * 100), _sub:(e.group ? e.group + " · " : "") + Math.max(1, Math.round((e.d - e.p) / 60)) + " min restantes"})); if(rl.length) rows += row("▶ Continuar a ver", rl); }
     const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
     const rv = recents().filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(cur && cur.url === x.url)).slice(0, 20);
     if(rv.length) rows += row("🕘 Vistos recentemente", rv);
@@ -8324,7 +8331,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   function runSearch(){
     const q = nz($("ahSrIn").value).split(/\s+/).filter(Boolean), res = $("ahSrRes");
     if(!q.length){ res.innerHTML = '<p class="ahEmpty">Escreve para pesquisar.</p>'; found = []; return; }
-    found = uniq([...channels, ...freeChans].filter(c => c && q.every(w => nz(c.name).includes(w)))).slice(0, 80);
+    found = uniq([...channels, ...freeChans].filter(c => c && q.every(w => nz(c.name).includes(w)) && !(window.__parHide && window.__parHide(c)))).slice(0, 80);
     const ic = c => c.kind === "movie" ? "🎬" : c.kind === "series" ? "🍿" : "📺";
     res.innerHTML = found.length ? found.map((c, i) => '<button class="ahBtn" data-i="' + i + '">' + ic(c) + ' <b>' + sx(c.name) + '</b><small> ' + sx(c.group || "") + '</small></button>').join("") : '<p class="ahEmpty">Sem resultados.</p>';
   }
@@ -8729,6 +8736,285 @@ body.pfull.ctlOn #vExit{opacity:1}
     const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ paint(); }catch(e){} return r; };
   }
   }catch(e){ console.log("operadores", e); }
+})();
+</script>
+<style>
+.ahBar{position:absolute;left:0;right:0;bottom:0;height:6px;background:#0009;z-index:2}.ahBar i{display:block;height:100%;background:var(--accent,#7cc4ff)}
+#nxBar{position:fixed;right:20px;bottom:110px;z-index:240;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:16px;background:#1a2b44ee;color:#fff;box-shadow:0 8px 30px #000a;font-size:18px}
+#nxBar[hidden]{display:none}#nxBar .btn{min-height:44px}
+#ahMenu{position:fixed;inset:0;z-index:9998;background:#000a;display:flex;align-items:center;justify-content:center}
+#ahMenu[hidden]{display:none}
+#ahMenu .box{display:flex;flex-direction:column;gap:8px;min-width:min(420px,90vw);padding:18px;border-radius:18px;background:var(--panel,#121b2e);box-shadow:0 20px 60px #000b}
+#ahMenu .box b{font-size:18px;margin-bottom:4px}#ahMenu .btn{justify-content:flex-start;min-height:50px}
+.ctyList{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+</style>
+<script>/* ===== Tesla: países das categorias e controlo parental (mesmo código da app Android) ===== */
+(function(){
+  if(window.ANDROID) return;
+  const MAP = {PORTUGAL:"PT",PORTUGUES:"PT",PORTUGUESA:"PT",SPAIN:"ES",ESPANA:"ES",ESPANHA:"ES",BRASIL:"BR",BRAZIL:"BR",FRANCE:"FR",FRANCA:"FR",ITALY:"IT",ITALIA:"IT",GERMANY:"DE",DEUTSCHLAND:"DE",ALEMANHA:"DE",ENGLAND:"GB",ANGOLA:"AO",MOCAMBIQUE:"MZ",CANADA:"CA",NETHERLANDS:"NL",HOLLAND:"NL",TURKEY:"TR",TURKIYE:"TR",ARABIC:"AR",ARAB:"AR"};
+  const FIX = {UK:"GB", EL:"GR"};
+  const KNOWN = {PT:1,ES:1,BR:1,FR:1,GB:1,UK:1,US:1,NL:1,AO:1,MZ:1,TR:1,MX:1,CV:1};   /* só códigos que não se confundem com palavras («DE», «IN», «IT», «NO»…) */
+  let st = null;
+  const load = () => { try{ st = JSON.parse(localStorage.getItem("ck_tvCty") || "{}") || {}; }catch(e){ st = {}; } st.order = st.order || []; st.hide = st.hide || []; return st; };
+  const state = () => st || load();
+  const ctyOf = g => {
+    g = String(g || "");
+    let m = /^[^A-Za-zÀ-ÿ]*([A-Za-z]{2,3})\s*(?:\||:|-|–|—|\]|\))/.exec(g);
+    if(m){ const c = m[1].toUpperCase(); return FIX[c] || c; }
+    m = /^[^A-Za-zÀ-ÿ]*([A-Za-zÀ-ÿ]{4,})/.exec(g);
+    if(m){ const w = m[1].toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); if(MAP[w]) return MAP[w]; }
+    /* filmes e séries: o país nem sempre vem no início («FILMES | PT», «Séries - Portugal», «Netflix PT») */
+    const toks = g.split(/[^A-Za-zÀ-ÿ]+/).filter(Boolean);
+    for(const t of toks){ if(KNOWN[t]) return FIX[t] || t; }
+    for(const t of toks){ const w = t.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); if(w.length > 3 && MAP[w]) return MAP[w]; }
+    /* sem país (Ação, Comédia, Terror…): cada categoria fica individual, para a poderes ordenar ou esconder */
+    return g.trim() ? "G:" + g.trim() : "??";
+  };
+  /* país de um item: a categoria; se não disser, o prefixo do nome («|PT| Título») */
+  const ctyOfItem = c => { let k = ctyOf(c && c.group); if((k === "??" || k.slice(0, 2) === "G:") && c && c.name){ const n = ctyOf(c.name); if(n !== "??" && n.slice(0, 2) !== "G:") k = n; } return k; };
+  window.__par = {unlocked:false, re:/(^|[^a-z0-9])(xxx|adult[oa]?s?|adulto|porn\w*|er[oó]tic\w*|sexy|18\+|\+18|hentai|playboy|hustler|brazzers|for adults|xxxx)([^a-z0-9]|$)/i,
+    on(){ try{ return !!localStorage.getItem("ck_parPin"); }catch(e){ return false; } },
+    blocksText(t){ return this.on() && !this.unlocked && this.re.test(String(t || "")); },
+    blocks(c){ return !!c && this.blocksText((c.group || "") + " " + (c.name || "")); }};
+  window.__cty = {
+    ctyOf, ctyOfItem, state, reload: load,
+    hiddenItem: c => state().hide.indexOf(ctyOfItem(c)) >= 0 || window.__par.blocks(c),
+    rankItem: c => { const k = ctyOfItem(c), i = state().order.indexOf(k); return i >= 0 ? i : (k === "PT" ? -1 : 1000); },
+    save: () => { try{ localStorage.setItem("ck_tvCty", JSON.stringify(state())); }catch(e){} },
+    rank: g => { const c = ctyOf(g), i = state().order.indexOf(c); return i >= 0 ? i : (c === "PT" ? -1 : 1000); },
+    hidden: g => state().hide.indexOf(ctyOf(g)) >= 0 || window.__par.blocksText(g),
+    active: () => { const x = state(); return x.order.length > 0 || x.hide.length > 0; },
+    name: c => { if(c === "??") return "Outros"; if(c.slice(0, 2) === "G:") return c.slice(2); try{ const n = new Intl.DisplayNames(["pt"], {type:"region"}).of(c); return n && n !== c ? n : c; }catch(e){ return c; } },
+    flag: c => c.slice(0, 2) === "G:" ? "\u{1F3F7}" : /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0))) : "\u{1F310}"
+  };
+})();</script>
+
+<script>
+/* ===== Tesla: funções vindas da app Android (retomar, episódio seguinte, detalhes, países, parental, fonte alternativa, favoritos, arranque rápido) ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const AH = window.__ah || {};
+  const sx = s => esc(s);
+  const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+  const isVod = c => c && (c.kind === "movie" || c.kind === "episode");
+
+  /* ---------- barra de avisos sobre o vídeo (retomar / episódio seguinte / saltar intro) ---------- */
+  const bar = document.createElement("div"); bar.id = "nxBar"; bar.hidden = true;
+  bar.innerHTML = '<span id="nxTx"></span><button class="btn" id="nxGo">OK</button><button class="btn" id="nxNo">Cancelar</button>';
+  document.body.appendChild(bar);
+  const NX = {act:null, no:null, key:"", off:new Set(), t:0};
+  const nxHide = () => { bar.hidden = true; NX.act = NX.no = null; NX.key = ""; };
+  const nxShow = (key, txt, go, act, no, onNo) => { NX.key = key; NX.act = act; NX.no = onNo || null; $("nxTx").textContent = txt; $("nxGo").textContent = go; $("nxNo").textContent = no || "Cancelar"; bar.hidden = false; };
+  $("nxGo").onclick = e => { e.stopPropagation(); const a = NX.act; NX.off.add(NX.key); nxHide(); if(a) a(); };
+  $("nxNo").onclick = e => { e.stopPropagation(); const a = NX.no; NX.off.add(NX.key); nxHide(); if(a) a(); };
+
+  /* ---------- 1. Continuar a ver ---------- */
+  const RES = window.RES = {
+    all(){ return LS.get("resume", {}) || {}; },
+    at(url){ const e = RES.all()[url]; return e && e.p > 30 && e.d > 0 && e.p < e.d * 0.95 ? Math.max(0, e.p - 5) : 0; },
+    save(c, p, d){
+      if(!isVod(c) || !(d > 300) || !(p >= 0)) return;
+      const a = RES.all();
+      if(p > d * 0.95) delete a[c.url];
+      else if(p > 20){ let logo = c.logo || ""; try{ if(!logo && window.EPL && EPL.series && c.group === EPL.series.name) logo = EPL.series.logo || ""; }catch(e){}
+        a[c.url] = {name:c.name, logo, url:c.url, kind:c.kind, group:c.group || "", id:c.id || "", sid:(window.EPL && EPL.series && EPL.series.sid) || c.sid || "", p:Math.round(p), d:Math.round(d), t:Date.now()}; }
+      else return;
+      Object.keys(a).sort((x, y) => a[y].t - a[x].t).slice(40).forEach(k => delete a[k]);
+      LS.set("resume", a);
+    },
+    drop(url){ const a = RES.all(); delete a[url]; LS.set("resume", a); },
+    list(kind){ return Object.values(RES.all()).filter(e => e.p > 30 && e.p < e.d * 0.95 && (kind === "movie" ? e.kind === "movie" : e.kind === "episode")).sort((x, y) => y.t - x.t); }
+  };
+  setInterval(() => { for(const s of [0, 1]){ try{ const c = lastPlayed[s], v = $("vid" + s); if(c && v && !v.paused && isFinite(v.duration)) RES.save(c, v.currentTime, v.duration); }catch(e){} } }, 5000);
+  ["vid0", "vid1"].forEach((id, s) => { const v = $(id); if(v) v.addEventListener("pause", () => { try{ const c = lastPlayed[s]; if(c && isFinite(v.duration)) RES.save(c, v.currentTime, v.duration); }catch(e){} }); });
+  let pend = null;
+  const _pc = window.playChannel;
+  window.playChannel = function(c, slot){
+    try{ const sl = slot == null ? tvTarget : slot; const at = isVod(c) ? RES.at(c.url) : 0; pend = at ? {url:c.url, t:at, s:sl} : null; }catch(e){ pend = null; }
+    return _pc.apply(this, arguments);
+  };
+  const tryResume = s => {
+    if(!pend || pend.s !== s) return; const v = $("vid" + s), c = lastPlayed[s];
+    if(!c || c.url !== pend.url || !(v.duration > pend.t + 10)) return;
+    const t = pend.t, u = c.url; pend = null;
+    try{ v.currentTime = t; }catch(e){ return; }
+    /* o leitor HLS pode voltar ao início ao arrancar: insiste durante uns segundos */
+    let n = 0; const again = () => { if(++n > 16 || !lastPlayed[s] || lastPlayed[s].url !== u) return; if(Math.abs(v.currentTime - t) > 8 && v.currentTime < t){ try{ v.currentTime = t; }catch(e){} } setTimeout(again, 500); }; setTimeout(again, 500);
+    nxShow("res|" + c.url, "A retomar em " + fmt(t), "OK", null, "Recomeçar", () => { try{ v.currentTime = 0; }catch(e){} });
+    setTimeout(() => { if(NX.key === "res|" + c.url) nxHide(); }, 9000);
+  };
+  ["vid0", "vid1"].forEach((id, s) => { const v = $(id); if(v){ v.addEventListener("loadedmetadata", () => tryResume(s)); v.addEventListener("durationchange", () => tryResume(s)); v.addEventListener("canplay", () => tryResume(s)); } });
+
+  /* ---------- 2. Episódio seguinte + saltar intro ---------- */
+  setInterval(() => {
+    const c = lastPlayed && lastPlayed[tvTarget], v = $("vid" + tvTarget);
+    if(!c || c.kind !== "episode" || !v || !isFinite(v.duration) || currentView !== "tv"){ if(!bar.hidden && /^(nx|in)\|/.test(NX.key)) nxHide(); return; }
+    const L = window.EPL && EPL.list, i = L ? L.findIndex(e => e.url === c.url) : -1, left = v.duration - v.currentTime;
+    if(i >= 0 && L[i + 1] && v.duration > 120 && left <= 15){
+      const key = "nx|" + c.url; if(NX.off.has(key)) return;
+      const nx = L[i + 1];
+      nxShow(key, "Episódio seguinte em " + Math.max(0, Math.ceil(left)) + " s", "Ver agora", () => window.playChannel(nx), "Cancelar");
+      if(left <= 1.2 || v.ended){ NX.off.add(key); nxHide(); window.playChannel(nx); }
+      return;
+    }
+    if(v.currentTime > 4 && v.currentTime < 180 && v.duration > 600){
+      const key = "in|" + c.url; if(NX.off.has(key)) return;
+      if(NX.key !== key) nxShow(key, "Saltar a intro?", "Saltar 85 s", () => { try{ v.currentTime = Math.min(v.duration - 5, v.currentTime + 85); }catch(e){} }, "Não");
+      return;
+    }
+    if(!bar.hidden && /^(nx|in)\|/.test(NX.key)) nxHide();
+  }, 1000);
+
+  /* ---------- 3. Detalhes ao tocar num filme ou série ---------- */
+  const detOn = () => cfg.tvDetails !== false;
+  const openDet = c => { try{ if(typeof window.showMovieInfo === "function"){ window.showMovieInfo(c); return true; } }catch(e){} return false; };
+  /* «Ver agora» do ecrã de detalhes mostra «Continuar» quando há ponto guardado */
+  try{ const _sm = window.showMovieInfo; if(typeof _sm === "function") window.showMovieInfo = function(c){ const r = _sm.apply(this, arguments); try{ const at = c && c.kind !== "series" ? RES.at(c.url) : 0; if(at) $("mvGo").textContent = "▶ Continuar (" + fmt(at) + ")"; }catch(e){} return r; }; }catch(e){}
+
+  /* ---------- 7. Toque longo nos cartões do Início: favoritos, ordem, remover ---------- */
+  let lpAt = 0;
+  const favSave = () => { try{ LS.set("tvfavs", [...favs]); }catch(e){} };
+  window.__favOrd = () => LS.get("favOrd", []) || [];
+  const rowTitle = el => { const r = el.closest(".ahRow"), h = r && r.querySelector("h3 span"); return h ? h.textContent : ""; };
+  const menu = document.createElement("div"); menu.id = "ahMenu"; menu.hidden = true; document.body.appendChild(menu);
+  const closeMenu = () => { menu.hidden = true; menu.innerHTML = ""; };
+  menu.addEventListener("click", e => { if(e.target === menu) closeMenu(); });
+  const openMenu = (el, c) => {
+    const rt = rowTitle(el), isFav = favs.has(c.url), inFavRow = /Favoritos/.test(rt), inRec = /recentemente/.test(rt), inRes = /Continuar/.test(rt);
+    const it = [];
+    if(c.kind !== "episode") it.push(["fav", isFav ? "⭐ Tirar dos favoritos" : "⭐ Adicionar aos favoritos"]);
+    if(inFavRow){ it.push(["up", "◀ Mover para antes"]); it.push(["dn", "Mover para depois ▶"]); }
+    if(inRec) it.push(["rec", "🗑 Tirar dos vistos recentemente"]);
+    if(inRes) it.push(["res", "🗑 Tirar de «Continuar a ver»"]);
+    if(c.kind === "movie" || c.kind === "series") it.push(["det", "ℹ Detalhes"]);
+    it.push(["x", "Cancelar"]);
+    menu.innerHTML = '<div class="box"><b>' + sx(c.name) + '</b>' + it.map(([k, t]) => '<button class="btn" data-m="' + k + '">' + t + '</button>').join("") + '</div>';
+    menu.hidden = false;
+    menu.querySelectorAll("[data-m]").forEach(b => b.onclick = () => {
+      const k = b.dataset.m; closeMenu();
+      if(k === "fav"){ isFav ? favs.delete(c.url) : favs.add(c.url); favSave(); toast(isFav ? "Tirado dos favoritos." : "Adicionado aos favoritos ⭐"); }
+      else if(k === "up" || k === "dn"){
+        const cur = [...(AH.favList ? AH.favList(AH.kind) : [])].map(x => x.url); const i = cur.indexOf(c.url), j = i + (k === "up" ? -1 : 1);
+        if(i >= 0 && j >= 0 && j < cur.length){ cur.splice(j, 0, cur.splice(i, 1)[0]); const rest = window.__favOrd().filter(u => cur.indexOf(u) < 0); LS.set("favOrd", cur.concat(rest)); }
+      }
+      else if(k === "rec"){ LS.set("tvRecent", (LS.get("tvRecent", []) || []).filter(x => x.url !== c.url)); }
+      else if(k === "res"){ RES.drop(c.url); }
+      else if(k === "det"){ openDet(c); return; }
+      else return;
+      try{ AH.render && AH.render(true); }catch(e){}
+    });
+  };
+  window.__ahResList = RES.list;
+  const rows = $("ahRows");
+  if(rows){
+    let tm = 0, sx0 = 0, sy0 = 0;
+    rows.addEventListener("pointerdown", e => { const b = e.target.closest(".ahCard[data-k]"); if(!b) return; sx0 = e.clientX; sy0 = e.clientY; clearTimeout(tm); tm = setTimeout(() => { const c = AH.flat && AH.flat[+b.dataset.k]; if(c){ lpAt = Date.now(); openMenu(b, c); } }, 550); });
+    rows.addEventListener("pointermove", e => { if(tm && Math.hypot(e.clientX - sx0, e.clientY - sy0) > 12){ clearTimeout(tm); tm = 0; } });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(t => rows.addEventListener(t, () => { clearTimeout(tm); tm = 0; }));
+    rows.addEventListener("contextmenu", e => { const b = e.target.closest(".ahCard[data-k]"); if(!b) return; e.preventDefault(); if(Date.now() - lpAt > 900){ const c = AH.flat && AH.flat[+b.dataset.k]; if(c){ lpAt = Date.now(); openMenu(b, c); } } });
+  }
+  /* cliques: depois de um toque longo não faz nada; filmes e séries abrem os detalhes (antes do ecrã total) */
+  window.addEventListener("click", e => {
+    const t = e.target; if(!t || !t.closest) return;
+    const card = t.closest("#ahRows .ahCard[data-k]");
+    if(card && Date.now() - lpAt < 900){ e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if(!detOn()) return;
+    if(card){
+      const c = AH.flat && AH.flat[+card.dataset.k];
+      if(c && (c.kind === "movie" || c.kind === "series") && !/Continuar/.test(rowTitle(card)) && openDet(c)){ e.stopImmediatePropagation(); e.preventDefault(); }
+      return;
+    }
+    const li = t.closest("#tvList [data-play]");
+    if(li && !t.closest("[data-fav]")){
+      const c = (window.__tvShown || [])[+li.dataset.play];
+      if(c && (c.kind === "movie" || c.kind === "series") && openDet(c)){ e.stopImmediatePropagation(); e.preventDefault(); }
+    }
+  }, true);
+
+  /* ---------- 4/5. Países e controlo parental ---------- */
+  const C = window.__cty, P = window.__par;
+  if(C && P){
+    const _og = window.orgGroupList;
+    window.orgGroupList = function(kind, names, withHidden){
+      let l = _og.apply(this, arguments);
+      const pos = new Map(l.map((n, i) => [n, i]));
+      l = l.slice().sort((a, b) => (C.rank(a) - C.rank(b)) || (pos.get(a) - pos.get(b)));
+      return withHidden ? l : l.filter(n => !C.hidden(n));
+    };
+    const _oc = window.orgChannels;
+    window.orgChannels = function(list, kind){ const l = _oc.apply(this, arguments); return Array.isArray(l) ? l.filter(c => !(kind !== "free" && kind !== "intl" && C.hiddenItem(c))) : l; };
+    window.__parHide = c => P.blocks(c);
+  }
+
+  /* ---------- 6. Fonte alternativa (mesmo canal noutro grupo ou noutra qualidade) ---------- */
+  const nzn = n => String(n || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/^[\s\W_]*(pt|br|es|uk|fr|us|portugal)\b[\s|:\-\/\]\)]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+    .replace(/\b(fhd|uhd|hd|sd|4k|8k|hevc|h ?265|raw|plus|backup|alt|1080p?|720p?|50fps|60fps)\b/g, " ").replace(/[^a-z0-9]+/g, "");
+  window.__altFor = (c, tried) => {
+    try{
+      if(!c || c.kind !== "live") return null; const k = nzn(c.name); if(!k) return null;
+      return channels.find(x => x && x.kind === "live" && x.url !== c.url && !(tried && tried.has(x.url)) && nzn(x.name) === k && !(P && P.blocks(x))) || null;
+    }catch(e){ return null; }
+  };
+
+  /* ---------- 8. Arranque rápido: guia (XMLTV) guardado 3 h; lista renovada em segundo plano ao fim de 12 h ---------- */
+  try{
+    const _le = window.loadEpg;
+    window.loadEpg = async function(){
+      try{ if(cfg.epg){ const c = await IDB.get("epgC"); if(c && c.m && c.u === cfg.epg && Date.now() - c.t < 3 * 3600e3){ epg = c.m; return; } } }catch(e){}
+      await _le.apply(this, arguments);
+      try{ if(cfg.epg && epg && Object.keys(epg).length) IDB.set("epgC", {t:Date.now(), u:cfg.epg, m:epg}); }catch(e){}
+    };
+    const _li = window.loadIptv;
+    window.loadIptv = async function(force){ const r = await _li.apply(this, arguments); if(force) LS.set("chT", Date.now()); return r; };
+    setTimeout(() => {
+      try{
+        const t = LS.get("chT", 0); if(!t){ LS.set("chT", Date.now()); return; }
+        if(Date.now() - t < 12 * 3600e3 || !((cfg.xs && cfg.xu && cfg.xp) || cfg.m3u)) return;
+        LS.set("chT", Date.now());
+        Promise.resolve(window.loadIptv(true)).catch(() => {}).finally(() => { try{ AH.render && AH.render(true); }catch(e){} });
+      }catch(e){}
+    }, 15000);
+  }catch(e){}
+
+  /* ---------- Definições: cartão «Países e controlo parental» + opção de detalhes ---------- */
+  try{
+    const w = $("ahSet");
+    if(w){ const l = document.createElement("label"); l.className = "row small"; l.style.marginTop = "6px";
+      l.innerHTML = '<input type="checkbox" id="ahSetDet"> Ao tocar num filme ou série, mostrar primeiro os detalhes (sinopse, nota, trailer)';
+      w.appendChild(l); const cb = $("ahSetDet"); cb.checked = detOn(); cb.onchange = () => { cfg.tvDetails = cb.checked; saveCfg(); }; }
+    const tvc = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV");
+    if(tvc && C && P){
+      const card = document.createElement("div"); card.className = "panel setcard"; card.id = "ctyCard";
+      card.innerHTML = '<h2>Países e controlo parental</h2><p class="small muted setsub" style="margin:0">Ordena e esconde as categorias por país; protege os conteúdos para adultos com um PIN.</p>' +
+        '<h3 style="margin:10px 0 6px">Países e categorias</h3><div id="ctyList" class="ctyList"></div>' +
+        '<div class="row" style="margin-top:6px"><button class="btn" id="ctyReset">Repor (mostrar todos)</button></div>' +
+        '<h3 style="margin:14px 0 6px">Controlo parental</h3><p class="small muted" id="parSt" style="margin:0 0 6px"></p>' +
+        '<div class="row"><input type="password" inputmode="numeric" id="parPin" maxlength="8" placeholder="PIN (4 a 8 algarismos)" style="max-width:220px"><button class="btn primary" id="parSet">Guardar PIN</button><button class="btn" id="parOff">Desligar</button><button class="btn" id="parUnlock">Desbloquear agora</button></div>';
+      tvc.parentNode.insertBefore(card, tvc.nextSibling);
+      const S = C.state;
+      const render = () => {
+        const cnt = new Map();
+        channels.forEach(c => { const k = C.ctyOfItem(c); cnt.set(k, (cnt.get(k) || 0) + 1); });
+        const st = S(); const keys = [...cnt.keys()].sort((a, b) => { const ia = st.order.indexOf(a), ib = st.order.indexOf(b); return (ia < 0 ? (a === "PT" ? -1 : 1e3) : ia) - (ib < 0 ? (b === "PT" ? -1 : 1e3) : ib) || cnt.get(b) - cnt.get(a); }).slice(0, 60);
+        $("ctyList").innerHTML = keys.length ? keys.map((k, i) => { const off = st.hide.indexOf(k) >= 0; return '<div class="orgrow' + (off ? " off" : "") + '"><span class="nm">' + C.flag(k) + " " + sx(C.name(k)) + ' <small class="muted">' + cnt.get(k) + '</small></span><button class="btn" data-cu="' + i + '">▲</button><button class="btn" data-cd="' + i + '">▼</button><button class="btn" data-ch="' + i + '">' + (off ? "Mostrar" : "Esconder") + '</button></div>'; }).join("") : '<p class="small muted">Carrega primeiro a tua lista IPTV.</p>';
+        const apply = () => { C.save(); render(); try{ if(typeof fillGroups === "function") fillGroups(); if(currentView === "tv") renderTvList(); }catch(e){} try{ AH.rr = null; }catch(e){} };
+        const fix = () => { const s2 = S(); s2.order = keys.slice(); return s2; };
+        $("ctyList").querySelectorAll("[data-cu]").forEach(b => b.onclick = () => { const s2 = fix(), i = +b.dataset.cu; if(i > 0){ s2.order.splice(i - 1, 0, s2.order.splice(i, 1)[0]); apply(); } });
+        $("ctyList").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => { const s2 = fix(), i = +b.dataset.cd; if(i < s2.order.length - 1){ s2.order.splice(i + 1, 0, s2.order.splice(i, 1)[0]); apply(); } });
+        $("ctyList").querySelectorAll("[data-ch]").forEach(b => b.onclick = () => { const s2 = S(), k = keys[+b.dataset.ch], j = s2.hide.indexOf(k); if(j >= 0) s2.hide.splice(j, 1); else s2.hide.push(k); apply(); });
+        $("parSt").textContent = P.on() ? (P.unlocked ? "Ligado — desbloqueado até fechares a app." : "Ligado — conteúdos para adultos escondidos.") : "Desligado.";
+      };
+      $("ctyReset").onclick = () => { const s2 = S(); s2.order = []; s2.hide = []; C.save(); render(); try{ if(typeof fillGroups === "function") fillGroups(); }catch(e){} };
+      $("parSet").onclick = () => { const v = $("parPin").value.trim(); if(!/^\d{4,8}$/.test(v)){ toast("O PIN tem de ter 4 a 8 algarismos.", true); return; } if(P.on() && !P.unlocked){ toast("Desbloqueia primeiro com o PIN atual.", true); return; } try{ localStorage.setItem("ck_parPin", v); }catch(e){} P.unlocked = false; $("parPin").value = ""; render(); toast("Controlo parental ligado ✓"); };
+      $("parUnlock").onclick = () => { const v = $("parPin").value.trim(); let pin = ""; try{ pin = localStorage.getItem("ck_parPin") || ""; }catch(e){} if(!pin){ toast("O controlo parental está desligado."); return; } if(v !== pin){ toast("PIN errado.", true); return; } P.unlocked = true; $("parPin").value = ""; render(); toast("Desbloqueado até fechares a app."); };
+      $("parOff").onclick = () => { const v = $("parPin").value.trim(); let pin = ""; try{ pin = localStorage.getItem("ck_parPin") || ""; }catch(e){} if(pin && v !== pin && !P.unlocked){ toast("Escreve o PIN atual para desligar.", true); return; } try{ localStorage.removeItem("ck_parPin"); }catch(e){} P.unlocked = false; $("parPin").value = ""; render(); toast("Controlo parental desligado."); };
+      render();
+      const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ render(); const d = $("ahSetDet"); if(d) d.checked = detOn(); }catch(e){} return r; };
+    }
+  }catch(e){ console.log("países", e); }
+  }catch(e){ console.log("funções Android", e); }
 })();
 </script>
 </body>
