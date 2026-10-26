@@ -7,7 +7,26 @@
 <meta name="theme-color" content="#0d131c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Color+Emoji&family=Noto+Sans+Symbols+2&family=Noto+Sans+Symbols&display=swap">
-<script>/* hls.js carrega em segundo plano: se a CDN estiver lenta ou bloqueada, a app abre na mesma */(function(){var s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js";s.async=true;document.head.appendChild(s);})();</script>
+<script>/* hls.js carrega em segundo plano: primeiro a cópia do próprio site (hls.min.js ao lado do index.html), depois as CDN.
+   window.__hlsP resolve quando há leitor (ou quando todas as fontes falharam); os canais esperam por ele em vez de falhar. */
+(function(){
+  var src = ["hls.min.js", "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js", "https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js", "https://unpkg.com/hls.js@1.5.13/dist/hls.min.js"];
+  if(typeof Android !== "undefined") src.shift();   /* app Android: não há cópia local */
+  window.__hlsSrc = "";
+  window.__hlsP = new Promise(function(done){
+    var i = 0;
+    var next = function(){
+      if(window.Hls){ window.__hlsDone = true; return done(true); }
+      if(i >= src.length){ window.__hlsDone = true; return done(false); }
+      var u = src[i++], s = document.createElement("script"), t = setTimeout(function(){ s.onload = s.onerror = null; next(); }, 12000);
+      s.src = u; s.async = true;
+      s.onload = function(){ clearTimeout(t); if(window.Hls) window.__hlsSrc = u; next(); };
+      s.onerror = function(){ clearTimeout(t); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+})();</script>
 <style>
 /* Layout: rail de navegação à esquerda, barra de estado no topo, painel de trabalho à direita — pensado para o ecrã horizontal do Tesla, com alvos de toque grandes. */
 :root{
@@ -2615,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v92";
+const APP_VERSION = "v93";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2912,6 +2931,13 @@ function freeAltQuality(c, tried){
 function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
   if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); tvLockUi(); return; }
+  /* o leitor (hls.js) ainda está a carregar: espera por ele em vez de falhar com «código 4» */
+  if(!window.Hls && !window.__hlsDone && window.__hlsP && !window.ANDROID){
+    const tk = playChannel.__wait = (playChannel.__wait || 0) + 1;
+    toast("A preparar o leitor de vídeo…");
+    window.__hlsP.then(() => { if(playChannel.__wait === tk) playChannel(c, slot, auto); });
+    return;
+  }
   if(!auto) autoTried[slot].clear();
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
@@ -7933,7 +7959,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const mem = performance && performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + "/" + Math.round(performance.memory.jsHeapSizeLimit / 1048576) + " MB" : "n/d";
     let lsKb = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); lsKb += (k.length + (localStorage.getItem(k) || "").length) * 2; } }catch(e){}
     const L = [];
-    L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "—"));
+    L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "— (não carregou)") + (window.__hlsSrc ? " de " + (/^https?:/.test(window.__hlsSrc) ? new URL(window.__hlsSrc).host : "este site") : ""));
   try{ L.push("GPS do browser: " + (navigator.geolocation ? (GEO.state ? "permissão " + GEO.state : "disponível") : "indisponível") + (GEO.last ? ", último sinal há " + Math.round((Date.now()-GEO.last)/1000) + " s" : ", sem sinal ainda") + (GEO.err ? " · erro: " + GEO.err : "")); }catch(e){}
     L.push("Navegador: " + navigator.userAgent.slice(0, 110));
     L.push("Ecrã: " + innerWidth + "×" + innerHeight + " · memória JS: " + mem + " · definições guardadas: " + Math.round(lsKb / 1024) + " KB");
