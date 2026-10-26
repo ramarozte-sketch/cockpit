@@ -2634,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v97";
+const APP_VERSION = "v98";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -7934,7 +7934,9 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
 (function(){
   if(window.ANDROID) return;   /* a app Android tem o seu próprio formato de imagem */
   const ASP = [["fit", "Ajustar"], ["zoom", "Zoom / Panscan"], ["stretch", "Esticar"], ["16:9", "16:9"], ["4:3", "4:3"], ["21:9", "21:9 cinema"]];
-  const getA = () => LS.get("tvAspect", "fit") || "fit";
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || $("v-tv").classList.contains("cinema");
+  const keyA = () => isFull() ? "tvAspectFull" : "tvAspect";
+  const getA = () => LS.get(keyA(), isFull() ? "stretch" : "fit") || "fit";
   const labelOf = k => (ASP.find(a => a[0] === k) || ASP[0])[1];
   const applyA = () => {
     const mode = getA();
@@ -7952,9 +7954,21 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
     });
     const b = $("chAspect"); if(b) b.textContent = "▭ " + labelOf(mode);
   };
-  const cycle = () => { const i = ASP.findIndex(a => a[0] === getA()); LS.set("tvAspect", ASP[(i + 1) % ASP.length][0]); applyA(); try{ toast("Formato da imagem: " + labelOf(getA())); }catch(e){} };
+  const cycle = () => { const i = ASP.findIndex(a => a[0] === getA()); LS.set(keyA(), ASP[(i + 1) % ASP.length][0]); applyA(); try{ toast((isFull() ? "Formato em ecrã total: " : "Formato da imagem: ") + labelOf(getA())); }catch(e){} };
   const b = $("chAspect"); if(b) b.onclick = cycle;
   window.addEventListener("resize", applyA); setInterval(applyA, 1500); applyA();
+  /* botão de formato dentro do vídeo, em ecrã total / modo cinema */
+  try{
+    const fb = document.createElement("button"); fb.id = "vAspBtn"; fb.type = "button"; $("stage").appendChild(fb);
+    let hT = 0;
+    const paint = () => { fb.textContent = "▭ " + labelOf(getA()); };
+    const peek = () => { paint(); fb.classList.add("on"); clearTimeout(hT); hT = setTimeout(() => fb.classList.remove("on"), 4000); };
+    fb.onclick = e => { e.stopPropagation(); cycle(); peek(); };
+    const sync = () => { setTimeout(() => { applyA(); paint(); if(isFull()) peek(); }, 60); };
+    document.addEventListener("fullscreenchange", sync); new MutationObserver(sync).observe($("v-tv"), {attributes:true, attributeFilter:["class"]});
+    $("stage").addEventListener("pointerdown", e => { if(isFull() && e.target !== fb) peek(); });
+    window.__aspPeek = peek;
+  }catch(e){}
 })();
 loadState(); loadIptv(false);
 setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60000);
@@ -8236,7 +8250,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     } else {
       hero = '<div class="ahHeroTx"><small>Cockpit TV</small><h2>Bem-vindo</h2><p>' + (channels.length ? "Escolhe um canal em baixo para começar." : "Os canais abertos portugueses já estão disponíveis. Para ver mais, adiciona a tua lista IPTV nas Definições.") + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-go="explore">🔎 Explorar canais</button><button class="ahBtn" data-go="settings">⚙ Definições</button></div></div>';
     }
-    if(force || AH.hh !== hero){ $("ahHero").innerHTML = hero; AH.hh = hero; }
+    if(AH.hh !== hero || !$("ahHero").firstChild){ $("ahHero").innerHTML = hero; AH.hh = hero; }
     const K = [["live", "📺 Live"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
     let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
     const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
@@ -8527,6 +8541,88 @@ body.vgOn #stage{touch-action:none}
     const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ cb.checked = on(); }catch(e){} return r; };
   }
   }catch(e){ console.log("ecrã total", e); }
+})();
+</script>
+<style>
+#vAspBtn{display:none;position:absolute;top:14px;right:14px;z-index:35;padding:10px 16px;border:0;border-radius:12px;background:#000b;color:#fff;font:700 17px/1 inherit;opacity:0;transition:opacity .25s;pointer-events:none}
+body.vgOn #vAspBtn{display:block}
+#vAspBtn.on{opacity:1;pointer-events:auto}
+.ahHeroArt{position:relative}
+.ahHeroArt .ahPrev{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;opacity:0;transition:opacity .4s;border-radius:inherit}
+.ahHeroArt .ahPrev.on{opacity:1}
+.ahHeroArt .ahLive{position:absolute;left:10px;top:10px;z-index:2;padding:3px 8px;border-radius:6px;background:#e5484d;color:#fff;font:700 12px/1.2 inherit;opacity:0;transition:opacity .4s}
+.ahHeroArt.prev .ahLive{opacity:1}
+</style>
+<script>
+/* ===== Tesla: pré-visualização do último canal no destaque do Início (sem som) ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const on = () => cfg.tvHomePrev !== false;
+  const P = {c:null, h:null, v:null, cv:null, raf:0, t:0, mode:""};
+  const isLive = c => c && !/^(movie|series|episode|vod)$/.test(c.kind || "") && !/\/(movie|series)\//.test(c.url || "");
+  const curCh = () => { try{ const a = (lastPlayed && (lastPlayed[0] || lastPlayed[1])) || (LS.get("tvRecent", []) || [])[0]; return isLive(a) ? a : null; }catch(e){ return null; } };
+  const art = () => document.querySelector("#ahHero .ahHeroArt");
+  const stop = () => {
+    cancelAnimationFrame(P.raf); P.raf = 0;
+    try{ if(P.h){ P.h.destroy(); } }catch(e){} P.h = null;
+    try{ if(P.v){ P.v.removeAttribute("src"); P.v.load(); P.v.remove(); } }catch(e){} P.v = null;
+    try{ if(P.cv) P.cv.remove(); }catch(e){} P.cv = null;
+    const a = art(); if(a) a.classList.remove("prev");
+    P.c = null; P.mode = "";
+  };
+  window.__ahPrevStop = stop;
+  const srcOf = c => {
+    let u = String(c.url || "");
+    if(/\/live\//.test(u)) u = u.replace(/\.ts(\?|$)/i, ".m3u8$1");
+    if(!/\.m3u8(\?|#|$)/i.test(u) && /\.(ts|mp4|mkv|flv)(\?|$)/i.test(u)) return "";
+    const ref = typeof refFor === "function" ? refFor(c) : "";
+    const viaProxy = !(DIRECT_VIDEO() || (c.free && /^https:/i.test(u) && HASPX()));
+    return cfg.directMode ? directUrl(u) : cfg.proxy2 ? px2(u, ref, c.free) : viaProxy ? px(u, ref, c.free) : u;
+  };
+  /* o leitor principal ainda tem este canal carregado (a dar ou em pausa): usa a imagem dele, sem abrir outra ligação */
+  const mainPlaying = c => { for(const s of [0, 1]){ const v = $("vid" + s); if(lastPlayed[s] && lastPlayed[s].url === c.url && v && (v.currentSrc || hlsInst[s] || tsInst[s]) && v.readyState >= 2) return v; } return null; };
+  const start = () => {
+    const a = art(), c = curCh(); if(!a || !c){ stop(); return; }
+    if(P.c && P.c.url === c.url && a.contains(P.v || P.cv)) return;
+    stop(); P.c = c;
+    const mv = mainPlaying(c);
+    if(mv){   /* o canal já está a dar: copia a imagem, sem abrir outra ligação */
+      const cv = P.cv = document.createElement("canvas"); cv.className = "ahPrev"; a.appendChild(cv);
+      const g = cv.getContext("2d"); P.mode = "copy";
+      const draw = () => { if(!P.cv) return; try{ if(mv.videoWidth){ if(cv.width !== 480){ cv.width = 480; cv.height = 270; } g.drawImage(mv, 0, 0, 480, 270); cv.classList.add("on"); a.classList.add("prev"); } }catch(e){} P.raf = requestAnimationFrame(draw); };
+      draw(); return;
+    }
+    const src = srcOf(c); if(!src || !window.Hls || !Hls.isSupported()) return;
+    const v = P.v = document.createElement("video"); v.className = "ahPrev"; v.muted = true; v.playsInline = true; v.setAttribute("muted", ""); a.appendChild(v);
+    const h = P.h = new Hls({startLevel:0, capLevelToPlayerSize:true, maxBufferLength:6, maxMaxBufferLength:10, backBufferLength:0, enableWorker:true, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:1, fragLoadingMaxRetry:2});
+    P.mode = "hls";
+    h.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(() => {}); });
+    h.on(Hls.Events.ERROR, (e, d) => { if(d && d.fatal) stop(); });
+    v.addEventListener("playing", () => { v.classList.add("on"); a.classList.add("prev"); });
+    h.loadSource(src); h.attachMedia(v);
+  };
+  /* abrir qualquer canal: larga primeiro a ligação da pré-visualização (muitas contas só permitem uma) */
+  const _pc = window.playChannel;
+  window.playChannel = function(){ if(P.mode === "hls") stop(); return _pc.apply(this, arguments); };
+  /* liga só com o Início à vista, parado e com a opção ativa */
+  setInterval(() => {
+    let want = false;
+    try{ want = on() && currentView === "tvinicio" && !document.hidden && !tvBlocked() && !!art(); }catch(e){}
+    if(!want){ if(P.c) stop(); return; }
+    if(Date.now() - P.t > 700){ P.t = Date.now(); start(); }
+    const tag = art(); if(tag && !tag.querySelector(".ahLive")){ const s = document.createElement("span"); s.className = "ahLive"; s.textContent = "AO VIVO"; tag.appendChild(s); }
+  }, 1000);
+  document.addEventListener("visibilitychange", () => { if(document.hidden) stop(); });
+  /* Definições */
+  const w = $("ahSet");
+  if(w){
+    const l = document.createElement("label"); l.className = "row small"; l.style.marginTop = "6px";
+    l.innerHTML = '<input type="checkbox" id="ahSetPrev"> Pré-visualização do último canal no Início, sem som (usa uma ligação ao servidor enquanto o Início está aberto)';
+    w.appendChild(l); const cb = $("ahSetPrev"); cb.checked = on();
+    cb.onchange = () => { cfg.tvHomePrev = cb.checked; saveCfg(); if(!cb.checked) stop(); };
+  }
+  }catch(e){ console.log("pré-visualização", e); }
 })();
 </script>
 </body>
