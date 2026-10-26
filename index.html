@@ -2634,7 +2634,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v98";
+const APP_VERSION = "v99";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8526,7 +8526,7 @@ body.vgOn #stage{touch-action:none}
     if(window.__ah) window.__ah.pass = Date.now() + 3000;
     if(currentView !== "tv") show("tv");
     setCinema(true);
-    try{ const rq = st.requestFullscreen || st.webkitRequestFullscreen; if(rq && !(document.fullscreenElement || document.webkitFullscreenElement)){ const r = rq.call(st); if(r && r.catch) r.catch(() => {}); } }catch(x){}
+    try{ if(window.__goFull) window.__goFull(); else { const rq = st.requestFullscreen || st.webkitRequestFullscreen; if(rq && !(document.fullscreenElement || document.webkitFullscreenElement)){ const r = rq.call(st); if(r && r.catch) r.catch(() => {}); } } }catch(x){}
   }, true);
   /* série escolhida no ecrã de informação: não entra em ecrã total */
   try{ const g = $("mvGo"); if(g) new MutationObserver(() => { window.__mvSeries = /epis/i.test(g.textContent); }).observe(g, {childList:true, characterData:true, subtree:true}); }catch(e){}
@@ -8623,6 +8623,59 @@ body.vgOn #vAspBtn{display:block}
     cb.onchange = () => { cfg.tvHomePrev = cb.checked; saveCfg(); if(!cb.checked) stop(); };
   }
   }catch(e){ console.log("pré-visualização", e); }
+})();
+</script>
+<style>
+/* ===== Tesla: modo cinema / ecrã total ocupa o ecrã todo, com controlos por cima ===== */
+body.pfull .app .top,body.pfull .rail{visibility:hidden}
+body.pfull #v-tv.cinema #stage{position:fixed!important;left:0;top:0;width:100vw!important;height:100vh;height:100dvh;max-width:none!important;margin:0!important;border-radius:0!important;aspect-ratio:auto!important;z-index:200}
+body.pfull #v-tv.cinema .cinebar{position:fixed;left:0;right:0;z-index:210;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;opacity:0;pointer-events:none;transition:opacity .25s}
+body.pfull #v-tv.cinema .cinebar::-webkit-scrollbar{display:none}
+body.pfull #v-tv.cinema .cinebar:not(#cinebar2){top:0;padding:12px 14px 30px 130px;background:linear-gradient(#000e,#0000)}
+body.pfull #v-tv.cinema #cinebar2{bottom:0;padding:30px 14px 14px;background:linear-gradient(#0000,#000e);justify-content:center}
+body.pfull #v-tv.cinema .cinebar .cinename{flex:0 1 auto;max-width:34vw;text-align:left;color:#fff}
+body.pfull #v-tv.cinema .cinebar .cineepg{flex:1 1 auto;min-width:0;text-align:left;color:#fffb}
+body.pfull #v-tv.cinema .cinebar .btn{flex:none;padding:10px 14px;font-size:15px;background:#ffffff26;color:#fff;border-color:transparent}
+body.pfull.ctlOn #v-tv.cinema .cinebar{opacity:1;pointer-events:auto}
+body.pfull #vAspBtn{display:none!important}
+#vExit{display:none;position:fixed;left:12px;top:12px;z-index:220;padding:12px 18px;border:0;border-radius:12px;background:#000c;color:#fff;font:700 17px/1 inherit;opacity:.35;transition:opacity .25s}
+body.pfull #vExit{display:block}
+body.pfull.ctlOn #vExit{opacity:1}
+</style>
+<script>
+/* ===== Tesla: ecrã total "a sério" na página (funciona mesmo quando o browser não deixa usar o ecrã inteiro) ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const vt = $("v-tv"), st = $("stage");
+  const ex = document.createElement("button"); ex.id = "vExit"; ex.type = "button"; ex.textContent = "✕ Sair"; document.body.appendChild(ex);
+  let hT = 0;
+  const peek = () => { document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), 4500); };
+  const sync = () => {
+    const on = vt.classList.contains("cinema") && currentView === "tv";
+    const was = document.body.classList.contains("pfull");
+    document.body.classList.toggle("pfull", on);
+    ["vid0", "vid1"].forEach(id => { const v = $(id); if(v) v.controls = !on; });   /* sem os controlos do browser: usamos a barra própria */
+    if(on && !was) peek();
+    if(!on){ document.body.classList.remove("ctlOn"); }
+  };
+  new MutationObserver(sync).observe(vt, {attributes:true, attributeFilter:["class"]});
+  const _sh = window.show; window.show = function(){ const r = _sh.apply(this, arguments); try{ sync(); }catch(e){} return r; };
+  const leave = () => {
+    try{ if(document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){}
+    setCinema(false); sync();
+  };
+  ex.onclick = e => { e.stopPropagation(); leave(); };
+  /* tocar no vídeo mostra/esconde os controlos */
+  st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
+  document.querySelectorAll("#v-tv .cinebar").forEach(b => b.addEventListener("pointerdown", peek));
+  /* o ecrã inteiro do browser passa a ser a página toda, para os controlos aparecerem por cima */
+  const goFull = () => { try{ const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen; if(rq && !(document.fullscreenElement || document.webkitFullscreenElement)){ const r = rq.call(el); if(r && r.catch) r.catch(() => {}); } }catch(e){} };
+  window.__goFull = goFull;
+  $("btnFull").onclick = () => { setCinema(true); goFull(); };
+  document.addEventListener("fullscreenchange", () => { if(!(document.fullscreenElement || document.webkitFullscreenElement) && document.body.classList.contains("pfull")) peek(); });
+  sync();
+  }catch(e){ console.log("ecrã total página", e); }
 })();
 </script>
 </body>
