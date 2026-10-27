@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v105";
+const APP_VERSION = "v106";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2945,7 +2945,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
-  if(c.kind==="live" && chQual(c.name)===4 && resCap() < 2160){ // 4K → versão FHD/HD do mesmo canal, se existir
+  if(c.kind==="live" && chQual(c.name)===4 && (resCap() < 2160 || (window.__TESLA && !(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'))))){ // 4K → versão FHD/HD do mesmo canal, se existir
     const alt = altQuality(c, new Set());
     if(alt){ toast(`${c.name}: a abrir ${alt.name} (limite de ${resCap()}p nas Definições).`); playChannel(alt, slot, true); return; }
   }
@@ -2985,6 +2985,10 @@ function playChannel(c, slot=tvTarget, auto=false){
     await new Promise(r=>setTimeout(r, 1500)); // deixa o servidor libertar a ligação anterior
     if(playId !== playSeq[slot]) return;
     const d = await diagnoseStream(c.url, c);
+    if(/ligações em uso/.test(d.why || "") && !c.free){
+      const k = c.url, t0 = (window.__fullRetry || (window.__fullRetry = {}))[k] || 0;
+      if(Date.now() - t0 > 60000){ window.__fullRetry[k] = Date.now(); toast("O servidor ainda conta a ligação anterior. A tentar de novo dentro de 5 s…"); setTimeout(() => { if(playId === playSeq[slot]) playChannel(c, slot, true); }, 5000); return; }
+    }
     toast(`Não foi possível reproduzir ${c.name}. ${d.why}${extra ? " [" + stage + ": " + extra + "]" : ""}`, true);
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>`
       + `<div class="small" style="margin-top:4px">${esc(d.why)}</div>`
@@ -3076,7 +3080,6 @@ function playChannel(c, slot=tvTarget, auto=false){
         if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
           if(mediaFixes===0){ mediaFixes++; h.recoverMediaError(); return; }
           if(mediaFixes===1){ mediaFixes++; h.swapAudioCodec(); h.recoverMediaError(); return; }
-          if(window.__TESLA && live && !retried && /\/live\//.test(c.url)){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 800); return; }
           fail("HLS", "o browser não consegue descodificar este vídeo"); return;
         }
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
@@ -8204,8 +8207,10 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   window.show = function(v){
     if(v === "tv" && on() && Date.now() > AH.pass && currentView !== "tv") v = "tvinicio";
     if(v === "tvinicio" && !on()) v = "tv";
+    const wasHome = currentView === "tvinicio";
     const r = _show.apply(this, [v].concat([].slice.call(arguments, 1)));
     if(v === "tvinicio"){
+      if(!wasHome) AH.recSnap = recents();
       document.querySelectorAll('.nav[data-view="tv"]').forEach(b => b.setAttribute("aria-current", "page"));
       try{ if(typeof tvLockUi === "function") tvLockUi(); }catch(e){}
       ensureData(); render(true); replay();
@@ -8291,7 +8296,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
     if(AH.kind !== "live" && window.RES){ const rl = window.RES.list(AH.kind).slice(0, 20).map(e => Object.assign({}, e, {_pct:Math.round(e.p / e.d * 100), _sub:(e.group ? e.group + " · " : "") + Math.max(1, Math.round((e.d - e.p) / 60)) + " min restantes"})); if(rl.length) rows += row("▶ Continuar a ver", rl); }
     const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
-    const rv = recents().filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(cur && cur.url === x.url)).slice(0, 20);
+    const rv = (AH.recSnap || recents()).filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(!AH.recSnap && cur && cur.url === x.url)).slice(0, 20);
     if(rv.length) rows += row("🕘 Vistos recentemente", rv);
     if(AH.kind === "live" && window.__op){ try{ const ok = window.__op.opKey(); if(ok){ const ol = window.__op.opChannels(ok); if(ol.length) rows += row("📺 " + sx(window.__op.opTitle(ok)), ol.slice(0, 80), ol.length); } }catch(e){} }
     const gm = groupsOf(AH.kind);
@@ -8943,7 +8948,7 @@ body.pfull.ctlOn #vExit{opacity:1}
         const cur = [...(AH.favList ? AH.favList(AH.kind) : [])].map(x => x.url); const i = cur.indexOf(c.url), j = i + (k === "up" ? -1 : 1);
         if(i >= 0 && j >= 0 && j < cur.length){ cur.splice(j, 0, cur.splice(i, 1)[0]); const rest = window.__favOrd().filter(u => cur.indexOf(u) < 0); LS.set("favOrd", cur.concat(rest)); }
       }
-      else if(k === "rec"){ LS.set("tvRecent", (LS.get("tvRecent", []) || []).filter(x => x.url !== c.url)); }
+      else if(k === "rec"){ LS.set("tvRecent", (LS.get("tvRecent", []) || []).filter(x => x.url !== c.url)); if(AH.recSnap) AH.recSnap = AH.recSnap.filter(x => x.url !== c.url); }
       else if(k === "res"){ RES.drop(c.url); }
       else if(k === "det"){ openDet(c); return; }
       else return;
@@ -9230,7 +9235,6 @@ body.pfull #vSeek.on{display:flex}
 <style>
 /* ===== Início: o canal escolhido dá dentro do quadro do destaque ===== */
 body.ahStageIn .ahHeroArt{overflow:hidden;background:#000}
-body.ahStageIn:not(.phone) .ahHeroArt{flex:0 0 min(46%,640px)}
 body.ahStageIn .ahHeroArt>img,body.ahStageIn .ahHeroArt>b,body.ahStageIn .ahHeroArt .ahPrev,body.ahStageIn .ahHeroArt .ahLive{display:none!important}
 .ahHeroArt>#stage{position:absolute!important;inset:0;width:100%!important;height:100%!important;max-width:none!important;margin:0!important;aspect-ratio:auto!important;border-radius:inherit!important;background:#000;cursor:pointer}
 .ahHeroArt>#stage .slot.s2,.ahHeroArt>#stage .lbl,.ahHeroArt>#stage .rot,.ahHeroArt>#stage #vAspBtn,.ahHeroArt>#stage #vGest,.ahHeroArt>#stage #vUnmute{display:none!important}
@@ -9281,8 +9285,9 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
     try{ if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); return; } }catch(x){}
     stayUntil = Date.now() + 20000;
     try{ const sm = document.querySelector('[data-mode="single"]'); if(sm && !st.classList.contains("single")) sm.click(); }catch(x){}
-    window.playChannel(c, 0);
-    setTimeout(() => { try{ window.__ah.render(true); }catch(x){} toHero(); try{ const a = art(); if(a) a.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(x){} }, 60);
+    window.__oneConn(c, 0);
+    const upd = () => { try{ window.__ah.render(false); }catch(x){} toHero(); };
+    setTimeout(upd, 60); setTimeout(upd, 1200);
     const h = () => { const a = art(), x = a && a.querySelector(".ahFsHint"); if(x){ x.classList.add("on"); setTimeout(() => x.classList.remove("on"), 3000); } }; setTimeout(h, 400);
   }, true);
   /* duplo toque (ou duplo clique) no vídeo do destaque: ecrã total */
@@ -9307,6 +9312,24 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
   /* a pré-visualização automática (sem som) não corre quando o leitor já está no destaque */
   const _pp = window.__ahPrevStop;
   }catch(e){ console.log("destaque", e); }
+})();
+</script>
+<script>
+/* ===== Uma ligação de cada vez: fecha o vídeo anterior e a pré-visualização, espera um instante, e só depois abre o canal novo ===== */
+(function(){
+  if(window.ANDROID) return;
+  let tk = 0;
+  window.__oneConn = function(c, slot){
+    slot = slot == null ? tvTarget : slot;
+    const my = ++tk;
+    let busy = false;
+    try{ const v = $("vid" + slot); busy = !!(hlsInst[slot] || tsInst[slot] || (v && v.currentSrc)); }catch(e){}
+    try{ if(window.__ahPrevStop){ const pv = document.querySelector(".ahPrev"); if(pv){ busy = true; } window.__ahPrevStop(); } }catch(e){}
+    if(busy){ try{ stopSlot(slot); }catch(e){} }
+    const wait = busy && !c.free ? 900 : 0;
+    const go = () => { if(my === tk) window.playChannel(c, slot); };
+    wait ? setTimeout(go, wait) : go();
+  };
 })();
 </script>
 </body>
