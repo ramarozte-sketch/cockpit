@@ -7,6 +7,8 @@
 <meta name="theme-color" content="#0d131c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Color+Emoji&family=Noto+Sans+Symbols+2&family=Noto+Sans+Symbols&display=swap">
+<script>/* Otimizações de vídeo só no browser do Tesla (o agente do browser inclui «Tesla»); em Diagnóstico podes forçar «sempre» ou «nunca». */
+window.__TESLA = (function(){ var m = "auto"; try{ m = JSON.parse(localStorage.getItem("ck_teslaOpt") || '"auto"'); }catch(e){} if(m === "on") return true; if(m === "off") return false; return /\bTesla\b/i.test(navigator.userAgent || ""); })();</script>
 <script>/* hls.js carrega em segundo plano: primeiro a cópia do próprio site (hls.min.js ao lado do index.html), depois as CDN.
    window.__hlsP resolve quando há leitor (ou quando todas as fontes falharam); os canais esperam por ele em vez de falhar. */
 (function(){
@@ -2635,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v103";
+const APP_VERSION = "v104";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3019,7 +3021,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     loadMpegts().then(ok => {
       if(playId !== playSeq[slot]) return;
       if(!ok || !mpegts.isSupported()) return fail("vídeo", "formato ." + fext + " HINT:A biblioteca para ." + fext + " não carregou (sem rede?).");
-      const p = mpegts.createPlayer({type: isFlv ? "flv" : "mpegts", isLive:false, url:src}, {enableWorker:true, lazyLoad:true}); tsInst[slot] = p;
+      const p = mpegts.createPlayer({type: isFlv ? "flv" : "mpegts", isLive:false, url:src}, Object.assign({enableWorker:true, lazyLoad:true}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {})); tsInst[slot] = p;
       p.attachMediaElement(v); p.load(); let bad = false;
       p.on(mpegts.Events.ERROR, () => { if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
       v.play().catch(()=>{});
@@ -3039,12 +3041,15 @@ function playChannel(c, slot=tvTarget, auto=false){
       const h = new Hls({
         fLoader: makeCapLoader(slot),
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
-        maxBufferLength:20, maxMaxBufferLength:40, backBufferLength:90, maxBufferSize:40*1000*1000,
+        maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
+        ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
+          manifestLoadingTimeOut:15000, levelLoadingTimeOut:15000, fragLoadingTimeOut:25000} : {}),
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
+      if(window.__TESLA) h.on(Hls.Events.FRAG_LOADED, () => { try{ const t = Date.now(); if(t - (window.__bwT || 0) > 15000 && h.bandwidthEstimate > 0){ window.__bwT = t; LS.set("bwEst", Math.round(h.bandwidthEstimate)); } }catch(e){} });
       h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
@@ -3053,7 +3058,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
-      h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
+      h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => { audioPick(h); trkAuto(slot); });
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         // Tira as qualidades acima do limite escolhido e as de HEVC que o browser não descodifica (mantém sempre pelo menos uma).
         try{
@@ -3071,6 +3076,7 @@ function playChannel(c, slot=tvTarget, auto=false){
         if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
           if(mediaFixes===0){ mediaFixes++; h.recoverMediaError(); return; }
           if(mediaFixes===1){ mediaFixes++; h.swapAudioCodec(); h.recoverMediaError(); return; }
+          if(window.__TESLA && live && !retried && /\/live\//.test(c.url)){ retried = true; stopSlot(slot); setTimeout(()=>{ if(playId===playSeq[slot]) tryTs(); }, 800); return; }
           fail("HLS", "o browser não consegue descodificar este vídeo"); return;
         }
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
@@ -3727,8 +3733,20 @@ function noAudioNow(v){
   return false;
 }
 /* Depois de começar a tocar, confirma que há som. Se não houver: 1) outra faixa de áudio, 2) versão HLS do servidor (costuma vir em AAC), 3) explica porquê. */
+/* Escolhe a faixa de áudio que o browser do Tesla consegue tocar (AAC/MP3/Opus) e, entre essas, a portuguesa. */
+function audioPick(h){
+  try{
+    if(!window.__TESLA) return;
+    const tr = h && h.audioTracks; if(!tr || tr.length < 2 || h.__aPicked) return; h.__aPicked = true;
+    const lvl = h.levels && h.levels[Math.max(0, h.currentLevel)] || {};
+    const sc = (t, i) => { const cod = t.audioCodec || (t.attrs && t.attrs.CODECS) || ""; let s = 0;
+      if(cod && !audioOk(cod)) s -= 100; if(/^(pt|por|pt-pt|pt-br)$/i.test(t.lang || "") || /portug/i.test(t.name || "")) s += 10; if(t.default) s += 1; return s; };
+    let best = h.audioTrack, bs = -1e9; tr.forEach((t, i) => { const v = sc(t, i); if(v > bs){ bs = v; best = i; } });
+    if(best !== h.audioTrack && best >= 0) h.audioTrack = best;
+  }catch(e){}
+}
 function audioWatch(slot, c, playId, viaHls){
-  clearInterval(audioWatchT[slot]); if(!c || c.kind === "live") return;
+  clearInterval(audioWatchT[slot]); if(!c || (c.kind === "live" && !window.__TESLA)) return;
   const v = $("vid" + slot); let ticks = 0;
   audioWatchT[slot] = setInterval(() => {
     if(playId !== playSeq[slot] || ++ticks > 12){ clearInterval(audioWatchT[slot]); return; }
@@ -3740,6 +3758,12 @@ function audioWatch(slot, c, playId, viaHls){
       audioTried[slot].add(h.audioTrack);
       const next = tr.findIndex((t, i) => !audioTried[slot].has(i));
       if(next >= 0){ toast("Sem som nesta faixa de áudio. A tentar a seguinte…"); h.audioTrack = next; audioWatch(slot, c, playId, viaHls); return; }
+    }
+    if(c.kind === "live"){
+      const alt = window.__altFor ? window.__altFor(c, autoTried[slot]) : null;
+      if(alt){ autoTried[slot].add(c.url); toast(`${c.name} está sem som (áudio AC3/E-AC3). A tentar ${alt.name}…`); playChannel(alt, slot, true); return; }
+      const m = "Este canal está sem som: o áudio usa um formato que o browser do Tesla não descodifica (AC3 / E-AC3). Experimenta outra versão do canal (HD/SD) ou outra faixa em 🔊 Áudio.";
+      toast(m, true); return;
     }
     if(viaHls && viaHls()) { toast("O áudio deste ficheiro (AC3/DTS) não é suportado. A tentar a versão HLS do servidor…"); return; }
     const msg = "Este filme não tem som porque o áudio usa um formato que o browser do Tesla não descodifica (AC3, E-AC3, DTS ou TrueHD). Procura outra versão do filme com áudio AAC, ou escolhe outra faixa em 🎚 Áudio.";
@@ -3796,7 +3820,7 @@ let mpegtsLoading = null;
 function loadMpegts(){
   if(window.mpegts) return Promise.resolve(true);
   if(mpegtsLoading) return mpegtsLoading;
-  const urls = ["https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js", "https://unpkg.com/mpegts.js@1.7.3/dist/mpegts.js"];
+  const urls = (window.ANDROID ? [] : ["mpegts.js"]).concat(["https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js", "https://unpkg.com/mpegts.js@1.7.3/dist/mpegts.js"]);
   mpegtsLoading = (async ()=>{
     for(const u of urls){
       const ok = await new Promise(res=>{ const s=document.createElement("script"); s.src=u; s.onload=()=>res(!!window.mpegts); s.onerror=()=>res(false); document.head.appendChild(s); });
@@ -3808,8 +3832,11 @@ function loadMpegts(){
 }
 async function playTs(v, url, slot, onFail){
   if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
-  const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, {enableWorker:true, liveBufferLatencyChasing:true, lazyLoad:false});
+  const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:true, liveBufferLatencyChasing:true, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
+    liveBufferLatencyMaxLatency:4, liveBufferLatencyMinRemain:1,
+    autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:30, autoCleanupMinBackwardDuration:15, fixAudioTimestampGap:true} : {}));
   p.attachMediaElement(v); p.load(); tsInst[slot]=p;
+  if(window.__TESLA){ try{ watchStall(slot, v, () => { try{ if(tsInst[slot] !== p) return; p.unload(); p.load(); v.play().catch(()=>{}); }catch(e){} }); }catch(e){} }
   let failed = false;
   p.on(mpegts.Events.ERROR, ()=>{ if(failed) return; failed = true; onFail(); });
   v.play().catch(()=>{});
@@ -7996,6 +8023,8 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const L = [];
     L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "— (não carregou)") + (window.__hlsSrc ? " de " + (/^https?:/.test(window.__hlsSrc) ? new URL(window.__hlsSrc).host : "este site") : ""));
   try{ const mv = (channels || []).filter(c => c.kind === "movie"), sr = (channels || []).filter(c => c.kind === "series"); const C = window.__ahCovers; L.push("Capas na lista: filmes " + mv.filter(c => c.logo).length + "/" + mv.length + " · séries " + sr.filter(c => c.logo).length + "/" + sr.length + (C ? " · pedidas ao servidor: " + C.stat.ok + " obtidas, " + C.stat.none + " sem capa, " + C.stat.fail + " erro" : "")); const ex = mv.find(c => c.logo); if(ex) L.push("Exemplo de capa: " + String(ex.logo).slice(0, 90)); }catch(e){}
+  try{ L.push("Otimizações de vídeo do Tesla: " + (window.__TESLA ? "ligadas" : "desligadas") + " (" + ({on:"forçadas", off:"desligadas à mão"}[LS.get("teslaOpt", "auto")] || (/\bTesla\b/i.test(navigator.userAgent) ? "browser do Tesla detetado" : "este browser não é o do Tesla")) + ")"); }catch(e){}
+  try{ if(window.__codecs) L.push("Codecs: " + window.__codecs()); }catch(e){}
   try{ L.push("GPS do browser: " + (navigator.geolocation ? (GEO.state ? "permissão " + GEO.state : "disponível") : "indisponível") + (GEO.last ? ", último sinal há " + Math.round((Date.now()-GEO.last)/1000) + " s" : ", sem sinal ainda") + (GEO.err ? " · erro: " + GEO.err : "")); }catch(e){}
     L.push("Navegador: " + navigator.userAgent.slice(0, 110));
     L.push("Ecrã: " + innerWidth + "×" + innerHeight + " · memória JS: " + mem + " · definições guardadas: " + Math.round(lsKb / 1024) + " KB");
@@ -9119,6 +9148,70 @@ body.pfull #vSeek.on{display:flex}
   R.addEventListener("change", () => { const v = vod(); drag = false; if(!v) return; try{ v.currentTime = R.value / 1000 * v.duration; }catch(e){} });
   ["pointerdown", "touchstart"].forEach(t => R.addEventListener(t, keep, {passive:true}));
   }catch(e){ console.log("barra do tempo", e); }
+})();
+</script>
+<style>
+#vUnmute{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:14px 22px;border:0;border-radius:14px;background:#000c;color:#fff;font:700 18px/1 inherit}
+#vUnmute[hidden]{display:none}
+</style>
+<script>
+/* ===== Tesla: compatibilidade de vídeo e som ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  if(window.__TESLA){
+  /* 1) O browser recusou começar com som (sem toque do utilizador): começa sem som e mostra um botão para ativar */
+  const st = $("stage"), ub = document.createElement("button"); ub.id = "vUnmute"; ub.type = "button"; ub.hidden = true; ub.textContent = "🔇 Toca para ativar o som"; st.appendChild(ub);
+  ub.onclick = e => { e.stopPropagation(); const v = $("vid" + audioSlot); try{ v.muted = false; v.volume = (window.__vg && window.__vg.v) || 1; v.play().catch(() => {}); }catch(x){} ub.hidden = true; };
+  const kick = slot => {
+    const v = $("vid" + slot); if(!v || !lastPlayed[slot] || !v.paused || v.ended || v.readyState < 2) return;
+    v.play().catch(err => {
+      if(!err || err.name !== "NotAllowedError") return;
+      v.muted = true; v.play().then(() => { if(slot === audioSlot) ub.hidden = false; }).catch(() => {});
+    });
+  };
+  const _pc = window.playChannel;
+  window.playChannel = function(c, slot){ const sl = slot == null ? tvTarget : slot; ub.hidden = true; const r = _pc.apply(this, arguments); [1500, 4000, 8000].forEach(t => setTimeout(() => kick(sl), t)); return r; };
+  ["vid0", "vid1"].forEach((id, sl) => { const v = $(id); if(v) v.addEventListener("volumechange", () => { if(sl === audioSlot && !v.muted) ub.hidden = true; }); });
+
+  /* 2) Voltar à página (ou ao separador): retoma o direto, perto do momento atual */
+  document.addEventListener("visibilitychange", () => {
+    if(document.hidden) return;
+    [0, 1].forEach(sl => { try{
+      const c = lastPlayed[sl], v = $("vid" + sl); if(!c || !v || c.kind !== "live") return;
+      const h = hlsInst[sl];
+      if(h && h.liveSyncPosition && v.currentTime < h.liveSyncPosition - 20) v.currentTime = h.liveSyncPosition;
+      else if(!h && v.buffered && v.buffered.length){ const end = v.buffered.end(v.buffered.length - 1); if(end - v.currentTime > 12) v.currentTime = end - 2; }
+      if(v.paused) v.play().catch(() => {});
+    }catch(e){} });
+  });
+
+  /* 3) Leitor dos canais .ts carregado em segundo plano, para esses canais abrirem mais depressa */
+  setTimeout(() => { try{ if(typeof loadMpegts === "function") loadMpegts(); }catch(e){} }, 9000);
+  }
+
+  /* 4) O que este browser consegue descodificar (aparece no Diagnóstico) */
+  const sup = t => { try{ return !!(window.MediaSource && MediaSource.isTypeSupported(t)); }catch(e){ return false; } };
+  window.__codecs = () => {
+    const ok = (n, t) => n + " " + (sup(t) ? "✓" : "✗");
+    return [ok("H.264", 'video/mp4; codecs="avc1.640028"'), ok("HEVC", 'video/mp4; codecs="hvc1.1.6.L120.90"'), ok("VP9", 'video/webm; codecs="vp9"'), ok("AV1", 'video/mp4; codecs="av01.0.05M.08"'),
+      ok("AAC", 'audio/mp4; codecs="mp4a.40.2"'), ok("MP3", 'audio/mpeg'), ok("Opus", 'audio/webm; codecs="opus"'), ok("AC-3", 'audio/mp4; codecs="ac-3"'), ok("E-AC-3", 'audio/mp4; codecs="ec-3"')].join(" · ")
+      + " · MSE " + (window.MediaSource ? "✓" : "✗") + " · leitor .ts " + (window.mpegts ? "✓" : "a carregar");
+  };
+  }catch(e){ console.log("compatibilidade", e); }
+})();
+</script>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const o = $("tsDgOut"); if(!o) return;
+  const l = document.createElement("label"); l.className = "f"; l.style.marginTop = "6px";
+  l.innerHTML = 'Otimizações de vídeo e som do Tesla<select id="teslaOpt"><option value="auto">Automático (só no browser do Tesla)</option><option value="on">Sempre ligadas (também neste browser)</option><option value="off">Desligadas</option></select>';
+  o.parentNode.insertBefore(l, o);
+  const sel = $("teslaOpt"); sel.value = LS.get("teslaOpt", "auto");
+  sel.onchange = () => { LS.set("teslaOpt", sel.value); toast("Guardado. Recarrega a página para aplicar."); };
+  }catch(e){}
 })();
 </script>
 </body>
