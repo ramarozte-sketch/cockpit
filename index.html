@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v104";
+const APP_VERSION = "v105";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3932,6 +3932,7 @@ $("btnCinema").onclick = () => { const on = !$("v-tv").classList.contains("cinem
 (function(){
   let last = 0, lx = 0, ly = 0;
   const exitFs = () => {
+    if(window.__fsLeave && document.body.classList.contains("pfull")){ window.__fsLeave(); return true; }
     if(document.fullscreenElement || document.webkitFullscreenElement){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return true; }
     if($("v-tv").classList.contains("cinema")){ setCinema(false); return true; }
     return false;
@@ -8285,7 +8286,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     } else {
       hero = '<div class="ahHeroTx"><small>Cockpit TV</small><h2>Bem-vindo</h2><p>' + (channels.length ? "Escolhe um canal em baixo para começar." : "Os canais abertos portugueses já estão disponíveis. Para ver mais, adiciona a tua lista IPTV nas Definições.") + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-go="explore">🔎 Explorar canais</button><button class="ahBtn" data-go="settings">⚙ Definições</button></div></div>';
     }
-    if(AH.hh !== hero || !$("ahHero").firstChild){ $("ahHero").innerHTML = hero; AH.hh = hero; }
+    if(AH.hh !== hero || !$("ahHero").firstChild){ $("ahHero").innerHTML = hero; AH.hh = hero; try{ window.__ahStageHome && window.__ahStageHome(); }catch(e){} }
     const K = [["live", "📺 Live"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
     let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
     if(AH.kind !== "live" && window.RES){ const rl = window.RES.list(AH.kind).slice(0, 20).map(e => Object.assign({}, e, {_pct:Math.round(e.p / e.d * 100), _sub:(e.group ? e.group + " · " : "") + Math.max(1, Math.round((e.d - e.p) / 60)) + " min restantes"})); if(rl.length) rows += row("▶ Continuar a ver", rl); }
@@ -8556,6 +8557,7 @@ body.vgOn #stage{touch-action:none}
   document.addEventListener("click", e => {
     if(!on() || !e.target || !e.target.closest) return;
     const c = pick(e.target); if(!c) return;
+    if(currentView === "tvinicio") window.__fsFromHome = true;
     if(c.kind === "series") return;                          /* séries: primeiro a lista de episódios */
     if(c.kind === "?" && e.target.closest("#mvGo") && window.__mvSeries) return;
     try{ if(tvBlocked()) return; }catch(x){}
@@ -8645,7 +8647,7 @@ body.vgOn #vAspBtn{display:block}
   /* liga só com o Início à vista, parado e com a opção ativa */
   setInterval(() => {
     let want = false;
-    try{ want = on() && currentView === "tvinicio" && !document.hidden && !tvBlocked() && !!art(); }catch(e){}
+    try{ want = on() && currentView === "tvinicio" && !document.hidden && !tvBlocked() && !!art() && !window.__ahStageIn; }catch(e){}
     if(!want){ if(P.c) stop(); return; }
     if(Date.now() - P.t > 700){ P.t = Date.now(); start(); }
     const tag = art(); if(tag && !tag.querySelector(".ahLive")){ const s = document.createElement("span"); s.className = "ahLive"; s.textContent = "AO VIVO"; tag.appendChild(s); }
@@ -8675,6 +8677,10 @@ body.pfull #v-tv.cinema .cinebar .cineepg{flex:1 1 auto;min-width:0;text-align:l
 body.pfull #v-tv.cinema .cinebar .btn{flex:none;padding:10px 14px;font-size:15px;background:#ffffff26;color:#fff;border-color:transparent}
 body.pfull.ctlOn #v-tv.cinema .cinebar{opacity:1;pointer-events:auto}
 body.pfull #vAspBtn{display:none!important}
+#vFmt{display:none;position:fixed;left:84px;top:8px;z-index:220;padding:7px 12px;border:0;border-radius:10px;background:#000c;color:#fff;font:700 14px/1 inherit;opacity:0;pointer-events:none;transition:opacity .3s}
+body.pfull #vFmt{display:block}
+body.pfull.ctlOn #vFmt{opacity:1;pointer-events:auto}
+body.pfull #chAspect{display:none!important}
 #vExit{display:none;position:fixed;left:12px;top:12px;z-index:220;padding:12px 18px;border:0;border-radius:12px;background:#000c;color:#fff;font:700 17px/1 inherit;opacity:0;pointer-events:none;transition:opacity .3s}
 body.pfull.ctlOn #vExit{pointer-events:auto}
 body.pfull:not(.ctlOn) #stage .lbl,body.pfull:not(.ctlOn) #stage .rot{opacity:0;pointer-events:none;transition:opacity .3s}
@@ -8706,7 +8712,14 @@ body.pfull.ctlOn #vExit{opacity:1}
   const leave = () => {
     try{ if(document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document); }catch(e){}
     setCinema(false); sync();
+    try{ if(window.__fsFromHome && cfg.tvHome !== "classic"){ window.__fsFromHome = false; show("tvinicio"); } }catch(e){}
   };
+  window.__fsLeave = leave;
+  /* botão de formato da imagem ao lado do Sair */
+  const fm = document.createElement("button"); fm.id = "vFmt"; fm.type = "button"; document.body.appendChild(fm);
+  const fmPaint = () => { const a = $("chAspect"); fm.textContent = a ? a.textContent : "▭ Formato"; };
+  fm.onclick = e => { e.stopPropagation(); const a = $("chAspect"); if(a) a.click(); fmPaint(); peek(); };
+  setInterval(fmPaint, 1000); fmPaint();
   ex.onclick = e => { e.stopPropagation(); leave(); };
   /* tocar no vídeo mostra/esconde os controlos */
   st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
@@ -9052,7 +9065,7 @@ body.pfull.ctlOn #vExit{opacity:1}
 <style>
 /* ecrã total: botões mais pequenos; janelas (legendas, áudio, guia, detalhes) por cima do vídeo */
 body.pfull #v-tv.cinema .cinebar .btn{min-height:0!important;height:auto!important;padding:6px 11px!important;font-size:13px!important;border-radius:10px!important;line-height:1.2}
-body.pfull #v-tv.cinema .cinebar:not(#cinebar2){padding:8px 10px 22px 92px!important;gap:6px!important}
+body.pfull #v-tv.cinema .cinebar:not(#cinebar2){padding:8px 10px 22px 200px!important;gap:6px!important}
 body.pfull #v-tv.cinema #cinebar2{padding:22px 10px 8px!important;gap:6px!important}
 body.pfull #v-tv.cinema .cinebar .cinename{font-size:14px}body.pfull #v-tv.cinema .cinebar .cineepg{font-size:12px}
 body.pfull #vExit{padding:7px 12px!important;font-size:14px!important;left:8px!important;top:8px!important;border-radius:10px!important}
@@ -9212,6 +9225,88 @@ body.pfull #vSeek.on{display:flex}
   const sel = $("teslaOpt"); sel.value = LS.get("teslaOpt", "auto");
   sel.onchange = () => { LS.set("teslaOpt", sel.value); toast("Guardado. Recarrega a página para aplicar."); };
   }catch(e){}
+})();
+</script>
+<style>
+/* ===== Início: o canal escolhido dá dentro do quadro do destaque ===== */
+body.ahStageIn .ahHeroArt{overflow:hidden;background:#000}
+body.ahStageIn:not(.phone) .ahHeroArt{flex:0 0 min(46%,640px)}
+body.ahStageIn .ahHeroArt>img,body.ahStageIn .ahHeroArt>b,body.ahStageIn .ahHeroArt .ahPrev,body.ahStageIn .ahHeroArt .ahLive{display:none!important}
+.ahHeroArt>#stage{position:absolute!important;inset:0;width:100%!important;height:100%!important;max-width:none!important;margin:0!important;aspect-ratio:auto!important;border-radius:inherit!important;background:#000;cursor:pointer}
+.ahHeroArt>#stage .slot.s2,.ahHeroArt>#stage .lbl,.ahHeroArt>#stage .rot,.ahHeroArt>#stage #vAspBtn,.ahHeroArt>#stage #vGest,.ahHeroArt>#stage #vUnmute{display:none!important}
+.ahHeroArt>#stage .slot{grid-area:1/1/2/2!important}
+.ahFsHint{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:5;padding:4px 10px;border-radius:999px;background:#000b;color:#fff;font:600 12px/1.2 inherit;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .3s}
+body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
+</style>
+<script>
+/* ===== Tesla: escolher um canal no Início abre-o no quadro do destaque; duplo toque = ecrã total ===== */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const st = $("stage"), home = {p:st.parentNode, n:st.nextSibling};
+  const on = () => cfg.tvHome !== "classic";
+  let stayUntil = 0;
+  const art = () => document.querySelector("#ahHero .ahHeroArt");
+  const hasCh = () => !!(lastPlayed && lastPlayed[0]);
+  const ctl = in_ => ["vid0", "vid1"].forEach(id => { const v = $(id); if(v) v.controls = !in_ && !document.body.classList.contains("pfull"); });
+  /* leva o leitor para o quadro do destaque (ou devolve-o à página TV) — o vídeo continua a tocar */
+  const toHero = () => {
+    const a = art(); if(!a || !hasCh() || currentView !== "tvinicio") return false;
+    if(st.parentNode !== a){ a.appendChild(st); }
+    if(!a.querySelector(".ahFsHint")){ const h = document.createElement("span"); h.className = "ahFsHint"; h.textContent = "Toca duas vezes para ecrã total"; a.appendChild(h); }
+    document.body.classList.add("ahStageIn"); window.__ahStageIn = true; ctl(true);
+    try{ window.__ahPrevStop && window.__ahPrevStop(); }catch(e){}
+    return true;
+  };
+  const toTv = () => {
+    if(st.parentNode !== home.p){ try{ home.p.insertBefore(st, home.n && home.n.parentNode === home.p ? home.n : null); }catch(e){ home.p.appendChild(st); } }
+    document.body.classList.remove("ahStageIn"); window.__ahStageIn = false; ctl(false);
+  };
+  window.__ahStageHome = () => { if(currentView === "tvinicio" && hasCh() && on()) toHero(); };
+  const _sh = window.show;
+  window.show = function(v){
+    if(v === "tv" && currentView === "tvinicio" && Date.now() < stayUntil) return;   /* o canal foi escolhido no Início: fica no Início */
+    if(v !== "tvinicio") toTv();
+    const r = _sh.apply(this, arguments);
+    if(currentView === "tvinicio" && on()) setTimeout(() => { if(currentView === "tvinicio") toHero(); }, 0);
+    return r;
+  };
+  /* tocar num canal em direto do Início: começa a dar no destaque */
+  window.addEventListener("click", e => {
+    const t = e.target; if(!on() || !t || !t.closest || currentView !== "tvinicio") return;
+    const b = t.closest("#ahRows .ahCard[data-k]"); if(!b) return;
+    const c = window.__ah && window.__ah.flat[+b.dataset.k];
+    if(!c || /^(movie|series|episode|vod)$/.test(c.kind || "")) return;   /* filmes e séries: como antes (detalhes / ecrã total) */
+    e.stopImmediatePropagation(); e.preventDefault();
+    try{ if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); return; } }catch(x){}
+    stayUntil = Date.now() + 20000;
+    try{ const sm = document.querySelector('[data-mode="single"]'); if(sm && !st.classList.contains("single")) sm.click(); }catch(x){}
+    window.playChannel(c, 0);
+    setTimeout(() => { try{ window.__ah.render(true); }catch(x){} toHero(); try{ const a = art(); if(a) a.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(x){} }, 60);
+    const h = () => { const a = art(), x = a && a.querySelector(".ahFsHint"); if(x){ x.classList.add("on"); setTimeout(() => x.classList.remove("on"), 3000); } }; setTimeout(h, 400);
+  }, true);
+  /* duplo toque (ou duplo clique) no vídeo do destaque: ecrã total */
+  const goFull = () => {
+    stayUntil = 0; window.__fsFromHome = true;
+    if(window.__ah) window.__ah.pass = Date.now() + 3000;
+    show("tv"); setCinema(true);
+    try{ window.__goFull && window.__goFull(); }catch(e){}
+  };
+  let last = 0, lx = 0, ly = 0;
+  st.addEventListener("pointerup", e => {
+    if(!window.__ahStageIn) return;
+    const n = Date.now();
+    if(n - last < 380 && Math.hypot(e.clientX - lx, e.clientY - ly) < 60){ last = 0; e.stopImmediatePropagation(); goFull(); }
+    else { last = n; lx = e.clientX; ly = e.clientY; }
+  }, true);
+  st.addEventListener("dblclick", e => { if(!window.__ahStageIn) return; e.stopImmediatePropagation(); e.preventDefault(); if(currentView === "tvinicio") goFull(); }, true);
+  st.addEventListener("click", e => { if(window.__ahStageIn){ e.stopImmediatePropagation(); } }, true);
+  /* duplo toque para sair do ecrã total também volta ao Início, se foi de lá que vieste */
+  document.addEventListener("fullscreenchange", () => { if(!(document.fullscreenElement || document.webkitFullscreenElement)) setTimeout(() => { if(window.__fsFromHome && currentView === "tv" && !$("v-tv").classList.contains("cinema") && on()){ window.__fsFromHome = false; show("tvinicio"); } }, 250); });
+  new MutationObserver(() => { if(window.__fsFromHome && currentView === "tv" && !$("v-tv").classList.contains("cinema") && on() && !(document.fullscreenElement || document.webkitFullscreenElement)){ window.__fsFromHome = false; setTimeout(() => show("tvinicio"), 0); } }).observe($("v-tv"), {attributes:true, attributeFilter:["class"]});
+  /* a pré-visualização automática (sem som) não corre quando o leitor já está no destaque */
+  const _pp = window.__ahPrevStop;
+  }catch(e){ console.log("destaque", e); }
 })();
 </script>
 </body>
