@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v106";
+const APP_VERSION = "v107";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9330,6 +9330,44 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
     const go = () => { if(my === tk) window.playChannel(c, slot); };
     wait ? setTimeout(go, wait) : go();
   };
+})();
+</script>
+<style>
+/* ===== Início da TV: destaque (com a pré-visualização) e Live / Filmes / Séries ficam fixos no topo ao descer ===== */
+#v-tvinicio #ahHero{position:sticky;top:0;z-index:6;box-shadow:0 -24px 0 6px var(--bg),0 10px 24px #0008;transition:min-height .2s,padding .2s,gap .2s}
+#v-tvinicio #ahRows>.ahKinds{position:sticky;top:var(--ahHH,0px);z-index:6;background:var(--bg);margin:0 -6px;padding:8px 6px}
+#v-tvinicio .ahHeroArt{transition:flex-basis .2s}
+body.ahStuck #v-tvinicio #ahHero{min-height:0!important;padding:8px 14px!important;gap:14px!important}
+body.ahStuck #v-tvinicio .ahHeroArt{flex:0 0 clamp(150px,26%,340px)!important}
+body.ahStuck #v-tvinicio .ahHeroTx{gap:4px}
+body.ahStuck #v-tvinicio .ahHeroTx small{display:none}
+body.ahStuck #v-tvinicio .ahHeroTx h2{font-size:clamp(18px,2.6vw,28px)!important;white-space:nowrap!important}
+body.ahStuck #v-tvinicio .ahHeroTx p{font-size:14px}
+body.ahStuck #v-tvinicio .ahHeroBt{margin-top:2px}
+body.ahStuck #v-tvinicio .ahHeroBt .ahBtn{min-height:38px;padding:6px 14px;font-size:15px}
+body.ahStuck #v-tvinicio .ahKind{min-width:0}
+body.ahStuck #v-tvinicio #ahRows>.ahKinds .ahBtn{min-height:40px;padding:6px 16px;font-size:15px}
+body.ahStuck #v-tvinicio .ahFsHint{display:none}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const sec = $("v-tvinicio"), hero = $("ahHero"); if(!sec || !hero) return;
+  const setH = () => { try{ sec.style.setProperty("--ahHH", Math.round(hero.getBoundingClientRect().height) + "px"); }catch(e){} };
+  if(typeof ResizeObserver === "function") new ResizeObserver(setH).observe(hero); setH();
+  hero.addEventListener("transitionend", setH);
+  const scrolled = () => { const m = $("main"); return Math.max(m ? m.scrollTop : 0, window.scrollY || 0, (document.scrollingElement || {}).scrollTop || 0); };
+  let raf = 0;
+  const upd = () => { raf = 0;
+    if(currentView !== "tvinicio"){ document.body.classList.remove("ahStuck"); return; }
+    const y = scrolled(), on = document.body.classList.contains("ahStuck");
+    if(!on && y > 140) document.body.classList.add("ahStuck");
+    else if(on && y < 40) document.body.classList.remove("ahStuck");
+  };
+  document.addEventListener("scroll", () => { if(!raf) raf = requestAnimationFrame(upd); }, true);
+  const _sh = window.show; window.show = function(){ const r = _sh.apply(this, arguments); try{ upd(); setH(); }catch(e){} return r; };
+  }catch(e){ console.log("início fixo", e); }
 })();
 </script>
 </body>
