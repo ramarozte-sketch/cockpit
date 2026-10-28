@@ -18,7 +18,7 @@ jobs:
           (git clone --depth 1 --branch v6.10.9.0 https://github.com/Yahweasel/libav.js lj || git clone --depth 1 --branch v6.10.9 https://github.com/Yahweasel/libav.js lj || git clone --depth 1 https://github.com/Yahweasel/libav.js lj) >> build.log 2>&1
           cd lj; git log -1 --format='%H %d' >> ../build.log; emcc --version | head -1 >> ../build.log
           (grep -n -i "emsdk\|emscripten" docs/*.md README.md | head -20) > ../build.log 2>&1
-          (cd configs && ls && ./mkconfig.js dolby '["decoder-ac3","decoder-eac3","decoder-mp2","decoder-mp3","decoder-mpeg2video","decoder-aac","parser-ac3","parser-mpegaudio","parser-mpegvideo","swresample"]') >> ../build.log 2>&1
+          (cd configs && ls && ./mkconfig.js dolby '["avcodec","decoder-ac3","decoder-eac3","decoder-mp2","decoder-mp3","decoder-mpeg2video","decoder-aac","parser-ac3","parser-mpegaudio","parser-mpegvideo","swresample"]') >> ../build.log 2>&1
           (make -j4 build-dolby) >> ../build.log 2>&1
           echo "EXIT $?" >> ../build.log
           ls -la dist >> ../build.log 2>&1
@@ -28,7 +28,7 @@ jobs:
         run: |
           cat > t.js <<'JS'
           const L = require("./libav/" + require("fs").readdirSync("./libav").find(f => /^libav-[\d.]+-dolby\.js$/.test(f)));
-          (async()=>{ try{ const lib = await L.LibAV({noworker:true}); const r = {}; for(const n of ["ac3","eac3","mp2","mp3","mpeg2video","aac"]) r[n] = !!(await lib.avcodec_find_decoder_by_name(n)); console.log("decoders", JSON.stringify(r)); }catch(e){ console.log("erro", e.stack); } process.exit(0); })();
+          (async()=>{ try{ const lib = await L.LibAV({noworker:true}); const r = {}; for(const n of ["ac3","eac3","mp2","mp3","mpeg2video","aac"]) r[n] = !!(await lib.avcodec_find_decoder_by_name(n).catch(()=>0)); r.api = typeof lib.ff_init_decoder; console.log("decoders", JSON.stringify(r)); }catch(e){ console.log("erro", e.stack); } process.exit(0); })();
           JS
           timeout 120 node t.js >> build.log 2>&1 || echo "teste falhou" >> build.log
       - name: commit
