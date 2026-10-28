@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v116";
+const APP_VERSION = "v117";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9836,7 +9836,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
       a.fim = {res, ms:Math.round(performance.now() - a.t0), w:v.videoWidth, h:v.videoHeight, t:+(v.currentTime || 0).toFixed(1), frames:q.totalVideoFrames || 0, perdidos:q.droppedVideoFrames || 0,
         somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), faixas:hlsInst[slot] ? trackBuf(hlsInst[slot]) : null, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
-    a.res = res; delete a.t0;
+    a.res = res; delete a.t0; delete a.__smp;
+    try{ const sm = DBG.sample[slot]; if(sm && sm.n === a.n){ if(res !== "ok" && res !== "substituído por outro canal" || a.ev.some(x => /^parado/.test(x.e))){ DBG.failSample = sm; a.amostra = true; } DBG.sample[slot] = null; } }catch(e){}
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
     if(res !== "ok" && res !== "substituído por outro canal") autoSend();
@@ -9850,6 +9851,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     else if(el > 25000) finish(slot, "falhou");
   }); }, 1000);
 
+  /* --- amostra: cópia do 1.º pedaço de vídeo de cada canal (só bytes de vídeo; sem endereço nem credenciais) ---
+     Se o canal falhar, a amostra pode ser enviada para o GitHub e analisada (ffprobe) para perceber o que o Tesla rejeita. */
+  DBG.sample = [null, null]; DBG.failSample = null;
+  try{ const _mcl = window.makeCapLoader; if(typeof _mcl === "function") window.makeCapLoader = function(slot){ const B = _mcl.apply(this, arguments);
+      return class extends B { load(ctx, cf, cb){ try{ const a = DBG.cur[slot]; if(a && !a.__smp && on() && ctx && /frag/i.test(ctx.type || "frag")){ const os = cb.onSuccess;
+          cb = Object.assign({}, cb, {onSuccess:(r, st, cx, n) => { try{ const a2 = DBG.cur[slot], d = r && r.data; if(a2 && !a2.__smp && d && (d.byteLength || 0) > 1000 && d.byteLength < 14e6){ a2.__smp = 1;
+                DBG.sample[slot] = {n:a2.n, at:a2.at, name:a2.ch.name, u8:d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength))}; ev(slot, "amostra guardada", {kB:Math.round(d.byteLength / 1024)}); } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
   window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot; if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
@@ -9921,7 +9929,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const res = await fetch("https://api.github.com/repos/" + repo + "/contents/logs/" + name, {method:"PUT", headers:{Authorization:"Bearer " + tok, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"},
         body:JSON.stringify({message:"Registo de canais " + name + " (" + (why || "manual") + ")", content:b64utf8(JSON.stringify(r, null, 1))})});
       if(!res.ok){ let m = ""; try{ m = (await res.json()).message; }catch(e){} throw new Error("GitHub " + res.status + (m ? ": " + m : "") + (res.status === 404 ? " (o repositório não existe ou o token não tem acesso)" : res.status === 401 ? " (token inválido ou expirado)" : "")); }
-      LS.set("dbgSent", Date.now()); return name;
+      const sm = DBG.failSample; let extra = "";
+      if(sm && sm.u8 && !sm.sent){ try{ const sn = name.replace(/\.json$/, "") + "_amostra_" + String(sm.name || "canal").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) + ".ts";
+          let bin = ""; for(let i = 0; i < sm.u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, sm.u8.subarray(i, i + 0x8000));
+          const r2 = await fetch("https://api.github.com/repos/" + repo + "/contents/logs/" + sn, {method:"PUT", headers:{Authorization:"Bearer " + tok, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}, body:JSON.stringify({message:"Amostra de vídeo " + sn, content:btoa(bin)})});
+          if(r2.ok){ sm.sent = true; extra = " + amostra de vídeo"; } }catch(e){} }
+      LS.set("dbgSent", Date.now()); return name + extra;
     } finally { sending = false; }
   };
   const autoSend = () => {
