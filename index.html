@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v122";
+const APP_VERSION = "v123";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3608,6 +3608,104 @@ function wcInit(slot){
     });
   });
 }
+/* ---------- .ts direto (mpegts.js) na imagem em andamento ----------
+   O mpegts.js lê o canal com fetch; aqui o fluxo é duplicado (tee) e a cópia vai para um leitor de TS próprio
+   (H.264 ou HEVC → amostras Annex B → VideoDecoder). Só com o modo em andamento ligado (o mpegts.js corre sem Worker). */
+class TsVidDemux {
+  constructor(){ this.carry = null; this.pmt = -1; this.vpid = -1; this.type = 0; this.cur = null; }
+  push(u){
+    if(this.carry){ const b = new Uint8Array(this.carry.length + u.length); b.set(this.carry); b.set(u, this.carry.length); u = b; this.carry = null; }
+    const out = []; let o = 0;
+    while(o + 188 <= u.length){
+      if(u[o] !== 0x47){ o++; continue; }
+      this._pkt(u, o, out); o += 188;
+    }
+    if(o < u.length) this.carry = u.slice(o);
+    return out;
+  }
+  _pkt(d, o, out){
+    const pid = ((d[o + 1] & 0x1f) << 8) | d[o + 2], pusi = d[o + 1] & 0x40, afc = (d[o + 3] >> 4) & 3;
+    if(!(afc & 1)) return; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; if(p >= o + 188) return;
+    if(pid === 0 && pusi && this.pmt < 0){ p += 1 + d[p]; const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4 && i + 3 < o + 188; i += 4){ if((d[i] << 8) | d[i + 1]){ this.pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } return; }
+    if(pid === this.pmt && pusi && this.vpid < 0){ p += 1 + d[p]; const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4 && i + 4 < o + 188;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(d[i] === 0x1b || d[i] === 0x24){ this.type = d[i]; this.vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; break; } i += 5 + il; } return; }
+    if(pid !== this.vpid || this.vpid < 0) return;
+    if(pusi){ this._close(out); this.cur = []; }
+    if(this.cur){ this.cur.push(d.slice(p, o + 188)); if(this.cur.length > 6000) this.cur = null; }
+  }
+  _close(out){
+    const c = this.cur; this.cur = null; if(!c || !c.length) return;
+    let L = 0; c.forEach(x => L += x.length); const b = new Uint8Array(L); let k = 0; c.forEach(x => { b.set(x, k); k += x.length; });
+    if(!(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80))) return;
+    const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
+    const data = b.subarray(9 + b[8]); let key = false, sps = -1;
+    for(let i = 0; i + 4 < data.length && i < 2000; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){
+      if(this.type === 0x1b){ const t = data[i + 3] & 0x1f; if(t === 7){ key = true; if(sps < 0) sps = i + 3; } if(t === 5) key = true; if(t === 1 || t === 5) break; }
+      else { const t = (data[i + 3] >> 1) & 0x3f; if(t === 33 && sps < 0) sps = i + 3; if(t >= 16 && t <= 21){ key = true; break; } if(t < 16) break; }
+      i += 2; } }
+    out.push({pts, data, key, sps, type:this.type});
+  }
+}
+window.__tsTaps = window.__tsTaps || {};
+(function(){
+  if(window.ANDROID || window.__fetchTap) return; window.__fetchTap = true;
+  const _f = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    let tap = null; try{ for(const k in window.__tsTaps){ const t = window.__tsTaps[k]; if(t && t.on && t.url === url) tap = t; } }catch(e){}
+    const r = await _f(input, init);
+    if(!tap || !r.body || !r.ok) return r;
+    const [a, b] = r.body.tee();
+    (async () => { const rd = b.getReader(); try{ for(;;){ const x = await rd.read(); if(x.done || !tap.on) break; try{ tap.fn(x.value); }catch(e){} } }catch(e){} try{ rd.cancel(); }catch(e){} })();
+    const nr = new Response(a, {status:r.status, statusText:r.statusText, headers:r.headers});
+    try{ Object.defineProperty(nr, "url", {value:r.url}); Object.defineProperty(nr, "redirected", {value:r.redirected}); }catch(e){}
+    return nr;
+  };
+})();
+function tsMirFeed(slot, bytes){
+  const tap = window.__tsTaps[slot]; const st = MIR[slot];
+  if(!st || !st.tsd){ if(tap){ (tap.pre = tap.pre || []).push(bytes); tap.preN = (tap.preN || 0) + bytes.length; while(tap.preN > 6e6 && tap.pre.length > 1) tap.preN -= tap.pre.shift().length; } return; }
+  st.segs = (st.segs || 0) + 1; st.tsBytes = (st.tsBytes || 0) + bytes.length;
+  for(const x of st.tsd.push(bytes)){
+    let data = x.data;
+    if(!st.tsCfg){
+      if(!x.key || x.sps < 0) continue;
+      let codec, soft = false;
+      if(x.type === 0x24) codec = __hevcCodec(data, x.sps);
+      else { const h = v => v.toString(16).padStart(2, "0"); codec = "avc1." + h(data[x.sps + 1]) + h(data[x.sps + 2]) + h(data[x.sps + 3]);
+        try{ const raw = [], e = (() => { for(let i = x.sps + 1; i + 2 < data.length; i++) if(data[i] === 0 && data[i + 1] === 0 && (data[i + 2] === 1 || data[i + 2] === 0)) return i; return data.length; })(); for(let i = x.sps + 1; i < e; i++) raw.push(data[i]); const r = {}; rewriteSps(raw, 8, r); soft = !!r.interlaced; }catch(e){} }
+      st.tsCfg = soft ? {codec, optimizeForLatency:true, hardwareAcceleration:"prefer-software"} : {codec, optimizeForLatency:true};
+      st.tsSoft = soft;
+      VideoDecoder.isConfigSupported(st.tsCfg).then(r => {
+        if(MIR[slot] !== st) return;
+        if(!r || !r.supported){ st.err = codec + " não suportado pelo WebCodecs deste browser"; toast("Este canal usa um formato (" + codec + ") que o descodificador deste browser não mostra em andamento.", true); return; }
+        try{ st.decoder.configure(st.tsCfg); st.err = null; }catch(e){ st.err = "configure: " + e.message; }
+      }).catch(e => { st.err = "configure: " + e.message; });
+    }
+    /* H.264 entrelaçado: corrige o SPS (imagens de referência a menos) antes de descodificar */
+    if(st.tsSoft && x.type === 0x1b && x.sps >= 0){ try{ const e = (() => { for(let i = x.sps + 1; i + 2 < data.length; i++) if(data[i] === 0 && data[i + 1] === 0 && (data[i + 2] === 1 || data[i + 2] === 0)) return i; return data.length; })();
+        const raw = []; for(let i = x.sps + 1; i < e; i++) raw.push(data[i]); const fx = rewriteSps(raw, 8, {});
+        if(fx){ const nb = new Uint8Array(data.length - raw.length + fx.length); nb.set(data.subarray(0, x.sps + 1)); nb.set(fx, x.sps + 1); nb.set(data.subarray(e), x.sps + 1 + fx.length); data = nb; } }catch(e){} }
+    try{ st.decoder.decode({type:x.key ? "key" : "delta", timestamp:Math.round(x.pts * 100 / 9), data:data.slice ? data.slice() : data}); }catch(e){ st.err = "decode: " + e.message; }
+  }
+  startPresent(slot);
+}
+function tsMirInit(slot){
+  if(!WC_NATIVE){ const st0 = MIR[slot] = MIR[slot] || {}; st0.err = "este canal (.ts direto) só tem imagem em andamento com WebCodecs (página https)"; return; }
+  const tap = window.__tsTaps[slot];
+  if(!tap || !tap.on || tap.url !== (tsInst[slot] && tsInst[slot].__url)){
+    /* o canal foi aberto antes de ligar o modo: reabre-o (uma ligação de cada vez) para o fluxo passar pelo leitor da imagem */
+    const c = lastPlayed[slot]; const st0 = MIR[slot] = MIR[slot] || {}; st0.err = "a reabrir o canal para a imagem em andamento…";
+    if(c && !st0.reopened){ st0.reopened = true; setTimeout(() => { try{ if(window.__oneConn) window.__oneConn(c, slot); else playChannel(c, slot); }catch(e){} }, 300); }
+    return;
+  }
+  const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null};
+  st.decoder = new PacedDecoder({
+    output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
+    error: e => { st.err = "decoder: " + e.message; },
+    backlog: () => (st.q || []).length
+  });
+  const pre = tap.pre || []; tap.pre = []; tap.preN = 0; for(const b of pre) tsMirFeed(slot, b);
+}
 /* ---------- HEVC/H.265 na imagem em andamento ----------
    O mux.js só converte H.264. Para canais .ts em HEVC, os pedaços são lidos aqui diretamente (PES → amostras Annex B,
    com VPS/SPS/PPS dentro) e vão para o mesmo VideoDecoder/relógio do modo em andamento. Precisa de WebCodecs com HEVC
@@ -3669,9 +3767,25 @@ function hevcFeed(slot, st, u, frag){
 }
 /* Recebe os bytes de cada fragmento HLS (já clonados pelo loader) e alimenta o transmuxer. */
 function mirrorFeed(slot, d){
-  const st = MIR[slot]; if(!st || !st.tm) return;
+  const st = MIR[slot];
   const payload = d && d.payload; if(!payload) return;
+  /* fMP4: guarda o segmento de inicialização (moov), que chega antes de o descodificador estar pronto */
+  try{ const u2 = payload instanceof Uint8Array ? payload : new Uint8Array(payload); const bx2 = u2.length > 8 ? String.fromCharCode(u2[4], u2[5], u2[6], u2[7]) : "";
+    if(/^(ftyp|moov)$/.test(bx2)){ (window.__mirInit = window.__mirInit || [])[slot] = u2.slice(); } }catch(e){}
+  if(!st || !st.tm) return;
   st.segs = (st.segs||0)+1; st.curFrag = d.frag || null;
+  /* HLS com pedaços MP4 (fMP4/CMAF, EXT-X-MAP): não passam pelo mux.js; vão diretos ao mp4box (H.264 ou HEVC) */
+  try{ const u1 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+    const bx = u1.length > 8 ? String.fromCharCode(u1[4], u1[5], u1[6], u1[7]) : "";
+    if(st.file && (st.fmp4 || /^(ftyp|moov|moof|styp|sidx|emsg|prft)$/.test(bx))){
+      st.fmp4 = true; st.gotInit = true;
+      if(!st.fmInit && !/^(ftyp|moov)$/.test(bx)){ const ini = window.__mirInit && window.__mirInit[slot]; if(ini){ const ia = ini.buffer.slice(ini.byteOffset, ini.byteOffset + ini.byteLength); ia.fileStart = st.fileStart; st.fileStart += ia.byteLength; st.file.appendBuffer(ia); } }
+      st.fmInit = true;
+      const ab = u1.buffer.slice(u1.byteOffset, u1.byteOffset + u1.byteLength);
+      st.ranges.push({start:st.fileStart, end:st.fileStart + ab.byteLength, frag:st.curFrag});
+      ab.fileStart = st.fileStart; st.fileStart += ab.byteLength; st.file.appendBuffer(ab);
+      return;
+    } }catch(e){ st.err = "fMP4: " + e.message; return; }
   /* HEVC em .ts: o mux.js não o converte; lê-se diretamente (só com WebCodecs nativo) */
   try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
     if(u0[0] === 0x47 && WC_NATIVE && st.decoder && st.decoder.pump && (st.hevc || (!st.gotInit && __tsVideoInfo(u0).type === 0x24))){ st.hevc = true; hevcFeed(slot, st, u0, st.curFrag); return; } }catch(e){ st.err = "HEVC: " + e.message; }
@@ -3787,10 +3901,9 @@ function makeCapLoader(slot){
 function mp4Init(slot){
   if(!(mirrorOn && WC_OK)) return;
   const c = lastPlayed[slot], v = $("vid"+slot);
-  if(!c || !/\.(mp4|m4v|mov)(\?|$)/i.test(c.url)){
-    if(c && /\.mkv(\?|$)/i.test(c.url)) toast("Filmes .mkv ainda não têm imagem em andamento (para já só .mp4).", true);
-    return;
-  }
+  const isMkv = c && /\.(mkv|webm)(\?|$)/i.test(c.url);
+  if(!c || !(isMkv || /\.(mp4|m4v|mov)(\?|$)/i.test(c.url))) return;
+  if(isMkv && !WC_NATIVE){ toast("Filmes .mkv só têm imagem em andamento com WebCodecs (página https).", true); return; }
   const st = MIR[slot] = MIR[slot] || {};
   if(st.movie) return;
   st.movie = true; st.fixedOff = 0;
@@ -3798,10 +3911,125 @@ function mp4Init(slot){
     if(MIR[slot]!==st) return;
     const src = v.currentSrc || v.src; if(!src || st.src===src) return;
     if(st.src){ stopMirror(slot); startMirror(slot); return; } // mudou de fonte (fallback de proxy)
-    st.src = src; mp4Run(slot, st, src);
+    st.src = src; (isMkv ? mkvRun : mp4Run)(slot, st, src);
   };
   v.addEventListener("loadedmetadata", st.onMeta);
   if(v.readyState>=1) st.onMeta();
+}
+/* ---------- Filmes .mkv na imagem em andamento ----------
+   Lê o ficheiro aos bocados (Range) com um leitor EBML próprio: cabeçalho → faixa de vídeo (H.264/HEVC, com a
+   configuração CodecPrivate) → Cues (índice para saltar) → Clusters → SimpleBlock/BlockGroup → VideoDecoder. */
+const MKV = {SEG:0x18538067, SEEKHEAD:0x114D9B74, SEEK:0x4DBB, SEEKID:0x53AB, SEEKPOS:0x53AC, INFO:0x1549A966, TCSCALE:0x2AD7B1, DUR:0x4489,
+  TRACKS:0x1654AE6B, TRACK:0xAE, TNUM:0xD7, TTYPE:0x83, CODEC:0x86, CPRIV:0x63A2, VIDEO:0xE0, PW:0xB0, PH:0xBA,
+  CUES:0x1C53BB6B, CUEPT:0xBB, CUETIME:0xB3, CUETP:0xB7, CUETRACK:0xF7, CUEPOS:0xF1, CLUSTER:0x1F43B675, TC:0xE7, SB:0xA3, BG:0xA0, BLOCK:0xA1, REFB:0xFB};
+function mkvVint(b, p, isId){
+  if(p >= b.length) return null; const f = b[p]; let len = 1, m = 0x80; while(len <= 8 && !(f & m)){ len++; m >>= 1; } if(len > 8 || p + len > b.length) return null;
+  let v = isId ? f : f & (m - 1), ones = (f & (m - 1)) === m - 1; for(let i = 1; i < len; i++){ v = v * 256 + b[p + i]; if(b[p + i] !== 255) ones = false; }
+  return {v, len, unknown:!isId && ones};
+}
+function mkvHead(b, p){ const id = mkvVint(b, p, true); if(!id) return null; const sz = mkvVint(b, p + id.len, false); if(!sz) return null; return {id:id.v, size:sz.unknown ? -1 : sz.v, hl:id.len + sz.len}; }
+function mkvUint(b, p, n){ let v = 0; for(let i = 0; i < n; i++) v = v * 256 + b[p + i]; return v; }
+function mkvFloat(b, p, n){ const dv = new DataView(b.buffer, b.byteOffset + p, n); return n === 4 ? dv.getFloat32(0) : dv.getFloat64(0); }
+/* percorre os filhos de [a, z) e chama fn(id, dataStart, size) */
+function mkvKids(b, a, z, fn){ let p = a; while(p < z){ const h = mkvHead(b, p); if(!h) return; const ds = p + h.hl, sz = h.size < 0 ? z - ds : h.size; if(fn(h.id, ds, sz, p) === false) return; p = ds + sz; } }
+function mkvRun(slot, st, src){
+  const v = $("vid" + slot), sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
+  st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
+  const decoder = new PacedDecoder({
+    output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
+    error: e => { st.err = "decoder: " + e.message; },
+    backlog: () => (st.q || []).length
+  });
+  st.decoder = decoder;
+  const get = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+    const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; } return new Uint8Array(await r.arrayBuffer()); };
+  (async () => {
+    try{
+      /* 1) cabeçalho: EBML, Segment, SeekHead, Info, Tracks */
+      let hb = await get(0, 1 << 18); if(MIR[slot] !== st) return;
+      let p = 0; const e0 = mkvHead(hb, 0); if(!e0 || e0.id !== 0x1A45DFA3) throw new Error("não é um ficheiro Matroska");
+      p = e0.hl + e0.size; const sg = mkvHead(hb, p); if(!sg || sg.id !== MKV.SEG) throw new Error("sem Segment");
+      const seg = p + sg.hl; let scale = 1000000, dur = 0, trk = null, cuesAt = -1, tracksAt = -1, first = -1;
+      const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
+          if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
+          else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
+        if(t.type === 1 && !trk) trk = t; });
+      mkvKids(hb, seg, hb.length, (id, d, n, at) => {
+        if(id === MKV.CLUSTER){ first = at; return false; }
+        if(d + n > hb.length){ if(id === MKV.TRACKS) tracksAt = at; return false; }
+        if(id === MKV.SEEKHEAD) mkvKids(hb, d, d + n, (i2, d2, n2) => { if(i2 !== MKV.SEEK) return; let sid = 0, spos = -1; mkvKids(hb, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.SEEKID) sid = mkvUint(hb, d3, n3); if(i3 === MKV.SEEKPOS) spos = mkvUint(hb, d3, n3); }); if(sid === MKV.CUES) cuesAt = seg + spos; if(sid === MKV.TRACKS && tracksAt < 0) tracksAt = seg + spos; });
+        else if(id === MKV.INFO) mkvKids(hb, d, d + n, (i2, d2, n2) => { if(i2 === MKV.TCSCALE) scale = mkvUint(hb, d2, n2); if(i2 === MKV.DUR) dur = mkvFloat(hb, d2, n2); });
+        else if(id === MKV.TRACKS) readTracks(hb, d, d + n);
+      });
+      if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
+      if(!trk) throw new Error("sem faixa de vídeo");
+      const isAvc = /^V_MPEG4\/ISO\/AVC/.test(trk.codec), isHevc = /^V_MPEGH\/ISO\/HEVC/.test(trk.codec);
+      if(!(isAvc || isHevc) || !trk.priv) throw new Error("vídeo " + trk.codec + " (só H.264 e HEVC)");
+      const h2 = x => x.toString(16).padStart(2, "0");
+      const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
+      st.cfg = {codec, description:trk.priv, codedWidth:trk.w, codedHeight:trk.h, optimizeForLatency:true};
+      const sup = await VideoDecoder.isConfigSupported(st.cfg).catch(() => null);
+      if(!sup || !sup.supported){ st.err = codec + " não suportado"; toast("Este filme usa " + (isHevc ? "HEVC/H.265" : codec) + " e o descodificador deste browser não o mostra em andamento.", true); return; }
+      decoder.configure(st.cfg);
+      /* 2) índice (Cues) para saltar no filme */
+      let cues = [];
+      if(cuesAt > 0){ try{ const ch = await get(cuesAt, 16); const hh = mkvHead(ch, 0); if(hh && hh.id === MKV.CUES && hh.size > 0 && hh.size < 8e6){ const cb = await get(cuesAt + hh.hl, hh.size);
+            mkvKids(cb, 0, cb.length, (id, d, n) => { if(id !== MKV.CUEPT) return; let t = -1, pos = -1, tr = 0; mkvKids(cb, d, d + n, (i2, d2, n2) => { if(i2 === MKV.CUETIME) t = mkvUint(cb, d2, n2); if(i2 === MKV.CUETP) mkvKids(cb, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.CUETRACK) tr = mkvUint(cb, d3, n3); if(i3 === MKV.CUEPOS && pos < 0) pos = mkvUint(cb, d3, n3); }); });
+              if(t >= 0 && pos >= 0 && (!tr || tr === trk.num)) cues.push({t:t * scale / 1e9, pos:seg + pos}); }); cues.sort((a, b) => a.t - b.t); } }catch(e){} }
+      st.mkvInfo = {codec, cues:cues.length, dur};
+      /* 3) leitura dos Clusters a partir de uma posição */
+      let pos = 0, pend = new Uint8Array(0), pendAt = 0, tc = 0, lastTs = 0, resync = false, gen = 0;
+      const seekTo = t => {
+        gen++; try{ st.abort && st.abort.abort(); }catch(e){}
+        for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null;
+        let at = first > 0 ? first : seg; resync = false;
+        if(cues.length){ let c = cues[0]; for(const x of cues){ if(x.t <= t + 0.05) c = x; else break; } at = c.pos; lastTs = c.t * 1e6; }
+        else if(t > 1 && dur && st.size){ at = Math.max(first > 0 ? first : seg, Math.floor(seg + (t * 1e9 / scale) / dur * (st.size - seg)) - (1 << 20)); resync = true; lastTs = 0; }
+        pos = at; pend = new Uint8Array(0); pendAt = at; tc = 0;
+      };
+      st.onSeek = () => { if(MIR[slot] === st) seekTo(v.currentTime || 0); };
+      v.addEventListener("seeking", st.onSeek);
+      seekTo(v.currentTime || 0);
+      const block = (b, d, n, keyFlag) => {
+        const tn = mkvVint(b, d, false); if(!tn || tn.v !== trk.num) return;
+        const q = d + tn.len, rel = (b[q] << 24 >> 16) | b[q + 1], fl = b[q + 2]; if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
+        const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
+        try{ decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:b.slice(q + 3, d + n)}); }catch(e){ st.err = "decode: " + e.message; }
+        lastTs = ts;
+      };
+      while(MIR[slot] === st && mirrorOn){
+        const master = Math.max(st.masterUs != null ? st.masterUs : 0, v.currentTime * 1e6);
+        if(lastTs > master + 6e6){ await sleep(250); continue; }
+        if(st.size && pos >= st.size){ await sleep(1000); continue; }
+        const g = gen, a = pos; st.abort = new AbortController(); let buf;
+        try{ buf = await get(a, CH, st.abort.signal); }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
+        if(MIR[slot] !== st) return; if(g !== gen) continue;
+        st.segs = (st.segs || 0) + 1; pos = a + buf.length;
+        /* junta ao que sobrou (contíguo) e analisa */
+        if(pendAt + pend.length !== a){ pend = new Uint8Array(0); pendAt = a; }
+        const b = new Uint8Array(pend.length + buf.length); b.set(pend); b.set(buf, pend.length); const bStart = pendAt; let p2 = 0, skipped = false;
+        if(resync){ let k = -1; for(let i = 0; i + 4 < b.length; i++) if(b[i] === 0x1F && b[i + 1] === 0x43 && b[i + 2] === 0xB6 && b[i + 3] === 0x75){ const hh = mkvHead(b, i); if(hh && b[i + hh.hl] === 0xE7){ k = i; break; } } if(k < 0){ pend = new Uint8Array(0); pendAt = pos; continue; } p2 = k; resync = false; }
+        for(;;){
+          const h = mkvHead(b, p2); if(!h) break;
+          const ds = p2 + h.hl;
+          if(h.id === MKV.SEG || h.id === MKV.CLUSTER){ if(h.id === MKV.CLUSTER) tc = 0; p2 = ds; continue; }   /* entra */
+          if(h.size < 0){ p2 = ds; continue; }
+          if(h.id === MKV.TC || h.id === MKV.SB || h.id === MKV.BG){
+            if(ds + h.size > b.length) break;   /* precisa de mais bytes */
+            if(h.id === MKV.TC) tc = mkvUint(b, ds, h.size);
+            else if(h.id === MKV.SB) block(b, ds, h.size, null);
+            else { let bk = null, ref = false; mkvKids(b, ds, ds + h.size, (i2, d2, n2) => { if(i2 === MKV.BLOCK) bk = [d2, n2]; if(i2 === MKV.REFB) ref = true; }); if(bk) block(b, bk[0], bk[1], !ref); }
+            p2 = ds + h.size; continue;
+          }
+          /* outros elementos (Cues, Tags, anexos…): salta sem os descarregar */
+          if(ds + h.size > b.length){ pos = bStart + ds + h.size; pendAt = pos; pend = new Uint8Array(0); skipped = true; break; }
+          p2 = ds + h.size;
+        }
+        if(!skipped){ pendAt = bStart + p2; pend = b.slice(p2); }
+        startPresent(slot);
+      }
+    }catch(e){ if(MIR[slot] === st){ st.err = "mkv: " + (e.message || e); toast("Imagem em andamento: " + st.err, true); } }
+  })();
 }
 function mp4Run(slot, st, src){
   loadMirLibs().then(ok=>{
@@ -3887,12 +4115,13 @@ function startMirror(slot){
   if(!mirrorOn) return;
   slotBox(slot).classList.add("mirroring");
   const c = lastPlayed[slot];
-  if(tsInst[slot] && !hlsInst[slot]){ const st0 = MIR[slot] = MIR[slot] || {}; st0.err = "este canal (.ts direto) não tem imagem em andamento; escolhe outra versão do canal (HLS)"; cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot); return; }
+  if(tsInst[slot] && !hlsInst[slot]){ tsMirInit(slot); cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot); return; }
   if(c && c.kind!=="live" && !hlsInst[slot] && !/\.m3u8(\?|$)/i.test(c.url)) mp4Init(slot); else wcInit(slot);
   cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot);
 }
 function stopMirror(slot){
   cancelAnimationFrame(mirrorRAF[slot]); mirrorRAF[slot]=null;
+  try{ const st = MIR[slot]; if(st && st.tsd){ try{ st.decoder && st.decoder.close(); }catch(e){} (st.q || []).forEach(f => { try{ f.close(); }catch(e){} }); MIR[slot] = null; } }catch(e){}
   wcDestroy(slot);
   const box=slotBox(slot); if(box) box.classList.remove("mirroring");
 }
@@ -4056,10 +4285,14 @@ function loadMpegts(){
 }
 async function playTs(v, url, slot, onFail){
   if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
-  const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:true, liveBufferLatencyChasing:true, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
+  /* imagem em andamento: o fluxo é duplicado para o leitor da imagem (precisa do mpegts.js fora do Worker) */
+  const tapOn = typeof mirrorOn !== "undefined" && mirrorOn && WC_NATIVE && !window.ANDROID;
+  if(tapOn) window.__tsTaps[slot] = {url, on:true, fn:b => tsMirFeed(slot, b)}; else if(window.__tsTaps[slot]) window.__tsTaps[slot].on = false;
+  const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:!tapOn, liveBufferLatencyChasing:true, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
     liveBufferLatencyMaxLatency:4, liveBufferLatencyMinRemain:1,
     autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:30, autoCleanupMinBackwardDuration:15, fixAudioTimestampGap:true} : {}));
-  p.attachMediaElement(v); p.load(); tsInst[slot]=p;
+  p.__url = url; p.attachMediaElement(v); p.load(); tsInst[slot]=p;
+  if(tapOn) setTimeout(() => { try{ if(tsInst[slot] === p && mirrorOn) startMirror(slot); }catch(e){} }, 0);
   if(window.__TESLA){ try{ watchStall(slot, v, () => { try{ if(tsInst[slot] !== p) return; p.unload(); p.load(); v.play().catch(()=>{}); }catch(e){} }); }catch(e){} }
   let failed = false;
   p.on(mpegts.Events.ERROR, ()=>{ if(failed) return; failed = true; onFail(); });
