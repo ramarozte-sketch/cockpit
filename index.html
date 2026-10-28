@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v120";
+const APP_VERSION = "v121";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10259,7 +10259,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 
   /* key: 0/1 (ecrãs da TV) ou "prev" (pré-visualização do Início). o = {h, v, out(src, w, h), ow, oh} */
   function start(key, o){
-    const st = {key, o, seq:o.seq, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null, gl:mkGl(), last:"", dur:40000};
+    const st = {key, o, seq:o.seq, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null, gl:mkGl(), last:"", dur:40000, wasMoving:false};
     try{ o.h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
     const mk = () => {
       try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
@@ -10310,7 +10310,11 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       st.shown = f; if(st.gl) st.gl.drop();
     }
     const f = st.shown; if(!f) return;
-    let mode = deint(); if(mode === "bob" && st.slow) mode = "linear";
+    let mode = deint();
+    /* em andamento: Linear (25 imagens/s) em vez de Bob, para poupar o processador do carro; volta ao Bob parado */
+    const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return false; } })();
+    if(mode === "bob" && (st.slow || moving)) mode = "linear";
+    if(moving !== st.wasMoving){ st.wasMoving = moving; if(deint() === "bob") log(st.key, moving ? "em andamento: Bob → Linear" : "parado: volta ao Bob", {}); }
     /* Bob: 1.º campo (linhas de cima) na primeira metade da imagem, 2.º campo na segunda → 50 imagens/s */
     const field = mode === "bob" && now - f.timestamp >= st.dur / 2 ? 1 : 0;
     const tag = f.timestamp + ":" + field + ":" + mode; if(tag === st.last) return; st.last = tag;
@@ -10366,7 +10370,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   setTimeout(() => { try{
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
     const l = document.createElement("label"); l.className = "f";
-    l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
+    l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s; em andamento passa a Linear)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
     card.appendChild(l); const sel = $("setDeint"); sel.value = deint(); sel.onchange = () => { cfg.deint = sel.value; saveCfg(); toast("Desentrelaçar: " + sel.options[sel.selectedIndex].text.split(" —")[0]); };
   }catch(e){} }, 0);
   }catch(e){ console.log("vídeo por software", e); }
