@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v111";
+const APP_VERSION = "v112";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9593,7 +9593,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const was = D.state, r = _ds.apply(this, arguments);
     try{ if(was === "moving" && st === "park"){ window.driveLoop(); const h = D.halted; D.halted = null;
         if(h && Date.now() - h.t < 30 * 60000 && (currentView === "tv" || currentView === "tvinicio") && !document.hidden){
-          setTimeout(() => { try{ if(tvBlocked()) return; toast("Parado: a retomar " + h.c.name); if(window.__oneConn) window.__oneConn(h.c, 0); else playChannel(h.c, 0); }catch(e){} }, (window.__drvAudJust && Date.now() - window.__drvAudJust < 3000 && !h.c.free) ? 1800 : 800);
+          setTimeout(() => { try{ if(tvBlocked()) return; toast("Parado: a retomar " + h.c.name); if(window.__oneConn) window.__oneConn(h.c, 0); else playChannel(h.c, 0); }catch(e){} }, 800);
         } }
       if(st === "moving") window.driveLoop();
     }catch(e){}
@@ -9624,7 +9624,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const D = DRIVE;
   const opt = (k, d) => { const v = cfg[k]; return v === undefined ? d : v; };
 
-  /* ---------- 1) Só som em andamento ---------- */
+  /* (o «só som em andamento» foi retirado a pedido; fica só o necessário para o temporizador) */
   const AU = window.__drvAudio = {el:null, stop:null, c:null};
   const aEl = () => { if(!AU.el){ const a = document.createElement("audio"); a.id = "drvAud"; a.preload = "auto"; a.style.display = "none"; document.body.appendChild(a); AU.el = a; } return AU.el; };
   const srcFor = c => { const u = String(c.url || ""), ref = typeof refFor === "function" ? refFor(c) : "";
@@ -9668,23 +9668,6 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       else b.hidden = true;
     }catch(e){}
   };
-  /* ao arrancar: em vez de parar tudo, continua o mesmo canal só com som */
-  const _th = window.tvHaltPlayback;
-  window.tvHaltPlayback = function(){
-    let c = null, at = 0;
-    try{ c = lastPlayed && (lastPlayed[audioSlot] || lastPlayed[0]); const v = $("vid" + (lastPlayed[audioSlot] ? audioSlot : 0)); at = v && isFinite(v.currentTime) ? v.currentTime : 0; }catch(e){}
-    const r = _th.apply(this, arguments);
-    if(c && opt("drvAudio", true) && c.kind !== "series"){ setTimeout(() => { if(drivingEff() && !AU.c) audioStart(c, at).then(() => toast("Em andamento: " + c.name + " continua só com som.")); }, c.free ? 300 : 1000); }
-    return r;
-  };
-  /* ao parar em P: termina o som antes de a imagem voltar (uma ligação de cada vez) */
-  const _ds = window.driveSet;
-  window.driveSet = function(st){
-    if(st === "park" && AU.c){ const c = AU.c, a = aEl(), t = a && isFinite(a.currentTime) ? a.currentTime : 0; audioStop(); window.__drvAudJust = Date.now();
-      if(c.kind !== "live" && t > 5){ try{ const r = window.RES; if(r && r.save) r.save(c, t, a.duration || 0); }catch(e){} } }
-    return _ds.apply(this, arguments);
-  };
-
   /* ---------- 3) Poupar dados: 720p em andamento (modo passageiro) ou com rede lenta ---------- */
   window.__capExtra = () => {
     if(!opt("dataSave", true)) return 99999;
@@ -9775,13 +9758,11 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   if(w){
     const d = document.createElement("div"); d.id = "drvSet";
     d.innerHTML = '<h3 style="margin:14px 0 6px">Carro em movimento ou parado</h3>' +
-      '<label class="row small"><input type="checkbox" id="drvAudOpt"> Em andamento, continuar o canal só com som (a imagem fica bloqueada e volta em P)</label>' +
       '<label class="row small"><input type="checkbox" id="dataSaveOpt"> Poupar dados: no máximo 720p em andamento ou com rede lenta</label>' +
       '<label class="row small"><input type="checkbox" id="chgOpt"> Avisos do carregamento por cima do vídeo (início, cada 10 %, faltam 5 min, concluído)</label>' +
       '<label class="f">Com o ecrã apagado ou a página escondida, parar o vídeo ao fim de<select id="hideOpt"><option value="0">Nunca</option><option value="1">1 min</option><option value="3">3 min</option><option value="10">10 min</option></select></label>';
     w.appendChild(d);
-    const fill = () => { $("drvAudOpt").checked = opt("drvAudio", true); $("dataSaveOpt").checked = opt("dataSave", true); $("chgOpt").checked = opt("chgNotes", true); $("hideOpt").value = String(opt("hideStop", 3)); };
-    $("drvAudOpt").onchange = e => { cfg.drvAudio = e.target.checked; saveCfg(); if(!e.target.checked) audioStop(); };
+    const fill = () => { $("dataSaveOpt").checked = opt("dataSave", true); $("chgOpt").checked = opt("chgNotes", true); $("hideOpt").value = String(opt("hideStop", 3)); };
     $("dataSaveOpt").onchange = e => { cfg.dataSave = e.target.checked; saveCfg(); try{ applyCaps(); }catch(x){} };
     $("chgOpt").onchange = e => { cfg.chgNotes = e.target.checked; saveCfg(); };
     $("hideOpt").onchange = e => { cfg.hideStop = +e.target.value; saveCfg(); };
