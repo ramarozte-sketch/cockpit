@@ -2484,7 +2484,7 @@ $("orgReset").onclick = () => {
   orgSave(); orgRender(); orgRefreshMain();
 };
 /* Exportar / importar as definições feitas à mão na IPTV */
-const LS_SKIP = /^ck_(tok_|oauth|mailAcct|cfg$|last$|navRecent|notes|parPin)/;
+const LS_SKIP = /^ck_(tok_|oauth|mailAcct|cfg$|last$|navRecent|notes|parPin|dbgTok|dbgLog|dbgSent)/;   /* o token do GitHub e o registo de canais nunca vão nas cópias/transferências */
 function lsGrab(){ const o = {}; for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k && k.indexOf("ck_") === 0 && !LS_SKIP.test(k)) o[k] = localStorage.getItem(k); } return o; }
 function orgExport(withAcc){
   const o = {app:"cockpit-iptv", v:2, ls:lsGrab(), saved:new Date().toISOString(), org:TVORG, favs:[...favs], opts:{subAuto:cfg.subAuto, osAuto:!!cfg.osAuto}};
@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v112";
+const APP_VERSION = "v113";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9770,6 +9770,173 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fill(); }catch(e){} return r; };
   }
   }catch(e){ console.log("carro em movimento/parado", e); }
+})();
+</script>
+<script>
+/* ===== Registo de canais que não abrem (debug) =====
+   Guarda, para cada canal que tentas abrir, o percurso técnico: rota (direto/proxy), qualidades e codecs,
+   erros do leitor, códigos HTTP, imagem/som descodificados e as recuperações tentadas.
+   NUNCA guarda utilizador, palavra-passe, tokens nem chaves: são apagados dos endereços e de todo o texto antes de gravar.
+   Pode ser enviado para um repositório GitHub (privado) para análise posterior. */
+(function(){
+  if(window.ANDROID) return;
+  try{
+  const MAX = 40;
+  const DBG = window.__dbg = {list:[], cur:[null, null], seq:0};
+  try{ DBG.list = (LS.get("dbgLog", []) || []).slice(-MAX); }catch(e){}
+  const on = () => cfg.dbgOn !== false;
+  const save = () => { try{ LS.set("dbgLog", DBG.list.slice(-MAX)); }catch(e){ try{ DBG.list = DBG.list.slice(-15); LS.set("dbgLog", DBG.list); }catch(x){} } };
+
+  /* --- apagar credenciais --- */
+  const secrets = () => [cfg.xu, cfg.xp, cfg.pkey, cfg.pkey2, cfg.token, cfg.vin, LS.get("dbgTok", "")].filter(x => x && String(x).length >= 4).map(String);
+  const scrub = t => {
+    t = String(t == null ? "" : t);
+    t = t.replace(/(\/(?:live|movie|series|timeshift)\/)([^/?#]+)\/([^/?#]+)\//gi, "$1•••/•••/");
+    t = t.replace(/([?&](?:username|password|user|pass|pwd|passwd|token|key|k|auth|apikey|api_key|access_token|signature|sig)=)[^&#"\s]*/gi, "$1•••");
+    t = t.replace(/(Bearer\s+)[\w.\-]+/gi, "$1•••");
+    for(const s of secrets()){ t = t.split(s).join("•••"); try{ const e = encodeURIComponent(s); if(e !== s) t = t.split(e).join("•••"); }catch(x){} }
+    return t;
+  };
+  const red = u => { u = String(u || ""); u = u.replace(/([?&]url=)([^&]+)/i, (m, a, b) => { try{ return a + "[" + scrub(decodeURIComponent(b)) + "]"; }catch(e){ return a + "•••"; } }); return scrub(u); };
+  const host = u => { try{ return new URL(u).host; }catch(e){ return ""; } };
+  const route = u => { const h = host(u); if(!h) return "?"; if(cfg.proxy && h === host(cfg.proxy)) return "proxy 1"; if(cfg.proxy2 && h === host(cfg.proxy2)) return "proxy 2"; return "direto (" + h + ")"; };
+  const now = () => new Date().toISOString();
+  const ev = (slot, type, data) => { const a = DBG.cur[slot]; if(!a) return; if(a.ev.length < 120) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
+
+  /* --- uma tentativa por canal escolhido --- */
+  const start = (c, slot) => {
+    if(!on() || !c) return;
+    finish(slot, "substituído por outro canal");
+    const sid = (/\/(?:live|movie|series)\/[^/]+\/[^/]+\/([\w-]+)\./.exec(c.url || "") || [])[1] || "";
+    const ext = ((/\.([a-z0-9]{2,5})(\?|$)/i.exec(c.url || "") || [])[1] || "").toLowerCase();
+    DBG.cur[slot] = {n:++DBG.seq, at:now(), t0:performance.now(), slot, ch:{name:c.name, kind:c.kind, group:c.group || "", id:sid, ext, free:!!c.free, intl:!!c.intl, url:red(c.url)}, ev:[], res:""};
+  };
+  const finish = (slot, res) => {
+    const a = DBG.cur[slot]; if(!a) return; DBG.cur[slot] = null;
+    const v = $("vid" + slot);
+    try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
+      a.fim = {res, ms:Math.round(performance.now() - a.t0), w:v.videoWidth, h:v.videoHeight, t:+(v.currentTime || 0).toFixed(1), frames:q.totalVideoFrames || 0, perdidos:q.droppedVideoFrames || 0,
+        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
+    a.res = res; delete a.t0;
+    try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
+    DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
+    if(res !== "ok" && res !== "substituído por outro canal") autoSend();
+  };
+  /* resultado: «ok» quando há imagem a andar; «falhou» se ao fim de 25 s não houver */
+  setInterval(() => { [0, 1].forEach(slot => {
+    const a = DBG.cur[slot]; if(!a) return; const v = $("vid" + slot), el = performance.now() - a.t0;
+    if(!lastPlayed[slot]){ if(el > 2000) finish(slot, a.ev.some(x => x.e === "aviso") ? "falhou" : "parado"); return; }
+    const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+    if(v.videoWidth > 0 && v.currentTime > 0.5 && !v.paused && (!q || q.totalVideoFrames > 5)){ if(!a.okAt){ a.okAt = Math.round(el); ev(slot, "a dar", {w:v.videoWidth, h:v.videoHeight}); } if(el > a.okAt + 4000) finish(slot, "ok"); }
+    else if(el > 25000) finish(slot, "falhou");
+  }); }, 1000);
+
+  /* --- ligar aos leitores --- */
+  const _pc = window.playChannel;
+  window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot; if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
+  const slotOf = el => el && el.id === "vid1" ? 1 : el && el.id === "vid0" ? 0 : -1;
+  const wrapHls = () => {
+    if(!window.Hls || window.Hls.__dbg) return;
+    const H = window.Hls;
+    class DH extends H {
+      constructor(c){ super(c); const me = this; me.__slot = -1;
+        const lv = l => ({h:l.height, w:l.width, kbps:Math.round((l.bitrate || 0) / 1000), v:l.videoCodec || "", a:l.audioCodec || "", fps:l.frameRate || (l.attrs && l.attrs["FRAME-RATE"]) || ""});
+        me.on(H.Events.MANIFEST_PARSED, (e, d) => ev(me.__slot, "manifesto", {qualidades:(d.levels || []).map(lv), audio:(me.audioTracks || []).map(t => (t.lang || "") + " " + (t.audioCodec || ""))}));
+        me.on(H.Events.LEVEL_SWITCHED, (e, d) => { const l = me.levels && me.levels[d.level]; ev(me.__slot, "qualidade", l ? {h:l.height, kbps:Math.round(l.bitrate / 1000)} : {}); });
+        let first = true; me.on(H.Events.FRAG_LOADED, (e, d) => { if(!first) return; first = false; const s = d.frag && d.frag.stats || d.stats || {}; ev(me.__slot, "1.º pedaço", {kB:Math.round(((s.loaded || s.total || 0)) / 1024), ms:s.loading ? Math.round(s.loading.end - s.loading.start) : undefined}); });
+        me.on(H.Events.ERROR, (e, d) => ev(me.__slot, "erro HLS", {tipo:d.type, det:d.details, fatal:!!d.fatal, http:d.response && d.response.code, motivo:scrub(d.reason || (d.error && d.error.message) || ""), url:red((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || "")}));
+      }
+      loadSource(u){ ev(this.__slot, "abrir HLS", {rota:route(u), url:red(u)}); this.__u = u; return super.loadSource(u); }
+      attachMedia(m){ this.__slot = slotOf(m); if(this.__u) ev(this.__slot, "abrir HLS", {rota:route(this.__u), url:red(this.__u)}); return super.attachMedia(m); }
+    }
+    DH.__dbg = true; window.Hls = DH;
+  };
+  if(window.Hls) wrapHls(); else if(window.__hlsP) window.__hlsP.then(wrapHls);
+  const wrapTs = () => {
+    if(!window.mpegts || window.mpegts.__dbg) return; const M = window.mpegts, cp = M.createPlayer;
+    M.createPlayer = function(ds, cf){ const p = cp.apply(this, arguments); try{ const am = p.attachMediaElement.bind(p); let slot = -1;
+      p.attachMediaElement = m => { slot = slotOf(m); ev(slot, "abrir .ts", {rota:route(ds.url), url:red(ds.url)}); return am(m); };
+      p.on(M.Events.ERROR, (t, d, info) => ev(slot, "erro .ts", {tipo:t, det:d, info:scrub(info && (info.msg || info.code) || "")})); }catch(e){} return p; };
+    M.__dbg = true;
+  };
+  setInterval(wrapTs, 2000);
+  ["vid0", "vid1"].forEach((id, slot) => { const v = $(id); if(!v) return;
+    v.addEventListener("error", () => ev(slot, "erro vídeo", {code:v.error && v.error.code, msg:scrub(v.error && v.error.message || "")}));
+    ["stalled", "waiting"].forEach(n => v.addEventListener(n, () => { const a = DBG.cur[slot]; if(a && a.ev.filter(x => x.e === n).length < 5) ev(slot, n); }));
+  });
+  /* avisos de erro mostrados ao utilizador */
+  try{ const t0 = window.toast; window.toast = toast = function(m, bad){ try{ if(bad){ const sl = DBG.cur[tvTarget] ? tvTarget : (DBG.cur[0] ? 0 : 1); ev(sl, "aviso", {txt:scrub(m).slice(0, 300)}); } }catch(e){} return t0.apply(this, arguments); }; }catch(e){}
+  /* conta (sem credenciais): ligações em uso e estado */
+  const account = async () => { try{ const a = typeof xAccount === "function" ? await xAccount() : null; return a ? {ligacoes:a.active + "/" + a.max, estado:a.status, expira:a.exp ? a.exp.toISOString().slice(0, 10) : ""} : null; }catch(e){ return null; } };
+
+  /* --- relatório --- */
+  const report = async () => {
+    let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, mbps:n.downlink, rtt:n.rtt}; }catch(e){}
+    const env = {versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, pagina:location.protocol + "//" + location.host,
+      ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
+      andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
+      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
+      conta:await account(), bw:+LS.get("bwEst", 0) || 0};
+    const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined}));
+    return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
+  };
+  window.__dbgReport = report;
+  const text = r => { const L = []; (r.tentativas || []).slice().reverse().forEach(a => {
+      L.push((a.res === "ok" ? "✓" : a.res === "a decorrer" ? "…" : "✗") + " " + a.at.slice(11, 19) + " " + a.ch.name + " [" + a.ch.kind + (a.ch.ext ? " ." + a.ch.ext : "") + "] " + a.res + (a.fim ? " · " + a.fim.ms + " ms · " + a.fim.w + "x" + a.fim.h : ""));
+      a.ev.forEach(x => { const d = Object.assign({}, x); delete d.t; delete d.e; L.push("   " + (x.t / 1000).toFixed(1) + " s  " + x.e + " " + JSON.stringify(d).slice(0, 220)); });
+    }); return L.join("\n") || "(ainda sem tentativas)"; };
+
+  /* --- enviar para o GitHub (API REST; o token fica só neste aparelho) --- */
+  let sending = false, lastAuto = 0, autoT = 0;
+  const upload = async (why) => {
+    const tok = LS.get("dbgTok", ""), repo = (cfg.dbgRepo || "ramarozte-sketch/cockpit-logs").trim();
+    if(!tok) throw new Error("falta o token do GitHub (Definições → Diagnóstico → Registo de canais)");
+    if(sending) throw new Error("já está a enviar"); sending = true;
+    try{
+      const r = await report(); r.motivo = why || "manual";
+      const d = new Date(), pad = n => String(n).padStart(2, "0"), name = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "_" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + "_" + (window.__TESLA ? "tesla" : "browser") + ".json";
+      const res = await fetch("https://api.github.com/repos/" + repo + "/contents/logs/" + name, {method:"PUT", headers:{Authorization:"Bearer " + tok, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"},
+        body:JSON.stringify({message:"Registo de canais " + name + " (" + (why || "manual") + ")", content:b64utf8(JSON.stringify(r, null, 1))})});
+      if(!res.ok){ let m = ""; try{ m = (await res.json()).message; }catch(e){} throw new Error("GitHub " + res.status + (m ? ": " + m : "") + (res.status === 404 ? " (o repositório não existe ou o token não tem acesso)" : res.status === 401 ? " (token inválido ou expirado)" : "")); }
+      LS.set("dbgSent", Date.now()); return name;
+    } finally { sending = false; }
+  };
+  const autoSend = () => {
+    if(!cfg.dbgAuto || !LS.get("dbgTok", "")) return;
+    clearTimeout(autoT); autoT = setTimeout(() => { if(Date.now() - lastAuto < 120000) return; lastAuto = Date.now(); upload("canal falhou (automático)").then(n => toast("Registo enviado para o GitHub: " + n)).catch(e => console.log("dbg", e)); }, 20000);
+  };
+
+  /* --- Definições → Diagnóstico --- */
+  const o = $("tsDgOut");
+  if(o){
+    const box = document.createElement("div"); box.id = "dbgBox";
+    box.innerHTML = '<h3 style="margin:14px 0 6px">Registo de canais que não abrem</h3>' +
+      '<p class="small muted" style="margin:0 0 6px">Guarda o percurso técnico de cada canal que abres (rota, qualidades, codecs, erros, recuperações). Não guarda utilizador, palavra-passe nem chaves.</p>' +
+      '<label class="row small"><input type="checkbox" id="dbgOn"> Gravar o registo</label>' +
+      '<div class="row" style="flex-wrap:wrap"><button class="btn" id="dbgView">Ver registo</button><button class="btn" id="dbgCopy">Copiar</button><button class="btn" id="dbgFile">Guardar ficheiro</button><button class="btn primary" id="dbgSend">Enviar para o GitHub</button><button class="btn" id="dbgClear">Apagar</button></div>' +
+      '<details style="margin-top:6px"><summary class="small" style="cursor:pointer">GitHub (para enviar o registo)</summary>' +
+      '<label class="f">Repositório (privado, recomendado)<input type="text" id="dbgRepo" placeholder="ramarozte-sketch/cockpit-logs" autocomplete="off"></label>' +
+      '<label class="f">Token do GitHub (só fica neste aparelho)<input type="password" id="dbgTok" placeholder="github_pat_…" autocomplete="off"></label>' +
+      '<label class="row small"><input type="checkbox" id="dbgAuto"> Enviar sozinho quando um canal falha (no máximo 1 vez a cada 2 min)</label>' +
+      '<p class="small muted" style="margin:0">Cria em github.com → Settings → Developer settings → Fine-grained tokens: acesso só ao repositório dos registos, permissão «Contents: Read and write».</p></details>' +
+      '<pre id="dbgOut" class="mono small" hidden style="white-space:pre-wrap;max-height:46vh;overflow:auto;user-select:text"></pre><p class="small muted" id="dbgMsg" style="margin:4px 0 0"></p>';
+    o.parentNode.insertBefore(box, o.nextSibling);
+    const msg = (t, bad) => { const m = $("dbgMsg"); m.textContent = t; m.style.color = bad ? "#ff8080" : ""; };
+    const fill = () => { $("dbgOn").checked = on(); $("dbgRepo").value = cfg.dbgRepo || ""; $("dbgTok").value = LS.get("dbgTok", "") ? "••••••••" : ""; $("dbgAuto").checked = !!cfg.dbgAuto;
+      const s = LS.get("dbgSent", 0); msg(DBG.list.length + " tentativas guardadas" + (s ? " · último envio " + new Date(s).toLocaleString("pt-PT") : "")); };
+    $("dbgOn").onchange = e => { cfg.dbgOn = e.target.checked; saveCfg(); };
+    $("dbgRepo").onchange = e => { cfg.dbgRepo = e.target.value.trim(); saveCfg(); };
+    $("dbgTok").onchange = e => { const v = e.target.value.trim(); if(v && !/^•+$/.test(v)){ LS.set("dbgTok", v); e.target.value = "••••••••"; msg("Token guardado neste aparelho."); } else if(!v){ LS.set("dbgTok", ""); msg("Token apagado."); } };
+    $("dbgAuto").onchange = e => { cfg.dbgAuto = e.target.checked; saveCfg(); };
+    $("dbgView").onclick = async () => { const out = $("dbgOut"); out.hidden = !out.hidden; if(!out.hidden) out.textContent = text(await report()); };
+    $("dbgCopy").onclick = async () => { try{ await navigator.clipboard.writeText(JSON.stringify(await report(), null, 1)); msg("Copiado ✓"); }catch(e){ msg("Não consegui copiar.", true); } };
+    $("dbgFile").onclick = async () => { try{ const b = new Blob([JSON.stringify(await report(), null, 1)], {type:"application/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "cockpit-registo-canais.json"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }catch(e){ msg("Não consegui guardar.", true); } };
+    $("dbgSend").onclick = async () => { msg("A enviar…"); try{ const n = await upload("manual"); msg("Enviado ✓ logs/" + n); toast("Registo enviado para o GitHub ✓"); }catch(e){ msg(String(e.message || e), true); } };
+    $("dbgClear").onclick = () => { DBG.list = []; save(); $("dbgOut").textContent = ""; msg("Registo apagado."); };
+    fill();
+    const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fill(); }catch(e){} return r; };
+  }
+  }catch(e){ console.log("registo de canais", e); }
 })();
 </script>
 </body>
