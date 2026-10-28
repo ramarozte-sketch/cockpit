@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v126";
+const APP_VERSION = "v127";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3967,7 +3967,7 @@ function mkvRun(slot, st, src, audio){
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
-        const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(/EAC3/.test(trk.codec) ? "eac3" : "ac3"); st.clock = new window.__PcmClock(v); st.aq = []; st.n = 0;
+        const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(/EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec); st.clock = new window.__PcmClock(v); st.aq = []; st.n = 0;
         st.mkvInfo = {codec:trk.codec};
         toast("Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
         const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ const x = st.aq.shift(), fr = __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
@@ -10772,7 +10772,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- relógio: PCM seguido, ancorado ao tempo do vídeo --- */
   class PcmClock {
     constructor(v){ this.v = v; this.ctx = null; this.g = null; this.srcs = []; this.endCtx = 0; this.endT = -1; }
-    _ensure(sr){ if(!this.ctx){ const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC({sampleRate:sr}); this.g = this.ctx.createGain(); this.g.connect(this.ctx.destination); } if(this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); }
+    _ensure(sr){ if(!this.ctx){ const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC({sampleRate:sr}); this.g = this.ctx.createGain();
+        /* a mistura Dolby para estéreo baixa o volume para não saturar: recupera ~4 dB com um limitador suave */
+        this.boost = this.ctx.createGain(); this.boost.gain.value = 1.6;
+        try{ const cp = this.ctx.createDynamicsCompressor(); cp.threshold.value = -8; cp.knee.value = 6; cp.ratio.value = 6; cp.attack.value = 0.004; cp.release.value = 0.2; this.g.connect(this.boost); this.boost.connect(cp); cp.connect(this.ctx.destination); }
+        catch(e){ this.g.connect(this.ctx.destination); } }
+      if(this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); }
     push(planes, sr, t){
       const v = this.v; this._ensure(sr); const c = this.ctx;
       this.g.gain.value = v.muted ? 0 : (v.volume == null ? 1 : v.volume);
@@ -10792,6 +10797,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     close(){ this.reset(); try{ this.ctx && this.ctx.close(); }catch(e){} this.ctx = null; }
   }
   window.__PcmClock = PcmClock;
+  /* 5.1 → estéreo feito pelo próprio descodificador Dolby, com os níveis de centro/surround que vêm no sinal
+     (o centro, onde estão as vozes, não fica abafado pelos efeitos) */
+  window.__dolbyStereo = async (L, d) => { try{ await L.av_opt_set(d[1], "downmix", "stereo", 1); }catch(e){} };
   window.__ac3Frames = ac3Frames;
   const downmix = planes => { if(planes.length <= 2) return planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a)); const n = planes[0].length, Lc = new Float32Array(n), Rc = new Float32Array(n); const [l, r, ce, , ls, rs] = planes;
     for(let i = 0; i < n; i++){ const cc = (ce ? ce[i] : 0) * 0.707; Lc[i] = 0.5 * (l[i] + cc + (ls ? ls[i] * 0.707 : 0)); Rc[i] = 0.5 * (r[i] + cc + (rs ? rs[i] * 0.707 : 0)); } return [Lc, Rc]; };
@@ -10836,7 +10844,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     toast("Som Dolby (" + tr.kind.toUpperCase() + ") por software…");
     libav().then(async L => {
       if(!st.on) return;
-      const r = await L.ff_init_decoder(tr.kind === "eac3" ? "eac3" : "ac3"); st.L = L; st.dec = r; pump(st);
+      const r = await L.ff_init_decoder(tr.kind === "eac3" ? "eac3" : "ac3"); await window.__dolbyStereo(L, r); st.L = L; st.dec = r; pump(st);
     }).catch(e => { st.err = String(e.message || e); log(slot, "som Dolby falhou", {msg:st.err}); toast("Não consegui carregar o descodificador de som Dolby.", true); });
     st.poll = setInterval(() => { if(st.seq !== playSeq[slot] || hlsInst[slot] !== st.h){ stop(slot); } }, 1000);
     return st;
