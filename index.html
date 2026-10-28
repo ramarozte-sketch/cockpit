@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v115";
+const APP_VERSION = "v116";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9816,6 +9816,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const now = () => new Date().toISOString();
   const bufStr = v => { try{ const b = v.buffered, o = []; for(let i = 0; i < b.length && i < 6; i++) o.push(b.start(i).toFixed(1) + "-" + b.end(i).toFixed(1)); return o.join(" ") || "vazio"; }catch(e){ return "?"; } };
   window.__bufStr = bufStr;
+  const rs = b => { try{ const o = []; for(let i = 0; i < b.length && i < 4; i++) o.push(b.start(i).toFixed(1) + "-" + b.end(i).toFixed(1)); return o.join(" ") || "vazio"; }catch(e){ return "?"; } };
+  /* buffer de cada faixa (vídeo / som) dentro do hls.js: se não se sobrepõem, o vídeo fica parado sem erro */
+  const trackBuf = h => { try{ const bc = (h.coreComponents || []).find(x => x && x.sourceBuffer && typeof x.sourceBuffer === "object"); if(!bc) return null; const o = {}; for(const k of Object.keys(bc.sourceBuffer)){ const sb = bc.sourceBuffer[k]; if(sb && sb.buffered) o[k] = rs(sb.buffered); } return o; }catch(e){ return null; } };
+  window.__trackBuf = trackBuf;
   const ev = (slot, type, data) => { const a = DBG.cur[slot]; if(!a) return; if(a.ev.length < 120) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
 
   /* --- uma tentativa por canal escolhido --- */
@@ -9831,7 +9835,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const v = $("vid" + slot);
     try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
       a.fim = {res, ms:Math.round(performance.now() - a.t0), w:v.videoWidth, h:v.videoHeight, t:+(v.currentTime || 0).toFixed(1), frames:q.totalVideoFrames || 0, perdidos:q.droppedVideoFrames || 0,
-        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
+        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), faixas:hlsInst[slot] ? trackBuf(hlsInst[slot]) : null, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
     a.res = res; delete a.t0;
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
@@ -9861,7 +9865,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         let first = true; me.on(H.Events.FRAG_LOADED, (e, d) => { if(!first) return; first = false; const s = d.frag && d.frag.stats || d.stats || {}; ev(me.__slot, "1.º pedaço", {kB:Math.round(((s.loaded || s.total || 0)) / 1024), ms:s.loading ? Math.round(s.loading.end - s.loading.start) : undefined}); });
         me.on(H.Events.BUFFER_CODECS, (e, d) => { const t = {}; try{ for(const k of Object.keys(d || {})){ const x = d[k]; if(x) t[k] = (x.codec || "") + (x.levelCodec && x.levelCodec !== x.codec ? " (lista " + x.levelCodec + ")" : "") + (x.container ? " " + x.container : "") + (x.metadata && x.metadata.width ? " " + x.metadata.width + "x" + x.metadata.height : "") + (x.metadata && x.metadata.channelCount ? " " + x.metadata.channelCount + "ch" : ""); } }catch(x){} ev(me.__slot, "codecs reais", t); });
         let firstL = true; me.on(H.Events.LEVEL_LOADED, (e, d) => { if(!firstL) return; firstL = false; const dt = d.details || {}; ev(me.__slot, "lista", {alvo:dt.targetduration, pedacos:(dt.fragments || []).length, direto:!!dt.live}); });
-        let firstB = true; me.on(H.Events.FRAG_BUFFERED, (e, d) => { if(!firstB) return; firstB = false; const f = d.frag || {}; ev(me.__slot, "1.º pedaço no buffer", {inicio:+(f.start || 0).toFixed(1), dur:+(f.duration || 0).toFixed(1)}); });
+        let nB = 0; me.on(H.Events.FRAG_BUFFERED, (e, d) => { if(!me.__fbAt) me.__fbAt = Date.now(); if(++nB > 3) return; const f = d.frag || {}, m = me.media; ev(me.__slot, nB + ".º pedaço no buffer", {tipo:f.type, inicio:+(f.start || 0).toFixed(1), dur:+(f.duration || 0).toFixed(1), faixas:trackBuf(me), junto:m ? bufStr(m) : "", agora:m ? +m.currentTime.toFixed(1) : 0, pronto:m ? m.readyState : -1}); });
         me.on(H.Events.ERROR, (e, d) => ev(me.__slot, "erro HLS", {tipo:d.type, det:d.details, fatal:!!d.fatal, http:d.response && d.response.code, motivo:scrub(d.reason || (d.error && d.error.message) || ""), url:red((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || "")}));
       }
       loadSource(u){ ev(this.__slot, "abrir HLS", {rota:route(u), url:red(u)}); this.__u = u; return super.loadSource(u); }
@@ -9990,7 +9994,16 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const dec = (v.webkitVideoDecodedByteCount || 0) + (v.webkitAudioDecodedByteCount || 0);
       if(frames > 0 || dec > 0){ st.step = 9; return; }       /* está a descodificar: não mexe */
       if(st.step === 9) return;
-      if(!(v.buffered && v.buffered.length)) return;            /* ainda não chegou nada */
+      const h = hlsInst[slot];
+      /* pedaços já entraram no leitor, mas o vídeo e o som não se sobrepõem no tempo: buffer «vazio» e parado sem erro */
+      if(!(v.buffered && v.buffered.length)){
+        if(h && h.__fbAt && v.readyState < 2 && !st.noOverlap && Date.now() - h.__fbAt > 6000){
+          st.noOverlap = true; st.step = 2;
+          log(slot, "parado: som e vídeo não se sobrepõem", {faixas:window.__trackBuf ? window.__trackBuf(h) : null});
+          if(window.__tDecodeFail) window.__tDecodeFail(slot, c, "sem imagem", () => true);
+        }
+        return;
+      }
       if(!st.since){ st.since = Date.now(); return; }
       const el = Date.now() - st.since;
       if(st.step === 0 && el > 7000){
@@ -10008,6 +10021,45 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }catch(e){}
   }); }, 1000);
   }catch(e){ console.log("tesla parado", e); }
+})();
+</script>
+<style>
+/* Definições: cartões que encolhem e expandem (toca no título) */
+#v-settings .setcard > h2{cursor:pointer;user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;min-height:36px}
+#v-settings .setcard > h2::after{content:"";margin-left:auto;flex:none;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);opacity:.55;transition:transform .2s}
+#v-settings .setcard.fold > h2::after{transform:rotate(-45deg)}
+#v-settings .setcard.fold > :not(h2):not(.setsub){display:none !important}
+#v-settings .setcard.fold > .setsub{margin-top:-4px !important}
+#v-settings .setcard.fold{gap:6px;padding-bottom:12px}
+#setFoldBar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+</style>
+<script>
+(function(){
+  try{
+  const V = document.getElementById("v-settings"); if(!V) return;
+  const key = c => { const h = c.querySelector(":scope > h2"); return h ? h.textContent.trim().slice(0, 40) : ""; };
+  let st = {}; try{ st = JSON.parse(localStorage.getItem("ck_setFold") || "{}") || {}; }catch(e){ st = {}; }
+  const save = () => { try{ localStorage.setItem("ck_setFold", JSON.stringify(st)); }catch(e){} };
+  const apply = c => { const k = key(c); if(!k) return; c.classList.toggle("fold", !!st[k]); const h = c.querySelector(":scope > h2"); if(h){ h.setAttribute("role", "button"); h.setAttribute("aria-expanded", st[k] ? "false" : "true"); h.tabIndex = 0; } };
+  const all = () => [...V.querySelectorAll(".setcard")];
+  const set = (c, fold) => { const k = key(c); if(!k) return; if(fold) st[k] = 1; else delete st[k]; apply(c); save(); };
+  V.addEventListener("click", e => { const h = e.target.closest(".setcard > h2"); if(!h || !V.contains(h)) return; const c = h.parentElement; set(c, !c.classList.contains("fold")); });
+  V.addEventListener("keydown", e => { if(e.key !== "Enter" && e.key !== " ") return; const h = e.target.closest && e.target.closest(".setcard > h2"); if(!h) return; e.preventDefault(); h.click(); });
+  /* barra «Encolher tudo / Expandir tudo» por baixo do título */
+  const t = V.querySelector("h1");
+  if(t){ const b = document.createElement("div"); b.id = "setFoldBar";
+    b.innerHTML = '<button class="btn" type="button" id="setFoldAll">Encolher tudo</button><button class="btn" type="button" id="setOpenAll">Expandir tudo</button>';
+    t.after(b);
+    b.querySelector("#setFoldAll").onclick = () => { all().forEach(c => { const k = key(c); if(k) st[k] = 1; apply(c); }); save(); };
+    b.querySelector("#setOpenAll").onclick = () => { st = {}; all().forEach(apply); save(); };
+  }
+  all().forEach(apply);
+  /* cartões acrescentados mais tarde por outros módulos */
+  new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.classList && n.classList.contains("setcard")) apply(n); else if(n.querySelectorAll) n.querySelectorAll(".setcard").forEach(apply); } }).observe(V, {childList:true, subtree:true});
+  /* se outra parte da app abrir/realçar algo dentro de um cartão encolhido (ex.: ir direto a uma opção), expande-o */
+  window.__setOpen = el => { const c = el && el.closest && el.closest(".setcard"); if(c && c.classList.contains("fold")) set(c, false); };
+  V.addEventListener("focusin", e => { if(!e.target.closest(".setcard > h2")) window.__setOpen(e.target); });
+  }catch(e){ console.log("cartões", e); }
 })();
 </script>
 </body>
