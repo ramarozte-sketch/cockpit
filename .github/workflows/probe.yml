@@ -1,0 +1,32 @@
+name: probe-libav
+on: { push: { branches: [probe] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: |
+          mkdir -p out && cd out
+          (npm view libav.js version; npm view libav.js dist-tags --json) > ../result.txt 2>&1 || true
+          npm view libavjs-webcodecs-polyfill version >> ../result.txt 2>&1 || true
+          for v in default lite fat obsolete webcodecs webm webm-vp9 opus flac h264-aac h265 vp8-opus vp9-opus av1-opus all; do
+            echo "== $v" >> ../result.txt
+            if npm view @libav.js/variant-$v version >> ../result.txt 2>&1; then
+              d=v_$v; mkdir -p $d; (cd $d && npm init -y >/dev/null && npm i @libav.js/variant-$v >/dev/null 2>&1)
+              du -sh $d/node_modules/@libav.js/variant-$v/dist 2>/dev/null >> ../result.txt
+              ls -la $d/node_modules/@libav.js/variant-$v/dist 2>/dev/null | grep -E "wasm|\.js$" | head -8 >> ../result.txt
+              cat > $d/t.js <<'JS'
+              const L = require(process.argv[2]);
+              (async()=>{ try{ const lib = await L.LibAV({noworker:true}); const r = {};
+                for(const n of ["ac3","eac3","aac","mp2","mp3","mpeg2video","h264","hevc","dca","truehd"]) r[n] = !!(await lib.avcodec_find_decoder_by_name(n));
+                console.log(JSON.stringify(r)); }catch(e){ console.log("erro", e.message); } process.exit(0); })();
+          JS
+              (cd $d && timeout 120 node t.js @libav.js/variant-$v) >> ../result.txt 2>&1 || echo "falhou teste" >> ../result.txt
+            fi
+          done
+      - run: |
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git add result.txt && git commit -m "probe result" && git push
