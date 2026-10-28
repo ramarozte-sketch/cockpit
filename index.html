@@ -1606,7 +1606,7 @@ body.layout-atv .rail{display:none}
       <div class="panel setcard">
           <h2>Cofre no servidor (password)</h2>
           <p class="small muted setsub" style="margin:0">Guarda todas as definições no teu servidor e importa-as noutro aparelho só com a password.</p>
-          <p class="small muted" style="margin:0">Guarda tudo (definições, chaves, notas, favoritos) cifrado neste aparelho antes de sair; o servidor só vê texto cifrado. Quem não souber a password não consegue ler nem encontrar o cofre. Usa uma password longa (8 ou mais caracteres) e não a percas: não há recuperação. Precisa do proxy Cloudflare com o KV «SYNC». Funciona também em páginas http.</p>
+          <p class="small muted" style="margin:0">Guarda tudo (todas as definições, contas IPTV, chaves, PIN, notas, favoritos, listas, fotos dos sons) cifrado neste aparelho antes de sair; o servidor só vê texto cifrado. Quem não souber a password não consegue ler nem encontrar o cofre. Usa uma password longa (8 ou mais caracteres) e não a percas: não há recuperação. Precisa do proxy Cloudflare com o KV «SYNC». Funciona também em páginas http.</p>
           <label class="f">Password do cofre<input type="password" id="vaultPw" autocomplete="off"></label>
           <label class="row small"><input type="checkbox" id="vaultCh" checked> Incluir a lista de canais IPTV (cifrada e comprimida; pode ser grande)</label>
           <div class="row"><button class="btn primary" id="btnVaultSave">Guardar no servidor</button><button class="btn" id="btnVaultLoad">Importar do servidor</button><button class="btn" id="btnVaultDel">Apagar cofre</button></div>
@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v113";
+const APP_VERSION = "v114";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6452,8 +6452,9 @@ const VC = (() => {
   return { pbkdf2, ctr, hmac, sha256, pbkdf2Js, ctrJs, hmacJs };
 })();
 
-const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation|freeTv)$/;
-const VAULT_CFG_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
+/* Fica de fora só o que é temporário ou próprio deste aparelho: sessões OAuth (expiram em 1 h), estado do ecrã, caches e o registo de canais. */
+const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation|freeTv|dbgLog|dbgSent|ahCovers|chHealth|engPhotos|chT)$/;
+const VAULT_CFG_SKIP = ["passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
 const vaultMsg = (t, bad) => { const e = $("vaultMsg"); e.textContent = t || ""; e.style.color = bad ? "var(--bad)" : ""; };
 const vaultBase = () => ($("vaultProxy").value.trim() || cfg.proxy || "").replace(/\/+$/,"");
 const vaultKeyV = () => $("vaultKey").value.trim() || cfg.pkey || "";
@@ -6461,22 +6462,31 @@ const vaultUrl = id => vaultBase() + "/vault?" + (vaultKeyV() ? "k=" + encodeURI
 const hex = u => [...u].map(b => b.toString(16).padStart(2,"0")).join("");
 async function vaultId(pw){ return hex(await VC.pbkdf2(pw, new TextEncoder().encode("cockpit-vault-id-v1"), 100000, 16)); }
 async function vaultKeys(pw, salt){ const k = await VC.pbkdf2(pw, salt, 100000, 64); return {enc:k.slice(0,32), mac:k.slice(32)}; }
-function vaultCollect(){
-  const store = {};
-  try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.startsWith("ck_") && !VAULT_SKIP.test(k.slice(3))) store[k.slice(3)] = JSON.parse(localStorage.getItem(k)); } }catch(e){}
+/* Lê cada chave à parte: um valor que não seja JSON (ex.: PIN parental "0123") já não faz perder as restantes. */
+async function vaultCollect(){
+  const store = {}, raw = {}, idb = {};
+  try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(!k || !k.startsWith("ck_")) continue; const n = k.slice(3); if(VAULT_SKIP.test(n) || !/^[A-Za-z0-9_]{1,40}$/.test(n)) continue;
+      const v = localStorage.getItem(k); try{ store[n] = JSON.parse(v); }catch(e){ raw[n] = v; } } }catch(e){}
   const c = Object.assign({}, cfg); VAULT_CFG_SKIP.forEach(k => delete c[k]);
   store.cfg = c; store.notes = notes; store.mfavs = mfavs; store.tvfavs = [...favs];
-  return {v:2, t:Date.now(), store};
+  /* fotos escolhidas para os sons do motor (guardadas na base de dados do browser) */
+  try{ const ids = Object.keys(typeof ENG_PROFILES === "object" && ENG_PROFILES ? ENG_PROFILES : {}); for(const id of ids){ const v = await IDB.get("engImg_" + id); if(typeof v === "string" && v.length < 2e6) idb["engImg_" + id] = v; } }catch(e){}
+  return {v:2, t:Date.now(), store, raw, idb};
 }
-function vaultApply(d){
+async function vaultApply(d){
   if(!d || typeof d.store !== "object") throw new Error("dados inválidos.");
+  let n = 0;
   for(const k of Object.keys(d.store)){
     if(!/^[A-Za-z0-9_]{1,40}$/.test(k) || VAULT_SKIP.test(k) && k !== "cfg") continue;
     if(k === "cfg"){
-      const c = d.store.cfg || {}; for(const kk of Object.keys(c)){ const v = c[kk]; if(!VAULT_CFG_SKIP.includes(kk) && ["string","number","boolean"].includes(typeof v)) cfg[kk] = v; }
+      const c = d.store.cfg || {}; for(const kk of Object.keys(c)){ const v = c[kk]; if(!VAULT_CFG_SKIP.includes(kk) && v !== undefined && typeof v !== "function") cfg[kk] = v; }
       saveCfg();
     } else LS.set(k, d.store[k]);
+    n++;
   }
+  if(d.raw && typeof d.raw === "object") for(const k of Object.keys(d.raw)){ if(/^[A-Za-z0-9_]{1,40}$/.test(k) && !VAULT_SKIP.test(k) && typeof d.raw[k] === "string"){ try{ localStorage.setItem("ck_" + k, d.raw[k]); n++; }catch(e){} } }
+  if(d.idb && typeof d.idb === "object") for(const k of Object.keys(d.idb)){ if(/^engImg_[A-Za-z0-9_-]{1,40}$/.test(k) && typeof d.idb[k] === "string"){ try{ await IDB.set(k, d.idb[k]); n++; }catch(e){} } }
+  return n;
 }
 async function vaultPrep(needBase){
   const pw = $("vaultPw").value;
@@ -6526,13 +6536,14 @@ $("btnVaultSave").onclick = async () => {
   try{
     const id = await vaultId(pw), salt = crypto.getRandomValues(new Uint8Array(16)), iv = new Uint8Array(16); iv.set(crypto.getRandomValues(new Uint8Array(8)));
     const {enc, mac} = await vaultKeys(pw, salt);
-    const ct = await VC.ctr(enc, iv, new TextEncoder().encode(JSON.stringify(vaultCollect())));
+    const data = await vaultCollect(), nItems = Object.keys(data.store).length + Object.keys(data.raw).length + Object.keys(data.idb).length;
+    const ct = await VC.ctr(enc, iv, new TextEncoder().encode(JSON.stringify(data)));
     const body = new Uint8Array(32 + ct.length); body.set(salt); body.set(iv, 16); body.set(ct, 32);
     const tag = await VC.hmac(mac, body);
     const resp = await fetch(vaultUrl(id), {method:"PUT", body:JSON.stringify({v:2, s:b64e(salt), i:b64e(iv), c:b64e(ct), m:b64e(tag)})});
     if(!resp.ok) throw new Error(vaultFail(resp, await resp.text().catch(()=>"")));
     let nch = 0; if($("vaultCh").checked) nch = await vaultSaveChannels(id, enc, mac);
-    vaultMsg("Guardado no servidor ✓ (" + new Date().toLocaleString("pt-PT") + ")" + (nch ? " · " + nch + " entradas de canais" : "")); toast("Definições guardadas no servidor ✓");
+    vaultMsg("Guardado no servidor ✓ (" + new Date().toLocaleString("pt-PT") + ") · " + nItems + " grupos de definições" + (nch ? " · " + nch + " entradas de canais" : "")); toast("Definições guardadas no servidor ✓");
   }catch(e){ vaultMsg("Não consegui guardar: " + e.message, true); }
   btn.disabled = false;
 };
@@ -6552,9 +6563,9 @@ $("btnVaultLoad").onclick = async () => {
     if(bad) throw new Error("a password não corresponde ou o cofre está corrompido.");
     const d = JSON.parse(new TextDecoder().decode(await VC.ctr(enc, iv, ct)));
     if(!cfg.proxy && vaultBase()) cfg.proxy = vaultBase(); if(!cfg.pkey && vaultKeyV()) cfg.pkey = vaultKeyV(); saveCfg();
-    vaultApply(d);
+    const nItems = await vaultApply(d);
     let nch = 0; if($("vaultCh").checked){ try{ nch = await vaultLoadChannels(id, enc, mac); }catch(e){ vaultMsg("Definições importadas, mas os canais falharam: " + e.message, true); await new Promise(r => setTimeout(r, 2500)); } }
-    vaultMsg("Importado ✓" + (nch ? " (" + nch + " entradas de canais)" : "") + " A recarregar…"); toast("Definições importadas ✓");
+    vaultMsg("Importado ✓ " + nItems + " grupos de definições" + (nch ? " (" + nch + " entradas de canais)" : "") + " A recarregar…"); toast("Definições importadas ✓");
     setTimeout(() => location.reload(), 900);
   }catch(e){ vaultMsg("Não consegui importar: " + e.message, true); }
   btn.disabled = false;
