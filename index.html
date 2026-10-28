@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v117";
+const APP_VERSION = "v118";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3616,12 +3616,102 @@ function mirrorFeed(slot, d){
 }
 /* Loader que CLONA os bytes do fragmento antes de o HLS.js os transferir para o worker.
    Com enableWorker:true o ArrayBuffer é "detached" e chegaria vazio -> ecrã preto. */
+/* Correção de vídeo entrelaçado (1080i, ex.: Sport TV): alguns emissores declaram no SPS menos imagens de referência
+   do que as que usam (max_num_ref_frames = 4, usam 5 campos). O FFmpeg tolera; o Chrome/Tesla recusa e a imagem nunca aparece.
+   Reescreve, no próprio pedaço .ts, o SPS com um valor maior (8). Só mexe em vídeo entrelaçado (frame_mbs_only_flag = 0),
+   sem mudar o tamanho do pedaço (compensa encurtando um código de início 00 00 00 01 → 00 00 01). */
+function __tsFixFn(buf, refsNew){
+  refsNew = refsNew || 8;
+  const d = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const n = d.length, res = {sps:0, fixed:0, interlaced:false, old:null};
+  if(n < 188 * 4 || d[0] !== 0x47 || d[188] !== 0x47) return res;
+  const pidOf = o => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
+  const payStart = o => { const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) return -1; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; return p < o + 188 ? p : -1; };
+  let pmt = -1, vpid = -1;
+  for(let o = 0; o + 188 <= n && vpid < 0; o += 188){
+    if(d[o] !== 0x47) return res;
+    const pid = pidOf(o), pusi = d[o + 1] & 0x40; if(!pusi) continue;
+    let p = payStart(o); if(p < 0) continue; p += 1 + d[p];
+    if(pid === 0 && pmt < 0){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4; i += 4){ const prog = (d[i] << 8) | d[i + 1]; if(prog){ pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } }
+    else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const st = d[i], ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(st === 0x1b){ vpid = ep; break; } i += 5 + il; } }
+  }
+  if(vpid < 0) return res;
+  /* percorre os PES de vídeo; para cada um, vê os primeiros ~600 bytes (onde está o SPS) */
+  const LIM = 600;
+  for(let o = 0; o + 188 <= n; o += 188){
+    if(pidOf(o) !== vpid || !(d[o + 1] & 0x40)) continue;
+    const map = []; let o2 = o;
+    while(o2 + 188 <= n && map.length < LIM){
+      if(pidOf(o2) === vpid){ if(o2 !== o && (d[o2 + 1] & 0x40)) break; const p = payStart(o2); if(p >= 0) for(let k = p; k < o2 + 188 && map.length < LIM; k++) map.push(k); }
+      o2 += 188;
+    }
+    if(map.length < 20) continue;
+    const at = i => d[map[i]];
+    const hl = 9 + at(8); if(at(0) !== 0 || at(1) !== 0 || at(2) !== 1) continue;
+    /* códigos de início */
+    const sc = []; for(let i = hl; i + 3 < map.length; i++){ if(at(i) === 0 && at(i + 1) === 0 && at(i + 2) === 1){ sc.push({s:i, four:i > hl && at(i - 1) === 0, b:i + 3}); i += 2; } }
+    for(let k = 0; k < sc.length; k++){
+      const nb = sc[k].b; if((at(nb) & 0x1f) !== 7) continue;
+      if(k + 1 >= sc.length) break;   /* SPS não cabe na janela */
+      res.sps++;
+      const end = sc[k + 1].four ? sc[k + 1].s - 1 : sc[k + 1].s;
+      const raw = []; for(let i = nb + 1; i < end; i++) raw.push(at(i));
+      const out = rewriteSps(raw, refsNew, res); if(!out) continue;
+      /* nova NAL tem de caber: diferença compensada encurtando códigos de início de 4 bytes nesta janela */
+      let diff = out.length - raw.length; if(diff < 0) continue;
+      const shrink = []; for(let q = 0; q <= k; q++){ const c = sc[q]; if(c.four && c.s - 1 >= hl && diff > shrink.length) shrink.push(c); }
+      if(shrink.length < diff) continue;
+      /* reconstrói a janela [hl .. fim da NAL seguinte ao SPS) */
+      const stop = end; const nw = [];
+      for(let i = hl; i < nb + 1; i++){ const c = shrink.find(x => x.s - 1 === i); if(c) continue; nw.push(at(i)); }
+      for(const x of out) nw.push(x);
+      for(let i = end; i < stop; i++) nw.push(at(i));
+      if(nw.length !== stop - hl) continue;
+      for(let i = 0; i < nw.length; i++) d[map[hl + i]] = nw[i];
+      res.fixed++;
+      break;
+    }
+  }
+  return res;
+}
+function rewriteSps(raw, refsNew, res){
+  /* tira bytes de prevenção de emulação */
+  const rb = []; let z = 0; for(const x of raw){ if(z >= 2 && x === 3){ z = 0; continue; } rb.push(x); z = x === 0 ? z + 1 : 0; }
+  const bits = []; for(const x of rb) for(let j = 7; j >= 0; j--) bits.push((x >> j) & 1);
+  let i = 0; const u = k => { let v = 0; for(let j = 0; j < k; j++) v = v * 2 + (bits[i++] | 0); return v; };
+  const ue = () => { let zc = 0; while(i < bits.length && bits[i] === 0){ zc++; i++; } i++; return (1 << zc) - 1 + u(zc); };
+  const se = () => { const k = ue(); return k & 1 ? (k + 1) / 2 : -(k / 2); };
+  try{
+    const prof = u(8); u(16); ue();
+    if([100,110,122,244,44,83,86,118,128,138,139,134,135].includes(prof)){
+      const cf = ue(); if(cf === 3) u(1); ue(); ue(); u(1);
+      if(u(1)) for(let k = 0; k < (cf !== 3 ? 8 : 12); k++) if(u(1)){ const sz = k < 6 ? 16 : 64; let last = 8, nxt = 8; for(let j = 0; j < sz; j++){ if(nxt) nxt = (last + se() + 256) % 256; last = nxt || last; } }
+    }
+    ue(); const poc = ue(); if(poc === 0) ue(); else if(poc === 1){ u(1); se(); se(); const c = ue(); for(let k = 0; k < c; k++) se(); }
+    const a = i, old = ue(), e = i;
+    u(1); ue(); ue(); const fmo = u(1);
+    res.old = old; res.interlaced = !fmo;
+    if(fmo || old >= refsNew) return null;
+    /* bits finais: retira o bit de paragem e os zeros */
+    let last = bits.length - 1; while(last > e && bits[last] === 0) last--;
+    const rest = bits.slice(e, last);
+    const nv = refsNew + 1, nl = Math.floor(Math.log2(nv)), enc = []; for(let j = 0; j < nl; j++) enc.push(0); for(let j = nl; j >= 0; j--) enc.push((nv >> j) & 1);
+    const nbits = bits.slice(0, a).concat(enc, rest, [1]); while(nbits.length % 8) nbits.push(0);
+    const by = []; for(let j = 0; j < nbits.length; j += 8){ let v = 0; for(let k = 0; k < 8; k++) v = v * 2 + nbits[j + k]; by.push(v); }
+    const out = [];
+    let zz = 0; for(const x of by){ if(zz >= 2 && x <= 3){ out.push(3); zz = 0; } out.push(x); zz = x === 0 ? zz + 1 : 0; }
+    return out;
+  }catch(e){ return null; }
+}
+window.__tsFixStat = {pedacos:0, corrigidos:0};
 function makeCapLoader(slot){
   const Base = Hls.DefaultConfig.loader;
   return class extends Base {
     load(context, config, callbacks){
       const onSucc = callbacks.onSuccess;
       callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
+        try{ const d0 = resp && resp.data; if(d0 && d0.byteLength > 752 && window.__tsFixOn !== false){ const u = d0 instanceof ArrayBuffer ? new Uint8Array(d0) : new Uint8Array(d0.buffer, d0.byteOffset, d0.byteLength);
+            if(u[0] === 0x47){ const r = __tsFixFn(u); window.__tsFixStat.pedacos++; if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
         try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8, frag:(ctx&&ctx.frag)||context.frag}); } } }catch(e){}
         onSucc(resp,stats,ctx,net);
       }});
