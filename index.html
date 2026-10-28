@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v118";
+const APP_VERSION = "v119";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3711,7 +3711,7 @@ function makeCapLoader(slot){
       const onSucc = callbacks.onSuccess;
       callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
         try{ const d0 = resp && resp.data; if(d0 && d0.byteLength > 752 && window.__tsFixOn !== false){ const u = d0 instanceof ArrayBuffer ? new Uint8Array(d0) : new Uint8Array(d0.buffer, d0.byteOffset, d0.byteLength);
-            if(u[0] === 0x47){ const r = __tsFixFn(u); window.__tsFixStat.pedacos++; if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
+            if(u[0] === 0x47){ const r = __tsFixFn(u); window.__tsFixStat.pedacos++; try{ if(window.__sv) window.__sv.hook(slot, u, r); }catch(e){} if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
         try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8, frag:(ctx&&ctx.frag)||context.frag}); } } }catch(e){}
         onSucc(resp,stats,ctx,net);
       }});
@@ -9616,6 +9616,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   setInterval(() => {
     [0, 1].forEach(slot => {
       const v = $("vid" + slot), c = lastPlayed && lastPlayed[slot], w = W[slot];
+      if(window.__sv && window.__sv.on(slot)){ w.url = ""; return; }
       const shown = v.offsetParent !== null && v.getBoundingClientRect().width > 60 && !document.hidden && (currentView === "tv" || currentView === "tvinicio") && !mirrorOn && !drivingEff();   /* em andamento o carro pode esconder a imagem de propósito */
       if(!v || !c || c.kind !== "live" || v.paused || v.readyState < 2 || !shown){ w.url = ""; return; }
       const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
@@ -9937,7 +9938,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const a = DBG.cur[slot]; if(!a) return; const v = $("vid" + slot), el = performance.now() - a.t0;
     if(!lastPlayed[slot]){ if(el > 2000) finish(slot, a.ev.some(x => x.e === "aviso") ? "falhou" : "parado"); return; }
     const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
-    if(v.videoWidth > 0 && v.currentTime > 0.5 && !v.paused && (!q || q.totalVideoFrames > 5)){ if(!a.okAt){ a.okAt = Math.round(el); ev(slot, "a dar", {w:v.videoWidth, h:v.videoHeight}); } if(el > a.okAt + 4000) finish(slot, "ok"); }
+    const svOk = !!(window.__sv && window.__sv.frames(slot) > 5);
+    if((v.videoWidth > 0 || svOk) && v.currentTime > 0.5 && !v.paused && (!q || q.totalVideoFrames > 5 || svOk)){ if(!a.okAt){ a.okAt = Math.round(el); ev(slot, "a dar", svOk ? Object.assign({modo:"imagem por software"}, window.__sv.size(slot)) : {w:v.videoWidth, h:v.videoHeight}); } if(el > a.okAt + 4000) finish(slot, "ok"); }
     else if(el > 25000) finish(slot, "falhou");
   }); }, 1000);
 
@@ -10091,6 +10093,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{
       const v = $("vid" + slot), c = lastPlayed && lastPlayed[slot];
       let st = S[slot];
+      if(window.__sv && window.__sv.on(slot)){ S[slot] = {}; return; }
       if(!v || !c || c.kind !== "live" || (typeof mirrorOn !== "undefined" && mirrorOn) || drivingEff() || v.paused && v.readyState >= 3){ S[slot] = {}; return; }
       if(st.url !== c.url || st.seq !== playSeq[slot]){ S[slot] = st = {url:c.url, seq:playSeq[slot], since:0, step:0}; }
       const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null, frames = q ? q.totalVideoFrames : 0;
@@ -10163,6 +10166,136 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   window.__setOpen = el => { const c = el && el.closest && el.closest(".setcard"); if(c && c.classList.contains("fold")) set(c, false); };
   V.addEventListener("focusin", e => { if(!e.target.closest(".setcard > h2")) window.__setOpen(e.target); });
   }catch(e){ console.log("cartões", e); }
+})();
+</script>
+<script>
+/* ===== Tesla: vídeo entrelaçado (1080i, ex.: Sport TV, Eurosport) por software =====
+   O leitor de vídeo do Tesla (descodificação por hardware) não aceita vídeo 1080i: o som entra, a imagem nunca.
+   Aqui o hls.js passa a tratar só do som (a faixa de vídeo é escondida da tabela PMT do pedaço) e a imagem é
+   descodificada à parte com WebCodecs por software e desenhada no canvas do ecrã, acertada pelo relógio do som. */
+(function(){
+  if(window.ANDROID || !window.__TESLA) return;
+  try{
+  if(typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function") return;
+  const S = [null, null], firstSeq = [-1, -1];
+  const log = (slot, t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
+  const crc32 = (d, a, b) => { let c = 0xffffffff; for(let i = a; i < b; i++){ c ^= d[i] << 24; for(let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04c11db7) : (c << 1); c >>>= 0; } return c >>> 0; };
+  const pidOf = (d, o) => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
+  const payStart = (d, o) => { const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) return -1; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; return p < o + 188 ? p : -1; };
+  /* PAT → PMT → PID do vídeo H.264 */
+  const findPids = d => {
+    let pmt = -1, vpid = -1;
+    for(let o = 0; o + 188 <= d.length && vpid < 0; o += 188){
+      if(d[o] !== 0x47 || !(d[o + 1] & 0x40)) continue;
+      const pid = pidOf(d, o); let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
+      if(pid === 0 && pmt < 0){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4; i += 4){ if((d[i] << 8) | d[i + 1]){ pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } }
+      else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(d[i] === 0x1b){ vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; break; } i += 5 + il; } }
+    }
+    return {pmt, vpid};
+  };
+  /* esconde a faixa de vídeo ao hls.js: tipo 0x1b → 0x80 (privado) em todas as PMT do pedaço, com CRC novo */
+  const hideVideo = (d, pmt, vpid) => {
+    let n = 0;
+    for(let o = 0; o + 188 <= d.length; o += 188){
+      if(d[o] !== 0x47 || pidOf(d, o) !== pmt || !(d[o + 1] & 0x40)) continue;
+      let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
+      const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], end = p + 3 + sl; if(end > o + 188 || d[p] !== 2) continue;
+      const pil = ((d[p + 10] & 0xf) << 8) | d[p + 11];
+      for(let i = p + 12 + pil; i < end - 4;){ const ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(ep === vpid && d[i] === 0x1b){ d[i] = 0x80; n++; } i += 5 + il; }
+      const c = crc32(d, p, end - 4); d[end - 4] = c >>> 24; d[end - 3] = (c >>> 16) & 255; d[end - 2] = (c >>> 8) & 255; d[end - 1] = c & 255;
+    }
+    return n;
+  };
+  /* PES de vídeo → pedaços (um por campo/imagem), na ordem de descodificação */
+  const pesList = (d, vpid) => {
+    const out = []; let cur = null;
+    const close = () => { if(!cur) return; const b = cur.parts.length === 1 ? cur.parts[0] : (() => { let L = 0; cur.parts.forEach(x => L += x.length); const r = new Uint8Array(L); let k = 0; cur.parts.forEach(x => { r.set(x, k); k += x.length; }); return r; })();
+      if(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80)){ const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
+        const data = b.slice(9 + b[8]); let key = false; for(let i = 0; i + 4 < Math.min(data.length, 400); i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){ if((data[i + 3] & 0x1f) === 7){ key = true; break; } i += 2; } }
+        out.push({pts, data, key}); }
+      cur = null; };
+    for(let o = 0; o + 188 <= d.length; o += 188){
+      if(d[o] !== 0x47 || pidOf(d, o) !== vpid) continue;
+      if(d[o + 1] & 0x40){ close(); cur = {parts:[]}; }
+      const p = payStart(d, o); if(cur && p >= 0) cur.parts.push(d.subarray(p, o + 188));
+    }
+    close(); return out;
+  };
+  const codecOf = data => { for(let i = 0; i + 7 < data.length; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1 && (data[i + 3] & 0x1f) === 7){ const h = x => x.toString(16).padStart(2, "0"); return "avc1." + h(data[i + 4]) + h(data[i + 5]) + h(data[i + 6]); } } return "avc1.640028"; };
+
+  function start(slot){
+    const h = hlsInst[slot]; if(!h) return null;
+    const st = {slot, seq:playSeq[slot], h, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null};
+    try{ h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
+    const mk = () => {
+      try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
+      st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
+        error:e => { st.errs++; st.needKey = true; log(slot, "erro na imagem por software", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 6){ stop(slot, "erros"); toast("Este canal não deu imagem nem por software. Fica só o som.", true); return; } setTimeout(() => { if(st.on){ mk(); if(st.cfg) try{ st.dec.configure(st.cfg); }catch(x){} } }, 300); }});
+    };
+    st.mk = mk; mk();
+    const loop = () => {
+      if(!st.on) return;
+      if(st.seq !== playSeq[slot] || hlsInst[slot] !== st.h){ stop(slot); return; }
+      try{ pump(st); draw(st); }catch(e){}
+      st.raf = requestAnimationFrame(loop);
+    };
+    st.raf = requestAnimationFrame(loop);
+    log(slot, "vídeo 1080i: imagem por software", {});
+    return st;
+  }
+  function stop(slot, why){
+    const st = S[slot]; if(!st) return; S[slot] = null; st.on = false; cancelAnimationFrame(st.raf);
+    try{ st.frames.forEach(f => f.close()); if(st.shown) st.shown.close(); }catch(e){}
+    try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
+    try{ if(!(typeof mirrorOn !== "undefined" && mirrorOn)) slotBox(slot).classList.remove("mirroring"); }catch(e){}
+  }
+  const usOf = (st, pts) => Math.round((pts / 90000 - st.init) * 1e6);
+  function pump(st){
+    const v = $("vid" + st.slot); if(st.init == null || !v) return;
+    const now = v.currentTime * 1e6, p = st.pend;
+    if(!st.cfg){ const k = p.find(x => x.key); if(!k) return; st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true}; try{ st.dec.configure(st.cfg); }catch(e){ st.cfg = null; stop(st.slot); return; } }
+    if(st.dec.state === "closed"){ st.mk(); try{ st.dec.configure(st.cfg); }catch(e){} st.needKey = true; }
+    if(st.dec.state !== "configured") return;
+    /* muito atrasado (ex.: depois de um salto): recomeça na última imagem-chave já vencida */
+    if(p.length && usOf(st, p[0].pts) < now - 2000000){ let k = -1; for(let i = 0; i < p.length && usOf(st, p[i].pts) <= now; i++) if(p[i].key) k = i; if(k > 0){ p.splice(0, k); try{ st.dec.reset(); st.dec.configure(st.cfg); }catch(e){} st.needKey = true; } }
+    let n = 0;
+    while(p.length && st.dec.decodeQueueSize < 6 && st.frames.length < 8 && n < 12){
+      const c = p[0]; if(!st.needKey && usOf(st, c.pts) > now + 900000) break;
+      p.shift(); n++;
+      if(st.needKey && !c.key) continue;
+      try{ st.dec.decode(new EncodedVideoChunk({type:st.needKey ? "key" : "delta", timestamp:usOf(st, c.pts), data:c.data})); st.needKey = false; }catch(e){ st.needKey = true; }
+    }
+  }
+  function draw(st){
+    const v = $("vid" + st.slot); if(!v) return;
+    const now = v.currentTime * 1e6 + 20000; let pick = -1;
+    st.frames.sort((a, b) => a.timestamp - b.timestamp);
+    for(let i = 0; i < st.frames.length; i++) if(st.frames[i].timestamp <= now) pick = i;
+    if(pick < 0){ if(!st.shown && st.frames.length && v.paused){ pick = 0; } else return; }
+    const f = st.frames[pick]; const old = st.frames.splice(0, pick + 1); old.pop(); old.forEach(x => x.close());
+    if(st.shown) st.shown.close(); st.shown = f;
+    const box = slotBox(st.slot); if(!box.classList.contains("mirroring")) box.classList.add("mirroring");
+    mirDraw(st.slot, f, f.displayWidth, f.displayHeight);
+  }
+  window.__sv = {
+    hook(slot, u, r){
+      if(window.__svOff) return;
+      const seq = playSeq[slot], first = firstSeq[slot] !== seq; firstSeq[slot] = seq;
+      let st = S[slot];
+      if(st && st.seq !== seq){ stop(slot); st = null; }
+      if(!st){ if(!first || !r || !r.interlaced || !hlsInst[slot] || (typeof mirrorOn !== "undefined" && mirrorOn)) return; st = S[slot] = start(slot); if(!st) return; }
+      if(!st.pids || st.pids.vpid < 0) st.pids = findPids(u);
+      if(st.pids.vpid < 0) return;
+      const L = pesList(u, st.pids.vpid); for(const x of L) st.pend.push(x);
+      if(st.pend.length > 3000) st.pend.splice(0, st.pend.length - 3000);
+      hideVideo(u, st.pids.pmt, st.pids.vpid);
+    },
+    on: slot => !!S[slot],
+    frames: slot => S[slot] ? S[slot].nf : 0,
+    size: slot => S[slot] ? {w:S[slot].w, h:S[slot].hh} : {},
+    stop
+  };
+  }catch(e){ console.log("vídeo por software", e); }
 })();
 </script>
 </body>
