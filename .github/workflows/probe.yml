@@ -14,9 +14,9 @@ jobs:
       - name: build
         continue-on-error: true
         run: |
-          set -x
-          git clone --depth 1 --branch v6.10.9 https://github.com/Yahweasel/libav.js lj
-          cd lj
+          echo start > build.log
+          (git clone --depth 1 --branch v6.10.9.0 https://github.com/Yahweasel/libav.js lj || git clone --depth 1 --branch v6.10.9 https://github.com/Yahweasel/libav.js lj || git clone --depth 1 https://github.com/Yahweasel/libav.js lj) >> build.log 2>&1
+          cd lj; git log -1 --format='%H %d' >> ../build.log; emcc --version | head -1 >> ../build.log
           (grep -n -i "emsdk\|emscripten" docs/*.md README.md | head -20) > ../build.log 2>&1
           (cd configs && ls && ./mkconfig.js dolby '["decoder-ac3","decoder-eac3","decoder-mp2","decoder-mp3","decoder-mpeg2video","decoder-aac","parser-ac3","parser-mpegaudio","parser-mpegvideo","swresample"]') >> ../build.log 2>&1
           (make -j4 build-dolby) >> ../build.log 2>&1
@@ -34,4 +34,4 @@ jobs:
       - name: commit
         run: |
           git config user.name probe; git config user.email probe@users.noreply.github.com
-          git add build.log libav 2>/dev/null; git commit -m "libav dolby build" && git push || true
+          git add build.log; git add libav 2>/dev/null || true; git commit -m "libav dolby build" && git push || true
