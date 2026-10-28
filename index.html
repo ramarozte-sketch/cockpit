@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v109";
+const APP_VERSION = "v110";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3450,10 +3450,13 @@ function loadMirLibs(){
   if(window.muxjs && window.MP4Box) return Promise.resolve(true);
   if(mirLibs) return mirLibs;
   const load = src => new Promise(res=>{ const s=document.createElement("script"); s.src=src; s.onload=()=>res(true); s.onerror=()=>res(false); document.head.appendChild(s); });
+  /* primeiro as cópias do próprio site (ao lado do index.html), depois a CDN */
+  const first = async (list, ok) => { for(const u of list){ if(ok()) return; await load(u); } };
   mirLibs = (async()=>{
-    if(!window.muxjs) await load("https://cdn.jsdelivr.net/npm/mux.js@7.1.0/dist/mux.min.js");
-    if(!window.MP4Box) await load("https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js");
-    return !!(window.muxjs && window.MP4Box);
+    await first(["mux.min.js", "https://cdn.jsdelivr.net/npm/mux.js@7.1.0/dist/mux.min.js", "https://unpkg.com/mux.js@7.1.0/dist/mux.min.js"], () => !!window.muxjs);
+    await first(["mp4box.all.min.js", "https://cdn.jsdelivr.net/npm/mp4box@0.5.2/dist/mp4box.all.min.js", "https://unpkg.com/mp4box@0.5.2/dist/mp4box.all.min.js"], () => !!window.MP4Box);
+    const ok = !!(window.muxjs && window.MP4Box); if(!ok) mirLibs = null;
+    return ok;
   })();
   return mirLibs;
 }
