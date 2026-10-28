@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v121";
+const APP_VERSION = "v122";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3579,7 +3579,7 @@ function wcInit(slot){
     file.onError = e => { st.err = "mp4box: "+e; };
     file.onReady = info => {
       const vt = (info.videoTracks||[])[0]; if(!vt) return;
-      if(/^(hvc1|hev1)/i.test(vt.codec)){ st.err="HEVC"; toast("Este canal é HEVC/H.265: o WebCodecs não o descodifica. Escolhe a versão HD/SD.", true); return; }
+      if(/^(hvc1|hev1)/i.test(vt.codec) && !WC_NATIVE){ st.err="HEVC"; toast("Este canal é HEVC/H.265: sem WebCodecs (página em http) não é possível mostrá-lo em andamento.", true); return; }
       let desc=null; const trak=file.getTrackById(vt.id);
       for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC||e.hvcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
       try{ decoder.configure({codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height), optimizeForLatency:true}); }
@@ -3608,11 +3608,73 @@ function wcInit(slot){
     });
   });
 }
+/* ---------- HEVC/H.265 na imagem em andamento ----------
+   O mux.js só converte H.264. Para canais .ts em HEVC, os pedaços são lidos aqui diretamente (PES → amostras Annex B,
+   com VPS/SPS/PPS dentro) e vão para o mesmo VideoDecoder/relógio do modo em andamento. Precisa de WebCodecs com HEVC
+   (no Chrome só existe com descodificação por hardware; o Tesla tem). */
+function __tsVideoInfo(d){
+  const pidOf = o => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
+  const payStart = o => { const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) return -1; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; return p < o + 188 ? p : -1; };
+  let pmt = -1, vpid = -1, type = 0;
+  for(let o = 0; o + 188 <= d.length && vpid < 0; o += 188){
+    if(d[o] !== 0x47 || !(d[o + 1] & 0x40)) continue;
+    const pid = pidOf(o); let p = payStart(o); if(p < 0) continue; p += 1 + d[p];
+    if(pid === 0 && pmt < 0){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4; i += 4){ if((d[i] << 8) | d[i + 1]){ pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } }
+    else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(d[i] === 0x1b || d[i] === 0x24){ type = d[i]; vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; break; } i += 5 + il; } }
+  }
+  return {vpid, type, pidOf, payStart};
+}
+function __tsPes(d, vpid, pidOf, payStart){
+  const out = []; let cur = null;
+  const close = () => { if(!cur) return; let L = 0; cur.forEach(x => L += x.length); const b = new Uint8Array(L); let k = 0; cur.forEach(x => { b.set(x, k); k += x.length; });
+    if(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80)){ const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1); out.push({pts, data:b.slice(9 + b[8])}); }
+    cur = null; };
+  for(let o = 0; o + 188 <= d.length; o += 188){
+    if(d[o] !== 0x47 || pidOf(o) !== vpid) continue;
+    if(d[o + 1] & 0x40){ close(); cur = []; }
+    const p = payStart(o); if(cur && p >= 0) cur.push(d.subarray(p, o + 188));
+  }
+  close(); return out;
+}
+/* tipos de NAL HEVC presentes; IRAP (16–21) = imagem-chave; SPS = 33 */
+function __hevcNals(data){ const t = []; for(let i = 0; i + 4 < data.length; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){ t.push({type:(data[i + 3] >> 1) & 0x3f, at:i + 3}); i += 2; } } return t; }
+/* cadeia de codec (ISO 14496-15): hev1.<perfil>.<compat.>.<L|H><nível>.<restrições> a partir do SPS */
+function __hevcCodec(data, at){
+  const rb = []; let z = 0; for(let i = at + 2; i < Math.min(data.length, at + 40); i++){ const x = data[i]; if(z >= 2 && x === 3){ z = 0; continue; } rb.push(x); z = x === 0 ? z + 1 : 0; }
+  if(rb.length < 13) return "hev1.1.6.L120.90";
+  const sp = (rb[1] >> 6) & 3, tier = (rb[1] >> 5) & 1, prof = rb[1] & 31;
+  let comp = ((rb[2] << 24) | (rb[3] << 16) | (rb[4] << 8) | rb[5]) >>> 0, rev = 0; for(let k = 0; k < 32; k++){ rev = (rev << 1) | (comp & 1); comp >>>= 1; } rev >>>= 0;
+  const cons = rb.slice(6, 12); while(cons.length && cons[cons.length - 1] === 0) cons.pop();
+  return "hev1." + (["", "A", "B", "C"][sp]) + prof + "." + rev.toString(16) + "." + (tier ? "H" : "L") + rb[12] + (cons.length ? "." + cons.map(x => x.toString(16)).join(".") : "");
+}
+function hevcFeed(slot, st, u, frag){
+  const inf = st.hv || (st.hv = __tsVideoInfo(u)); if(inf.vpid < 0) return;
+  const L = __tsPes(u, inf.vpid, inf.pidOf, inf.payStart); let first = true;
+  for(const x of L){
+    const nals = __hevcNals(x.data), key = nals.some(n => n.type >= 16 && n.type <= 21);
+    if(!st.hvCfg){
+      const sps = nals.find(n => n.type === 33); if(!sps || !key) continue;
+      const codec = __hevcCodec(x.data, sps.at); st.hvCfg = {codec, optimizeForLatency:true};
+      VideoDecoder.isConfigSupported(st.hvCfg).then(r => {
+        if(MIR[slot] !== st) return;
+        if(!r || !r.supported){ st.err = "HEVC (" + codec + ") não suportado pelo WebCodecs deste browser"; toast("Este canal é HEVC/H.265 e o descodificador deste browser não o mostra em andamento. Escolhe a versão HD/SD.", true); return; }
+        try{ st.decoder.configure(st.hvCfg); st.err = null; }catch(e){ st.err = "configure HEVC: " + e.message; }
+      }).catch(e => { st.err = "HEVC: " + e.message; });
+    }
+    const ts = Math.round(x.pts * 100 / 9);
+    if(first){ first = false; st.marks.push({ts, frag}); st.marks.sort((a, b) => a.ts - b.ts); if(st.marks.length > 30) st.marks.shift(); }
+    try{ st.decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:x.data}); }catch(e){ st.err = "decode HEVC: " + e.message; }
+  }
+  startPresent(slot);
+}
 /* Recebe os bytes de cada fragmento HLS (já clonados pelo loader) e alimenta o transmuxer. */
 function mirrorFeed(slot, d){
   const st = MIR[slot]; if(!st || !st.tm) return;
   const payload = d && d.payload; if(!payload) return;
   st.segs = (st.segs||0)+1; st.curFrag = d.frag || null;
+  /* HEVC em .ts: o mux.js não o converte; lê-se diretamente (só com WebCodecs nativo) */
+  try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+    if(u0[0] === 0x47 && WC_NATIVE && st.decoder && st.decoder.pump && (st.hevc || (!st.gotInit && __tsVideoInfo(u0).type === 0x24))){ st.hevc = true; hevcFeed(slot, st, u0, st.curFrag); return; } }catch(e){ st.err = "HEVC: " + e.message; }
   try{ st.tm.push(payload instanceof Uint8Array ? payload : new Uint8Array(payload)); st.tm.flush(); }catch(e){ st.err="transmux: "+e.message; }
 }
 /* Loader que CLONA os bytes do fragmento antes de o HLS.js os transferir para o worker.
@@ -3756,10 +3818,11 @@ function mp4Run(slot, st, src){
     file.onError = e => { st.err = "mp4box: "+e; };
     file.onReady = info => {
       const vt = (info.videoTracks||[])[0]; if(!vt){ st.err="sem pista de vídeo"; return; }
-      if(/^(hvc1|hev1)/i.test(vt.codec)){ st.err="HEVC"; toast("Este filme é HEVC/H.265: não é possível mostrar a imagem em andamento.", true); return; }
+      if(/^(hvc1|hev1)/i.test(vt.codec) && !WC_NATIVE){ st.err="HEVC"; toast("Este filme é HEVC/H.265: sem WebCodecs (página em http) não é possível mostrá-lo em andamento.", true); return; }
       let desc=null; const trak=file.getTrackById(vt.id);
-      for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
+      for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC||e.hvcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
       st.cfg = {codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height)};
+      if(/^(hvc1|hev1)/i.test(vt.codec)) VideoDecoder.isConfigSupported(st.cfg).then(r => { if(MIR[slot] === st && !(r && r.supported)){ st.err = "HEVC não suportado pelo WebCodecs deste browser"; toast("Este filme é HEVC/H.265 e o descodificador deste browser não o mostra em andamento.", true); } }).catch(() => {});
       try{ decoder.configure(st.cfg); }catch(err){ st.err="configure: "+err.message; return; }
       file.setExtractionOptions(vt.id, null, {nbSamples:30});
       const sk = file.seek(v.currentTime||0, true); pos = sk.offset; lastTs = sk.time*1e6; ready = true;
@@ -3841,7 +3904,7 @@ function toggleMirror(){
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
   if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não suporta o descodificador — a imagem só aparece parado.", true);
   else if(mirrorOn && !WC_NATIVE) toast("Imagem em andamento ligada (descodificação por software, página em http). Prefere canais HD/SD 720p.");
-  else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264; HEVC/H.265 não decodifica." : "Imagem em andamento desligada.");
+  else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264 e, se o descodificador do carro o suportar, HEVC/H.265." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
 const fmtSec = ms => (ms/1000).toFixed(2).replace(".",",")+"s";
