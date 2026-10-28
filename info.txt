@@ -1,0 +1,26 @@
+c05a676d16c1068cce6115594858c50a7ecad4b8
+== top
+Dockerfile.development
+LICENSE.md
+Makefile
+Makefile.m4
+README.md
+configs
+demo
+docs
+funcs.json
+mk
+package-lock.json
+package-one-variant.json
+package-types-only.json
+package.json
+patches
+src
+tests
+tools
+== fragments
+audio-filters avbsf avcodec avfcbridge avfilter avformat avframe cli decoder-h264 decoder-hevc decoder-ilbc decoder-interplay_acm decoder-libaom_av1 decoder-libdav1d decoder-libopenh264 decoder-libopus decoder-libvorbis decoder-libvpx_vp8 decoder-libvpx_vp9 decoder-mjpeg decoder-nellymoser decoder-png decoder-prores decoder-texturedsp decoder-zerocodec default demuxer-aiff demuxer-gif demuxer-mp4 demuxer-ogg demuxer-wav demuxer-wavpack demuxer-webm encoder-cinepak encoder-libmp3lame encoder-libsvtav1 encoder-libvpx_vp8 encoder-libvpx_vp9 encoder-prores encoder-texturedsp filter-arnndn filter-avgblur filter-bilateral filter-bm3d filter-deband filter-deesser filter-gblur filter-hdcd filter-hqx filter-morpho libvpx muxer-aac muxer-aiff muxer-gif muxer-hls muxer-mp4 muxer-wav muxer-wavpack muxer-webm swresample swscale video-filters workerfs zlib 
+== emsdk refs
+emsdk'
+emsdk@v16
+== ci
