@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v124";
+const APP_VERSION = "v125";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10592,6 +10592,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(!st.on) return;
       if(!o.alive()){ stop(key); return; }
       try{ pump(st); draw(st); }catch(e){}
+      try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
+          log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
@@ -10639,7 +10641,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     if(st.mpeg2){ pumpLibav(st); return; }
     const v = st.o.v; if(st.init == null || !v) return;
     const now = v.currentTime * 1e6, p = st.pend;
-    if(!st.cfg){ const k = p.find(x => x.key); if(!k) return; st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true}; try{ st.dec.configure(st.cfg); }catch(e){ st.cfg = null; stop(st.key); return; } }
+    if(!st.cfg){ const k = p.find(x => x.key); if(!k){ if(!st.noKeyLog && p.length > 60){ st.noKeyLog = 1; log(st.key, "imagem por software: sem imagem-chave", {pedacos:p.length}); } return; }
+      st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true};
+      VideoDecoder.isConfigSupported(st.cfg).then(r => log(st.key, "imagem por software: configurar", {codec:st.cfg && st.cfg.codec, suportado:!!(r && r.supported)})).catch(() => {});
+      try{ st.dec.configure(st.cfg); }catch(e){ log(st.key, "imagem por software: configurar falhou", {codec:st.cfg.codec, msg:String(e.message || e).slice(0, 160)}); st.cfg = null; stop(st.key); return; } }
     if(st.dec.state === "closed"){ st.mk(); try{ st.dec.configure(st.cfg); }catch(e){} st.needKey = true; }
     if(st.dec.state !== "configured") return;
     if(p.length && usOf(st, p[0].pts) < now - 2000000){ let k = -1; for(let i = 0; i < p.length && usOf(st, p[i].pts) <= now; i++) if(p[i].key) k = i; if(k > 0){ p.splice(0, k); try{ st.dec.reset(); st.dec.configure(st.cfg); }catch(e){} st.needKey = true; } }
