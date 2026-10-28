@@ -1,0 +1,1556 @@
+docs/API.md:537:directly from Emscripten's filesystem module. In addition, functions to create
+docs/CONFIG.md:45:Emscripten's WorkerFS.
+docs/IO.md:24:Emscripten supports an in-memory filesystem. For small files, it may be
+docs/IO.md:175:Emscripten provides a "worker" filesystem that (predictably) only works in
+docs/IO.md:205:Emscripten supports an in-memory filesystem. For small files, it may be
+README.md:6:CLIs themselves. It is compiled via emscripten, is highly customizable, and has
+README.md:181:Emscripten's implementation of an in-memory filesystem has severe limitations.
+README.md
+configs
+fragments
+mkconfig.js
+mkconfigs.js
+npm install
+mkdir -p build
+mkdir -p build
+mkdir -p build/inst/base
+curl https://github.com/Yahweasel/emfiberthreads/archive/refs/tags/v1.3.tar.gz -L -o build/emfiberthreads-1.3.tar.gz
+curl https://ffmpeg.org/releases/ffmpeg-9.0.tar.xz -o build/ffmpeg-9.0.tar.xz
+echo -gsource-map > build/inst/base/cflags.txt
+./tools/mk-extern-post.js js > build/extern-post.js
+  %   T%o tTaolt a l    %   R%e cReeicveeidv e%d  X%f eXrfde r dA v eArvaegrea gSep eSepde e d  T i mTei m e    T i mTei m e      T i mTei m eC u rCruernrte
+n t 
+                                                              D l oDaldo a dU p lUopaldo a d  T o tTaolt a l  S p eSnpte n t    L e fLte f tS p eSepde
+ed 
+ 0    0      0    0    0    0      0    0    0     0    0      0      0      0      0   - -0: ----::---- :----: ----::---- :----: ----::---- : - -    0   0./tools/mk-extern-post.js mjs > build/extern-post.mjs
+mkdir -p build/inst/thr
+echo -pthread -gsource-map > build/inst/thr/cflags.txt
+mkdir -p build
+./tools/mk-types-dts.js > build/libav.types.d.ts
+mkdir -p build
+./tools/mk-frontend.js dolby 6.10.9.0 js > build/frontend-6.10.9.0-dolby.js
+mkdir -p build
+./tools/mk-exports.js dolby > build/exports-dolby.json
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+mkdir -p build
+./tools/mk-post.js dolby > build/post-dolby.js
+mkdir -p dist
+cp build/libav.types.d.ts dist/libav.types.d.ts
+./tools/mk-frontend.js dolby 6.10.9.0 mjs > build/frontend-6.10.9.0-dolby.mjs.tmp
+100  7802    0  7802    0     0  30163      0 --:--:-- --:--:-- --:--:-- 30163
+./tools/mk-es6.js ../build/frontend-6.10.9.0-dolby.js build/frontend-6.10.9.0-dolby.mjs.tmp > build/frontend-6.10.9.0-dolby.mjs
+mkdir -p build/emfiberthreads
+cd build/emfiberthreads && tar zxf ../emfiberthreads-1.3.tar.gz
+touch build/emfiberthreads/emfiberthreads-1.3/Makefile
+cd build/emfiberthreads/emfiberthreads-1.3 && \
+	make STACK_SIZE=1048576
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_create.c -o obj/pthread_create.o
+rm -f build/frontend-6.10.9.0-dolby.mjs.tmp
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_join.c -o obj/pthread_join.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_exit.c -o obj/pthread_exit.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_self.c -o obj/pthread_self.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_yield.c -o obj/pthread_yield.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_mutex_init.c -o obj/pthread_mutex_init.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_mutex_lock.c -o obj/pthread_mutex_lock.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_mutex_trylock.c -o obj/pthread_mutex_trylock.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_mutex_unlock.c -o obj/pthread_mutex_unlock.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_once.c -o obj/pthread_once.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_cond_init.c -o obj/pthread_cond_init.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_cond_broadcast.c -o obj/pthread_cond_broadcast.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_cond_signal.c -o obj/pthread_cond_signal.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_cond_wait.c -o obj/pthread_cond_wait.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/pthread_cond_timedwait.c -o obj/pthread_cond_timedwait.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/sem_init.c -o obj/sem_init.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/sem_wait.c -o obj/sem_wait.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/sem_trywait.c -o obj/sem_trywait.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/sem_post.c -o obj/sem_post.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/emfiberthreads_init.c -o obj/emfiberthreads_init.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/emfiberthreads_sleep.c -o obj/emfiberthreads_sleep.o
+  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/emfiberthreads_wake.c -o obj/emfiberthreads_wake.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/emfiberthreads_wake_one.c -o obj/emfiberthreads_wake_one.o
+mkdir -p obj
+emcc -Oz -Wno-undefined-internal -DEMFIBERTHREADS_STACK_SIZE=1048576 \
+	-DEMFIBERTHREADS_ASYNCIFY_STACK_SIZE=4096 \
+	-c src/globals.c -o obj/globals.o
+emar rc libemfiberthreads.a obj/pthread_create.o obj/pthread_join.o obj/pthread_exit.o obj/pthread_self.o obj/pthread_yield.o obj/pthread_mutex_init.o obj/pthread_mutex_lock.o obj/pthread_mutex_trylock.o obj/pthread_mutex_unlock.o obj/pthread_once.o obj/pthread_cond_init.o obj/pthread_cond_broadcast.o obj/pthread_cond_signal.o obj/pthread_cond_wait.o obj/pthread_cond_timedwait.o obj/sem_init.o obj/sem_wait.o obj/sem_trywait.o obj/sem_post.o obj/emfiberthreads_init.o obj/emfiberthreads_sleep.o obj/emfiberthreads_wake.o obj/emfiberthreads_wake_one.o obj/globals.o
+emranlib libemfiberthreads.a
+
+added 18 packages, and audited 19 packages in 2s
+
+6 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+mkdir -p dist
+mkdir -p dist
+sed "s/@DBG//g" < build/frontend-6.10.9.0-dolby.js | node_modules/.bin/terser > dist/libav-6.10.9.0-dolby.js
+sed "s/@DBG//g" < build/frontend-6.10.9.0-dolby.mjs | node_modules/.bin/terser > dist/libav-6.10.9.0-dolby.mjs
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+mkdir -p dist
+sed "s/@DBG/.dbg/g" < build/frontend-6.10.9.0-dolby.js | cat > dist/libav-6.10.9.0-dolby.dbg.js
+mkdir -p dist
+sed "s/@DBG/.dbg/g" < build/frontend-6.10.9.0-dolby.mjs | cat > dist/libav-6.10.9.0-dolby.dbg.mjs
+cd build/emfiberthreads/emfiberthreads-1.3 && \
+	make install PREFIX="/home/runner/work/cockpit/cockpit/lj/build/inst/base"
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/base/include
+install -m 0644 include/emft-pthread.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/emft-pthread.h
+install -m 0644 include/emft-semaphore.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/emft-semaphore.h
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/base/lib
+install -m 0644 libemfiberthreads.a /home/runner/work/cockpit/cockpit/lj/build/inst/base/lib/libemfiberthreads.a
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+cd build/emfiberthreads/emfiberthreads-1.3 && \
+	make install PREFIX="/home/runner/work/cockpit/cockpit/lj/build/inst/thr"
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/thr/include
+install -m 0644 include/emft-pthread.h /home/runner/work/cockpit/cockpit/lj/build/inst/thr/include/emft-pthread.h
+install -m 0644 include/emft-semaphore.h /home/runner/work/cockpit/cockpit/lj/build/inst/thr/include/emft-semaphore.h
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib
+install -m 0644 libemfiberthreads.a /home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib/libemfiberthreads.a
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+cp dist/libav-6.10.9.0-dolby.dbg.js dist/libav-dolby.dbg.js
+cp dist/libav-6.10.9.0-dolby.dbg.mjs dist/libav-dolby.dbg.mjs
+cd build/emfiberthreads/emfiberthreads-1.3 && \
+	make install-interpose PREFIX="/home/runner/work/cockpit/cockpit/lj/build/inst/base"
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/base/include
+install -m 0644 include/emft-pthread.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/emft-pthread.h
+install -m 0644 include/emft-semaphore.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/emft-semaphore.h
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/base/lib
+install -m 0644 libemfiberthreads.a /home/runner/work/cockpit/cockpit/lj/build/inst/base/lib/libemfiberthreads.a
+mkdir -p /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/sys
+install -m 0644 include/interpose/pthread.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/pthread.h
+install -m 0644 include/interpose/semaphore.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/semaphore.h
+install -m 0644 include/interpose/signal.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/signal.h
+install -m 0644 include/interpose/mqueue.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/mqueue.h
+install -m 0644 include/interpose/sys/types.h /home/runner/work/cockpit/cockpit/lj/build/inst/base/include/sys/types.h
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/emfiberthreads/emfiberthreads-1.3'
+cp dist/libav-6.10.9.0-dolby.js dist/libav-dolby.js
+cp dist/libav-6.10.9.0-dolby.mjs dist/libav-dolby.mjs
+  0     0    0     0    0     0      0      0 --:--:--  0:00:02 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0 19 11.4M   19 2334k    0     0   589k      0  0:00:19  0:00:03  0:00:16  589k100 11.4M  100 11.4M    0     0  2713k      0  0:00:04  0:00:04 --:--:-- 2714k
+cd build && tar Jxf ffmpeg-9.0.tar.xz
+touch build/ffmpeg-9.0/configure
+( \
+	cd patches/ffmpeg && \
+	cat `cat series9` \
+) | ( \
+	cd build/ffmpeg-9.0 && \
+	patch -p1 \
+)
+patching file libavformat/file.c
+Hunk #1 succeeded at 45 (offset 4 lines).
+Hunk #2 succeeded at 145 (offset 6 lines).
+patching file libavcodec/libopenh264enc.c
+Hunk #1 succeeded at 372 (offset -6 lines).
+patching file libavcodec/libopusdec.c
+patching file libavformat/oggdec.c
+Hunk #1 succeeded at 323 (offset 3 lines).
+Hunk #2 succeeded at 365 (offset 3 lines).
+Hunk #3 succeeded at 374 (offset 3 lines).
+Hunk #4 succeeded at 382 with fuzz 2 (offset 3 lines).
+Hunk #5 succeeded at 421 (offset 3 lines).
+Hunk #6 succeeded at 441 (offset 3 lines).
+patching file configure
+Hunk #1 succeeded at 4374 (offset 327 lines).
+Hunk #2 succeeded at 7232 with fuzz 2 (offset 446 lines).
+patching file doc/Doxyfile
+patching file libavformat/Makefile
+Hunk #1 succeeded at 732 with fuzz 2 (offset 41 lines).
+patching file libavformat/hls.c
+Hunk #1 succeeded at 715 (offset 42 lines).
+patching file libavformat/jsfetch.c
+patching file libavformat/protocols.c
+Hunk #1 succeeded at 80 (offset 4 lines).
+patching file fftools/ffmpeg.c
+patching file fftools/ffprobe.c
+patching file fftools/ffmpeg_sched.c
+patching file fftools/thread_queue.c
+patching file fftools/ffmpeg.h
+patching file fftools/ffmpeg_enc.c
+patching file fftools/ffmpeg_mux.c
+patching file fftools/ffmpeg_mux_init.c
+patching file fftools/ffmpeg_sched.h
+patching file libavcodec/golomb.h
+patching file libavutil/avassert.h
+Hunk #1 succeeded at 42 (offset 2 lines).
+patching file libavformat/aviobuf.c
+Hunk #2 succeeded at 137 (offset 5 lines).
+Hunk #3 succeeded at 157 (offset 5 lines).
+touch build/ffmpeg-9.0/PATCHED
+mkdir -p build/ffmpeg-9.0/build-base-dolby && \
+cd build/ffmpeg-9.0/build-base-dolby && \
+emconfigure env PKG_CONFIG_PATH="/home/runner/work/cockpit/cockpit/lj/build/inst/base/lib/pkgconfig" \
+	../configure --prefix=/opt/ffmpeg --target-os=none --enable-cross-compile --disable-x86asm --disable-inline-asm --disable-runtime-cpudetect --cc=emcc --cxx=em++ --ranlib=emranlib --disable-doc --disable-stripping --disable-programs --disable-ffplay --disable-ffprobe --disable-network --disable-iconv --disable-xlib --disable-sdl2 --disable-zlib --disable-everything --disable-swscale --disable-swresample \
+                --enable-pthreads --arch=emscripten \
+	--optflags="-Oz" \
+	--extra-cflags="-I/home/runner/work/cockpit/cockpit/lj/build/inst/base/include -lemfiberthreads" \
+	--extra-ldflags="-L/home/runner/work/cockpit/cockpit/lj/build/inst/base/lib -lemfiberthreads -s INITIAL_MEMORY=25165824" \
+	`cat ../../../configs/configs/dolby/ffmpeg-config.txt`
+mkdir -p build/ffmpeg-9.0/build-thr-dolby && \
+cd build/ffmpeg-9.0/build-thr-dolby && \
+emconfigure env PKG_CONFIG_PATH="/home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib/pkgconfig" \
+	../configure --prefix=/opt/ffmpeg --target-os=none --enable-cross-compile --disable-x86asm --disable-inline-asm --disable-runtime-cpudetect --cc=emcc --cxx=em++ --ranlib=emranlib --disable-doc --disable-stripping --disable-programs --disable-ffplay --disable-ffprobe --disable-network --disable-iconv --disable-xlib --disable-sdl2 --disable-zlib --disable-everything --disable-swscale --disable-swresample \
+                --enable-pthreads --arch=emscripten \
+	--optflags="-Oz" \
+	--extra-cflags="-I/home/runner/work/cockpit/cockpit/lj/build/inst/thr/include -lemfiberthreads -pthread -Lbuild/inst/base/lib -lemfiberthreads" \
+	--extra-ldflags="-L/home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib -lemfiberthreads -pthread -Lbuild/inst/base/lib -lemfiberthreads -s INITIAL_MEMORY=25165824" \
+	`cat ../../../configs/configs/dolby/ffmpeg-config.txt`
+configure: env PKG_CONFIG_PATH=/home/runner/work/cockpit/cockpit/lj/build/inst/base/lib/pkgconfig ../configure --prefix=/opt/ffmpeg --target-os=none --enable-cross-compile --disable-x86asm --disable-inline-asm --disable-runtime-cpudetect --cc=emcc --cxx=em++ --ranlib=emranlib --disable-doc --disable-stripping --disable-programs --disable-ffplay --disable-ffprobe --disable-network --disable-iconv --disable-xlib --disable-sdl2 --disable-zlib --disable-everything --disable-swscale --disable-swresample --enable-pthreads --arch=emscripten --optflags=-Oz "--extra-cflags=-I/home/runner/work/cockpit/cockpit/lj/build/inst/base/include -lemfiberthreads" "--extra-ldflags=-L/home/runner/work/cockpit/cockpit/lj/build/inst/base/lib -lemfiberthreads -s INITIAL_MEMORY=25165824" --enable-decoder=ac3 --enable-decoder=eac3 --enable-decoder=mp2 --enable-decoder=mp3 --enable-decoder=mpeg2video --enable-decoder=aac --enable-parser=ac3 --enable-parser=mpegaudio --enable-parser=mpegvideo --enable-swresample --enable-filter=aresample
+configure: env PKG_CONFIG_PATH=/home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib/pkgconfig ../configure --prefix=/opt/ffmpeg --target-os=none --enable-cross-compile --disable-x86asm --disable-inline-asm --disable-runtime-cpudetect --cc=emcc --cxx=em++ --ranlib=emranlib --disable-doc --disable-stripping --disable-programs --disable-ffplay --disable-ffprobe --disable-network --disable-iconv --disable-xlib --disable-sdl2 --disable-zlib --disable-everything --disable-swscale --disable-swresample --enable-pthreads --arch=emscripten --optflags=-Oz "--extra-cflags=-I/home/runner/work/cockpit/cockpit/lj/build/inst/thr/include -lemfiberthreads -pthread -Lbuild/inst/base/lib -lemfiberthreads" "--extra-ldflags=-L/home/runner/work/cockpit/cockpit/lj/build/inst/thr/lib -lemfiberthreads -pthread -Lbuild/inst/base/lib -lemfiberthreads -s INITIAL_MEMORY=25165824" --enable-decoder=ac3 --enable-decoder=eac3 --enable-decoder=mp2 --enable-decoder=mp3 --enable-decoder=mpeg2video --enable-decoder=aac --enable-parser=ac3 --enable-parser=mpegaudio --enable-parser=mpegvideo --enable-swresample --enable-filter=aresample
+nm: /tmp/ffconf.TDkm9Mkn/test.o: file format not recognized
+nm: /tmp/ffconf.VWv2AIg6/test.o: file format not recognized
+install prefix            /opt/ffmpeg
+source path               /home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0
+C compiler                emcc
+C library                 
+host C compiler           gcc
+host C library            glibc
+ARCH                      emscripten (generic)
+big-endian                no
+runtime cpu detection     no
+debug symbols             yes
+strip symbols             no
+optimize for size         no
+optimizations             yes
+static                    yes
+shared                    no
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          yes
+makeinfo supports HTML    yes
+experimental features     yes
+xmllint enabled           no
+
+External libraries:
+
+External libraries providing hardware acceleration:
+cuda_llvm
+
+Libraries:
+avcodec                 avfilter                avutil
+avdevice                avformat                swresample
+
+Programs:
+
+Enabled decoders:
+aac                     eac3                    mp3
+ac3                     mp2                     mpeg2video
+
+Enabled encoders:
+
+Enabled hwaccels:
+
+Enabled parsers:
+ac3                     mpegaudio               mpegvideo
+
+Enabled demuxers:
+
+Enabled muxers:
+
+Enabled protocols:
+
+Enabled filters:
+aresample
+
+Enabled bsfs:
+
+Enabled indevs:
+
+Enabled outdevs:
+
+License: LGPL version 2.1 or later
+
+WARNING: unknown architecture emscripten
+sed 's/--extra-\(cflags\|ldflags\)='\''[^'\'']*'\''//g' < build/ffmpeg-9.0/build-base-dolby/config.h > build/ffmpeg-9.0/build-base-dolby/config.h.tmp
+mv build/ffmpeg-9.0/build-base-dolby/config.h.tmp build/ffmpeg-9.0/build-base-dolby/config.h
+touch build/ffmpeg-9.0/build-base-dolby/ffbuild/config.mak
+cd build/ffmpeg-9.0/build-base-dolby && make
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0/build-base-dolby'
+GEN	libavutil/libavutil.version
+GEN	libavcodec/libavcodec.version
+GEN	libavformat/libavformat.version
+GEN	libavfilter/libavfilter.version
+GEN	libavdevice/libavdevice.version
+GEN	libswresample/libswresample.version
+CC	libavdevice/alldevices.o
+CC	libavdevice/avdevice.o
+CC	libavdevice/utils.o
+CC	libavdevice/version.o
+GEN	libavdevice/libavdevice.pc
+CC	libavfilter/af_aresample.o
+CC	libavfilter/allfilters.o
+CC	libavfilter/audio.o
+CC	libavfilter/avfilter.o
+CC	libavfilter/avfiltergraph.o
+CC	libavfilter/buffersink.o
+install prefix            /opt/ffmpeg
+source path               /home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0
+C compiler                emcc
+C library                 
+host C compiler           gcc
+host C library            glibc
+ARCH                      emscripten (generic)
+big-endian                no
+runtime cpu detection     no
+debug symbols             yes
+strip symbols             no
+optimize for size         no
+optimizations             yes
+static                    yes
+shared                    no
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          yes
+makeinfo supports HTML    yes
+experimental features     yes
+xmllint enabled           no
+
+External libraries:
+
+External libraries providing hardware acceleration:
+cuda_llvm
+
+Libraries:
+avcodec                 avfilter                avutil
+avdevice                avformat                swresample
+
+Programs:
+
+Enabled decoders:
+aac                     eac3                    mp3
+ac3                     mp2                     mpeg2video
+
+Enabled encoders:
+
+Enabled hwaccels:
+
+Enabled parsers:
+ac3                     mpegaudio               mpegvideo
+
+Enabled demuxers:
+
+Enabled muxers:
+
+Enabled protocols:
+
+Enabled filters:
+aresample
+
+Enabled bsfs:
+
+Enabled indevs:
+
+Enabled outdevs:
+
+License: LGPL version 2.1 or later
+
+WARNING: unknown architecture emscripten
+CC	libavfilter/buffersrc.o
+CC	libavfilter/ccfifo.o
+sed 's/--extra-\(cflags\|ldflags\)='\''[^'\'']*'\''//g' < build/ffmpeg-9.0/build-thr-dolby/config.h > build/ffmpeg-9.0/build-thr-dolby/config.h.tmp
+mv build/ffmpeg-9.0/build-thr-dolby/config.h.tmp build/ffmpeg-9.0/build-thr-dolby/config.h
+touch build/ffmpeg-9.0/build-thr-dolby/ffbuild/config.mak
+CC	libavfilter/colorspace.o
+cd build/ffmpeg-9.0/build-thr-dolby && make
+CC	libavfilter/drawutils.o
+make[1]: Entering directory '/home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0/build-thr-dolby'
+CC	libavfilter/formats.o
+GEN	libavutil/libavutil.version
+GEN	libavcodec/libavcodec.version
+GEN	libavformat/libavformat.version
+GEN	libavfilter/libavfilter.version
+GEN	libavdevice/libavdevice.version
+CC	libavfilter/framepool.o
+GEN	libswresample/libswresample.version
+CC	libavdevice/alldevices.o
+CC	libavfilter/framequeue.o
+CC	libavdevice/avdevice.o
+CC	libavdevice/utils.o
+CC	libavdevice/version.o
+CC	libavfilter/graphdump.o
+CC	libavfilter/graphparser.o
+CC	libavfilter/pthread.o
+GEN	libavdevice/libavdevice.pc
+CC	libavfilter/af_aresample.o
+CC	libavfilter/version.o
+CC	libavfilter/allfilters.o
+CC	libavfilter/audio.o
+CC	libavfilter/video.o
+GEN	libavfilter/libavfilter.pc
+CC	libavfilter/avfilter.o
+CC	libavfilter/avfiltergraph.o
+CC	libavfilter/buffersink.o
+CC	libavformat/allformats.o
+CC	libavformat/av1.o
+CC	libavformat/avformat.o
+CC	libavformat/avio.o
+CC	libavformat/aviobuf.o
+CC	libavfilter/buffersrc.o
+CC	libavfilter/ccfifo.o
+CC	libavformat/codecstring.o
+src/libavformat/aviobuf.c:141:43: warning: a function declaration without a prototype is deprecated in all versions of C [-Wstrict-prototypes]
+  141 | EM_JS(static void, writeoutEmscriptenOOM, (), {
+      |                                           ^
+      |                                            void
+/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/sysroot/include/emscripten/em_js.h:71:63: note: expanded from macro 'EM_JS'
+   71 | #define EM_JS(ret, name, params, ...) _EM_JS(ret, name, name, params, #__VA_ARGS__)
+      |                                                               ^
+/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/sysroot/include/emscripten/em_js.h:63:14: note: expanded from macro '_EM_JS'
+   63 |   ret c_name params EM_IMPORT(js_name);                                        \
+      |              ^
+src/libavformat/aviobuf.c:141:20: warning: function 'writeoutEmscriptenOOM' has internal linkage but is not defined [-Wundefined-internal]
+  141 | EM_JS(static void, writeoutEmscriptenOOM, (), {
+      |                    ^
+src/libavformat/aviobuf.c:141:20: note: used here
+CC	libavfilter/colorspace.o
+CC	libavformat/demux.o
+CC	libavformat/demux_utils.o
+2 warnings generated.
+CC	libavfilter/drawutils.o
+CC	libavfilter/formats.o
+CC	libavfilter/framepool.o
+CC	libavformat/dump.o
+CC	libavfilter/framequeue.o
+CC	libavformat/dv.o
+CC	libavfilter/graphdump.o
+CC	libavformat/format.o
+CC	libavfilter/graphparser.o
+CC	libavfilter/pthread.o
+CC	libavfilter/version.o
+CC	libavformat/id3v1.o
+CC	libavfilter/video.o
+CC	libavformat/id3v2.o
+CC	libavformat/isom_tags.o
+GEN	libavfilter/libavfilter.pc
+CC	libavformat/lcevc.o
+CC	libavformat/allformats.o
+CC	libavformat/av1.o
+CC	libavformat/metadata.o
+CC	libavformat/avformat.o
+CC	libavformat/avio.o
+CC	libavformat/mux.o
+CC	libavformat/mux_utils.o
+CC	libavformat/nal.o
+CC	libavformat/aviobuf.o
+CC	libavformat/options.o
+CC	libavformat/codecstring.o
+src/libavformat/aviobuf.c:141:43: warning: a function declaration without a prototype is deprecated in all versions of C [-Wstrict-prototypes]
+  141 | EM_JS(static void, writeoutEmscriptenOOM, (), {
+      |                                           ^
+      |                                            void
+/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/sysroot/include/emscripten/em_js.h:71:63: note: expanded from macro 'EM_JS'
+   71 | #define EM_JS(ret, name, params, ...) _EM_JS(ret, name, name, params, #__VA_ARGS__)
+      |                                                               ^
+/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/sysroot/include/emscripten/em_js.h:63:14: note: expanded from macro '_EM_JS'
+   63 |   ret c_name params EM_IMPORT(js_name);                                        \
+      |              ^
+src/libavformat/aviobuf.c:141:20: warning: function 'writeoutEmscriptenOOM' has internal linkage but is not defined [-Wundefined-internal]
+  141 | EM_JS(static void, writeoutEmscriptenOOM, (), {
+      |                    ^
+src/libavformat/aviobuf.c:141:20: note: used here
+CC	libavformat/demux.o
+CC	libavformat/os_support.o
+CC	libavformat/demux_utils.o
+CC	libavformat/packet_list.o
+2 warnings generated.
+CC	libavformat/protocols.o
+CC	libavformat/dump.o
+CC	libavformat/dv.o
+CC	libavformat/riff.o
+CC	libavformat/format.o
+CC	libavformat/sdp.o
+CC	libavformat/seek.o
+CC	libavformat/id3v1.o
+CC	libavformat/url.o
+CC	libavformat/urldecode.o
+CC	libavformat/id3v2.o
+CC	libavformat/isom_tags.o
+CC	libavformat/lcevc.o
+CC	libavformat/utils.o
+CC	libavformat/metadata.o
+CC	libavformat/version.o
+CC	libavformat/mux.o
+CC	libavformat/vpcc.o
+GEN	libavformat/libavformat.pc
+CC	libavformat/mux_utils.o
+CC	libavcodec/h2645_parse.o
+CC	libavformat/nal.o
+CC	libavcodec/lcevctab.o
+CC	libavformat/options.o
+GEN	libavcodec/libavcodec.pc
+CC	libswresample/audioconvert.o
+CC	libswresample/dither.o
+CC	libavformat/os_support.o
+CC	libavformat/packet_list.o
+CC	libswresample/options.o
+CC	libswresample/rematrix.o
+CC	libswresample/resample.o
+CC	libavformat/protocols.o
+CC	libswresample/resample_dsp.o
+CC	libavformat/riff.o
+CC	libavformat/sdp.o
+CC	libavformat/seek.o
+CC	libswresample/swresample.o
+CC	libavformat/url.o
+CC	libswresample/swresample_frame.o
+CC	libswresample/version.o
+CC	libavformat/urldecode.o
+CC	libavformat/utils.o
+CC	libavformat/version.o
+GEN	libswresample/libswresample.pc
+CC	libavutil/adler32.o
+CC	libavutil/aes.o
+CC	libavutil/aes_ctr.o
+CC	libavformat/vpcc.o
+GEN	libavformat/libavformat.pc
+CC	libavutil/ambient_viewing_environment.o
+CC	libavutil/audio_fifo.o
+CC	libavutil/avsscanf.o
+CC	libavcodec/h2645_parse.o
+CC	libavutil/avstring.o
+CC	libavcodec/lcevctab.o
+CC	libavutil/base64.o
+GEN	libavcodec/libavcodec.pc
+CC	libswresample/audioconvert.o
+CC	libswresample/dither.o
+CC	libswresample/options.o
+CC	libavutil/blowfish.o
+CC	libswresample/rematrix.o
+CC	libavutil/bprint.o
+CC	libavutil/buffer.o
+CC	libavutil/camellia.o
+CC	libswresample/resample.o
+CC	libswresample/resample_dsp.o
+CC	libavutil/cast5.o
+CC	libavutil/channel_layout.o
+CC	libswresample/swresample.o
+CC	libavutil/container_fifo.o
+CC	libswresample/swresample_frame.o
+CC	libavutil/cpu.o
+CC	libswresample/version.o
+CC	libavutil/crc.o
+CC	libavutil/csp.o
+GEN	libswresample/libswresample.pc
+CC	libavutil/des.o
+CC	libavutil/adler32.o
+CC	libavutil/aes.o
+CC	libavutil/detection_bbox.o
+CC	libavutil/aes_ctr.o
+CC	libavutil/dict.o
+CC	libavutil/display.o
+CC	libavutil/dovi_meta.o
+CC	libavutil/ambient_viewing_environment.o
+CC	libavutil/audio_fifo.o
+CC	libavutil/avsscanf.o
+CC	libavutil/downmix_info.o
+CC	libavutil/encryption_info.o
+CC	libavutil/error.o
+CC	libavutil/avstring.o
+CC	libavutil/base64.o
+CC	libavutil/eval.o
+CC	libavutil/executor.o
+CC	libavutil/blowfish.o
+CC	libavutil/fifo.o
+CC	libavutil/file.o
+CC	libavutil/file_open.o
+CC	libavutil/bprint.o
+CC	libavutil/buffer.o
+CC	libavutil/camellia.o
+CC	libavutil/film_grain_params.o
+CC	libavutil/cast5.o
+CC	libavutil/channel_layout.o
+CC	libavutil/fixed_dsp.o
+CC	libavutil/float_dsp.o
+CC	libavutil/float_scalarproduct.o
+CC	libavutil/container_fifo.o
+CC	libavutil/cpu.o
+CC	libavutil/frame.o
+CC	libavutil/hash.o
+CC	libavutil/hdr_dynamic_metadata.o
+CC	libavutil/crc.o
+CC	libavutil/csp.o
+CC	libavutil/des.o
+CC	libavutil/hdr_dynamic_vivid_metadata.o
+CC	libavutil/detection_bbox.o
+CC	libavutil/hmac.o
+CC	libavutil/hwcontext.o
+CC	libavutil/dict.o
+CC	libavutil/hwcontext_stub.o
+CC	libavutil/iamf.o
+CC	libavutil/display.o
+CC	libavutil/imgutils.o
+CC	libavutil/dovi_meta.o
+CC	libavutil/downmix_info.o
+CC	libavutil/encryption_info.o
+CC	libavutil/integer.o
+CC	libavutil/error.o
+CC	libavutil/intmath.o
+CC	libavutil/eval.o
+CC	libavutil/executor.o
+CC	libavutil/lfg.o
+CC	libavutil/lls.o
+CC	libavutil/log.o
+CC	libavutil/fifo.o
+CC	libavutil/log2_tab.o
+CC	libavutil/lzo.o
+CC	libavutil/file.o
+CC	libavutil/file_open.o
+CC	libavutil/mastering_display_metadata.o
+CC	libavutil/mathematics.o
+CC	libavutil/film_grain_params.o
+CC	libavutil/md5.o
+CC	libavutil/fixed_dsp.o
+CC	libavutil/float_dsp.o
+CC	libavutil/mem.o
+CC	libavutil/float_scalarproduct.o
+CC	libavutil/frame.o
+CC	libavutil/murmur3.o
+CC	libavutil/opt.o
+CC	libavutil/hash.o
+CC	libavutil/hdr_dynamic_metadata.o
+CC	libavutil/parseutils.o
+CC	libavutil/pixdesc.o
+CC	libavutil/hdr_dynamic_vivid_metadata.o
+CC	libavutil/pixelutils.o
+CC	libavutil/random_seed.o
+CC	libavutil/hmac.o
+CC	libavutil/rational.o
+CC	libavutil/hwcontext.o
+CC	libavutil/hwcontext_stub.o
+CC	libavutil/iamf.o
+CC	libavutil/raw_color_params.o
+CC	libavutil/imgutils.o
+CC	libavutil/rc4.o
+CC	libavutil/integer.o
+CC	libavutil/intmath.o
+CC	libavutil/refstruct.o
+CC	libavutil/reverse.o
+CC	libavutil/lfg.o
+CC	libavutil/ripemd.o
+CC	libavutil/samplefmt.o
+CC	libavutil/sha.o
+CC	libavutil/lls.o
+CC	libavutil/sha512.o
+CC	libavutil/log.o
+CC	libavutil/log2_tab.o
+CC	libavutil/lzo.o
+CC	libavutil/mastering_display_metadata.o
+CC	libavutil/side_data.o
+CC	libavutil/slicethread.o
+CC	libavutil/mathematics.o
+CC	libavutil/spherical.o
+CC	libavutil/md5.o
+CC	libavutil/mem.o
+CC	libavutil/stereo3d.o
+CC	libavutil/tdrdi.o
+CC	libavutil/tea.o
+CC	libavutil/murmur3.o
+CC	libavutil/opt.o
+CC	libavutil/threadmessage.o
+CC	libavutil/parseutils.o
+CC	libavutil/pixdesc.o
+CC	libavutil/time.o
+CC	libavutil/timecode.o
+CC	libavutil/pixelutils.o
+CC	libavutil/timecode_internal.o
+CC	libavutil/timestamp.o
+CC	libavutil/tree.o
+CC	libavutil/random_seed.o
+CC	libavutil/rational.o
+CC	libavutil/twofish.o
+CC	libavutil/raw_color_params.o
+CC	libavutil/tx.o
+CC	libavutil/tx_double.o
+CC	libavutil/rc4.o
+CC	libavutil/refstruct.o
+CC	libavutil/tx_float.o
+CC	libavutil/reverse.o
+CC	libavutil/ripemd.o
+CC	libavutil/samplefmt.o
+CC	libavutil/tx_int32.o
+CC	libavutil/utils.o
+CC	libavutil/sha.o
+CC	libavutil/sha512.o
+CC	libavutil/side_data.o
+CC	libavutil/uuid.o
+CC	libavutil/slicethread.o
+CC	libavutil/version.o
+CC	libavutil/video_enc_params.o
+CC	libavutil/spherical.o
+CC	libavutil/stereo3d.o
+CC	libavutil/video_hint.o
+CC	libavutil/xga_font_data.o
+CC	libavutil/xtea.o
+CC	libavutil/tdrdi.o
+CC	libavutil/tea.o
+GEN	libavutil/libavutil.pc
+AR	libavdevice/libavdevice.a
+CC	libavutil/threadmessage.o
+CC	libavutil/time.o
+AR	libavfilter/libavfilter.a
+CC	libavutil/timecode.o
+CC	libavutil/timecode_internal.o
+AR	libavformat/libavformat.a
+CC	libavcodec/aac/aacdec.o
+CC	libavcodec/aac/aacdec_ac.o
+CC	libavutil/timestamp.o
+CC	libavutil/tree.o
+CC	libavutil/twofish.o
+CC	libavutil/tx.o
+CC	libavcodec/aac/aacdec_float.o
+CC	libavutil/tx_double.o
+CC	libavcodec/aac/aacdec_lpd.o
+CC	libavcodec/aac/aacdec_tab.o
+CC	libavutil/tx_float.o
+CC	libavcodec/aac/aacdec_usac.o
+CC	libavutil/tx_int32.o
+CC	libavcodec/aac/aacdec_usac_mps212.o
+CC	libavutil/utils.o
+CC	libavutil/uuid.o
+CC	libavcodec/aac_ac3_parser.o
+CC	libavcodec/aacps_common.o
+CC	libavutil/version.o
+CC	libavutil/video_enc_params.o
+CC	libavcodec/aacps_float.o
+CC	libavutil/video_hint.o
+CC	libavutil/xga_font_data.o
+CC	libavcodec/aacpsdsp_float.o
+CC	libavutil/xtea.o
+CC	libavcodec/aacsbr.o
+GEN	libavutil/libavutil.pc
+CC	libavcodec/aactab.o
+AR	libavdevice/libavdevice.a
+AR	libavfilter/libavfilter.a
+AR	libavformat/libavformat.a
+CC	libavcodec/aac/aacdec.o
+CC	libavcodec/aac/aacdec_ac.o
+CC	libavcodec/aac/aacdec_float.o
+CC	libavcodec/ac3.o
+CC	libavcodec/aac/aacdec_lpd.o
+CC	libavcodec/ac3_channel_layout_tab.o
+CC	libavcodec/ac3_parser.o
+CC	libavcodec/ac3dec_data.o
+CC	libavcodec/aac/aacdec_tab.o
+CC	libavcodec/ac3dec_float.o
+CC	libavcodec/aac/aacdec_usac.o
+CC	libavcodec/aac/aacdec_usac_mps212.o
+CC	libavcodec/aac_ac3_parser.o
+CC	libavcodec/ac3dsp.o
+CC	libavcodec/ac3tab.o
+CC	libavcodec/aacps_common.o
+CC	libavcodec/aacps_float.o
+CC	libavcodec/adts_header.o
+CC	libavcodec/aacpsdsp_float.o
+CC	libavcodec/adts_parser.o
+CC	libavcodec/aacsbr.o
+CC	libavcodec/aactab.o
+CC	libavcodec/allcodecs.o
+CC	libavcodec/avcodec.o
+CC	libavcodec/ac3.o
+CC	libavcodec/ac3_channel_layout_tab.o
+CC	libavcodec/avdct.o
+CC	libavcodec/bitstream.o
+CC	libavcodec/bitstream_filters.o
+CC	libavcodec/ac3_parser.o
+CC	libavcodec/ac3dec_data.o
+CC	libavcodec/blockdsp.o
+CC	libavcodec/ac3dec_float.o
+CC	libavcodec/bsf.o
+CC	libavcodec/bswapdsp.o
+CC	libavcodec/cbrt_data.o
+CC	libavcodec/ac3dsp.o
+CC	libavcodec/cbrt_tablegen_common.o
+CC	libavcodec/codec_desc.o
+CC	libavcodec/ac3tab.o
+CC	libavcodec/codec_par.o
+CC	libavcodec/d3d11va.o
+CC	libavcodec/adts_header.o
+CC	libavcodec/adts_parser.o
+CC	libavcodec/dct32_fixed.o
+CC	libavcodec/dct32_float.o
+CC	libavcodec/allcodecs.o
+CC	libavcodec/decode.o
+CC	libavcodec/avcodec.o
+CC	libavcodec/avdct.o
+CC	libavcodec/dirac.o
+CC	libavcodec/dv_profile.o
+CC	libavcodec/bitstream.o
+CC	libavcodec/eac3_data.o
+CC	libavcodec/bitstream_filters.o
+CC	libavcodec/encode.o
+CC	libavcodec/error_resilience.o
+CC	libavcodec/blockdsp.o
+CC	libavcodec/exif.o
+CC	libavcodec/bsf.o
+CC	libavcodec/bswapdsp.o
+CC	libavcodec/faandct.o
+CC	libavcodec/cbrt_data.o
+CC	libavcodec/faanidct.o
+CC	libavcodec/fdctdsp.o
+CC	libavcodec/cbrt_tablegen_common.o
+CC	libavcodec/fmtconvert.o
+CC	libavcodec/get_buffer.o
+CC	libavcodec/codec_desc.o
+CC	libavcodec/h264chroma.o
+CC	libavcodec/hpeldsp.o
+CC	libavcodec/codec_par.o
+CC	libavcodec/d3d11va.o
+CC	libavcodec/idctdsp.o
+CC	libavcodec/dct32_fixed.o
+CC	libavcodec/imgconvert.o
+CC	libavcodec/dct32_float.o
+CC	libavcodec/jfdctfst.o
+CC	libavcodec/decode.o
+CC	libavcodec/jfdctint.o
+CC	libavcodec/jni.o
+CC	libavcodec/jrevdct.o
+CC	libavcodec/dirac.o
+CC	libavcodec/dv_profile.o
+CC	libavcodec/eac3_data.o
+CC	libavcodec/kbdwin.o
+CC	libavcodec/encode.o
+CC	libavcodec/mathtables.o
+CC	libavcodec/error_resilience.o
+CC	libavcodec/exif.o
+CC	libavcodec/me_cmp.o
+CC	libavcodec/mediacodec.o
+CC	libavcodec/faandct.o
+CC	libavcodec/faanidct.o
+CC	libavcodec/mpeg12.o
+CC	libavcodec/mpeg12data.o
+CC	libavcodec/fdctdsp.o
+CC	libavcodec/mpeg12dec.o
+CC	libavcodec/fmtconvert.o
+CC	libavcodec/get_buffer.o
+CC	libavcodec/mpeg12framerate.o
+CC	libavcodec/h264chroma.o
+CC	libavcodec/hpeldsp.o
+CC	libavcodec/idctdsp.o
+CC	libavcodec/imgconvert.o
+CC	libavcodec/mpeg4audio.o
+CC	libavcodec/mpeg4audio_sample_rates.o
+CC	libavcodec/jfdctfst.o
+CC	libavcodec/jfdctint.o
+CC	libavcodec/jni.o
+CC	libavcodec/mpeg_er.o
+CC	libavcodec/mpegaudio.o
+CC	libavcodec/jrevdct.o
+CC	libavcodec/kbdwin.o
+CC	libavcodec/mathtables.o
+CC	libavcodec/mpegaudio_parser.o
+CC	libavcodec/me_cmp.o
+CC	libavcodec/mpegaudiodata.o
+CC	libavcodec/mpegaudiodec_common.o
+CC	libavcodec/mediacodec.o
+CC	libavcodec/mpeg12.o
+CC	libavcodec/mpegaudiodec_fixed.o
+CC	libavcodec/mpegaudiodecheader.o
+CC	libavcodec/mpeg12data.o
+CC	libavcodec/mpeg12dec.o
+CC	libavcodec/mpegaudiodsp.o
+CC	libavcodec/mpegaudiodsp_data.o
+CC	libavcodec/mpegaudiodsp_fixed.o
+CC	libavcodec/mpegaudiodsp_float.o
+CC	libavcodec/mpegaudiotabs.o
+CC	libavcodec/mpeg12framerate.o
+CC	libavcodec/mpeg4audio.o
+CC	libavcodec/mpegpicture.o
+CC	libavcodec/mpegutils.o
+CC	libavcodec/mpeg4audio_sample_rates.o
+CC	libavcodec/mpegvideo.o
+CC	libavcodec/mpegvideo_dec.o
+CC	libavcodec/mpegvideo_motion.o
+CC	libavcodec/mpeg_er.o
+CC	libavcodec/mpegaudio.o
+CC	libavcodec/mpegvideo_parser.o
+CC	libavcodec/mpegaudio_parser.o
+CC	libavcodec/mpegaudiodata.o
+CC	libavcodec/mpegvideo_unquantize.o
+CC	libavcodec/mpegaudiodec_common.o
+CC	libavcodec/mpegvideodata.o
+CC	libavcodec/mpegaudiodec_fixed.o
+CC	libavcodec/mpegaudiodecheader.o
+CC	libavcodec/mpegaudiodsp.o
+CC	libavcodec/options.o
+CC	libavcodec/packet.o
+CC	libavcodec/parser.o
+CC	libavcodec/parsers.o
+CC	libavcodec/mpegaudiodsp_data.o
+CC	libavcodec/mpegaudiodsp_fixed.o
+CC	libavcodec/profiles.o
+CC	libavcodec/pthread.o
+CC	libavcodec/mpegaudiodsp_float.o
+CC	libavcodec/pthread_frame.o
+CC	libavcodec/mpegaudiotabs.o
+CC	libavcodec/mpegpicture.o
+CC	libavcodec/pthread_slice.o
+CC	libavcodec/mpegutils.o
+CC	libavcodec/qsv_api.o
+CC	libavcodec/mpegvideo.o
+CC	libavcodec/raw.o
+CC	libavcodec/mpegvideo_dec.o
+CC	libavcodec/mpegvideo_motion.o
+CC	libavcodec/rl.o
+CC	libavcodec/sbrdsp.o
+CC	libavcodec/simple_idct.o
+CC	libavcodec/sinewin.o
+CC	libavcodec/threadprogress.o
+CC	libavcodec/mpegvideo_parser.o
+CC	libavcodec/mpegvideo_unquantize.o
+CC	libavcodec/mpegvideodata.o
+CC	libavcodec/tiff_common.o
+CC	libavcodec/to_upper4.o
+CC	libavcodec/utils.o
+CC	libavcodec/options.o
+CC	libavcodec/packet.o
+CC	libavcodec/version.o
+CC	libavcodec/parser.o
+CC	libavcodec/videodsp.o
+CC	libavcodec/parsers.o
+CC	libavcodec/vlc.o
+CC	libavcodec/profiles.o
+CC	libavcodec/pthread.o
+CC	libavcodec/pthread_frame.o
+CC	libavcodec/vorbis_parser.o
+CC	libavcodec/xiph.o
+AR	libswresample/libswresample.a
+CC	libavcodec/pthread_slice.o
+CC	libavcodec/qsv_api.o
+CC	libavcodec/raw.o
+AR	libavutil/libavutil.a
+CC	libavcodec/rl.o
+CC	libavcodec/sbrdsp.o
+CC	libavcodec/simple_idct.o
+AR	libavcodec/libavcodec.a
+CC	libavcodec/sinewin.o
+CC	libavcodec/threadprogress.o
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0/build-base-dolby'
+CC	libavcodec/tiff_common.o
+mkdir -p dist/libav-6.10.9.0-dolby.asm.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -s WASM=0 \
+	-o dist/libav-6.10.9.0-dolby.asm.js.d/libav-6.10.9.0-dolby.asm.js
+mkdir -p dist/libav-6.10.9.0-dolby.asm.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 -s WASM=0 \
+	-o dist/libav-6.10.9.0-dolby.asm.mjs.d/libav-6.10.9.0-dolby.asm.mjs
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.asm.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -g2 -s WASM=0 \
+	-o dist/libav-6.10.9.0-dolby.dbg.asm.js.d/libav-6.10.9.0-dolby.dbg.asm.js
+CC	libavcodec/to_upper4.o
+CC	libavcodec/utils.o
+cache:INFO: generating system asset: symbol_lists/b9ff43c8c8162680a079a247207451037075f0ab.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/b9ff43c8c8162680a079a247207451037075f0ab.json" for subsequent builds)
+CC	libavcodec/version.o
+cache:INFO:  - ok
+cache:INFO: generating system asset: symbol_lists/facf5ea001d7a2469826c028ec82de3f57976e24.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/facf5ea001d7a2469826c028ec82de3f57976e24.json" for subsequent builds)
+CC	libavcodec/videodsp.o
+CC	libavcodec/vlc.o
+cache:INFO:  - ok
+cache:INFO: generating system asset: symbol_lists/c148e68d8cae487eebce43e62c593bae02d6b995.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/c148e68d8cae487eebce43e62c593bae02d6b995.json" for subsequent builds)
+CC	libavcodec/vorbis_parser.o
+cache:INFO:  - ok
+CC	libavcodec/xiph.o
+AR	libswresample/libswresample.a
+AR	libavutil/libavutil.a
+AR	libavcodec/libavcodec.a
+make[1]: Leaving directory '/home/runner/work/cockpit/cockpit/lj/build/ffmpeg-9.0/build-thr-dolby'
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -g2 -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 -s WASM=0 \
+	-o dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/libav-6.10.9.0-dolby.dbg.asm.mjs
+cache:INFO: generating system asset: symbol_lists/3c83a70dca5109bc9e00c948eb792c9f6ac510d2.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/3c83a70dca5109bc9e00c948eb792c9f6ac510d2.json" for subsequent builds)
+cache:INFO:  - ok
+if [ -e dist/libav-6.10.9.0-dolby.dbg.asm.js.d/libav-6.10.9.0-dolby.dbg.asm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.asm.js.d/libav-6.10.9.0-dolby.dbg.asm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.asm.js ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/asm/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.dbg.asm.js.d/libav-6.10.9.0-dolby.dbg.asm.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.asm.js
+rm -f dist/libav-6.10.9.0-dolby.dbg.asm.js.d/libav-6.10.9.0-dolby.dbg.asm.js
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.asm.js.d/*.wasm
+chmod: cannot access 'dist/libav-6.10.9.0-dolby.dbg.asm.js.d/*.wasm': No such file or directory
+make: [Makefile:221: dist/libav-6.10.9.0-dolby.dbg.asm.js] Error 1 (ignored)
+mv dist/libav-6.10.9.0-dolby.dbg.asm.js.d/* dist/
+mv: cannot stat 'dist/libav-6.10.9.0-dolby.dbg.asm.js.d/*': No such file or directory
+make: [Makefile:222: dist/libav-6.10.9.0-dolby.dbg.asm.js] Error 1 (ignored)
+rmdir dist/libav-6.10.9.0-dolby.dbg.asm.js.d
+mkdir -p dist/libav-6.10.9.0-dolby.wasm.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads \
+	-o dist/libav-6.10.9.0-dolby.wasm.js.d/libav-6.10.9.0-dolby.wasm.js
+cache:INFO: generating system asset: symbol_lists/d1c7f376c6926604e858f8220a6f555c6ba5597c.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/d1c7f376c6926604e858f8220a6f555c6ba5597c.json" for subsequent builds)
+cache:INFO:  - ok
+if [ -e dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/libav-6.10.9.0-dolby.dbg.asm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/libav-6.10.9.0-dolby.dbg.asm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.asm.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/asm/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/libav-6.10.9.0-dolby.dbg.asm.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.asm.mjs
+rm -f dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/libav-6.10.9.0-dolby.dbg.asm.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/*.wasm
+chmod: cannot access 'dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/*.wasm': No such file or directory
+make: [Makefile:262: dist/libav-6.10.9.0-dolby.dbg.asm.mjs] Error 1 (ignored)
+mv dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/* dist/
+mv: cannot stat 'dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d/*': No such file or directory
+make: [Makefile:263: dist/libav-6.10.9.0-dolby.dbg.asm.mjs] Error 1 (ignored)
+rmdir dist/libav-6.10.9.0-dolby.dbg.asm.mjs.d
+mkdir -p dist/libav-6.10.9.0-dolby.wasm.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 \
+	-o dist/libav-6.10.9.0-dolby.wasm.mjs.d/libav-6.10.9.0-dolby.wasm.mjs
+if [ -e dist/libav-6.10.9.0-dolby.asm.js.d/libav-6.10.9.0-dolby.asm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.asm.js.d/libav-6.10.9.0-dolby.asm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.asm.js ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/asm/g ; \
+	s/@DBG//g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.asm.js.d/libav-6.10.9.0-dolby.asm.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.asm.js
+rm -f dist/libav-6.10.9.0-dolby.asm.js.d/libav-6.10.9.0-dolby.asm.js
+chmod a-x dist/libav-6.10.9.0-dolby.asm.js.d/*.wasm
+chmod: cannot access 'dist/libav-6.10.9.0-dolby.asm.js.d/*.wasm': No such file or directory
+make: [Makefile:139: dist/libav-6.10.9.0-dolby.asm.js] Error 1 (ignored)
+mv dist/libav-6.10.9.0-dolby.asm.js.d/* dist/
+mv: cannot stat 'dist/libav-6.10.9.0-dolby.asm.js.d/*': No such file or directory
+make: [Makefile:140: dist/libav-6.10.9.0-dolby.asm.js] Error 1 (ignored)
+rmdir dist/libav-6.10.9.0-dolby.asm.js.d
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.wasm.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -gsource-map \
+	-o dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/libav-6.10.9.0-dolby.dbg.wasm.js
+cache:INFO: generating system asset: symbol_lists/3790b70e7abb9aef5b05bdff280b2abf294e4b76.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/3790b70e7abb9aef5b05bdff280b2abf294e4b76.json" for subsequent builds)
+cache:INFO:  - ok
+cache:INFO: generating system asset: symbol_lists/57d68b8197e4d9af781e8ce52292a98c5da8c48e.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/57d68b8197e4d9af781e8ce52292a98c5da8c48e.json" for subsequent builds)
+if [ -e dist/libav-6.10.9.0-dolby.asm.mjs.d/libav-6.10.9.0-dolby.asm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.asm.mjs.d/libav-6.10.9.0-dolby.asm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.asm.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/asm/g ; \
+	s/@DBG//g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.asm.mjs.d/libav-6.10.9.0-dolby.asm.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.asm.mjs
+cache:INFO:  - ok
+rm -f dist/libav-6.10.9.0-dolby.asm.mjs.d/libav-6.10.9.0-dolby.asm.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.asm.mjs.d/*.wasm
+chmod: cannot access 'dist/libav-6.10.9.0-dolby.asm.mjs.d/*.wasm': No such file or directory
+make: [Makefile:180: dist/libav-6.10.9.0-dolby.asm.mjs] Error 1 (ignored)
+mv dist/libav-6.10.9.0-dolby.asm.mjs.d/* dist/
+mv: cannot stat 'dist/libav-6.10.9.0-dolby.asm.mjs.d/*': No such file or directory
+make: [Makefile:181: dist/libav-6.10.9.0-dolby.asm.mjs] Error 1 (ignored)
+rmdir dist/libav-6.10.9.0-dolby.asm.mjs.d
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-base-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-base-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-base-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-base-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/base/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32']" -Lbuild/inst/base/lib -lemfiberthreads -gsource-map -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 \
+	-o dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/libav-6.10.9.0-dolby.dbg.wasm.mjs
+cache:INFO: generating system asset: symbol_lists/c8a76f6cf1954f0a1dcd7e7240f34ab74b61283f.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/c8a76f6cf1954f0a1dcd7e7240f34ab74b61283f.json" for subsequent builds)
+cache:INFO:  - ok
+if [ -e dist/libav-6.10.9.0-dolby.wasm.js.d/libav-6.10.9.0-dolby.wasm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.wasm.js.d/libav-6.10.9.0-dolby.wasm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.wasm.js ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/wasm/g ; \
+	s/@DBG//g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.wasm.js.d/libav-6.10.9.0-dolby.wasm.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.wasm.js
+rm -f dist/libav-6.10.9.0-dolby.wasm.js.d/libav-6.10.9.0-dolby.wasm.js
+chmod a-x dist/libav-6.10.9.0-dolby.wasm.js.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.wasm.js.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.wasm.js.d
+mkdir -p dist/libav-6.10.9.0-dolby.thr.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-thr-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-thr-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-thr-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/thr/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32', 'PThread']" -pthread -Lbuild/inst/base/lib -lemfiberthreads -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+	-o dist/libav-6.10.9.0-dolby.thr.js.d/libav-6.10.9.0-dolby.thr.js
+emcc: warning: -pthread + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271 [-Wpthreads-mem-growth]
+cache:INFO: generating system asset: symbol_lists/6e2b566d26d160f9281b53493045b715e1d7dde0.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/6e2b566d26d160f9281b53493045b715e1d7dde0.json" for subsequent builds)
+if [ -e dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/libav-6.10.9.0-dolby.dbg.wasm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/libav-6.10.9.0-dolby.dbg.wasm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.wasm.js ; false )
+cache:INFO:  - ok
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/wasm/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/libav-6.10.9.0-dolby.dbg.wasm.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.wasm.js
+rm -f dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/libav-6.10.9.0-dolby.dbg.wasm.js
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.dbg.wasm.js.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.dbg.wasm.js.d
+mkdir -p dist/libav-6.10.9.0-dolby.thr.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-thr-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-thr-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-thr-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/thr/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32', 'PThread']" -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 -pthread -Lbuild/inst/base/lib -lemfiberthreads -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+	-o dist/libav-6.10.9.0-dolby.thr.mjs.d/libav-6.10.9.0-dolby.thr.mjs
+if [ -e dist/libav-6.10.9.0-dolby.wasm.mjs.d/libav-6.10.9.0-dolby.wasm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.wasm.mjs.d/libav-6.10.9.0-dolby.wasm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.wasm.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/wasm/g ; \
+	s/@DBG//g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.wasm.mjs.d/libav-6.10.9.0-dolby.wasm.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.wasm.mjs
+rm -f dist/libav-6.10.9.0-dolby.wasm.mjs.d/libav-6.10.9.0-dolby.wasm.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.wasm.mjs.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.wasm.mjs.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.wasm.mjs.d
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.thr.js.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.js \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-thr-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-thr-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-thr-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/thr/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32', 'PThread']" -gsource-map -pthread -Lbuild/inst/base/lib -lemfiberthreads -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+	-o dist/libav-6.10.9.0-dolby.dbg.thr.js.d/libav-6.10.9.0-dolby.dbg.thr.js
+emcc: warning: -pthread + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271 [-Wpthreads-mem-growth]
+cache:INFO: generating system asset: symbol_lists/728c8e7cca76cd837a523240bd3ae1194cbecd8b.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/728c8e7cca76cd837a523240bd3ae1194cbecd8b.json" for subsequent builds)
+if [ -e dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/libav-6.10.9.0-dolby.dbg.wasm.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/libav-6.10.9.0-dolby.dbg.wasm.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.wasm.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/wasm/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/libav-6.10.9.0-dolby.dbg.wasm.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.wasm.mjs
+cache:INFO:  - ok
+rm -f dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/libav-6.10.9.0-dolby.dbg.wasm.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.dbg.wasm.mjs.d
+mkdir -p dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d
+emcc -Oz `tools/memory-init-file-emcc.sh` --pre-js src/pre.js -s "EXPORT_NAME='LibAVFactory'" -s MODULARIZE=1 -s STACK_SIZE=1048576 -s ASYNCIFY -s "ASYNCIFY_IMPORTS=['libavjs_wait_reader', 'jsfetch_open_js', 'jsfetch_read_js', 'jsfetch_seek_js']" -s INITIAL_MEMORY=25165824 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT=0 \
+	--extern-post-js build/extern-post.mjs \
+	--post-js build/post-dolby.js \
+	-s "EXPORTED_FUNCTIONS=@build/exports-dolby.json" \
+	-Ibuild/ffmpeg-9.0 -Ibuild/ffmpeg-9.0/build-thr-dolby \
+	`test ! -e configs/configs/dolby/link-flags.txt || cat configs/configs/dolby/link-flags.txt` \
+	src/bindings.c \
+	`grep LIBAVJS_WITH_CLI configs/configs/dolby/link-flags.txt > /dev/null 2>&1 && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*.o \
+	-Lbuild/ffmpeg-9.0/build-thr-dolby/libavdevice -lavdevice \
+	'` \
+	`test -e build/ffmpeg-9.0/build-thr-dolby/fftools/textformat/tf_xml.o && echo ' \
+	build/ffmpeg-9.0/build-thr-dolby/fftools/*/*.o \
+	'` \
+	`test ! -e configs/configs/dolby/libs.txt || sed 's/@FFVER/9.0/ ; s/@TARGET/thr/ ; s/@VARIANT/dolby/' configs/configs/dolby/libs.txt` \
+	-s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'HEAPU8', 'HEAP8', 'HEAPU16', 'HEAP16', 'HEAPU32', 'HEAP32', 'HEAPF32', 'PThread']" -gsource-map -sEXPORT_ES6=1 -sUSE_ES6_IMPORT_META=1 -pthread -Lbuild/inst/base/lib -lemfiberthreads -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
+	-o dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/libav-6.10.9.0-dolby.dbg.thr.mjs
+emcc: warning: -pthread + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271 [-Wpthreads-mem-growth]
+cache:INFO: generating system asset: symbol_lists/3f232a38c5400de5894d95fe71749b78e1030161.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/3f232a38c5400de5894d95fe71749b78e1030161.json" for subsequent builds)
+cache:INFO:  - ok
+emcc: warning: -pthread + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271 [-Wpthreads-mem-growth]
+cache:INFO: generating system asset: symbol_lists/f275c800d7f14b8973c9608d8cca410f8cc11f7c.json... (this will be cached in "/home/runner/work/_temp/38f4bea8-f499-4106-9461-f63e457c99c4/emsdk-main/upstream/emscripten/cache/symbol_lists/f275c800d7f14b8973c9608d8cca410f8cc11f7c.json" for subsequent builds)
+cache:INFO:  - ok
+if [ -e dist/libav-6.10.9.0-dolby.thr.js.d/libav-6.10.9.0-dolby.thr.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.thr.js.d/libav-6.10.9.0-dolby.thr.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.thr.js ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/thr/g ; \
+	s/@DBG//g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.thr.js.d/libav-6.10.9.0-dolby.thr.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.thr.js
+rm -f dist/libav-6.10.9.0-dolby.thr.js.d/libav-6.10.9.0-dolby.thr.js
+chmod a-x dist/libav-6.10.9.0-dolby.thr.js.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.thr.js.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.thr.js.d
+if [ -e dist/libav-6.10.9.0-dolby.dbg.thr.js.d/libav-6.10.9.0-dolby.dbg.thr.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.thr.js.d/libav-6.10.9.0-dolby.dbg.thr.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.thr.js ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/thr/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/js/g \
+" dist/libav-6.10.9.0-dolby.dbg.thr.js.d/libav-6.10.9.0-dolby.dbg.thr.js | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.thr.js
+rm -f dist/libav-6.10.9.0-dolby.dbg.thr.js.d/libav-6.10.9.0-dolby.dbg.thr.js
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.thr.js.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.dbg.thr.js.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.dbg.thr.js.d
+if [ -e dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/libav-6.10.9.0-dolby.dbg.thr.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/libav-6.10.9.0-dolby.dbg.thr.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.dbg.thr.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/thr/g ; \
+	s/@DBG/dbg./g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/libav-6.10.9.0-dolby.dbg.thr.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.dbg.thr.mjs
+if [ -e dist/libav-6.10.9.0-dolby.thr.mjs.d/libav-6.10.9.0-dolby.thr.wasm.map ] ; then \
+	./tools/adjust-sourcemap.js dist/libav-6.10.9.0-dolby.thr.mjs.d/libav-6.10.9.0-dolby.thr.wasm.map \
+		ffmpeg 9.0 \
+		libvpx 1.16.0 \
+		libaom 03087864; \
+fi || ( rm -f dist/libav-6.10.9.0-dolby.thr.mjs ; false )
+sed " \
+	s/^\/\/.*include:.*// ; \
+	s/@VER/6.10.9.0/g ; \
+	s/@VARIANT/dolby/g ; \
+	s/@TARGET/thr/g ; \
+	s/@DBG//g ; \
+	s/@JS/mjs/g \
+" dist/libav-6.10.9.0-dolby.thr.mjs.d/libav-6.10.9.0-dolby.thr.mjs | tools/license-header.sh configs/configs/dolby/license.js > dist/libav-6.10.9.0-dolby.thr.mjs
+rm -f dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/libav-6.10.9.0-dolby.dbg.thr.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.dbg.thr.mjs.d
+rm -f dist/libav-6.10.9.0-dolby.thr.mjs.d/libav-6.10.9.0-dolby.thr.mjs
+chmod a-x dist/libav-6.10.9.0-dolby.thr.mjs.d/*.wasm
+mv dist/libav-6.10.9.0-dolby.thr.mjs.d/* dist/
+rmdir dist/libav-6.10.9.0-dolby.thr.mjs.d
+true
+rm build/frontend-6.10.9.0-dolby.mjs build/frontend-6.10.9.0-dolby.js
+EXIT 0
+total 22512
+drwxr-xr-x  2 runner runner    4096 Oct 28 15:28 .
+drwxr-xr-x 15 runner runner    4096 Oct 28 15:25 ..
+-rw-r--r--  1 runner runner 2091848 Oct 28 15:28 libav-6.10.9.0-dolby.asm.js
+-rw-r--r--  1 runner runner 2091765 Oct 28 15:28 libav-6.10.9.0-dolby.asm.mjs
+-rw-r--r--  1 runner runner 5269265 Oct 28 15:27 libav-6.10.9.0-dolby.dbg.asm.js
+-rw-r--r--  1 runner runner 5269854 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.asm.mjs
+-rw-r--r--  1 runner runner   32135 Oct 28 15:25 libav-6.10.9.0-dolby.dbg.js
+-rw-r--r--  1 runner runner   34503 Oct 28 15:25 libav-6.10.9.0-dolby.dbg.mjs
+-rw-r--r--  1 runner runner  382022 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.js
+-rw-r--r--  1 runner runner  382423 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.mjs
+-rw-r--r--  1 runner runner 1153504 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.wasm
+-rw-r--r--  1 runner runner  516907 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.wasm.map
+-rw-r--r--  1 runner runner  363960 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.js
+-rw-r--r--  1 runner runner  364258 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.mjs
+-rw-r--r--  1 runner runner 1094425 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.wasm
+-rw-r--r--  1 runner runner  485669 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.wasm.map
+-rw-r--r--  1 runner runner   20373 Oct 28 15:25 libav-6.10.9.0-dolby.js
+-rw-r--r--  1 runner runner   25179 Oct 28 15:25 libav-6.10.9.0-dolby.mjs
+-rw-r--r--  1 runner runner  252956 Oct 28 15:28 libav-6.10.9.0-dolby.thr.js
+-rw-r--r--  1 runner runner  252745 Oct 28 15:28 libav-6.10.9.0-dolby.thr.mjs
+-rw-r--r--  1 runner runner 1090153 Oct 28 15:28 libav-6.10.9.0-dolby.thr.wasm
+-rw-r--r--  1 runner runner  238566 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.js
+-rw-r--r--  1 runner runner  238484 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.mjs
+-rw-r--r--  1 runner runner 1001288 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.wasm
+-rw-r--r--  1 runner runner   32135 Oct 28 15:25 libav-dolby.dbg.js
+-rw-r--r--  1 runner runner   34503 Oct 28 15:25 libav-dolby.dbg.mjs
+-rw-r--r--  1 runner runner   20373 Oct 28 15:25 libav-dolby.js
+-rw-r--r--  1 runner runner   25179 Oct 28 15:25 libav-dolby.mjs
+-rw-r--r--  1 runner runner  225477 Oct 28 15:25 libav.types.d.ts
+total 22288
+drwxr-xr-x 2 runner runner    4096 Oct 28 15:28 .
+drwxr-xr-x 7 runner runner    4096 Oct 28 15:28 ..
+-rw-r--r-- 1 runner runner 2091848 Oct 28 15:28 libav-6.10.9.0-dolby.asm.js
+-rw-r--r-- 1 runner runner 2091765 Oct 28 15:28 libav-6.10.9.0-dolby.asm.mjs
+-rw-r--r-- 1 runner runner 5269265 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.asm.js
+-rw-r--r-- 1 runner runner 5269854 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.asm.mjs
+-rw-r--r-- 1 runner runner   32135 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.js
+-rw-r--r-- 1 runner runner   34503 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.mjs
+-rw-r--r-- 1 runner runner  382022 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.js
+-rw-r--r-- 1 runner runner  382423 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.mjs
+-rw-r--r-- 1 runner runner 1153504 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.wasm
+-rw-r--r-- 1 runner runner  516907 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.thr.wasm.map
+-rw-r--r-- 1 runner runner  363960 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.js
+-rw-r--r-- 1 runner runner  364258 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.mjs
+-rw-r--r-- 1 runner runner 1094425 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.wasm
+-rw-r--r-- 1 runner runner  485669 Oct 28 15:28 libav-6.10.9.0-dolby.dbg.wasm.wasm.map
+-rw-r--r-- 1 runner runner   20373 Oct 28 15:28 libav-6.10.9.0-dolby.js
+-rw-r--r-- 1 runner runner   25179 Oct 28 15:28 libav-6.10.9.0-dolby.mjs
+-rw-r--r-- 1 runner runner  252956 Oct 28 15:28 libav-6.10.9.0-dolby.thr.js
+-rw-r--r-- 1 runner runner  252745 Oct 28 15:28 libav-6.10.9.0-dolby.thr.mjs
+-rw-r--r-- 1 runner runner 1090153 Oct 28 15:28 libav-6.10.9.0-dolby.thr.wasm
+-rw-r--r-- 1 runner runner  238566 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.js
+-rw-r--r-- 1 runner runner  238484 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.mjs
+-rw-r--r-- 1 runner runner 1001288 Oct 28 15:28 libav-6.10.9.0-dolby.wasm.wasm
+-rw-r--r-- 1 runner runner   32135 Oct 28 15:28 libav-dolby.dbg.js
+-rw-r--r-- 1 runner runner   34503 Oct 28 15:28 libav-dolby.dbg.mjs
+-rw-r--r-- 1 runner runner   20373 Oct 28 15:28 libav-dolby.js
+-rw-r--r-- 1 runner runner   25179 Oct 28 15:28 libav-dolby.mjs
+decoders {"ac3":true,"eac3":true,"mp2":true,"mp3":true,"mpeg2video":true,"aac":true,"api":"function"}
