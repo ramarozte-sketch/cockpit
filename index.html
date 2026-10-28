@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v119";
+const APP_VERSION = "v120";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3487,6 +3487,7 @@ function mirDraw(slot, src, vw, vh){
    frames (em andamento esta cópia fica preta; aí o WebCodecs assume o controlo). */
 function copyLoop(slot){
   if(!mirrorOn){ mirrorRAF[slot]=null; return; }
+  if(window.__sv && window.__sv.on(slot)){ mirrorRAF[slot] = requestAnimationFrame(()=>copyLoop(slot)); return; }
   const st = MIR[slot], fresh = st && st.lastFrame && (performance.now()-st.lastFrame)<1500;
   if(!fresh){ const v=$("vid"+slot); if(v.videoWidth && v.readyState>=2) mirDraw(slot, v, v.videoWidth, v.videoHeight); }
   if(WC_OK && st && !fresh){ mirDiag(slot, st); }
@@ -8779,6 +8780,7 @@ body.vgOn #vAspBtn{display:block}
   const art = () => document.querySelector("#ahHero .ahHeroArt");
   const stop = () => {
     cancelAnimationFrame(P.raf); P.raf = 0;
+    try{ window.__sv && window.__sv.stop("prev"); }catch(e){}
     try{ if(P.h){ P.h.destroy(); } }catch(e){} P.h = null;
     try{ if(P.v){ P.v.removeAttribute("src"); P.v.load(); P.v.remove(); } }catch(e){} P.v = null;
     try{ if(P.cv) P.cv.remove(); }catch(e){} P.cv = null;
@@ -8804,12 +8806,14 @@ body.vgOn #vAspBtn{display:block}
     if(mv){   /* o canal já está a dar: copia a imagem, sem abrir outra ligação */
       const cv = P.cv = document.createElement("canvas"); cv.className = "ahPrev"; a.appendChild(cv);
       const g = cv.getContext("2d"); P.mode = "copy";
-      const draw = () => { if(!P.cv) return; try{ if(mv.videoWidth){ if(cv.width !== 480){ cv.width = 480; cv.height = 270; } g.drawImage(mv, 0, 0, 480, 270); cv.classList.add("on"); a.classList.add("prev"); } }catch(e){} P.raf = requestAnimationFrame(draw); };
+      const draw = () => { if(!P.cv) return; try{ const sl = mv.id === "vid1" ? 1 : 0, sv = window.__sv && window.__sv.on(sl) ? window.__sv.last(sl) : null; if(sv){ if(cv.width !== 480){ cv.width = 480; cv.height = 270; } g.drawImage(sv, 0, 0, 480, 270); cv.classList.add("on"); a.classList.add("prev"); } else if(mv.videoWidth){ if(cv.width !== 480){ cv.width = 480; cv.height = 270; } g.drawImage(mv, 0, 0, 480, 270); cv.classList.add("on"); a.classList.add("prev"); } }catch(e){} P.raf = requestAnimationFrame(draw); };
       draw(); return;
     }
     const src = srcOf(c); if(!src || !window.Hls || !Hls.isSupported()) return;
     const v = P.v = document.createElement("video"); v.className = "ahPrev"; v.muted = true; v.playsInline = true; v.setAttribute("muted", ""); a.appendChild(v);
-    const h = P.h = new Hls({startLevel:0, capLevelToPlayerSize:true, maxBufferLength:6, maxMaxBufferLength:10, backBufferLength:0, enableWorker:true, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:1, fragLoadingMaxRetry:2});
+    P.seqN = (P.seqN || 0) + 1;
+    const PL = (() => { try{ const B = Hls.DefaultConfig.loader; return class extends B { load(ctx, cf, cb){ const os = cb.onSuccess; cb = Object.assign({}, cb, {onSuccess:(r, s2, cx, n) => { try{ const d0 = r && r.data; if(d0 && d0.byteLength > 752 && ctx && /frag/i.test(ctx.type || "frag")){ const u = d0 instanceof ArrayBuffer ? new Uint8Array(d0) : new Uint8Array(d0.buffer, d0.byteOffset, d0.byteLength); if(u[0] === 0x47 && typeof __tsFixFn === "function"){ const rr = __tsFixFn(u); if(window.__sv && window.__sv.hookPrev) window.__sv.hookPrev(P, u, rr); } } }catch(e){} os(r, s2, cx, n); }}); return super.load(ctx, cf, cb); } }; }catch(e){ return undefined; } })();
+    const h = P.h = new Hls({...(PL ? {fLoader:PL} : {}), startLevel:0, capLevelToPlayerSize:true, maxBufferLength:6, maxMaxBufferLength:10, backBufferLength:0, enableWorker:true, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:1, fragLoadingMaxRetry:2});
     P.mode = "hls";
     h.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(() => {}); });
     h.on(Hls.Events.ERROR, (e, d) => { if(d && d.fatal) stop(); });
@@ -10144,11 +10148,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   try{
   const V = document.getElementById("v-settings"); if(!V) return;
   const key = c => { const h = c.querySelector(":scope > h2"); return h ? h.textContent.trim().slice(0, 40) : ""; };
-  let st = {}; try{ st = JSON.parse(localStorage.getItem("ck_setFold") || "{}") || {}; }catch(e){ st = {}; }
-  const save = () => { try{ localStorage.setItem("ck_setFold", JSON.stringify(st)); }catch(e){} };
-  const apply = c => { const k = key(c); if(!k) return; c.classList.toggle("fold", !!st[k]); const h = c.querySelector(":scope > h2"); if(h){ h.setAttribute("role", "button"); h.setAttribute("aria-expanded", st[k] ? "false" : "true"); h.tabIndex = 0; } };
+  let st = {}; try{ st = JSON.parse(localStorage.getItem("ck_setFold2") || "{}") || {}; }catch(e){ st = {}; }
+  const save = () => { try{ localStorage.setItem("ck_setFold2", JSON.stringify(st)); }catch(e){} };
+  /* por omissão os cartões abrem encolhidos; guarda a escolha de cada um (1 = encolhido, 0 = aberto) */
+  const folded = k => st[k] === undefined ? true : !!st[k];
+  const apply = c => { const k = key(c); if(!k) return; const f = folded(k); c.classList.toggle("fold", f); const h = c.querySelector(":scope > h2"); if(h){ h.setAttribute("role", "button"); h.setAttribute("aria-expanded", f ? "false" : "true"); h.tabIndex = 0; } };
   const all = () => [...V.querySelectorAll(".setcard")];
-  const set = (c, fold) => { const k = key(c); if(!k) return; if(fold) st[k] = 1; else delete st[k]; apply(c); save(); };
+  const set = (c, fold) => { const k = key(c); if(!k) return; st[k] = fold ? 1 : 0; apply(c); save(); };
   V.addEventListener("click", e => { const h = e.target.closest(".setcard > h2"); if(!h || !V.contains(h)) return; const c = h.parentElement; set(c, !c.classList.contains("fold")); });
   V.addEventListener("keydown", e => { if(e.key !== "Enter" && e.key !== " ") return; const h = e.target.closest && e.target.closest(".setcard > h2"); if(!h) return; e.preventDefault(); h.click(); });
   /* barra «Encolher tudo / Expandir tudo» por baixo do título */
@@ -10157,7 +10163,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     b.innerHTML = '<button class="btn" type="button" id="setFoldAll">Encolher tudo</button><button class="btn" type="button" id="setOpenAll">Expandir tudo</button>';
     t.after(b);
     b.querySelector("#setFoldAll").onclick = () => { all().forEach(c => { const k = key(c); if(k) st[k] = 1; apply(c); }); save(); };
-    b.querySelector("#setOpenAll").onclick = () => { st = {}; all().forEach(apply); save(); };
+    b.querySelector("#setOpenAll").onclick = () => { all().forEach(c => { const k = key(c); if(k) st[k] = 0; apply(c); }); save(); };
   }
   all().forEach(apply);
   /* cartões acrescentados mais tarde por outros módulos */
@@ -10172,17 +10178,19 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 /* ===== Tesla: vídeo entrelaçado (1080i, ex.: Sport TV, Eurosport) por software =====
    O leitor de vídeo do Tesla (descodificação por hardware) não aceita vídeo 1080i: o som entra, a imagem nunca.
    Aqui o hls.js passa a tratar só do som (a faixa de vídeo é escondida da tabela PMT do pedaço) e a imagem é
-   descodificada à parte com WebCodecs por software e desenhada no canvas do ecrã, acertada pelo relógio do som. */
+   descodificada à parte com WebCodecs por software e desenhada num canvas, acertada pelo relógio do som.
+   Desentrelaçamento (WebGL): «Bob» mostra cada campo à vez, 50 imagens/s, com interpolação linear entre linhas;
+   «Linear» mistura as linhas vizinhas (25 imagens/s, sem dentes de pente); «Desligado» mostra a imagem tal como vem. */
 (function(){
   if(window.ANDROID || !window.__TESLA) return;
   try{
   if(typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function") return;
-  const S = [null, null], firstSeq = [-1, -1];
-  const log = (slot, t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
+  const S = {}, firstSeq = {};
+  const deint = () => cfg.deint || "bob";
+  const log = (slot, t, d) => { try{ if(typeof slot === "number") window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
   const crc32 = (d, a, b) => { let c = 0xffffffff; for(let i = a; i < b; i++){ c ^= d[i] << 24; for(let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04c11db7) : (c << 1); c >>>= 0; } return c >>> 0; };
   const pidOf = (d, o) => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
   const payStart = (d, o) => { const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) return -1; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; return p < o + 188 ? p : -1; };
-  /* PAT → PMT → PID do vídeo H.264 */
   const findPids = d => {
     let pmt = -1, vpid = -1;
     for(let o = 0; o + 188 <= d.length && vpid < 0; o += 188){
@@ -10193,23 +10201,19 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }
     return {pmt, vpid};
   };
-  /* esconde a faixa de vídeo ao hls.js: tipo 0x1b → 0x80 (privado) em todas as PMT do pedaço, com CRC novo */
   const hideVideo = (d, pmt, vpid) => {
-    let n = 0;
     for(let o = 0; o + 188 <= d.length; o += 188){
       if(d[o] !== 0x47 || pidOf(d, o) !== pmt || !(d[o + 1] & 0x40)) continue;
       let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
       const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], end = p + 3 + sl; if(end > o + 188 || d[p] !== 2) continue;
       const pil = ((d[p + 10] & 0xf) << 8) | d[p + 11];
-      for(let i = p + 12 + pil; i < end - 4;){ const ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(ep === vpid && d[i] === 0x1b){ d[i] = 0x80; n++; } i += 5 + il; }
+      for(let i = p + 12 + pil; i < end - 4;){ const ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(ep === vpid && d[i] === 0x1b) d[i] = 0x80; i += 5 + il; }
       const c = crc32(d, p, end - 4); d[end - 4] = c >>> 24; d[end - 3] = (c >>> 16) & 255; d[end - 2] = (c >>> 8) & 255; d[end - 1] = c & 255;
     }
-    return n;
   };
-  /* PES de vídeo → pedaços (um por campo/imagem), na ordem de descodificação */
   const pesList = (d, vpid) => {
     const out = []; let cur = null;
-    const close = () => { if(!cur) return; const b = cur.parts.length === 1 ? cur.parts[0] : (() => { let L = 0; cur.parts.forEach(x => L += x.length); const r = new Uint8Array(L); let k = 0; cur.parts.forEach(x => { r.set(x, k); k += x.length; }); return r; })();
+    const close = () => { if(!cur) return; let b; if(cur.parts.length === 1) b = cur.parts[0]; else { let L = 0; cur.parts.forEach(x => L += x.length); b = new Uint8Array(L); let k = 0; cur.parts.forEach(x => { b.set(x, k); k += x.length; }); }
       if(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80)){ const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
         const data = b.slice(9 + b[8]); let key = false; for(let i = 0; i + 4 < Math.min(data.length, 400); i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){ if((data[i + 3] & 0x1f) === 7){ key = true; break; } i += 2; } }
         out.push({pts, data, key}); }
@@ -10223,40 +10227,69 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   const codecOf = data => { for(let i = 0; i + 7 < data.length; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1 && (data[i + 3] & 0x1f) === 7){ const h = x => x.toString(16).padStart(2, "0"); return "avc1." + h(data[i + 4]) + h(data[i + 5]) + h(data[i + 6]); } } return "avc1.640028"; };
 
-  function start(slot){
-    const h = hlsInst[slot]; if(!h) return null;
-    const st = {slot, seq:playSeq[slot], h, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null};
-    try{ h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
+  /* --- desentrelaçador WebGL --- */
+  const VS = "attribute vec2 p;varying vec2 uv;void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}";
+  const FS = "precision mediump float;varying vec2 uv;uniform sampler2D t;uniform float H,par,mode;" +
+    "vec4 row(float r){return texture2D(t,vec2(uv.x,(clamp(r,0.,H-1.)+.5)/H));}" +
+    "void main(){float y=uv.y*H-.5;" +
+    "if(mode<.5){float f=(y-par)/2.;float f0=floor(f);float w=f-f0;float r0=2.*f0+par;gl_FragColor=mix(row(r0),row(r0+2.),w);}" +   /* bob: só as linhas do campo, interpolação linear */
+    "else if(mode<1.5){float r=floor(y+.5);gl_FragColor=row(r)*.5+row(r-1.)*.25+row(r+1.)*.25;}" +                               /* linear: mistura das linhas vizinhas */
+    "else{gl_FragColor=row(floor(y+.5));}}";
+  function mkGl(){
+    try{
+      const cv = document.createElement("canvas"), gl = cv.getContext("webgl", {premultipliedAlpha:false, preserveDrawingBuffer:true, antialias:false}); if(!gl) return null;
+      const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if(!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+      const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); gl.useProgram(pr);
+      const bf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+      const lp = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 2, gl.FLOAT, false, 0, 0);
+      const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
+      [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      const U = {H:gl.getUniformLocation(pr, "H"), par:gl.getUniformLocation(pr, "par"), mode:gl.getUniformLocation(pr, "mode")};
+      let lastF = null;
+      return {cv, render(f, field, mode, ow, oh){
+        if(cv.width !== ow || cv.height !== oh){ cv.width = ow; cv.height = oh; }
+        gl.viewport(0, 0, ow, oh);
+        if(lastF !== f){ gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, f); lastF = f; }
+        gl.uniform1f(U.H, f.displayHeight); gl.uniform1f(U.par, field); gl.uniform1f(U.mode, mode === "bob" ? 0 : mode === "linear" ? 1 : 2);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return cv;
+      }, drop(){ lastF = null; }};
+    }catch(e){ console.log("desentrelaçar", e); return null; }
+  }
+
+  /* key: 0/1 (ecrãs da TV) ou "prev" (pré-visualização do Início). o = {h, v, out(src, w, h), ow, oh} */
+  function start(key, o){
+    const st = {key, o, seq:o.seq, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null, gl:mkGl(), last:"", dur:40000};
+    try{ o.h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
     const mk = () => {
       try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
       st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
-        error:e => { st.errs++; st.needKey = true; log(slot, "erro na imagem por software", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 6){ stop(slot, "erros"); toast("Este canal não deu imagem nem por software. Fica só o som.", true); return; } setTimeout(() => { if(st.on){ mk(); if(st.cfg) try{ st.dec.configure(st.cfg); }catch(x){} } }, 300); }});
+        error:e => { st.errs++; st.needKey = true; log(key, "erro na imagem por software", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 6){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); return; } setTimeout(() => { if(st.on){ mk(); if(st.cfg) try{ st.dec.configure(st.cfg); }catch(x){} } }, 300); }});
     };
     st.mk = mk; mk();
     const loop = () => {
       if(!st.on) return;
-      if(st.seq !== playSeq[slot] || hlsInst[slot] !== st.h){ stop(slot); return; }
+      if(!o.alive()){ stop(key); return; }
       try{ pump(st); draw(st); }catch(e){}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
-    log(slot, "vídeo 1080i: imagem por software", {});
+    log(key, "vídeo 1080i: imagem por software", {desentrelacar:deint(), webgl:!!st.gl});
     return st;
   }
-  function stop(slot, why){
-    const st = S[slot]; if(!st) return; S[slot] = null; st.on = false; cancelAnimationFrame(st.raf);
+  function stop(key){
+    const st = S[key]; if(!st) return; delete S[key]; st.on = false; cancelAnimationFrame(st.raf);
     try{ st.frames.forEach(f => f.close()); if(st.shown) st.shown.close(); }catch(e){}
     try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
-    try{ if(!(typeof mirrorOn !== "undefined" && mirrorOn)) slotBox(slot).classList.remove("mirroring"); }catch(e){}
+    try{ st.o.end && st.o.end(); }catch(e){}
   }
   const usOf = (st, pts) => Math.round((pts / 90000 - st.init) * 1e6);
   function pump(st){
-    const v = $("vid" + st.slot); if(st.init == null || !v) return;
+    const v = st.o.v; if(st.init == null || !v) return;
     const now = v.currentTime * 1e6, p = st.pend;
-    if(!st.cfg){ const k = p.find(x => x.key); if(!k) return; st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true}; try{ st.dec.configure(st.cfg); }catch(e){ st.cfg = null; stop(st.slot); return; } }
+    if(!st.cfg){ const k = p.find(x => x.key); if(!k) return; st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true}; try{ st.dec.configure(st.cfg); }catch(e){ st.cfg = null; stop(st.key); return; } }
     if(st.dec.state === "closed"){ st.mk(); try{ st.dec.configure(st.cfg); }catch(e){} st.needKey = true; }
     if(st.dec.state !== "configured") return;
-    /* muito atrasado (ex.: depois de um salto): recomeça na última imagem-chave já vencida */
     if(p.length && usOf(st, p[0].pts) < now - 2000000){ let k = -1; for(let i = 0; i < p.length && usOf(st, p[i].pts) <= now; i++) if(p[i].key) k = i; if(k > 0){ p.splice(0, k); try{ st.dec.reset(); st.dec.configure(st.cfg); }catch(e){} st.needKey = true; } }
     let n = 0;
     while(p.length && st.dec.decodeQueueSize < 6 && st.frames.length < 8 && n < 12){
@@ -10267,34 +10300,75 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }
   }
   function draw(st){
-    const v = $("vid" + st.slot); if(!v) return;
-    const now = v.currentTime * 1e6 + 20000; let pick = -1;
+    const v = st.o.v; if(!v) return;
+    const now = v.currentTime * 1e6 + 10000; let pick = -1;
     st.frames.sort((a, b) => a.timestamp - b.timestamp);
     for(let i = 0; i < st.frames.length; i++) if(st.frames[i].timestamp <= now) pick = i;
-    if(pick < 0){ if(!st.shown && st.frames.length && v.paused){ pick = 0; } else return; }
-    const f = st.frames[pick]; const old = st.frames.splice(0, pick + 1); old.pop(); old.forEach(x => x.close());
-    if(st.shown) st.shown.close(); st.shown = f;
-    const box = slotBox(st.slot); if(!box.classList.contains("mirroring")) box.classList.add("mirroring");
-    mirDraw(st.slot, f, f.displayWidth, f.displayHeight);
+    if(pick >= 0){
+      const f = st.frames[pick], old = st.frames.splice(0, pick + 1); old.pop(); old.forEach(x => x.close());
+      if(st.shown){ const d = f.timestamp - st.shown.timestamp; if(d > 15000 && d < 90000) st.dur = d; st.shown.close(); }
+      st.shown = f; if(st.gl) st.gl.drop();
+    }
+    const f = st.shown; if(!f) return;
+    let mode = deint(); if(mode === "bob" && st.slow) mode = "linear";
+    /* Bob: 1.º campo (linhas de cima) na primeira metade da imagem, 2.º campo na segunda → 50 imagens/s */
+    const field = mode === "bob" && now - f.timestamp >= st.dur / 2 ? 1 : 0;
+    const tag = f.timestamp + ":" + field + ":" + mode; if(tag === st.last) return; st.last = tag;
+    let src = f;
+    const t0 = performance.now();
+    if(st.gl && mode !== "off"){ try{ const dm = st.o.dims ? st.o.dims(f) : [f.displayWidth, f.displayHeight]; src = st.gl.render(f, field, mode, dm[0], dm[1]); }catch(e){ src = f; } }
+    st.o.out(src, f.displayWidth, f.displayHeight);
+    /* se o processador não aguenta 50 imagens/s, passa sozinho para «Linear» (25/s) neste canal */
+    if(mode === "bob"){ const dt = performance.now() - t0; st.avg = st.avg == null ? dt : st.avg * 0.95 + dt * 0.05; st.nr = (st.nr || 0) + 1;
+      if(st.nr > 60 && st.avg > 14 && !st.slow){ st.slow = true; log(st.key, "desentrelaçar: Bob pesado, passa a Linear", {ms:+st.avg.toFixed(1)}); } }
   }
+  const hookCore = (key, u, r, mk) => {
+    if(window.__svOff) return;
+    let st = S[key];
+    const seq = mk.seq(), first = firstSeq[key] !== seq; firstSeq[key] = seq;
+    if(st && st.seq !== seq){ stop(key); st = null; }
+    if(!st){ if(!first || !r || !r.interlaced) return; const o = mk.make(); if(!o) return; o.seq = seq; st = S[key] = start(key, o); }
+    if(!st.pids || st.pids.vpid < 0) st.pids = findPids(u);
+    if(st.pids.vpid < 0) return;
+    for(const x of pesList(u, st.pids.vpid)) st.pend.push(x);
+    if(st.pend.length > 3000) st.pend.splice(0, st.pend.length - 3000);
+    hideVideo(u, st.pids.pmt, st.pids.vpid);
+  };
   window.__sv = {
+    /* ecrãs da TV (chamado pelo carregador de pedaços do leitor principal) */
     hook(slot, u, r){
-      if(window.__svOff) return;
-      const seq = playSeq[slot], first = firstSeq[slot] !== seq; firstSeq[slot] = seq;
-      let st = S[slot];
-      if(st && st.seq !== seq){ stop(slot); st = null; }
-      if(!st){ if(!first || !r || !r.interlaced || !hlsInst[slot] || (typeof mirrorOn !== "undefined" && mirrorOn)) return; st = S[slot] = start(slot); if(!st) return; }
-      if(!st.pids || st.pids.vpid < 0) st.pids = findPids(u);
-      if(st.pids.vpid < 0) return;
-      const L = pesList(u, st.pids.vpid); for(const x of L) st.pend.push(x);
-      if(st.pend.length > 3000) st.pend.splice(0, st.pend.length - 3000);
-      hideVideo(u, st.pids.pmt, st.pids.vpid);
+      hookCore(slot, u, r, {seq:() => playSeq[slot], make:() => {
+        const h = hlsInst[slot]; if(!h) return null;
+        const dims = f => { const box = slotBox(slot), dpr = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(320, Math.min(f.displayWidth, Math.round((box.clientWidth || 960) * dpr))); return [w, Math.round(w * f.displayHeight / f.displayWidth)]; };
+        return {h, v:$("vid" + slot), dims, alive:() => S[slot] && S[slot].seq === playSeq[slot] && hlsInst[slot] === h,
+          out:(src, w, hh) => { const box = slotBox(slot); if(!box.classList.contains("mirroring")) box.classList.add("mirroring"); mirDraw(slot, src, w, hh); window.__svLast = window.__svLast || {}; window.__svLast[slot] = src; },
+          end:() => { try{ if(!(typeof mirrorOn !== "undefined" && mirrorOn)) slotBox(slot).classList.remove("mirroring"); }catch(e){} }};
+      }});
     },
-    on: slot => !!S[slot],
-    frames: slot => S[slot] ? S[slot].nf : 0,
-    size: slot => S[slot] ? {w:S[slot].w, h:S[slot].hh} : {},
+    /* pré-visualização do Início */
+    hookPrev(P, u, r){
+      hookCore("prev", u, r, {seq:() => P.seqN || 0, make:() => {
+        if(!P.h || !P.v) return null; const h = P.h, a = P.v.parentElement;
+        const cv = document.createElement("canvas"); cv.className = "ahPrev on"; cv.width = 480; cv.height = 270; a.appendChild(cv); const g = cv.getContext("2d");
+        return {h, v:P.v, dims:() => [960, 540], alive:() => P.h === h && cv.isConnected,
+          out:src => { try{ g.drawImage(src, 0, 0, 480, 270); a.classList.add("prev"); }catch(e){} },
+          end:() => { try{ cv.remove(); }catch(e){} }};
+      }});
+    },
+    on: k => !!S[k],
+    frames: k => S[k] ? S[k].nf : 0,
+    size: k => S[k] ? {w:S[k].w, h:S[k].hh} : {},
+    /* última imagem desenhada (para a pré-visualização copiar sem abrir outra ligação) */
+    last: k => S[k] && S[k].gl && S[k].shown ? S[k].gl.cv : (S[k] && S[k].shown) || null,
     stop
   };
+  /* Definições → TV: modo de desentrelaçar */
+  setTimeout(() => { try{
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const l = document.createElement("label"); l.className = "f";
+    l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
+    card.appendChild(l); const sel = $("setDeint"); sel.value = deint(); sel.onchange = () => { cfg.deint = sel.value; saveCfg(); toast("Desentrelaçar: " + sel.options[sel.selectedIndex].text.split(" —")[0]); };
+  }catch(e){} }, 0);
   }catch(e){ console.log("vídeo por software", e); }
 })();
 </script>
