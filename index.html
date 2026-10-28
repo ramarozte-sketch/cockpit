@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v125";
+const APP_VERSION = "v126";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10507,14 +10507,14 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const pidOf = (d, o) => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
   const payStart = (d, o) => { const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) return -1; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; return p < o + 188 ? p : -1; };
   const findPids = d => {
-    let pmt = -1, vpid = -1, vtype = 0;
+    let pmt = -1, vpid = -1, vtype = 0, apid = -1;
     for(let o = 0; o + 188 <= d.length && vpid < 0; o += 188){
       if(d[o] !== 0x47 || !(d[o + 1] & 0x40)) continue;
       const pid = pidOf(d, o); let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
       if(pid === 0 && pmt < 0){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4; i += 4){ if((d[i] << 8) | d[i + 1]){ pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } }
-      else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(d[i] === 0x1b || d[i] === 0x02){ vtype = d[i]; vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; break; } i += 5 + il; } }
+      else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if((d[i] === 0x1b || d[i] === 0x02) && vpid < 0){ vtype = d[i]; vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; } else if([0x0f, 0x11, 0x03, 0x04, 0x81, 0x87, 0x06].includes(d[i]) && apid < 0) apid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; i += 5 + il; } }
     }
-    return {pmt, vpid, vtype};
+    return {pmt, vpid, vtype, apid};
   };
   const hideVideo = (d, pmt, vpid) => {
     for(let o = 0; o + 188 <= d.length; o += 188){
@@ -10540,6 +10540,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }
     close(); return out;
   };
+  /* 1.º PTS de uma faixa no pedaço */
+  const firstPts = (d, pid) => { for(let o = 0; o + 188 <= d.length; o += 188){ if(d[o] !== 0x47 || pidOf(d, o) !== pid || !(d[o + 1] & 0x40)) continue; const p = payStart(d, o); if(p < 0 || p + 14 > o + 188) continue; if(d[p] !== 0 || d[p + 1] !== 0 || d[p + 2] !== 1 || !(d[p + 7] & 0x80)) continue; const q = p + 9; return ((d[q] >> 1) & 7) * 1073741824 + d[q + 1] * 4194304 + (d[q + 2] >> 1) * 32768 + d[q + 3] * 128 + (d[q + 4] >> 1); } return null; };
   const codecOf = data => { for(let i = 0; i + 7 < data.length; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1 && (data[i + 3] & 0x1f) === 7){ const h = x => x.toString(16).padStart(2, "0"); return "avc1." + h(data[i + 4]) + h(data[i + 5]) + h(data[i + 6]); } } return "avc1.640028"; };
 
   /* --- desentrelaçador WebGL --- */
@@ -10593,7 +10595,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(!o.alive()){ stop(key); return; }
       try{ pump(st); draw(st); }catch(e){}
       try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
-          log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
+          log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - (st.vOff || 0) - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
@@ -10607,7 +10609,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{ if(st.ldec && st.L) st.L.ff_free_decoder(st.ldec[1], st.ldec[2], st.ldec[3]); }catch(e){}
     try{ st.o.end && st.o.end(); }catch(e){}
   }
-  const usOf = (st, pts) => Math.round((pts / 90000 - st.init) * 1e6);
+  const usOf = (st, pts) => Math.round((pts / 90000 - (st.vOff || 0) - st.init) * 1e6);
   /* MPEG-2 via libav: descodifica à frente (até ~0,9 s) e converte cada imagem YUV 4:2:0 num VideoFrame */
   const toVideoFrame = (f, us) => {
     const w = f.width, h = f.height; if(!w || !h) return null;
@@ -10693,6 +10695,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const pp = findPids(u), mp2 = pp.vtype === 0x02;
       if(!mp2 && !(r && r.interlaced)) return;
       const o = mk.make(); if(!o) return; o.seq = seq; o.mpeg2 = mp2; st = S[key] = start(key, o); st.pids = pp;
+      /* alguns canais (ex.: Sport TV 2) trazem o vídeo com relógio (PTS) desfasado do som em dezenas de segundos:
+         alinha pelo que chega junto no mesmo pedaço */
+      try{ const vp = firstPts(u, pp.vpid), ap = pp.apid >= 0 ? firstPts(u, pp.apid) : null; if(vp != null && ap != null){ const df = (vp - ap) / 90000; st.vOff = Math.abs(df) > 3 ? df : 0; if(st.vOff) log(key, "imagem por software: relógio do vídeo desfasado do som", {segundos:+df.toFixed(2)}); } }catch(e){}
     }
     if(!st.pids || st.pids.vpid < 0) st.pids = findPids(u);
     if(st.pids.vpid < 0) return;
