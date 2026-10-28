@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Color+Emoji&family=Noto+Sans+Symbols+2&family=Noto+Sans+Symbols&display=swap">
 <script>/* Otimizações de vídeo só no browser do Tesla (o agente do browser inclui «Tesla»); em Diagnóstico podes forçar «sempre» ou «nunca». */
-window.__TESLA = (function(){ var m = "auto"; try{ m = JSON.parse(localStorage.getItem("ck_teslaOpt") || '"auto"'); }catch(e){} if(m === "on") return true; if(m === "off") return false; var ua = navigator.userAgent || ""; return /\bTesla\b/i.test(ua) || /X11; GNU\/Linux/.test(ua); })();</script>
+window.__TESLA = (function(){ var m = "auto"; try{ m = JSON.parse(localStorage.getItem("ck_teslaOpt") || '"auto"'); }catch(e){} if(m === "on") return true; if(m === "off") return false; var ua = navigator.userAgent || ""; if(/\bTesla\b/i.test(ua) || /X11; GNU\/Linux/.test(ua)) return true; /* firmware 2026 (Chromium 148): UA normal de Linux; o Tesla é o único «Linux x86_64» com ecrã tátil */ return /X11; Linux x86_64/.test(ua) && !/Android|CrOS/.test(ua) && (navigator.maxTouchPoints || 0) > 0; })();</script>
 <script>/* hls.js carrega em segundo plano: primeiro a cópia do próprio site (hls.min.js ao lado do index.html), depois as CDN.
    window.__hlsP resolve quando há leitor (ou quando todas as fontes falharam); os canais esperam por ele em vez de falhar. */
 (function(){
@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v114";
+const APP_VERSION = "v115";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8105,7 +8105,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const L = [];
     L.push("Versão: " + APP_VERSION + " · hls.js " + (window.Hls && Hls.version || "— (não carregou)") + (window.__hlsSrc ? " de " + (/^https?:/.test(window.__hlsSrc) ? new URL(window.__hlsSrc).host : "este site") : ""));
   try{ const mv = (channels || []).filter(c => c.kind === "movie"), sr = (channels || []).filter(c => c.kind === "series"); const C = window.__ahCovers; L.push("Capas na lista: filmes " + mv.filter(c => c.logo).length + "/" + mv.length + " · séries " + sr.filter(c => c.logo).length + "/" + sr.length + (C ? " · pedidas ao servidor: " + C.stat.ok + " obtidas, " + C.stat.none + " sem capa, " + C.stat.fail + " erro" : "")); const ex = mv.find(c => c.logo); if(ex) L.push("Exemplo de capa: " + String(ex.logo).slice(0, 90)); }catch(e){}
-  try{ L.push("Otimizações de vídeo do Tesla: " + (window.__TESLA ? "ligadas" : "desligadas") + " (" + ({on:"forçadas", off:"desligadas à mão"}[LS.get("teslaOpt", "auto")] || (/\bTesla\b/i.test(navigator.userAgent) ? "browser do Tesla detetado" : "este browser não é o do Tesla")) + ")"); }catch(e){}
+  try{ L.push("Otimizações de vídeo do Tesla: " + (window.__TESLA ? "ligadas" : "desligadas") + " (" + ({on:"forçadas", off:"desligadas à mão"}[LS.get("teslaOpt", "auto")] || (window.__TESLA ? "browser do Tesla detetado" : "este browser não é o do Tesla")) + ")"); }catch(e){}
   try{ if(window.__codecs) L.push("Codecs: " + window.__codecs()); }catch(e){}
   try{ L.push("Andamento: " + (DRIVE.state === "moving" ? "sim" + (DRIVE.why ? " (" + DRIVE.why + ")" : "") : "não") + " · último estado da Tessie há " + (DRIVE.lastData ? Math.round((Date.now() - DRIVE.lastData) / 1000) + " s" : "—") + (DRIVE.gps && DRIVE.gps.t ? " · GPS " + Math.round(DRIVE.gps.kmh) + " km/h" : "")); }catch(e){}
   try{ const tl = window.__tfixLog ? window.__tfixLog() : []; if(tl.length){ L.push("", "Vídeo no Tesla (recuperações):"); tl.slice().reverse().forEach(x => L.push(" " + x)); } }catch(e){}
@@ -9505,6 +9505,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
           if(cur > 0){ note("descodificação falhou a " + ((h.levels[cur] || {}).height || "?") + "p → desce uma qualidade"); try{ h.removeLevel(cur); h.nextLevel = Math.max(0, cur - 1); h.recoverMediaError(); }catch(e){} return true; }
         }
       }
+      /* a2) o mesmo canal em .ts com o outro leitor (mpegts.js) */
+      if(window.__tTryTs && window.__tTryTs(slot, c)) return true;
       /* b) versão HD/SD do mesmo canal */
       const a1 = typeof altQuality === "function" ? altQuality(c, tried) : null;
       if(a1){ gateOpen(slot, a1, ok, c.name + ": o Tesla não descodifica esta versão."); return true; }
@@ -9812,6 +9814,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const host = u => { try{ return new URL(u).host; }catch(e){ return ""; } };
   const route = u => { const h = host(u); if(!h) return "?"; if(cfg.proxy && h === host(cfg.proxy)) return "proxy 1"; if(cfg.proxy2 && h === host(cfg.proxy2)) return "proxy 2"; return "direto (" + h + ")"; };
   const now = () => new Date().toISOString();
+  const bufStr = v => { try{ const b = v.buffered, o = []; for(let i = 0; i < b.length && i < 6; i++) o.push(b.start(i).toFixed(1) + "-" + b.end(i).toFixed(1)); return o.join(" ") || "vazio"; }catch(e){ return "?"; } };
+  window.__bufStr = bufStr;
   const ev = (slot, type, data) => { const a = DBG.cur[slot]; if(!a) return; if(a.ev.length < 120) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
 
   /* --- uma tentativa por canal escolhido --- */
@@ -9827,7 +9831,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const v = $("vid" + slot);
     try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
       a.fim = {res, ms:Math.round(performance.now() - a.t0), w:v.videoWidth, h:v.videoHeight, t:+(v.currentTime || 0).toFixed(1), frames:q.totalVideoFrames || 0, perdidos:q.droppedVideoFrames || 0,
-        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
+        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
     a.res = res; delete a.t0;
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
@@ -9855,6 +9859,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         me.on(H.Events.MANIFEST_PARSED, (e, d) => ev(me.__slot, "manifesto", {qualidades:(d.levels || []).map(lv), audio:(me.audioTracks || []).map(t => (t.lang || "") + " " + (t.audioCodec || ""))}));
         me.on(H.Events.LEVEL_SWITCHED, (e, d) => { const l = me.levels && me.levels[d.level]; ev(me.__slot, "qualidade", l ? {h:l.height, kbps:Math.round(l.bitrate / 1000)} : {}); });
         let first = true; me.on(H.Events.FRAG_LOADED, (e, d) => { if(!first) return; first = false; const s = d.frag && d.frag.stats || d.stats || {}; ev(me.__slot, "1.º pedaço", {kB:Math.round(((s.loaded || s.total || 0)) / 1024), ms:s.loading ? Math.round(s.loading.end - s.loading.start) : undefined}); });
+        me.on(H.Events.BUFFER_CODECS, (e, d) => { const t = {}; try{ for(const k of Object.keys(d || {})){ const x = d[k]; if(x) t[k] = (x.codec || "") + (x.levelCodec && x.levelCodec !== x.codec ? " (lista " + x.levelCodec + ")" : "") + (x.container ? " " + x.container : "") + (x.metadata && x.metadata.width ? " " + x.metadata.width + "x" + x.metadata.height : "") + (x.metadata && x.metadata.channelCount ? " " + x.metadata.channelCount + "ch" : ""); } }catch(x){} ev(me.__slot, "codecs reais", t); });
+        let firstL = true; me.on(H.Events.LEVEL_LOADED, (e, d) => { if(!firstL) return; firstL = false; const dt = d.details || {}; ev(me.__slot, "lista", {alvo:dt.targetduration, pedacos:(dt.fragments || []).length, direto:!!dt.live}); });
+        let firstB = true; me.on(H.Events.FRAG_BUFFERED, (e, d) => { if(!firstB) return; firstB = false; const f = d.frag || {}; ev(me.__slot, "1.º pedaço no buffer", {inicio:+(f.start || 0).toFixed(1), dur:+(f.duration || 0).toFixed(1)}); });
         me.on(H.Events.ERROR, (e, d) => ev(me.__slot, "erro HLS", {tipo:d.type, det:d.details, fatal:!!d.fatal, http:d.response && d.response.code, motivo:scrub(d.reason || (d.error && d.error.message) || ""), url:red((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || "")}));
       }
       loadSource(u){ ev(this.__slot, "abrir HLS", {rota:route(u), url:red(u)}); this.__u = u; return super.loadSource(u); }
@@ -9883,7 +9890,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- relatório --- */
   const report = async () => {
     let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, mbps:n.downlink, rtt:n.rtt}; }catch(e){}
-    const env = {versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, pagina:location.protocol + "//" + location.host,
+    const env = {versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
       opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
@@ -9892,6 +9899,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
   };
   window.__dbgReport = report;
+  window.__dbgEv = ev;
   const text = r => { const L = []; (r.tentativas || []).slice().reverse().forEach(a => {
       L.push((a.res === "ok" ? "✓" : a.res === "a decorrer" ? "…" : "✗") + " " + a.at.slice(11, 19) + " " + a.ch.name + " [" + a.ch.kind + (a.ch.ext ? " ." + a.ch.ext : "") + "] " + a.res + (a.fim ? " · " + a.fim.ms + " ms · " + a.fim.w + "x" + a.fim.h : ""));
       a.ev.forEach(x => { const d = Object.assign({}, x); delete d.t; delete d.e; L.push("   " + (x.t / 1000).toFixed(1) + " s  " + x.e + " " + JSON.stringify(d).slice(0, 220)); });
@@ -9948,6 +9956,58 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fill(); }catch(e){} return r; };
   }
   }catch(e){ console.log("registo de canais", e); }
+})();
+</script>
+<script>
+/* ===== Tesla: canal que carrega mas fica parado (sem imagem nem som, ex.: Sport TV 1/2) =====
+   Os pedaços chegam ao leitor mas nada é descodificado. 1) salta para o início do que está no buffer;
+   2) se continuar parado, abre o mesmo canal em .ts com o outro leitor (mpegts.js), fechando antes a ligação;
+   3) se também não der, usa as alternativas habituais (outra versão/lista do canal). Só atua quando não há imagem nenhuma. */
+(function(){
+  if(window.ANDROID || !window.__TESLA) return;
+  try{
+  const S = [{}, {}], tsFrom = new Map();
+  /* abre a versão .ts do mesmo canal (uma vez por canal); devolve true se mudou */
+  window.__tTryTs = (slot, c) => {
+    try{
+      if(!c || c.kind !== "live" || !/\/live\/.+\.m3u8(\?|$)/i.test(c.url) || Date.now() - (tsFrom.get(c.url) || 0) < 120000) return false;
+      const c2 = Object.assign({}, c, {url:c.url.replace(/\.m3u8(\?|$)/i, ".ts$1")}); tsFrom.set(c.url, Date.now());
+      log(slot, "sem imagem: muda para .ts (mpegts.js)", {});
+      toast(c.name + ": sem imagem pelo leitor HLS. A tentar o outro leitor…");
+      try{ stopSlot(slot); }catch(e){}
+      const sq = playSeq[slot]; setTimeout(() => { if(sq === playSeq[slot]) playChannel(c2, slot, true); }, 1000);
+      return true;
+    }catch(e){ return false; }
+  };
+  const log = (slot, t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
+  setInterval(() => { [0, 1].forEach(slot => {
+    try{
+      const v = $("vid" + slot), c = lastPlayed && lastPlayed[slot];
+      let st = S[slot];
+      if(!v || !c || c.kind !== "live" || (typeof mirrorOn !== "undefined" && mirrorOn) || drivingEff() || v.paused && v.readyState >= 3){ S[slot] = {}; return; }
+      if(st.url !== c.url || st.seq !== playSeq[slot]){ S[slot] = st = {url:c.url, seq:playSeq[slot], since:0, step:0}; }
+      const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null, frames = q ? q.totalVideoFrames : 0;
+      const dec = (v.webkitVideoDecodedByteCount || 0) + (v.webkitAudioDecodedByteCount || 0);
+      if(frames > 0 || dec > 0){ st.step = 9; return; }       /* está a descodificar: não mexe */
+      if(st.step === 9) return;
+      if(!(v.buffered && v.buffered.length)) return;            /* ainda não chegou nada */
+      if(!st.since){ st.since = Date.now(); return; }
+      const el = Date.now() - st.since;
+      if(st.step === 0 && el > 7000){
+        st.step = 1; const b = v.buffered, i = b.length - 1, ct = v.currentTime; let inside = false;
+        for(let k = 0; k < b.length; k++) if(ct >= b.start(k) && ct < b.end(k)) inside = true;
+        const to = inside ? Math.min(b.end(i) - 0.5, ct + 0.3) : b.start(i) + 0.2;
+        log(slot, "parado: salto no buffer", {de:+ct.toFixed(1), para:+to.toFixed(1), buffer:window.__bufStr ? window.__bufStr(v) : ""});
+        try{ v.currentTime = to; v.play().catch(() => {}); }catch(e){}
+        return;
+      }
+      if(st.step === 1 && el > 14000){
+        st.step = 2; log(slot, "parado: sem imagem nem som", {});
+        if(window.__tDecodeFail) window.__tDecodeFail(slot, c, "sem imagem", () => true);
+      }
+    }catch(e){}
+  }); }, 1000);
+  }catch(e){ console.log("tesla parado", e); }
 })();
 </script>
 </body>
