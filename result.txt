@@ -1,0 +1,176 @@
+6.10.9
+{
+  "latest": "6.10.9"
+}
+0.5.5
+== default
+6.10.9
+12M	v_default/node_modules/@libav.js/variant-default/dist
+-rw-r--r-- 1 runner runner 3466809 Oct 28 15:13 libav-6.10.9.0-default.asm.js
+-rw-r--r-- 1 runner runner   23555 Oct 28 15:13 libav-6.10.9.0-default.js
+-rw-r--r-- 1 runner runner  302102 Oct 28 15:13 libav-6.10.9.0-default.thr.js
+-rw-r--r-- 1 runner runner 1844074 Oct 28 15:13 libav-6.10.9.0-default.thr.wasm
+-rw-r--r-- 1 runner runner  286809 Oct 28 15:13 libav-6.10.9.0-default.wasm.js
+-rw-r--r-- 1 runner runner  286800 Oct 28 15:13 libav-6.10.9.0-default.wasm.mjs
+-rw-r--r-- 1 runner runner 1668743 Oct 28 15:13 libav-6.10.9.0-default.wasm.wasm
+-rw-r--r-- 1 runner runner   23555 Oct 28 15:13 libav-default.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== lite
+4.10.6
+9.9M	v_lite/node_modules/@libav.js/variant-lite/dist
+-rw-r--r-- 1 runner runner 2925277 Oct 28 15:13 libav-4.10.6.1.1-lite.asm.js
+-rw-r--r-- 1 runner runner   17945 Oct 28 15:13 libav-4.10.6.1.1-lite.js
+-rw-r--r-- 1 runner runner  285834 Oct 28 15:13 libav-4.10.6.1.1-lite.simd.js
+-rw-r--r-- 1 runner runner 1398324 Oct 28 15:13 libav-4.10.6.1.1-lite.simd.wasm
+-rw-r--r-- 1 runner runner  304368 Oct 28 15:13 libav-4.10.6.1.1-lite.thr.js
+-rw-r--r-- 1 runner runner 1574681 Oct 28 15:13 libav-4.10.6.1.1-lite.thr.wasm
+-rw-r--r-- 1 runner runner    2911 Oct 28 15:13 libav-4.10.6.1.1-lite.thr.worker.js
+-rw-r--r-- 1 runner runner  304380 Oct 28 15:13 libav-4.10.6.1.1-lite.thrsimd.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== fat
+4.10.6
+18M	v_fat/node_modules/@libav.js/variant-fat/dist
+-rw-r--r-- 1 runner runner 5167718 Oct 28 15:13 libav-4.10.6.1.1-fat.asm.js
+-rw-r--r-- 1 runner runner   17943 Oct 28 15:13 libav-4.10.6.1.1-fat.js
+-rw-r--r-- 1 runner runner  289026 Oct 28 15:13 libav-4.10.6.1.1-fat.simd.js
+-rw-r--r-- 1 runner runner 2701646 Oct 28 15:13 libav-4.10.6.1.1-fat.simd.wasm
+-rw-r--r-- 1 runner runner  307860 Oct 28 15:13 libav-4.10.6.1.1-fat.thr.js
+-rw-r--r-- 1 runner runner 2981860 Oct 28 15:13 libav-4.10.6.1.1-fat.thr.wasm
+-rw-r--r-- 1 runner runner    2911 Oct 28 15:13 libav-4.10.6.1.1-fat.thr.worker.js
+-rw-r--r-- 1 runner runner  307872 Oct 28 15:13 libav-4.10.6.1.1-fat.thrsimd.js
+{"ac3":false,"eac3":false,"aac":true,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== obsolete
+6.10.9
+15M	v_obsolete/node_modules/@libav.js/variant-obsolete/dist
+-rw-r--r-- 1 runner runner 4573110 Oct 28 15:14 libav-6.10.9.0-obsolete.asm.js
+-rw-r--r-- 1 runner runner   23557 Oct 28 15:14 libav-6.10.9.0-obsolete.js
+-rw-r--r-- 1 runner runner  304895 Oct 28 15:14 libav-6.10.9.0-obsolete.thr.js
+-rw-r--r-- 1 runner runner 2600765 Oct 28 15:14 libav-6.10.9.0-obsolete.thr.wasm
+-rw-r--r-- 1 runner runner  289611 Oct 28 15:14 libav-6.10.9.0-obsolete.wasm.js
+-rw-r--r-- 1 runner runner  289603 Oct 28 15:14 libav-6.10.9.0-obsolete.wasm.mjs
+-rw-r--r-- 1 runner runner 2368147 Oct 28 15:14 libav-6.10.9.0-obsolete.wasm.wasm
+-rw-r--r-- 1 runner runner   23557 Oct 28 15:14 libav-obsolete.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":true,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== webcodecs
+6.10.9
+15M	v_webcodecs/node_modules/@libav.js/variant-webcodecs/dist
+-rw-r--r-- 1 runner runner 4679865 Oct 28 15:14 libav-6.10.9.0-webcodecs.asm.js
+-rw-r--r-- 1 runner runner   22811 Oct 28 15:14 libav-6.10.9.0-webcodecs.js
+-rw-r--r-- 1 runner runner  287452 Oct 28 15:14 libav-6.10.9.0-webcodecs.thr.js
+-rw-r--r-- 1 runner runner 2511606 Oct 28 15:14 libav-6.10.9.0-webcodecs.thr.wasm
+-rw-r--r-- 1 runner runner  272159 Oct 28 15:14 libav-6.10.9.0-webcodecs.wasm.js
+-rw-r--r-- 1 runner runner  272152 Oct 28 15:14 libav-6.10.9.0-webcodecs.wasm.mjs
+-rw-r--r-- 1 runner runner 2344846 Oct 28 15:14 libav-6.10.9.0-webcodecs.wasm.wasm
+-rw-r--r-- 1 runner runner   22811 Oct 28 15:14 libav-webcodecs.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== webm
+6.10.9
+15M	v_webm/node_modules/@libav.js/variant-webm/dist
+-rw-r--r-- 1 runner runner 4574448 Oct 28 15:14 libav-6.10.9.0-webm.asm.js
+-rw-r--r-- 1 runner runner   22854 Oct 28 15:14 libav-6.10.9.0-webm.js
+-rw-r--r-- 1 runner runner  293440 Oct 28 15:14 libav-6.10.9.0-webm.thr.js
+-rw-r--r-- 1 runner runner 2413617 Oct 28 15:15 libav-6.10.9.0-webm.thr.wasm
+-rw-r--r-- 1 runner runner  278147 Oct 28 15:14 libav-6.10.9.0-webm.wasm.js
+-rw-r--r-- 1 runner runner  278135 Oct 28 15:15 libav-6.10.9.0-webm.wasm.mjs
+-rw-r--r-- 1 runner runner 2264997 Oct 28 15:15 libav-6.10.9.0-webm.wasm.wasm
+-rw-r--r-- 1 runner runner   22854 Oct 28 15:14 libav-webm.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== webm-vp9
+6.10.9
+19M	v_webm-vp9/node_modules/@libav.js/variant-webm-vp9/dist
+-rw-r--r-- 1 runner runner 6032620 Oct 28 15:15 libav-6.10.9.0-webm-vp9.asm.js
+-rw-r--r-- 1 runner runner   22862 Oct 28 15:15 libav-6.10.9.0-webm-vp9.js
+-rw-r--r-- 1 runner runner  295071 Oct 28 15:15 libav-6.10.9.0-webm-vp9.thr.js
+-rw-r--r-- 1 runner runner 3209109 Oct 28 15:15 libav-6.10.9.0-webm-vp9.thr.wasm
+-rw-r--r-- 1 runner runner  279778 Oct 28 15:15 libav-6.10.9.0-webm-vp9.wasm.js
+-rw-r--r-- 1 runner runner  279770 Oct 28 15:15 libav-6.10.9.0-webm-vp9.wasm.mjs
+-rw-r--r-- 1 runner runner 3033262 Oct 28 15:15 libav-6.10.9.0-webm-vp9.wasm.wasm
+-rw-r--r-- 1 runner runner   22862 Oct 28 15:15 libav-webm-vp9.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== opus
+6.10.9
+8.1M	v_opus/node_modules/@libav.js/variant-opus/dist
+-rw-r--r-- 1 runner runner 2311830 Oct 28 15:15 libav-6.10.9.0-opus.asm.js
+-rw-r--r-- 1 runner runner   22801 Oct 28 15:15 libav-6.10.9.0-opus.js
+-rw-r--r-- 1 runner runner  287113 Oct 28 15:15 libav-6.10.9.0-opus.thr.js
+-rw-r--r-- 1 runner runner 1203422 Oct 28 15:15 libav-6.10.9.0-opus.thr.wasm
+-rw-r--r-- 1 runner runner  271820 Oct 28 15:15 libav-6.10.9.0-opus.wasm.js
+-rw-r--r-- 1 runner runner  271808 Oct 28 15:15 libav-6.10.9.0-opus.wasm.mjs
+-rw-r--r-- 1 runner runner 1092686 Oct 28 15:15 libav-6.10.9.0-opus.wasm.wasm
+-rw-r--r-- 1 runner runner   22801 Oct 28 15:15 libav-opus.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== flac
+6.10.9
+5.9M	v_flac/node_modules/@libav.js/variant-flac/dist
+-rw-r--r-- 1 runner runner 1579076 Oct 28 15:15 libav-6.10.9.0-flac.asm.js
+-rw-r--r-- 1 runner runner   22801 Oct 28 15:15 libav-6.10.9.0-flac.js
+-rw-r--r-- 1 runner runner  282651 Oct 28 15:15 libav-6.10.9.0-flac.thr.js
+-rw-r--r-- 1 runner runner  779029 Oct 28 15:15 libav-6.10.9.0-flac.thr.wasm
+-rw-r--r-- 1 runner runner  267766 Oct 28 15:15 libav-6.10.9.0-flac.wasm.js
+-rw-r--r-- 1 runner runner  267754 Oct 28 15:15 libav-6.10.9.0-flac.wasm.mjs
+-rw-r--r-- 1 runner runner  681932 Oct 28 15:15 libav-6.10.9.0-flac.wasm.wasm
+-rw-r--r-- 1 runner runner   22801 Oct 28 15:15 libav-flac.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== h264-aac
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/@libav.js%2fvariant-h264-aac - Not found
+npm error 404
+npm error 404  '@libav.js/variant-h264-aac@*' is not in this registry.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-28T15_15_21_315Z-debug-0.log
+== h265
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/@libav.js%2fvariant-h265 - Not found
+npm error 404
+npm error 404  '@libav.js/variant-h265@*' is not in this registry.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-28T15_15_22_557Z-debug-0.log
+== vp8-opus
+6.10.9
+10M	v_vp8-opus/node_modules/@libav.js/variant-vp8-opus/dist
+-rw-r--r-- 1 runner runner 2950990 Oct 28 15:15 libav-6.10.9.0-vp8-opus.asm.js
+-rw-r--r-- 1 runner runner   22809 Oct 28 15:15 libav-6.10.9.0-vp8-opus.js
+-rw-r--r-- 1 runner runner  292197 Oct 28 15:15 libav-6.10.9.0-vp8-opus.thr.js
+-rw-r--r-- 1 runner runner 1564494 Oct 28 15:15 libav-6.10.9.0-vp8-opus.thr.wasm
+-rw-r--r-- 1 runner runner  276904 Oct 28 15:15 libav-6.10.9.0-vp8-opus.wasm.js
+-rw-r--r-- 1 runner runner  276896 Oct 28 15:15 libav-6.10.9.0-vp8-opus.wasm.mjs
+-rw-r--r-- 1 runner runner 1436660 Oct 28 15:15 libav-6.10.9.0-vp8-opus.wasm.wasm
+-rw-r--r-- 1 runner runner   22809 Oct 28 15:15 libav-vp8-opus.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== vp9-opus
+6.10.9
+13M	v_vp9-opus/node_modules/@libav.js/variant-vp9-opus/dist
+-rw-r--r-- 1 runner runner 3853767 Oct 28 15:15 libav-6.10.9.0-vp9-opus.asm.js
+-rw-r--r-- 1 runner runner   22809 Oct 28 15:15 libav-6.10.9.0-vp9-opus.js
+-rw-r--r-- 1 runner runner  293027 Oct 28 15:15 libav-6.10.9.0-vp9-opus.thr.js
+-rw-r--r-- 1 runner runner 2047706 Oct 28 15:16 libav-6.10.9.0-vp9-opus.thr.wasm
+-rw-r--r-- 1 runner runner  277734 Oct 28 15:15 libav-6.10.9.0-vp9-opus.wasm.js
+-rw-r--r-- 1 runner runner  277726 Oct 28 15:15 libav-6.10.9.0-vp9-opus.wasm.mjs
+-rw-r--r-- 1 runner runner 1906078 Oct 28 15:16 libav-6.10.9.0-vp9-opus.wasm.wasm
+-rw-r--r-- 1 runner runner   22809 Oct 28 15:15 libav-vp9-opus.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== av1-opus
+6.10.9
+32M	v_av1-opus/node_modules/@libav.js/variant-av1-opus/dist
+-rw-r--r-- 1 runner runner 10518105 Oct 28 15:16 libav-6.10.9.0-av1-opus.asm.js
+-rw-r--r-- 1 runner runner    22809 Oct 28 15:16 libav-6.10.9.0-av1-opus.js
+-rw-r--r-- 1 runner runner   294927 Oct 28 15:16 libav-6.10.9.0-av1-opus.thr.js
+-rw-r--r-- 1 runner runner  5163540 Oct 28 15:16 libav-6.10.9.0-av1-opus.thr.wasm
+-rw-r--r-- 1 runner runner   278788 Oct 28 15:16 libav-6.10.9.0-av1-opus.wasm.js
+-rw-r--r-- 1 runner runner   278780 Oct 28 15:16 libav-6.10.9.0-av1-opus.wasm.mjs
+-rw-r--r-- 1 runner runner  4889482 Oct 28 15:16 libav-6.10.9.0-av1-opus.wasm.wasm
+-rw-r--r-- 1 runner runner    22809 Oct 28 15:16 libav-av1-opus.js
+{"ac3":false,"eac3":false,"aac":false,"mp2":false,"mp3":false,"mpeg2video":false,"h264":false,"hevc":false,"dca":false,"truehd":false}
+== all
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/@libav.js%2fvariant-all - Not found
+npm error 404
+npm error 404  '@libav.js/variant-all@*' is not in this registry.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-28T15_16_06_278Z-debug-0.log
