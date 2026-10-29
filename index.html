@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v135";
+const APP_VERSION = "v136";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10996,25 +10996,18 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const proxBase = () => [window.PHONE_PROXY && window.PHONE_PROXY.base, cfg.proxy2, cfg.proxy].filter(Boolean).map(x => String(x).replace(/\/+$/, ""));
   const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
   const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
-  const safe = el => same(el) || el._ampOk === (el.currentSrc || el.src) || (el.crossOrigin === "anonymous" && proxied(el.currentSrc || el.src));
+  const safe = el => same(el);
   const ctx = () => { if(A.ctx && A.ctx.state !== "closed") return A.ctx; const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; try{ A.ctx = new AC({latencyHint:"playback"}); }catch(e){ A.ctx = null; } return A.ctx; };
   const level = (g, c) => { try{ g.gain.setTargetAtTime(pct() / 100, c.currentTime, 0.05); }catch(e){ g.gain.value = pct() / 100; } };
   const dbg = (el, t, d) => { try{ window.__dbgEv && window.__dbgEv(el && el.id === "vid1" ? 1 : 0, t, d); }catch(e){} };
-  const retry = el => {
-    el._ampTry = 1; const u = el.currentSrc || el.src, t = el.currentTime, was = !el.paused; let done = false;
-    const back = () => { if(done) return; done = true; el._ampCorsFail = true; el.removeAttribute("crossorigin"); el.src = u; try{ el.currentTime = t; }catch(e){} if(was) el.play().catch(() => {});
-      dbg(el, "amplificação: fonte sem CORS", {host:(String(u).match(/^https?:\/\/([^\/]+)/) || [])[1] || ""}); try{ toast("Esta fonte não deixa amplificar (sem CORS). Canais em HLS/MPEG-TS e o som Dolby amplificam."); }catch(e){} };
-    const good = () => { if(done) return; done = true; el.removeEventListener("error", back); el._ampOk = el.currentSrc || el.src; try{ el.currentTime = t; }catch(e){} if(was) el.play().catch(() => {}); apply(el); };
-    el.addEventListener("error", back, {once:true}); el.addEventListener("loadedmetadata", good, {once:true});
-    el.crossOrigin = "anonymous"; el.src = u; };
   const apply = el => {
     try{
       if(!(el instanceof HTMLMediaElement) || el._noAmp) return;
       if(el._amp){ level(el._amp.g, A.ctx); return; }
       if(pct() <= 100 || el._ampBusy || !(el.currentSrc || el.src)) return;
       if(!safe(el)){
-        /* ficheiro direto (filme .mp4/.mkv…): volta a abrir o mesmo ficheiro a pedir CORS, no mesmo ponto; se a fonte não deixar, volta atrás */
-        if(!el._ampTry && !el._ampCorsFail && el.readyState >= 1) retry(el);
+        /* ficheiro direto de outro site: o browser não deixa amplificar sem estragar o som; fica como está */
+        if(!el._ampNote && !el.paused){ el._ampNote = 1; dbg(el, "amplificação: ficheiro direto, não aplicada", {}); }
         return; }
       const c = ctx(); if(!c) return; el._ampBusy = true;
       c.resume().catch(() => {}).then(() => { el._ampBusy = false;
@@ -11029,11 +11022,6 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   A.refresh = () => { all().forEach(apply); };
   ["playing", "loadeddata"].forEach(ev => document.addEventListener(ev, e => apply(e.target), true));
   document.addEventListener("pointerdown", () => { if(pct() > 100){ const c = ctx(); if(c && c.state === "suspended") c.resume().catch(() => {}); } }, true);
-  /* ligações pelo proxy do Cockpit já vêm com CORS: pede o som «limpo» para o poder amplificar */
-  try{ const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src");
-    if(d && d.set) Object.defineProperty(HTMLMediaElement.prototype, "src", {configurable:true, enumerable:d.enumerable, get:d.get, set(v){
-      try{ if(!this._amp && typeof v === "string" && !/^(blob:|data:)/i.test(v)){ if(pct() > 100 && proxied(v)) this.crossOrigin = "anonymous"; else if(this.crossOrigin === "anonymous" && this._ampSet) this.removeAttribute("crossorigin"); this._ampSet = pct() > 100 && proxied(v); } }catch(e){}
-      d.set.call(this, v); }}); }catch(e){}
   setTimeout(() => { try{
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
     const l1 = document.createElement("label"); l1.className = "f";
