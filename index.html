@@ -1118,7 +1118,7 @@ body.layout-atv .rail{display:none}
     <!-- MEDIA -->
     <section class="view" id="v-media" hidden>
       <h1>Media</h1>
-      <div class="banner" id="mediaLock" hidden>🔒 Vídeo bloqueado: o carro está em andamento. YouTube, vídeo por link e trailers voltam quando parares em P. (Rádio, YouTube Music e Spotify continuam disponíveis.)</div>
+      <div class="banner" id="mediaLock" hidden>🔒 Vídeo por link bloqueado: o carro está em andamento. Volta quando parares em P. (YouTube, NOS TV, rádio e Spotify continuam disponíveis.)</div>
       <div class="panel" id="radioPanel">
         <div class="row"><h2>Rádio</h2><span class="spacer"></span>
           <div class="tabs" role="tablist" aria-label="Rádios">
@@ -2644,7 +2644,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v142";
+const APP_VERSION = "v143";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2858,7 +2858,6 @@ function renderTvList(){
   document.getElementById("mvClose").onclick = close;
   document.getElementById("mvGo").onclick = () => { const c = cur; close(); if(!c) return; c.kind === "series" && c.sid ? openSeries(c) : playChannel(c); };
   document.getElementById("mvTrailer").onclick = () => {
-    if(typeof mediaBlocked === "function" && mediaBlocked()){ toast("Vídeo só com o carro parado.", true); return; }
     const t = String(trailer || "").trim();
     const id = /^[\w-]{11}$/.test(t) ? t : ((/(?:v=|youtu\.be\/)([\w-]{11})/.exec(t) || [])[1] || "");
     const q = ((typeof osParse === "function" ? osParse(cur.name).title : "") || cur.name) + " trailer oficial";
@@ -4624,7 +4623,6 @@ function ytSearchOrOpen(q){
   setTimeout(()=>$("ytPanel").scrollIntoView({behavior:"smooth"}), 50);
 }
 function ytPlay(v){
-  if(mediaBlocked()){ toast("Vídeo só com o carro parado.", true); mediaLockUi(); return; }
   ytCurrent = v; $("ytPlayerBox").hidden = false;
   $("ytFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.id)}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(v.title)}"></iframe>`;
   $("ytNow").textContent = v.title; $("ytOpen").href = fsWrap("https://www.youtube.com/watch?v="+encodeURIComponent(v.id));
@@ -5435,16 +5433,15 @@ function tvDriveSync(){
    Áudio (rádio, YouTube Music, Spotify, links .mp3) continua livre. */
 const mediaBlocked = () => tvBlocked();
 const isAudioUrl = u => /\.(mp3|aac|m4a|ogg|opus|flac|wav)(\?|#|$)/i.test(String(u||""));
-const isVideoSite = u => { try{ const h = new URL(String(u), location.href).hostname.replace(/^www\./, ""); return h === "youtube.com" || h === "m.youtube.com" || h === "youtu.be" || h === "rtp.pt" || /(^|\.)nostv\.pt$/.test(h); }catch(e){ return false; } };
+const isVideoSite = u => { try{ const h = new URL(String(u), location.href).hostname.replace(/^www\./, ""); return h === "rtp.pt"; }catch(e){ return false; } };   /* YouTube e NOS TV ficam livres em andamento */
 function mediaLockUi(){ const el = $("mediaLock"); if(el) el.hidden = !mediaBlocked(); }
 let mediaWasBlocked = false;
 function mediaDriveSync(){
   const b = mediaBlocked();
   if(b && !mediaWasBlocked){
     mediaWasBlocked = true;
-    try{ $("ytFrame").innerHTML = ""; $("ytPlayerBox").hidden = true; ytCurrent = null; }catch(e){}
     try{ if(!isAudioUrl(mediaLastUrl)){ if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){ mediaHls.destroy(); mediaHls = null; } const v = $("mediaVid"); v.pause(); v.removeAttribute("src"); v.load(); v.hidden = true; } }catch(e){}
-    try{ if(currentView === "media") toast("Em andamento: vídeo parado."); }catch(e){}
+    try{ if(currentView === "media") toast("Em andamento: vídeo por link parado."); }catch(e){}
   } else if(!b) mediaWasBlocked = false;
   mediaLockUi();
 }
@@ -5512,7 +5509,7 @@ function passengerImport(){
 const APPS = {
   waze: {name:"Waze", url:"https://www.waze.com/live-map/"},
   google_maps: {name:"Google Maps", url:"https://www.google.com/maps"},
-  nos_tv: {name:"NOS TV", url:"https://nostv.pt/", stream:true},
+  nos_tv: {name:"NOS TV", url:"https://nostv.pt/"},
   netflix: {name:"Netflix", url:"https://www.netflix.com/", login:"https://www.netflix.com/login", stream:true},
   primevideo: {name:"Prime Video", url:"https://www.primevideo.com/", login:"https://www.primevideo.com/", stream:true},
   disney: {name:"Disney+", url:"https://www.disneyplus.com/", login:"https://www.disneyplus.com/login", stream:true},
@@ -5609,7 +5606,7 @@ function openApp(id){
   // e depois a NOS TV abre dentro do Cockpit, se a NOS deixar usar essa sessão aqui.
   if(id === "nos_tv"){
     if(!cfg.appsIn){ openExt(a.url); return true; }
-    openInApp("NOS TV", a.url, a.url, {stream:true, hint:"Sem sessão? Faz login numa página própria e volta", extra:{label:"Fazer login", ext:NOS_LOGIN}});
+    openInApp("NOS TV", a.url, a.url, {hint:"Sem sessão? Faz login numa página própria e volta", extra:{label:"Fazer login", ext:NOS_LOGIN}});
     return true;
   }
   if(!cfg.appsIn){ openExt(a.url); return true; }
@@ -6484,7 +6481,7 @@ const ATV_APPS = [
   {n:"Netflix", i:"N", c:"#e50914,#4a0207", f:()=>openApp("netflix"), s:1},
   {n:"Prime Video", i:"▶", c:"#00a8e1,#05344a", f:()=>openApp("primevideo"), s:1},
   {n:"Disney+", i:"✦", c:"#2a5bd7,#0b1b4d", f:()=>openApp("disney"), s:1},
-  {n:"NOS TV", i:"📡", c:"#7b3fe4,#2a1260", f:()=>openApp("nos_tv"), s:1},
+  {n:"NOS TV", i:"📡", c:"#7b3fe4,#2a1260", f:()=>openApp("nos_tv")},
   {n:"Música e rádio", i:"🎵", c:"#1db954,#08331a", f:()=>show("media")},
   {n:"Podcasts", i:"🎙️", c:"#c04bd8,#40104d", f:()=>openApp("podcasts")},
   {n:"Jogos", i:"🎮", c:"#f59f00,#5c3a00", f:()=>show("games")},
@@ -8195,7 +8192,7 @@ function dkRender(){
 function dkLaunch(t){
   if(t.kind==="view"){ show(t.id); return; }
   if(t.kind==="app"){ openApp(t.id); return; }
-  if(gamesLocked()){ toast("Só com o carro parado.", true); return; }
+  if(gamesLocked() && !(t.kind==="web" && /(^|\/\/)(www\.|m\.)?youtube\.com/i.test(dkNorm(t.url)))){ toast("Só com o carro parado.", true); return; }
   if(t.kind==="cast"){ dkCast(); return; }
   const u = dkNorm(t.url); if(!u) return;
   if(t.win) dkWeb(t, u); else window.open(u, "_blank", "noopener");
