@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v134";
+const APP_VERSION = "v135";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10996,22 +10996,33 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const proxBase = () => [window.PHONE_PROXY && window.PHONE_PROXY.base, cfg.proxy2, cfg.proxy].filter(Boolean).map(x => String(x).replace(/\/+$/, ""));
   const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
   const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
-  const safe = el => same(el) || (el.crossOrigin === "anonymous" && proxied(el.currentSrc || el.src));
+  const safe = el => same(el) || el._ampOk === (el.currentSrc || el.src) || (el.crossOrigin === "anonymous" && proxied(el.currentSrc || el.src));
   const ctx = () => { if(A.ctx && A.ctx.state !== "closed") return A.ctx; const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; try{ A.ctx = new AC({latencyHint:"playback"}); }catch(e){ A.ctx = null; } return A.ctx; };
   const level = (g, c) => { try{ g.gain.setTargetAtTime(pct() / 100, c.currentTime, 0.05); }catch(e){ g.gain.value = pct() / 100; } };
+  const dbg = (el, t, d) => { try{ window.__dbgEv && window.__dbgEv(el && el.id === "vid1" ? 1 : 0, t, d); }catch(e){} };
+  const retry = el => {
+    el._ampTry = 1; const u = el.currentSrc || el.src, t = el.currentTime, was = !el.paused; let done = false;
+    const back = () => { if(done) return; done = true; el._ampCorsFail = true; el.removeAttribute("crossorigin"); el.src = u; try{ el.currentTime = t; }catch(e){} if(was) el.play().catch(() => {});
+      dbg(el, "amplificação: fonte sem CORS", {host:(String(u).match(/^https?:\/\/([^\/]+)/) || [])[1] || ""}); try{ toast("Esta fonte não deixa amplificar (sem CORS). Canais em HLS/MPEG-TS e o som Dolby amplificam."); }catch(e){} };
+    const good = () => { if(done) return; done = true; el.removeEventListener("error", back); el._ampOk = el.currentSrc || el.src; try{ el.currentTime = t; }catch(e){} if(was) el.play().catch(() => {}); apply(el); };
+    el.addEventListener("error", back, {once:true}); el.addEventListener("loadedmetadata", good, {once:true});
+    el.crossOrigin = "anonymous"; el.src = u; };
   const apply = el => {
     try{
       if(!(el instanceof HTMLMediaElement) || el._noAmp) return;
       if(el._amp){ level(el._amp.g, A.ctx); return; }
-      if(pct() <= 100 || el._ampBusy) return;
-      if(!safe(el)){ if(!A.warned++) try{ toast("Esta ligação direta não permite amplificar o som (regra do browser)."); }catch(e){} return; }
+      if(pct() <= 100 || el._ampBusy || !(el.currentSrc || el.src)) return;
+      if(!safe(el)){
+        /* ficheiro direto (filme .mp4/.mkv…): volta a abrir o mesmo ficheiro a pedir CORS, no mesmo ponto; se a fonte não deixar, volta atrás */
+        if(!el._ampTry && !el._ampCorsFail && el.readyState >= 1) retry(el);
+        return; }
       const c = ctx(); if(!c) return; el._ampBusy = true;
       c.resume().catch(() => {}).then(() => { el._ampBusy = false;
         if(c.state !== "running" || el._amp || pct() <= 100 || !safe(el)) return;
         const src = c.createMediaElementSource(el), g = c.createGain(), cp = c.createDynamicsCompressor();
         cp.threshold.value = -6; cp.knee.value = 4; cp.ratio.value = 12; cp.attack.value = 0.003; cp.release.value = 0.15;
         src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; level(g, c);
-        try{ window.__dbgEv && window.__dbgEv(el.id === "vid1" ? 1 : 0, "amplificação ligada", {pct:pct(), el:el.id}); }catch(e){} });
+        dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors"}); });
     }catch(e){ el._ampBusy = false; }
   };
   const all = () => document.querySelectorAll("video,audio");
@@ -11033,7 +11044,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const s1 = $("setDolbyVoice"), s2 = $("setAmp");
     s1.value = String(cfg.dolbyVoice == null ? 1 : cfg.dolbyVoice); s1.onchange = () => { cfg.dolbyVoice = +s1.value; saveCfg(); toast("Voz Dolby: " + s1.options[s1.selectedIndex].text.split(" (")[0]); };
     s2.value = String(pct()); if(s2.value !== String(pct())) s2.value = "100";
-    s2.onchange = () => { cfg.ampPct = +s2.value; saveCfg(); A.refresh(); toast(cfg.ampPct > 100 ? "Amplificação: " + cfg.ampPct + " % (limitador ligado)" : "Amplificação desligada"); };
+    s2.onchange = () => { cfg.ampPct = +s2.value; saveCfg(); A.refresh();
+      if(cfg.ampPct <= 100){ toast("Amplificação desligada"); return; }
+      setTimeout(() => { const on = [...document.querySelectorAll("video,audio")].filter(e => e._amp && !e.paused), pcm = !!document.querySelector("video") && window.__sa && (window.__sa.on(0) || window.__sa.on(1));
+        if(on.length || pcm) toast("Amplificação " + cfg.ampPct + " % ativa (limitador ligado)"); else if(![...document.querySelectorAll("video,audio")].some(e => !e.paused && !e._noAmp)) toast("Amplificação " + cfg.ampPct + " %: aplica-se ao próximo canal ou filme"); }, 2200); };
   }catch(e){} }, 0);
 }catch(e){ console.log("amplificação", e); } })();
 </script>
