@@ -2644,7 +2644,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v143";
+const APP_VERSION = "v144";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -7763,9 +7763,18 @@ function trkAudioList(slot){
   return {kind:"none", items:[]};
 }
 function trkSetAudio(slot, kind, i){
+  /* filmes e episódios: trocar a faixa não pode mexer na posição (se o leitor recuar, repõe-na) */
+  const v = $("vid"+slot), c = lastPlayed[slot], keep = c && c.kind !== "live" && v && isFinite(v.currentTime) ? v.currentTime : -1, seq = playSeq[slot];
   if(kind === "hls") hlsInst[slot].audioTrack = i;
   else if(kind === "native") [...$("vid"+slot).audioTracks].forEach((t,k) => { t.enabled = k === i; });
+  if(keep > 3){
+    [500, 1400, 3000, 6000].forEach(ms => setTimeout(() => { try{
+      if(playSeq[slot] !== seq) return;
+      if(v.currentTime < keep - 4){ try{ window.__dbgEv && window.__dbgEv(slot, "faixa trocada: posição reposta", {de:+v.currentTime.toFixed(1), para:+keep.toFixed(1)}); }catch(e){} v.currentTime = keep; }
+    }catch(e){} }, ms));
+  }
 }
+
 function trkSubList(slot){
   const h = hlsInst[slot], v = $("vid"+slot), items = [];
   if(h && h.subtitleTracks && h.subtitleTracks.length > 0) h.subtitleTracks.forEach((t,i) => items.push({kind:"hls", i, name:trkName(t,i), on:h.subtitleTrack === i && h.subtitleDisplay !== false}));
