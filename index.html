@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v137";
+const APP_VERSION = "v138";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2905,9 +2905,14 @@ const resCap = () => { const b = ({"2160":2160,"1080":1080,"720":720,"480":480})
 function applyCaps(){ [0, 1].forEach(sl => { const h = hlsInst[sl]; if(!h || !h.levels) return; let idx = -1; h.levels.forEach((l, i) => { if(!l.height || l.height <= resCap()) idx = Math.max(idx, i); }); try{ h.autoLevelCapping = idx; }catch(e){} }); }
 const chQual = n => { const t = String(n||"").normalize("NFKD").toLowerCase(); return /\b(uhd|4k)\b/.test(t) ? 4 : /\bfhd\b|1080/.test(t) ? 3 : /\bsd\b|576/.test(t) ? 1 : 2; };
 const autoTried = [new Set(), new Set()];
+/* canais que o servidor entrega em HEVC e este browser não descodifica: lembrados para não perder tempo a abri-los de novo */
+const HEVC_OK = () => !!(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'));
+const hevcBad = (() => { let a = []; try{ a = JSON.parse(localStorage.getItem("ck_hevcBad") || "[]") || []; }catch(e){} return new Set(a); })();
+const hevcMark = u => { if(!u || hevcBad.has(u)) return; hevcBad.add(u); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){} };
+const hevcSkip = u => !HEVC_OK() && hevcBad.has(u);
 function altQuality(c, tried){
   const b = chBase(c.name), q = chQual(c.name); if(!b) return null;
-  return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
+  return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && !hevcSkip(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
 }
 /* Alternativas para canais públicos: tenta outra emissão do mesmo canal quando o manifesto HLS falha (ex.: CORS). */
 function freeAltQuality(c, tried){
@@ -2950,6 +2955,10 @@ function playChannel(c, slot=tvTarget, auto=false){
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
+  if(c.kind==="live" && !HEVC_OK() && (chQual(c.name)===4 || hevcBad.has(c.url))){   /* sem HEVC neste browser: nem abre, vai logo à versão que ele descodifica */
+    const alt = altQuality(c, autoTried[slot]) || (window.__altFor && window.__altFor(c, autoTried[slot]));
+    if(alt && alt.url !== c.url){ autoTried[slot].add(c.url); toast(`${c.name} é HEVC e este browser não o descodifica. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
+  }
   if(c.kind==="live" && chQual(c.name)===4 && (resCap() < 2160 || (window.__TESLA && !(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'))))){ // 4K → versão FHD/HD do mesmo canal, se existir
     const alt = altQuality(c, new Set());
     if(alt){ toast(`${c.name}: a abrir ${alt.name} (limite de ${resCap()}p nas Definições).`); playChannel(alt, slot, true); return; }
@@ -3082,6 +3091,9 @@ function playChannel(c, slot=tvTarget, auto=false){
         v.play().catch(()=>{});
       });
       h.on(Hls.Events.ERROR, (ev, d)=>{
+        /* HEVC em MPEG-TS que o browser não descodifica: não adianta tentar recuperar, passa logo à alternativa */
+        if(playId === playSeq[slot] && d.details === "fragParsingError" && /Unsupported HEVC/i.test(String(d.reason || (d.error && d.error.message) || ""))){
+          if(!h.__hevc){ h.__hevc = 1; hevcMark(c.url); fail("HLS", "vídeo em HEVC/H.265"); } return; }
         if(!d.fatal || playId!==playSeq[slot]) return;
         const code = d.response?.code || 0;
         if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
@@ -3158,6 +3170,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   v.muted = slot!==audioSlot; if(slot === audioSlot) v.volume = 1;
   v.play().catch(()=>{});
   audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
+  if(!live && /\.mkv(\?|$)/i.test(c.url) && window.__libav) setTimeout(() => { try{ window.__libav().catch(() => {}); }catch(e){} }, 200);   /* aquece o descodificador Dolby: se o som for AC-3 já está pronto */
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
   if(mirrorOn) startMirror(slot);
   updateCinemaBar(); keepAwake(true);
@@ -4249,10 +4262,10 @@ function audioWatch(slot, c, playId, viaHls){
   clearInterval(audioWatchT[slot]); if(!c || (c.kind === "live" && !window.__TESLA)) return;
   const v = $("vid" + slot); let ticks = 0;
   audioWatchT[slot] = setInterval(() => {
-    if(playId !== playSeq[slot] || ++ticks > 12){ clearInterval(audioWatchT[slot]); return; }
+    if(playId !== playSeq[slot] || ++ticks > 24){ clearInterval(audioWatchT[slot]); return; }
     if(window.__sa && window.__sa.on(slot)){ if(window.__sa.n(slot) > 0) clearInterval(audioWatchT[slot]); return; }
     if(!noAudioNow(v)) { if(typeof v.webkitAudioDecodedByteCount === "number" && v.webkitAudioDecodedByteCount > 0) clearInterval(audioWatchT[slot]); return; }
-    if(ticks < (c.kind === "live" ? 6 : 3)) return; // dá tempo ao arranque
+    if(ticks < (c.kind === "live" ? 12 : 4)) return; // dá tempo ao arranque
     clearInterval(audioWatchT[slot]);
     const h = hlsInst[slot], tr = h && h.audioTracks ? h.audioTracks : [];
     if(tr.length > 1){
@@ -4271,7 +4284,7 @@ function audioWatch(slot, c, playId, viaHls){
     if(viaHls && viaHls()) { toast("O áudio deste ficheiro (AC3/DTS) não é suportado. A tentar a versão HLS do servidor…"); return; }
     const msg = "Este filme não tem som porque o áudio usa um formato que o browser do Tesla não descodifica (AC3, E-AC3, DTS ou TrueHD). Procura outra versão do filme com áudio AAC, ou escolhe outra faixa em 🎚 Áudio.";
     toast(msg, true); const bx = $("epgBox"); if(bx) bx.innerHTML = `<b>${slot ? "USER 2" : "USER 1"}: ${esc(c.name)}</b><div class="small" style="margin-top:4px">${esc(msg)}</div>`;
-  }, 1000);
+  }, 500);
 }
 /* ---------- Formatos de ficheiro ---------- */
 const VID_EXT = /\.(mp4|m4v|mov|mkv|webm|ogv|avi|wmv|flv|mpe?g|3gp|vob|m2ts|mts)(\?|#|$)/i;
@@ -9532,7 +9545,7 @@ body.pfull.ctlOn #vExit{opacity:1}
   window.__altFor = (c, tried) => {
     try{
       if(!c || c.kind !== "live") return null; const k = nzn(c.name); if(!k) return null;
-      return channels.find(x => x && x.kind === "live" && x.url !== c.url && !(tried && tried.has(x.url)) && nzn(x.name) === k && !(P && P.blocks(x))) || null;
+      return channels.find(x => x && x.kind === "live" && x.url !== c.url && !(tried && tried.has(x.url)) && !hevcSkip(x.url) && nzn(x.name) === k && !(P && P.blocks(x))) || null;
     }catch(e){ return null; }
   };
 
