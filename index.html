@@ -1464,9 +1464,10 @@ body.layout-atv .rail{display:none}
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
           <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
           <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="setTessieOn"> Ligação à Tessie ativa</label>
-          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser.</p>
+          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro) e não bloqueia nada em andamento, a não ser que ligues o bloqueio pelo GPS abaixo.</p>
+          <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="setGpsOn"> Com a Tessie desligada, bloquear em andamento pelo GPS do browser</label>
           <label class="f">Velocidade de bloqueio pelo GPS<select id="setGpsKmh"></select></label>
-          <p class="small muted" style="margin:0">Com a Tessie desligada ou sem resposta, a TV bloqueia acima desta velocidade (3 leituras seguidas do GPS) e desbloqueia 30 s depois de parar. Com a Tessie ligada, bloqueia sempre em D, R ou N.</p>
+          <p class="small muted" style="margin:0">Com a Tessie ligada mas sem resposta (ou desligada com o bloqueio pelo GPS ativo), a TV bloqueia acima desta velocidade (3 leituras seguidas do GPS) e desbloqueia 30 s depois de parar. Com a Tessie ligada, bloqueia sempre em D, R ou N.</p>
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
         </div>
       <div class="panel setcard">
@@ -2647,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v156";
+const APP_VERSION = "v157";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6991,6 +6992,7 @@ function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.
 (function(){ const sel = $("setGpsKmh"); if(!sel) return; const vs = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120];
   sel.innerHTML = vs.map(v => '<option value="' + v + '">' + v + ' km/h' + (v === 50 ? ' (por omissão)' : '') + '</option>').join(""); sel.value = String(+cfg.gpsLockKmh || 50);
   sel.onchange = () => { cfg.gpsLockKmh = +sel.value; saveCfg(); toast("Bloqueio pelo GPS acima de " + sel.value + " km/h"); };
+  const go = $("setGpsOn"); if(go){ go.checked = !!cfg.gpsLockOn; go.onchange = () => { cfg.gpsLockOn = go.checked; saveCfg(); toast(go.checked ? "Tessie desligada: bloqueio pelo GPS ativo" : "Tessie desligada: sem bloqueio em andamento"); }; }
 })();
 (function(){ const cb = $("setTessieOn"), nt = $("tessieOffNote"); if(!cb) return; const paint = () => { cb.checked = !cfg.tessieOff; nt.style.display = cfg.tessieOff ? "" : "none"; }; paint();
   cb.onchange = () => { cfg.tessieOff = !cb.checked; saveCfg(); paint(); toast(cfg.tessieOff ? "Ligação à Tessie desligada. O bloqueio em andamento usa o GPS." : "Ligação à Tessie ligada."); try{ loadState(); driveLoop(true); }catch(e){} };
@@ -10294,7 +10296,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   /* GPS do browser como reserva quando a Tessie não responde (nunca desbloqueia contra a Tessie atual) */
   let gid = null;
-  const gpsNeed = () => (!demo() || !!cfg.tessieOff) && !cfg.passenger && navigator.geolocation && typeof geoWatch === "function" && (D.state === "moving" || Date.now() - D.lastData > 120000 || cfg.tessieOff) && driveWatching();
+  const gpsNeed = () => (!demo() || !!cfg.tessieOff) && !cfg.passenger && navigator.geolocation && typeof geoWatch === "function" && (D.state === "moving" || Date.now() - D.lastData > 120000 || cfg.tessieOff) && (!cfg.tessieOff || !!cfg.gpsLockOn) && driveWatching();
   const gpsOn = () => {
     if(gid != null) return;
     try{ gid = geoWatch(pos => {
@@ -10310,6 +10312,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{
       if(gpsNeed()) gpsOn(); else gpsOff();
       const now = Date.now(), stale = now - D.lastData > 120000 || !!cfg.tessieOff, g = D.gps, fresh = now - g.t < 10000;
+      if(cfg.tessieOff && !cfg.gpsLockOn){ if(D.state === "moving"){ D.why = ""; driveSet("park"); } return; }   /* Tessie desligada e sem bloqueio pelo GPS: nunca fica em andamento */
       if(!stale || !fresh) return;
       if(D.state !== "moving" && g.fast >= 3){ D.why = "GPS " + Math.round(g.kmh) + " km/h, " + (cfg.tessieOff ? "Tessie desligada" : "Tessie sem resposta"); D.parkSince = 0; driveSet("moving"); }
       else if(D.state === "moving" && g.slowSince && now - g.slowSince > 30000){ D.why = ""; driveSet("park"); }
