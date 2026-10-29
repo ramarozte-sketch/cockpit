@@ -1459,7 +1459,9 @@ body.layout-atv .rail{display:none}
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
           <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
           <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="setTessieOn"> Ligação à Tessie ativa</label>
-          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser (acima de 50 km/h).</p>
+          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser.</p>
+          <label class="f">Velocidade de bloqueio pelo GPS<select id="setGpsKmh"></select></label>
+          <p class="small muted" style="margin:0">Com a Tessie desligada ou sem resposta, a TV bloqueia acima desta velocidade (3 leituras seguidas do GPS) e desbloqueia 30 s depois de parar. Com a Tessie ligada, bloqueia sempre em D, R ou N.</p>
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
         </div>
       <div class="panel setcard">
@@ -2639,7 +2641,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v130";
+const APP_VERSION = "v131";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6729,6 +6731,10 @@ $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
 function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setMaxRes").value=String(cfg.maxRes||"1080"); }
+(function(){ const sel = $("setGpsKmh"); if(!sel) return; const vs = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120];
+  sel.innerHTML = vs.map(v => '<option value="' + v + '">' + v + ' km/h' + (v === 50 ? ' (por omissão)' : '') + '</option>').join(""); sel.value = String(+cfg.gpsLockKmh || 50);
+  sel.onchange = () => { cfg.gpsLockKmh = +sel.value; saveCfg(); toast("Bloqueio pelo GPS acima de " + sel.value + " km/h"); };
+})();
 (function(){ const cb = $("setTessieOn"), nt = $("tessieOffNote"); if(!cb) return; const paint = () => { cb.checked = !cfg.tessieOff; nt.style.display = cfg.tessieOff ? "" : "none"; }; paint();
   cb.onchange = () => { cfg.tessieOff = !cb.checked; saveCfg(); paint(); toast(cfg.tessieOff ? "Ligação à Tessie desligada. O bloqueio em andamento usa o GPS." : "Ligação à Tessie ligada."); try{ loadState(); driveLoop(true); }catch(e){} };
 })();
@@ -10022,7 +10028,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const c = pos.coords; let kmh = (c.speed != null && isFinite(c.speed)) ? c.speed * 3.6 : null;
       if(kmh == null) return;
       const g = D.gps; g.kmh = kmh; g.t = Date.now(); g.acc = c.accuracy || 999;
-      if(g.acc < 60 && kmh > 50) g.fast++; else g.fast = 0;   /* GPS: bloqueia acima de 50 km/h em 3 leituras seguidas */
+      if(g.acc < 60 && kmh > (+cfg.gpsLockKmh || 50)) g.fast++; else g.fast = 0;   /* GPS: bloqueia acima da velocidade das Definições (50 km/h por omissão) em 3 leituras seguidas */
       if(g.acc < 80 && kmh < 2){ if(!g.slowSince) g.slowSince = Date.now(); } else g.slowSince = 0;
     }, () => {}); }catch(e){ gid = null; }
   };
