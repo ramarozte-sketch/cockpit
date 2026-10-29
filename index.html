@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v148";
+const APP_VERSION = "v149";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10920,7 +10920,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       /* HEVC por software: se o processador não segue o ritmo do vídeo, desiste e passa a uma versão que o browser descodifique */
       try{ if(st.hevc && st.nf > 0){ const tn = performance.now();
           if(!st.g0) st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
-          else if(tn - st.g0.t > 8000){ const fps = (st.nf + (st.sk || 0) - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
+          else if(tn - st.g0.t > 5000){ const fps = (st.nf + (st.sk || 0) - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
             log(key, "HEVC por software: ritmo", {fps:+fps.toFixed(1), preciso:+want.toFixed(0), w:st.w, h:st.hh, leve:!!st.lite, saltadas:st.sk || 0});
             st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
             if(fps < want * 0.6 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
@@ -10982,9 +10982,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         const nowU = v.currentTime * 1e6;
         for(const f of out){ if(f.format != null && f.format !== 0){ st.errs++; continue; } const vf = toVideoFrame(f, (f.pts != null ? f.pts : 0) * 1000);
           if(vf && st.hevc){ const tn = performance.now(); if(!st.lw0) st.lw0 = tn;
-            if(tn - st.lw0 > 6000){ /* os primeiros segundos chegam sempre atrasados (arranque): só conta depois */
+            if(tn - st.lw0 > 4000){ /* os primeiros segundos chegam sempre atrasados (arranque): só conta depois */
               const w = st.lw || (st.lw = {t:tn, n:0, late:0}); w.n++; if(nowU - vf.timestamp > 120000) w.late++;
-              if(tn - w.t > 3000){ const bad = w.n >= 20 && w.late / w.n > .25; st.lbad = bad ? (st.lbad || 0) + 1 : 0;
+              if(tn - w.t > 2000){ const bad = w.n >= 10 && w.late / w.n > .25; st.lbad = bad ? (st.lbad || 0) + 1 : 0; if(bad && !st.lite) log(st.key, "HEVC por software: atrasado", {atrasadas:w.late, de:w.n});
                 if(!st.lite && st.lbad >= 2){ st.lite = true; log(st.key, "HEVC por software: modo leve", {atrasadas:w.late, de:w.n}); try{ toast("HEVC por software a custo: a saltar imagens não essenciais para ficar fluido."); }catch(e){} } st.lw = null; } } }
           if(vf){ st.nf++; st.w = vf.displayWidth; st.hh = vf.displayHeight; st.frames.push(vf); if(st.frames.length > 12) st.frames.shift().close(); } }
       }
