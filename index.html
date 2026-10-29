@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v154";
+const APP_VERSION = "v155";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3078,6 +3078,9 @@ function playChannel(c, slot=tvTarget, auto=false){
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
       if(window.__TESLA) h.on(Hls.Events.FRAG_LOADED, () => { try{ const t = Date.now(); if(t - (window.__bwT || 0) > 15000 && h.bandwidthEstimate > 0){ window.__bwT = t; LS.set("bwEst", Math.round(h.bandwidthEstimate)); } }catch(e){} });
+      /* direto a chegar ao limite do buffer (pedaços curtos, ligação a oscilar): recua uns segundos dentro do que já está em memória, para ter folga */
+      if(live) h.on(Hls.Events.ERROR, (e, d) => { try{ if(!d || d.details !== "bufferStalledError" || d.fatal) return; const n = h.__cush || 0; if(n >= 3 || Date.now() - (h.__cushAt || 0) < 15000 || Date.now() - (h.__t0c || (h.__t0c = Date.now())) < 0) return;
+        const t = v.currentTime; for(let i = 0; i < v.buffered.length; i++){ const b0 = v.buffered.start(i), b1 = v.buffered.end(i); if(t >= b0 - 0.1 && t <= b1 + 0.3){ const to = Math.max(b0 + 0.5, t - 6); if(to < t - 1.5){ h.__cush = n + 1; h.__cushAt = Date.now(); v.currentTime = to; try{ if(window.__dbgEv) window.__dbgEv(slot, "folga no direto", {recua:+(t - to).toFixed(1), vez:n + 1}); }catch(x){} } return; } } }catch(x){} });
       /* arranque sem soluço: o vídeo costuma começar uns 0,1 s depois do som; se o ponto de reprodução ficou antes do início do vídeo, salta esse buraco já */
       try{ const t0 = Date.now(), fixHole = () => { try{ if(Date.now() - t0 > 8000 || !v.buffered.length) return; const t = v.currentTime; for(let i = 0; i < v.buffered.length; i++){ const b = v.buffered.start(i); if(b > t && b - t < 0.8){ v.currentTime = b + 0.03; return; } } }catch(e){} };
         h.on(Hls.Events.FRAG_BUFFERED, () => { fixHole(); setTimeout(fixHole, 120); }); let nn = 0, onWait = () => { fixHole(); if(nn >= 3 || Date.now() - t0 > 8000) return; const t1 = v.currentTime; setTimeout(() => { try{ if(v.readyState < 3 && !v.paused && Math.abs(v.currentTime - t1) < 0.02){ for(let i = 0; i < v.buffered.length; i++) if(v.buffered.start(i) <= t1 + 0.05 && v.buffered.end(i) > t1 + 1){ nn++; v.currentTime = t1 + 0.08; return; } } }catch(e){} }, 200); };
