@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v136";
+const APP_VERSION = "v137";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3976,7 +3976,8 @@ function mkvRun(slot, st, src, audio){
         const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(/EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec); st.clock = new window.__PcmClock(v); st.aq = []; st.n = 0;
         st.mkvInfo = {codec:trk.codec};
         toast("Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
-        const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ const x = st.aq.shift(), fr = __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
+        const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - v.currentTime > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
+              const x = st.aq.shift(), fr = __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               const out = await L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}); let t = x.ts / 1e6;
               for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue; pl = __downmix(pl); st.clock.push(pl, sr, t); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); } st.abusy = false; };
         st.drain = drain;
@@ -4001,11 +4002,12 @@ function mkvRun(slot, st, src, audio){
       let pos = 0, pend = new Uint8Array(0), pendAt = 0, tc = 0, lastTs = 0, resync = false, gen = 0;
       const seekTo = t => {
         gen++; try{ st.abort && st.abort.abort(); }catch(e){}
+        if(audio){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }
         for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null;
         let at = first > 0 ? first : seg; resync = false;
         if(cues.length){ let c = cues[0]; for(const x of cues){ if(x.t <= t + 0.05) c = x; else break; } at = c.pos; lastTs = c.t * 1e6; }
         else if(t > 1 && dur && st.size){ at = Math.max(first > 0 ? first : seg, Math.floor(seg + (t * 1e9 / scale) / dur * (st.size - seg)) - (1 << 20)); resync = true; lastTs = 0; }
-        pos = at; pend = new Uint8Array(0); pendAt = at; tc = 0;
+        pos = at; pend = new Uint8Array(0); pendAt = at; tc = 0; st.seekDbg = {t:+t.toFixed(1), at, resync, size:st.size || 0, cues:cues.length};
       };
       st.onSeek = () => { if(alive()) seekTo(v.currentTime || 0); };
       v.addEventListener("seeking", st.onSeek);
@@ -4021,7 +4023,7 @@ function mkvRun(slot, st, src, audio){
       };
       while(alive() && (audio || mirrorOn)){
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, v.currentTime * 1e6);
-        if(lastTs > master + 12e6){ await sleep(150); continue; }
+        if(lastTs > master + (audio ? 9e6 : 12e6)){ if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
         try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
@@ -10853,12 +10855,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
           this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
         if(this.agc) this.agc.gain.value = this.gA;
-        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100}); } }catch(e){}
+        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
       let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < 0.08) ? this.endCtx : anchor;
-      if(at + dur < c.currentTime + 0.01 || at > c.currentTime + 10){ this.endT = -1; return; }
+      if(at + dur < c.currentTime + 0.01 || at > c.currentTime + 10){ this.endT = -1; this.drops = (this.drops || 0) + 1; return; }
       const b = c.createBuffer(planes.length, n, sr); planes.forEach((p, i) => b.copyToChannel(p, i));
       const s = c.createBufferSource(); s.buffer = b; s.connect(this.g);
       let skip = 0; if(at < c.currentTime){ skip = c.currentTime - at; at = c.currentTime; }
