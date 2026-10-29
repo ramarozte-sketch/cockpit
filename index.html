@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v155";
+const APP_VERSION = "v156";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3094,7 +3094,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
     let viaProxy = !(DIRECT_VIDEO() || (c.free && /^https:/i.test(c.url) && HASPX()));
-    const ref = refFor(c); let via2 = false;
+    const ref = refFor(c); let via2 = false, r458 = 0;
     let direct = null, resolveTried = false; // direct: endereço final tocado sem proxy (quando o servidor de vídeo bloqueia a Cloudflare)
     let h = mk(), retried = false, reloads = 0, mediaFixes = 0;
     const wire = h => {
@@ -3122,6 +3122,8 @@ function playChannel(c, slot=tvTarget, auto=false){
           if(mediaFixes===1){ mediaFixes++; h.swapAudioCodec(); h.recoverMediaError(); return; }
           fail("HLS", "o browser não consegue descodificar este vídeo"); return;
         }
+        /* 458 = o servidor ainda tem a ligação anterior aberta (a conta só tem 1): espera um pouco e repete pela mesma rota, que é a mais estável, antes de passar à outra */
+        if(code===458 && r458 < 1 && (d.type===Hls.ErrorTypes.NETWORK_ERROR)){ r458++; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 1800); return; }
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
         // O servidor de vídeo recusa a Cloudflare (403): pergunta ao proxy para onde redireciona e liga o Tesla diretamente.
         // Falhou pelo 1.º proxy (bloqueio, resposta vazia ou manifesto inválido): tenta o 2.º proxy, se existir.
