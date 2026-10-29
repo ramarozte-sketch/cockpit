@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v149";
+const APP_VERSION = "v150";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10972,7 +10972,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const now = v.currentTime * 1e6, p = st.pend, [, c, pkt, frame] = st.ldec;
       if(p.length && usOf(st, p[0].pts) < now - 3000000){ let k = -1; for(let i = 0; i < p.length && usOf(st, p[i].pts) <= now; i++) if(p[i].key) k = i; if(k > 0) p.splice(0, k); }
       const batch = [];
-      while(p.length && batch.length < 8 && st.frames.length < 8 && usOf(st, p[0].pts) <= now + 900000){ const x = p.shift();
+      while(p.length && batch.length < 4 && st.frames.length < 24 && usOf(st, p[0].pts) <= now + 1600000){   /* lotes pequenos e muita antecedência: absorvem as oscilações do processador */ const x = p.shift();
         /* modo leve (processador lento): não descodifica as imagens que nenhuma outra usa como referência — ritmo mais baixo mas certo, em vez de saltos */
         if(st.hevc){ const inf = hevcInfo(x.data); if(inf){ if(inf.tid > (st.maxTid || 0)) st.maxTid = inf.tid;
             if(st.lite && !x.key && inf.t < 16 && (inf.t & 1) === 0 && inf.tid >= (st.maxTid || 0) && usOf(st, x.pts) < now + 450000){   /* só quando já está atrasado em relação à imagem */ st.sk = (st.sk || 0) + 1; continue; } } }
@@ -10986,7 +10986,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
               const w = st.lw || (st.lw = {t:tn, n:0, late:0}); w.n++; if(nowU - vf.timestamp > 120000) w.late++;
               if(tn - w.t > 2000){ const bad = w.n >= 10 && w.late / w.n > .25; st.lbad = bad ? (st.lbad || 0) + 1 : 0; if(bad && !st.lite) log(st.key, "HEVC por software: atrasado", {atrasadas:w.late, de:w.n});
                 if(!st.lite && st.lbad >= 2){ st.lite = true; log(st.key, "HEVC por software: modo leve", {atrasadas:w.late, de:w.n}); try{ toast("HEVC por software a custo: a saltar imagens não essenciais para ficar fluido."); }catch(e){} } st.lw = null; } } }
-          if(vf){ st.nf++; st.w = vf.displayWidth; st.hh = vf.displayHeight; st.frames.push(vf); if(st.frames.length > 12) st.frames.shift().close(); } }
+          if(vf){ st.nf++; st.w = vf.displayWidth; st.hh = vf.displayHeight; st.frames.push(vf); if(st.frames.length > 40) st.frames.shift().close(); } }
       }
     }catch(e){ st.errs++; log(st.key, "MPEG-2: erro", {msg:String(e.message || e).slice(0, 120)}); }
     st.busy = false;
