@@ -1118,6 +1118,7 @@ body.layout-atv .rail{display:none}
     <!-- MEDIA -->
     <section class="view" id="v-media" hidden>
       <h1>Media</h1>
+      <div class="banner" id="mediaLock" hidden>🔒 Vídeo bloqueado: o carro está em andamento. YouTube, vídeo por link e trailers voltam quando parares em P. (Rádio, YouTube Music e Spotify continuam disponíveis.)</div>
       <div class="panel" id="radioPanel">
         <div class="row"><h2>Rádio</h2><span class="spacer"></span>
           <div class="tabs" role="tablist" aria-label="Rádios">
@@ -1895,6 +1896,7 @@ function show(view){
   if(view==="pod" && typeof podEnter === "function") podEnter();
   if(view==="engine" && typeof engUi === "function") engUi();
   if(view==="tv" && typeof tvLockUi === "function") tvLockUi();
+  if(view==="media" && typeof mediaLockUi === "function") mediaLockUi();
   if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
   if(view==="car") loadHealth(false);
   if(view==="mail" && mailLoadedAcct !== mailAcct) mailLoad();
@@ -2642,7 +2644,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v141";
+const APP_VERSION = "v142";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2856,6 +2858,7 @@ function renderTvList(){
   document.getElementById("mvClose").onclick = close;
   document.getElementById("mvGo").onclick = () => { const c = cur; close(); if(!c) return; c.kind === "series" && c.sid ? openSeries(c) : playChannel(c); };
   document.getElementById("mvTrailer").onclick = () => {
+    if(typeof mediaBlocked === "function" && mediaBlocked()){ toast("Vídeo só com o carro parado.", true); return; }
     const t = String(trailer || "").trim();
     const id = /^[\w-]{11}$/.test(t) ? t : ((/(?:v=|youtu\.be\/)([\w-]{11})/.exec(t) || [])[1] || "");
     const q = ((typeof osParse === "function" ? osParse(cur.name).title : "") || cur.name) + " trailer oficial";
@@ -4550,7 +4553,7 @@ const DEFAULT_FAVS = [
 ];
 let mfavs = LS.get("mfavs", DEFAULT_FAVS);
 const fsWrap = url => $("fsTrick").checked ? "https://www.youtube.com/redirect?q="+encodeURIComponent(url) : url;
-function openUrl(url){ const a=document.createElement("a"); a.href=fsWrap(url); a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
+function openUrl(url){ if(mediaBlocked() && isVideoSite(url)){ toast("Vídeo só com o carro parado.", true); mediaLockUi(); return; } const a=document.createElement("a"); a.href=fsWrap(url); a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove(); }
 function openYoutube(q){ openUrl("https://www.youtube.com/results?search_query="+encodeURIComponent(q)); }
 $("ytForm").onsubmit = e => { e.preventDefault(); const q=$("ytQ").value.trim(); if(q) ytSearchOrOpen(q); };
 function renderFavs(){
@@ -4561,8 +4564,8 @@ function renderFavs(){
 $("btnAddFav").onclick = ()=>{ $("favForm").hidden = !$("favForm").hidden; };
 $("favForm").onsubmit = e => { e.preventDefault(); const n=$("favName").value.trim(), u=$("favUrl").value.trim(); if(!n||!u) return; mfavs.push({name:n,url:u}); LS.set("mfavs",mfavs); $("favName").value=$("favUrl").value=""; $("favForm").hidden=true; renderFavs(); };
 let mediaHls=null;
-let mediaStop = null;
-$("urlForm").onsubmit = async e => { e.preventDefault(); const u=$("mediaUrl").value.trim(); if(!u) return; const v=$("mediaVid"); v.hidden=false; if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){mediaHls.destroy();mediaHls=null;} v.removeAttribute("src"); mediaStop = await playMediaUrl(directUrl(u), v, why => toast("Não consegui tocar: " + why + ". " + (fmtHint(u) || "Confirma o endereço."), true)); };
+let mediaStop = null, mediaLastUrl = "";
+$("urlForm").onsubmit = async e => { e.preventDefault(); const u=$("mediaUrl").value.trim(); if(!u) return; if(mediaBlocked() && !isAudioUrl(u)){ toast("Vídeo só com o carro parado.", true); mediaLockUi(); return; } const v=$("mediaVid"); v.hidden=false; if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){mediaHls.destroy();mediaHls=null;} v.removeAttribute("src"); mediaLastUrl = u; mediaStop = await playMediaUrl(directUrl(u), v, why => toast("Não consegui tocar: " + why + ". " + (fmtHint(u) || "Confirma o endereço."), true)); };
 
 /* ---------- YouTube na app ---------- */
 let ytFavs = LS.get("ytfavs", []), ytCurrent = null, ytLoaded = false;
@@ -4621,6 +4624,7 @@ function ytSearchOrOpen(q){
   setTimeout(()=>$("ytPanel").scrollIntoView({behavior:"smooth"}), 50);
 }
 function ytPlay(v){
+  if(mediaBlocked()){ toast("Vídeo só com o carro parado.", true); mediaLockUi(); return; }
   ytCurrent = v; $("ytPlayerBox").hidden = false;
   $("ytFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.id)}?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(v.title)}"></iframe>`;
   $("ytNow").textContent = v.title; $("ytOpen").href = fsWrap("https://www.youtube.com/watch?v="+encodeURIComponent(v.id));
@@ -5425,6 +5429,24 @@ function tvDriveSync(){
   if(blocked && !drivingNow){ drivingNow = true; tvHaltPlayback(); }
   else if(!blocked) drivingNow = false;
   tvLockUi();
+  try{ mediaDriveSync(); }catch(e){}
+}
+/* Mesma regra da TV para o vídeo do ecrã Media: YouTube na app, vídeo por link e trailers.
+   Áudio (rádio, YouTube Music, Spotify, links .mp3) continua livre. */
+const mediaBlocked = () => tvBlocked();
+const isAudioUrl = u => /\.(mp3|aac|m4a|ogg|opus|flac|wav)(\?|#|$)/i.test(String(u||""));
+const isVideoSite = u => { try{ const h = new URL(String(u), location.href).hostname.replace(/^www\./, ""); return h === "youtube.com" || h === "m.youtube.com" || h === "youtu.be" || h === "rtp.pt" || /(^|\.)nostv\.pt$/.test(h); }catch(e){ return false; } };
+function mediaLockUi(){ const el = $("mediaLock"); if(el) el.hidden = !mediaBlocked(); }
+let mediaWasBlocked = false;
+function mediaDriveSync(){
+  const b = mediaBlocked();
+  if(b && !mediaWasBlocked){
+    mediaWasBlocked = true;
+    try{ $("ytFrame").innerHTML = ""; $("ytPlayerBox").hidden = true; ytCurrent = null; }catch(e){}
+    try{ if(!isAudioUrl(mediaLastUrl)){ if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){ mediaHls.destroy(); mediaHls = null; } const v = $("mediaVid"); v.pause(); v.removeAttribute("src"); v.load(); v.hidden = true; } }catch(e){}
+    try{ if(currentView === "media") toast("Em andamento: vídeo parado."); }catch(e){}
+  } else if(!b) mediaWasBlocked = false;
+  mediaLockUi();
 }
 /* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
