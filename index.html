@@ -2637,7 +2637,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v127";
+const APP_VERSION = "v128";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3946,6 +3946,7 @@ function mkvRun(slot, st, src, audio){
   st.decoder = decoder;
   const get = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
     const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; } return new Uint8Array(await r.arrayBuffer()); };
+  const RR = rangeReader(src, st);
   (async () => {
     try{
       /* 1) cabeçalho: EBML, Segment, SeekHead, Info, Tracks */
@@ -4015,10 +4016,10 @@ function mkvRun(slot, st, src, audio){
       };
       while(alive() && (audio || mirrorOn)){
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, v.currentTime * 1e6);
-        if(lastTs > master + 6e6){ await sleep(250); continue; }
+        if(lastTs > master + 12e6){ await sleep(150); continue; }
         if(st.size && pos >= st.size){ await sleep(1000); continue; }
-        const g = gen, a = pos; st.abort = new AbortController(); let buf;
-        try{ buf = await get(a, CH, st.abort.signal); }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
+        const g = gen, a = pos; let buf;
+        try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
         if(!alive()) return; if(g !== gen) continue;
         st.segs = (st.segs || 0) + 1; pos = a + buf.length;
         /* junta ao que sobrou (contíguo) e analisa */
@@ -4047,11 +4048,37 @@ function mkvRun(slot, st, src, audio){
     }catch(e){ if(alive()){ st.err = "mkv: " + (e.message || e); toast((audio ? "Som Dolby: " : "Imagem em andamento: ") + st.err, true); } }
   })();
 }
+/* Leitura contínua de um ficheiro (filmes na imagem em andamento): UMA ligação aberta (Range bytes=N-) lida aos poucos,
+   em vez de pedidos de 2 MB um a um (cada pedido novo demorava e a imagem parava à espera). Se não se lê, a rede abranda
+   sozinha (o servidor espera); num salto fecha-se e abre-se outra a partir da nova posição. */
+function rangeReader(src, st){
+  const R = {pos:-1, rd:null, eof:false, ctl:null};
+  R.reset = () => { try{ R.ctl && R.ctl.abort(); }catch(e){} R.rd = null; R.pos = -1; };
+  R.read = async (a, max) => {
+    try{
+      if(!R.rd || R.pos !== a){
+        R.reset(); R.ctl = new AbortController(); st.abort = R.ctl; R.eof = false;
+        const r = await fetch(src, {headers:{Range:"bytes=" + a + "-"}, signal:R.ctl.signal});
+        if(r.status === 416){ R.eof = true; return null; }
+        if(r.status === 200 && a > 0){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); }
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; }
+        R.rd = r.body.getReader(); R.pos = a;
+      }
+      const parts = []; let n = 0; const want = Math.min(max || (1 << 20), 384 * 1024);
+      while(n < want){ const x = await R.rd.read(); if(x.done){ R.rd = null; R.eof = true; break; } parts.push(x.value); n += x.value.length; }
+      R.pos += n;
+      if(parts.length === 1) return parts[0];
+      const out = new Uint8Array(n); let k = 0; for(const x of parts){ out.set(x, k); k += x.length; } return out;
+    }catch(e){ R.rd = null; R.pos = -1; throw e; }
+  };
+  return R;
+}
 function mp4Run(slot, st, src){
   loadMirLibs().then(ok=>{
     if(!ok || MIR[slot]!==st) return;
     const v = $("vid"+slot), DS = window.DataStream || MP4Box.DataStream, CH = 1<<21, sleep = ms => new Promise(r=>setTimeout(r, ms));
-    const file = MP4Box.createFile(); st.file = file; st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
+    const file = MP4Box.createFile(); st.file = file; const RR = rangeReader(src, st); st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
     const decoder = new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
       output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; st.q.push(frame); while(st.q.length>12){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; },
@@ -4094,16 +4121,14 @@ function mp4Run(slot, st, src){
     (async () => {
       while(MIR[slot]===st && mirrorOn){
         const master = st.masterUs!=null ? st.masterUs : v.currentTime*1e6;
-        if(ready && lastTs > master + 6e6){ await sleep(250); continue; }
-        const a = pos; st.abort = new AbortController();
+        if(ready && lastTs > master + 12e6){ await sleep(150); continue; }
+        const a = pos;
         let buf;
         try{
-          const r = await fetch(src, {headers:{Range:`bytes=${a}-${a+CH-1}`}, signal:st.abort.signal});
-          if(r.status===200){ try{ r.body && r.body.cancel(); }catch(e){} st.err = "o servidor não aceita leitura parcial (Range)"; return; }
-          if(r.status===416){ await sleep(1000); continue; }
-          if(!r.ok){ st.err = "HTTP "+r.status; await sleep(2000); continue; }
-          buf = await r.arrayBuffer();
-        }catch(e){ if(e.name!=="AbortError"){ st.err = "rede: "+(e.message||e); await sleep(2000); } continue; }
+          const u8 = await RR.read(a, CH);
+          if(!u8 || !u8.byteLength){ await sleep(1000); continue; }
+          buf = u8.buffer.byteLength === u8.byteLength && u8.byteOffset === 0 ? u8.buffer : u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+        }catch(e){ if(e.name!=="AbortError"){ st.err = "rede: "+(e.message||e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
         if(MIR[slot]!==st) return;
         if(pos!==a) continue; // houve um salto entretanto
         st.segs = (st.segs||0)+1;
@@ -4111,7 +4136,7 @@ function mp4Run(slot, st, src){
         const nx = file.appendBuffer(buf);
         if(!wasReady){ if(!ready) pos = nx || a+buf.byteLength; }
         else if(pos===a) pos = a+buf.byteLength;
-        if(wasReady && buf.byteLength < CH) await sleep(1000); // fim do ficheiro
+        if(wasReady && RR.eof) await sleep(1000); // fim do ficheiro
       }
     })();
   });
@@ -9837,6 +9862,22 @@ body.ahStuck #v-tvinicio .ahHeroBt .ahBtn{min-height:38px;padding:6px 14px;font-
 body.ahStuck #v-tvinicio .ahKind{min-width:0}
 body.ahStuck #v-tvinicio #ahRows>.ahKinds .ahBtn{min-height:40px;padding:6px 16px;font-size:15px}
 body.ahStuck #v-tvinicio .ahFsHint{display:none}
+/* browser estreito (Tesla com o browser em metade do ecrã): o destaque fica em linha (imagem à esquerda, texto à direita)
+   em vez de empilhado — senão a imagem ocupa o ecrã todo e a barra Live/Filmes/Séries fica por cima do vídeo */
+@media (max-width:900px) and (min-width:561px){
+  #v-tvinicio .ahHero{flex-direction:row!important;align-items:center!important;gap:16px!important;padding:14px 16px!important;min-height:0!important}
+  #v-tvinicio .ahHeroArt{flex:0 0 48%!important;width:auto!important;max-width:none}
+  #v-tvinicio .ahHeroTx{min-width:0}
+  #v-tvinicio .ahHeroTx h2{font-size:clamp(18px,3.4vw,30px)!important;white-space:normal!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #v-tvinicio .ahHeroTx p{font-size:14px}
+  #v-tvinicio .ahHeroBt{flex-wrap:wrap;gap:8px}
+  body.ahStuck #v-tvinicio .ahHeroArt{flex:0 0 34%!important}
+}
+/* muito estreito (telemóvel): empilhado, mas ao rolar a imagem encolhe na largura (não na altura) */
+@media (max-width:560px){
+  body.ahStuck #v-tvinicio .ahHero{flex-direction:row!important;align-items:center!important}
+  body.ahStuck #v-tvinicio .ahHeroArt{flex:0 0 40%!important;width:auto!important}
+}
 </style>
 <script>
 (function(){
