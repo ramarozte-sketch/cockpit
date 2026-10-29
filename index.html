@@ -1458,6 +1458,8 @@ body.layout-atv .rail{display:none}
           <label class="f">Token da API Tessie (tessie.com › Settings › API)<input type="password" id="setToken" autocomplete="off"></label>
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
           <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
+          <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="setTessieOn"> Ligação à Tessie ativa</label>
+          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser.</p>
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
         </div>
       <div class="panel setcard">
@@ -1945,7 +1947,7 @@ function driveSet(st){
 }
 function driveUpdate(fresh){
   const now = Date.now();
-  if(typeof demo === "function" && demo()){ driveSet("park"); return; }
+  if(typeof demo === "function" && demo()){ if(!cfg.tessieOff) driveSet("park"); return; }   /* Tessie desligada: o estado vem do GPS do browser */
   const ds = car && car.drive_state;
   if(fresh && ds){
     DRIVE.lastData = now; driveChip();
@@ -1960,7 +1962,7 @@ function driveUpdate(fresh){
   }
 }
 setInterval(() => { driveUpdate(false); try{ tvDriveSync(); }catch(e){} }, 2000);
-const demo = () => !cfg.token || !cfg.vin;
+const demo = () => !cfg.token || !cfg.vin || !!cfg.tessieOff;   /* sem Tessie (ou desligada nas Definições): sem pedidos à API */
 let car = null;
 const demoState = {
   display_name:"Tesla (exemplo)",
@@ -2025,7 +2027,7 @@ async function loadState(){
   try{
     car = await tessie((demo()?"x":cfg.vin)+"/state");
     driveUpdate(true);
-    renderCar(); setChip("chipCar", demo()?"warn":"ok", demo()?"Demonstração":(car.display_name||"Ligado"));
+    renderCar(); setChip("chipCar", demo()?"warn":"ok", demo()?(cfg.tessieOff?"Tessie desligada":"Demonstração"):(car.display_name||"Ligado"));
   }catch(e){ setChip("chipCar","bad","Carro: erro"); toast(e.message, true); }
 }
 function setChip(id, cls, text){ const c=$(id); c.className="chip "+cls; c.querySelector("span").textContent=text; }
@@ -2637,7 +2639,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v128";
+const APP_VERSION = "v129";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5346,7 +5348,7 @@ document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.r
 
 /* ---------- TV bloqueada com o carro em andamento (o modo "só áudio" foi removido) ---------- */
 let drivingNow = false;
-const tvBlocked = () => !cfg.passenger && !demo() && drivingEff();
+const tvBlocked = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff();
 function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !tvBlocked(); }
 function tvHaltPlayback(){ try{ stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false); }catch(e){} }
 /* Valores fixos: verificação em repouso de 10 em 10 s (mín. de 60 em 60 s com a TV/Jogos/Desktop abertos) e 6 s em P para desbloquear. */
@@ -5363,7 +5365,7 @@ function tvDriveSync(){
 /* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
-function driveWatching(){ try{ return ["tv","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] ); }catch(e){ return true; } }
+function driveWatching(){ try{ return ["tv","tvinicio","games","desktop"].includes(currentView) || !!(lastPlayed[0] || lastPlayed[1] ); }catch(e){ return true; } }
 let driveBusy = null;
 function driveCheckNow(){
   if(driveBusy) return driveBusy;
@@ -6727,6 +6729,9 @@ $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
 function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setMaxRes").value=String(cfg.maxRes||"1080"); }
+(function(){ const cb = $("setTessieOn"), nt = $("tessieOffNote"); if(!cb) return; const paint = () => { cb.checked = !cfg.tessieOff; nt.style.display = cfg.tessieOff ? "" : "none"; }; paint();
+  cb.onchange = () => { cfg.tessieOff = !cb.checked; saveCfg(); paint(); toast(cfg.tessieOff ? "Ligação à Tessie desligada. O bloqueio em andamento usa o GPS." : "Ligação à Tessie ligada."); try{ loadState(); driveLoop(true); }catch(e){} };
+})();
 $("btnSaveTesla").onclick = ()=>{ cfg.token=$("setToken").value.trim(); cfg.vin=$("setVin").value.trim().toUpperCase(); saveCfg(); toast("Guardado"); loadState(); };
 $("btnFindVin").onclick = async ()=>{
   cfg.token=$("setToken").value.trim(); if(!cfg.token){ toast("Cola primeiro o token Tessie.", true); return; }
@@ -10010,7 +10015,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   /* GPS do browser como reserva quando a Tessie não responde (nunca desbloqueia contra a Tessie atual) */
   let gid = null;
-  const gpsNeed = () => !demo() && !cfg.passenger && navigator.geolocation && typeof geoWatch === "function" && (D.state === "moving" || Date.now() - D.lastData > 120000) && driveWatching();
+  const gpsNeed = () => (!demo() || !!cfg.tessieOff) && !cfg.passenger && navigator.geolocation && typeof geoWatch === "function" && (D.state === "moving" || Date.now() - D.lastData > 120000 || cfg.tessieOff) && driveWatching();
   const gpsOn = () => {
     if(gid != null) return;
     try{ gid = geoWatch(pos => {
@@ -10025,7 +10030,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   setInterval(() => {
     try{
       if(gpsNeed()) gpsOn(); else gpsOff();
-      const now = Date.now(), stale = now - D.lastData > 120000, g = D.gps, fresh = now - g.t < 10000;
+      const now = Date.now(), stale = now - D.lastData > 120000 || !!cfg.tessieOff, g = D.gps, fresh = now - g.t < 10000;
       if(!stale || !fresh) return;
       if(D.state !== "moving" && g.fast >= 3){ D.why = "GPS " + Math.round(g.kmh) + " km/h, Tessie sem resposta"; D.parkSince = 0; driveSet("moving"); }
       else if(D.state === "moving" && g.slowSince && now - g.slowSince > 30000){ D.why = ""; driveSet("park"); }
