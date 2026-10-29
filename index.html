@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v140";
+const APP_VERSION = "v141";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2909,7 +2909,8 @@ const autoTried = [new Set(), new Set()];
 const HEVC_OK = () => !!(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'));
 const hevcBad = (() => { let a = []; try{ a = JSON.parse(localStorage.getItem("ck_hevcBad") || "[]") || []; }catch(e){} return new Set(a); })();
 const hevcMark = u => { if(!u || hevcBad.has(u)) return; hevcBad.add(u); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){} };
-const hevcSkip = u => !HEVC_OK() && hevcBad.has(u);
+const hevcSess = new Set();   /* só nesta sessão: o computador ficou perto do ritmo mas não chegou lá */
+const hevcSkip = u => !HEVC_OK() && (hevcBad.has(u) || hevcSess.has(u));
 function altQuality(c, tried){
   const b = chBase(c.name), q = chQual(c.name); if(!b) return null;
   return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && !hevcSkip(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
@@ -2955,7 +2956,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
-  if(c.kind==="live" && !HEVC_OK() && (chQual(c.name)===4 || hevcBad.has(c.url))){   /* sem HEVC neste browser: nem abre, vai logo à versão que ele descodifica */
+  if(c.kind==="live" && !HEVC_OK() && (hevcSkip(c.url) || window.__hevcSw === false)){   /* sem HEVC neste browser e o software não aguentou (ou está desligado): vai logo à versão que ele descodifica */
     const alt = altQuality(c, autoTried[slot]) || (window.__altFor && window.__altFor(c, autoTried[slot]));
     if(alt && alt.url !== c.url){ autoTried[slot].add(c.url); toast(`${c.name} é HEVC e este browser não o descodifica. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
   }
@@ -10620,7 +10621,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
    Desentrelaçamento (WebGL): «Bob» mostra cada campo à vez, 50 imagens/s, com interpolação linear entre linhas;
    «Linear» mistura as linhas vizinhas (25 imagens/s, sem dentes de pente); «Desligado» mostra a imagem tal como vem. */
 (function(){
-  if(window.ANDROID || !window.__TESLA) return;
+  /* no Tesla: 1080i e MPEG-2; nos outros browsers só o HEVC em MPEG-TS, e só se não o descodificarem */
+  if(window.ANDROID || (!window.__TESLA && HEVC_OK())) return;
   try{
   if(typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function") return;
   const S = {}, firstSeq = {};
@@ -10635,7 +10637,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(d[o] !== 0x47 || !(d[o + 1] & 0x40)) continue;
       const pid = pidOf(d, o); let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
       if(pid === 0 && pmt < 0){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2]; for(let i = p + 8; i < p + 3 + sl - 4; i += 4){ if((d[i] << 8) | d[i + 1]){ pmt = ((d[i + 2] & 0x1f) << 8) | d[i + 3]; break; } } }
-      else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if((d[i] === 0x1b || d[i] === 0x02) && vpid < 0){ vtype = d[i]; vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; } else if([0x0f, 0x11, 0x03, 0x04, 0x81, 0x87, 0x06].includes(d[i]) && apid < 0) apid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; i += 5 + il; } }
+      else if(pid === pmt){ const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], pil = ((d[p + 10] & 0xf) << 8) | d[p + 11]; for(let i = p + 12 + pil; i < p + 3 + sl - 4;){ const il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if((d[i] === 0x1b || d[i] === 0x02 || d[i] === 0x24) && vpid < 0){ vtype = d[i]; vpid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; } else if([0x0f, 0x11, 0x03, 0x04, 0x81, 0x87, 0x06].includes(d[i]) && apid < 0) apid = ((d[i + 1] & 0x1f) << 8) | d[i + 2]; i += 5 + il; } }
     }
     return {pmt, vpid, vtype, apid};
   };
@@ -10645,15 +10647,15 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       let p = payStart(d, o); if(p < 0) continue; p += 1 + d[p];
       const sl = ((d[p + 1] & 0xf) << 8) | d[p + 2], end = p + 3 + sl; if(end > o + 188 || d[p] !== 2) continue;
       const pil = ((d[p + 10] & 0xf) << 8) | d[p + 11];
-      for(let i = p + 12 + pil; i < end - 4;){ const ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(ep === vpid && d[i] === 0x1b) d[i] = 0x80; i += 5 + il; }
+      for(let i = p + 12 + pil; i < end - 4;){ const ep = ((d[i + 1] & 0x1f) << 8) | d[i + 2], il = ((d[i + 3] & 0xf) << 8) | d[i + 4]; if(ep === vpid && (d[i] === 0x1b || d[i] === 0x24)) d[i] = 0x80; i += 5 + il; }
       const c = crc32(d, p, end - 4); d[end - 4] = c >>> 24; d[end - 3] = (c >>> 16) & 255; d[end - 2] = (c >>> 8) & 255; d[end - 1] = c & 255;
     }
   };
-  const pesList = (d, vpid) => {
+  const pesList = (d, vpid, hevc) => {
     const out = []; let cur = null;
     const close = () => { if(!cur) return; let b; if(cur.parts.length === 1) b = cur.parts[0]; else { let L = 0; cur.parts.forEach(x => L += x.length); b = new Uint8Array(L); let k = 0; cur.parts.forEach(x => { b.set(x, k); k += x.length; }); }
       if(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80)){ const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
-        const data = b.slice(9 + b[8]); let key = false; for(let i = 0; i + 4 < Math.min(data.length, 400); i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){ if((data[i + 3] & 0x1f) === 7 || data[i + 3] === 0xB3){ key = true; break; } i += 2; } }
+        const data = b.slice(9 + b[8]); let key = false; for(let i = 0; i + 4 < Math.min(data.length, 400); i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){ if(hevc){ const nt = (data[i + 3] >> 1) & 0x3f; if((nt >= 32 && nt <= 34) || (nt >= 16 && nt <= 21)){ key = true; break; } } else if((data[i + 3] & 0x1f) === 7 || data[i + 3] === 0xB3){ key = true; break; } i += 2; } }
         out.push({pts, data, key}); }
       cur = null; };
     for(let o = 0; o + 188 <= d.length; o += 188){
@@ -10700,30 +10702,47 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* key: 0/1 (ecrãs da TV) ou "prev" (pré-visualização do Início). o = {h, v, out(src, w, h), ow, oh} */
   function start(key, o){
     const st = {key, o, seq:o.seq, pend:[], frames:[], shown:null, init:null, dec:null, cfg:null, needKey:true, nf:0, errs:0, w:0, hh:0, raf:0, on:true, pids:null, gl:mkGl(), last:"", dur:40000, wasMoving:false};
+    try{ st.url = typeof key === "number" && lastPlayed[key] ? lastPlayed[key].url : ""; }catch(e){}
     try{ o.h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
     const mk = () => {
       try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
       st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
         error:e => { st.errs++; st.needKey = true; log(key, "erro na imagem por software", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 6){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); return; } setTimeout(() => { if(st.on){ mk(); if(st.cfg) try{ st.dec.configure(st.cfg); }catch(x){} } }, 300); }});
     };
-    st.mpeg2 = !!o.mpeg2;
+    st.mpeg2 = !!o.mpeg2; st.hevc = !!o.hevc; st.prog = st.hevc;
     if(st.mpeg2){
       /* MPEG-2: nenhum browser o descodifica; usa o libav (FFmpeg em WebAssembly) */
       st.mk = () => {};
-      (window.__libav ? window.__libav() : Promise.reject(new Error("sem libav"))).then(async L => { if(!st.on) return; st.L = L; st.ldec = await L.ff_init_decoder("mpeg2video"); log(key, "MPEG-2: descodificador libav pronto", {}); })
-        .catch(e => { log(key, "MPEG-2: libav falhou", {msg:String(e.message || e)}); if(key !== "prev") toast("Este canal é MPEG-2 e o descodificador por software não carregou.", true); stop(key); });
+      (window.__libav ? window.__libav(st.hevc ? "hevc" : "dolby") : Promise.reject(new Error("sem libav"))).then(async L => { if(!st.on) return; st.L = L; st.ldec = await L.ff_init_decoder(st.hevc ? "hevc" : "mpeg2video"); log(key, st.hevc ? "HEVC: descodificador libav pronto" : "MPEG-2: descodificador libav pronto", {}); })
+        .catch(e => { log(key, (st.hevc ? "HEVC" : "MPEG-2") + ": libav falhou", {msg:String(e.message || e)}); if(st.hevc){ hevcMark(st.url); } if(key !== "prev") toast(st.hevc ? "Este canal é HEVC e o descodificador por software não carregou." : "Este canal é MPEG-2 e o descodificador por software não carregou.", true); stop(key); });
     } else { st.mk = mk; mk(); }
     const loop = () => {
       if(!st.on) return;
       if(!o.alive()){ stop(key); return; }
       try{ pump(st); draw(st); }catch(e){}
+      /* HEVC por software: se o processador não segue o ritmo do vídeo, desiste e passa a uma versão que o browser descodifique */
+      try{ if(st.hevc && st.nf > 0){ const tn = performance.now();
+          if(!st.g0) st.g0 = {t:tn, n:st.nf};
+          else if(tn - st.g0.t > 8000){ const fps = (st.nf - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
+            log(key, "HEVC por software: ritmo", {fps:+fps.toFixed(1), preciso:+want.toFixed(0), w:st.w, h:st.hh});
+            st.g0 = {t:tn, n:st.nf};
+            if(fps < want * 0.6 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
       try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
           log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - (st.vOff || 0) - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
-    log(key, o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:deint(), webgl:!!st.gl});
+    log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:deint(), webgl:!!st.gl});
     return st;
+  }
+  /* o processador não aguenta este HEVC: lembra o canal e abre outra versão, se houver */
+  function hevcSlow(key, st, fps){
+    const want = 1e6 / (st.dur || 40000); if(fps < want * 0.5) hevcMark(st.url); else hevcSess.add(st.url);
+    const c = typeof key === "number" ? lastPlayed[key] : null; stop(key);
+    if(key === "prev" || !c) return;
+    const alt = altQuality(c, autoTried[key]) || (window.__altFor && window.__altFor(c, autoTried[key]));
+    if(alt && alt.url !== c.url){ autoTried[key].add(c.url); toast(`${c.name}: este computador só faz ${fps.toFixed(0)} imagens/s em HEVC. A abrir ${alt.name}…`); playChannel(alt, key, true); }
+    else toast(`${c.name}: o HEVC por software está lento neste computador (${fps.toFixed(0)} imagens/s) e não há outra versão do canal.`, true);
   }
   function stop(key){
     const st = S[key]; if(!st) return; delete S[key]; st.on = false; cancelAnimationFrame(st.raf);
@@ -10792,7 +10811,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       st.shown = f; if(st.gl) st.gl.drop();
     }
     const f = st.shown; if(!f) return;
-    let mode = deint();
+    let mode = st.prog ? "off" : deint();
     /* em andamento: Linear (25 imagens/s) em vez de Bob, para poupar o processador do carro; volta ao Bob parado */
     const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return false; } })();
     if(mode === "bob" && (st.slow || moving)) mode = "linear";
@@ -10815,18 +10834,19 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     if(st && st.seq !== seq){ stop(key); st = null; }
     if(!st){
       if(!first) return;
-      const pp = findPids(u), mp2 = pp.vtype === 0x02;
-      if(!mp2 && !(r && r.interlaced)) return;
-      const o = mk.make(); if(!o) return; o.seq = seq; o.mpeg2 = mp2; st = S[key] = start(key, o); st.pids = pp;
+      const pp = findPids(u), mp2 = pp.vtype === 0x02, hv = pp.vtype === 0x24 && !HEVC_OK() && window.__hevcSw !== false;   /* HEVC em MPEG-TS só por software, e só em browsers sem HEVC */
+      if(!window.__TESLA && !hv) return;
+      if(!mp2 && !hv && !(r && r.interlaced)) return;
+      const o = mk.make(); if(!o) return; o.seq = seq; o.mpeg2 = mp2 || hv; o.hevc = hv; st = S[key] = start(key, o); st.pids = pp;
       /* alguns canais (ex.: Sport TV 2) trazem o vídeo com relógio (PTS) desfasado do som em dezenas de segundos:
          alinha pelo que chega junto no mesmo pedaço */
       try{ const vp = firstPts(u, pp.vpid), ap = pp.apid >= 0 ? firstPts(u, pp.apid) : null; if(vp != null && ap != null){ const df = (vp - ap) / 90000; st.vOff = Math.abs(df) > 3 ? df : 0; if(st.vOff) log(key, "imagem por software: relógio do vídeo desfasado do som", {segundos:+df.toFixed(2)}); } }catch(e){}
     }
     if(!st.pids || st.pids.vpid < 0) st.pids = findPids(u);
     if(st.pids.vpid < 0) return;
-    for(const x of pesList(u, st.pids.vpid)) st.pend.push(x);
+    for(const x of pesList(u, st.pids.vpid, st.hevc)) st.pend.push(x);
     if(st.pend.length > 3000) st.pend.splice(0, st.pend.length - 3000);
-    if(!st.mpeg2) hideVideo(u, st.pids.pmt, st.pids.vpid);
+    if(!st.mpeg2 || st.hevc) hideVideo(u, st.pids.pmt, st.pids.vpid);
   };
   window.__sv = {
     /* ecrãs da TV (chamado pelo carregador de pedaços do leitor principal) */
@@ -10859,6 +10879,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   /* Definições → TV: modo de desentrelaçar */
   setTimeout(() => { try{
+    if(!window.__TESLA) return;
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
     const l = document.createElement("label"); l.className = "f";
     l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s; em andamento passa a Linear)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
@@ -10881,17 +10902,18 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(len < 7 || i + len > b.length) break; out.push(b.slice(i, i + len)); i += len; } return out; };
   const log = (slot, t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
   /* --- libav (carregado a pedido) --- */
-  let LP = null;
-  const libav = () => LP || (LP = (async () => {
-    const load = src => new Promise(res => { const s = document.createElement("script"); s.src = src; s.onload = () => res(!!window.LibAV); s.onerror = () => res(false); document.head.appendChild(s); });
-    /* variante própria do libav.js (só descodificadores: AC-3, E-AC-3, MP2/MP3, AAC, MPEG-2 vídeo), ao lado do index.html */
+  const LPm = {};
+  const libav = (variant = "dolby") => LPm[variant] || (LPm[variant] = (async () => {
+    const load = src => new Promise(res => { const sc = document.createElement("script"); sc.src = src; sc.onload = () => res(window.LibAV && window.LibAV.LibAV ? window.LibAV.LibAV : false); sc.onerror = () => res(false); document.head.appendChild(sc); });
+    /* variantes próprias do libav.js, ao lado do index.html: «dolby» (AC-3, E-AC-3, MP2/MP3, AAC, MPEG-2) e «hevc» (vídeo H.265) */
+    let ctor = null;
     for(const base of ["libav", "https://ramarozte-sketch.github.io/cockpit/libav"]){
       window.LibAV = window.LibAV || {}; window.LibAV.base = base;
-      if(await load(base + "/libav-6.10.9.0-dolby.js")) break;
+      ctor = await load(base + "/libav-6.10.9.0-" + variant + ".js"); if(ctor) break;
     }
-    if(!window.LibAV || !window.LibAV.LibAV) throw new Error("libav não carregou");
-    const L = await window.LibAV.LibAV(); try{ await L.av_log_set_level(16); }catch(e){} return L;
-  })().catch(e => { LP = null; throw e; }));
+    if(!ctor) throw new Error("libav não carregou");
+    const L = await ctor(); try{ await L.av_log_set_level(16); }catch(e){} return L;
+  })().catch(e => { delete LPm[variant]; throw e; }));
   window.__libav = libav;
   /* --- relógio: PCM seguido, ancorado ao tempo do vídeo --- */
   class PcmClock {
