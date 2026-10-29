@@ -2644,7 +2644,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v144";
+const APP_VERSION = "v145";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6091,7 +6091,9 @@ const GAMES_LOCAL = [
   {id:"c4", name:"4 em linha", desc:"Contra o Cockpit. Toca numa coluna", ico:"🔴", grp:"Puzzles e cartas"},
   {id:"simon", name:"Simão diz", desc:"Repete a sequência de cores e sons", ico:"🎵", grp:"Puzzles e cartas"},
   {id:"mines", name:"Campo minado", desc:"Toca para abrir, 🚩 para marcar", ico:"💣", grp:"Puzzles e cartas"},
+  {id:"bubbles", name:"Bolhas", desc:"Aponta, dispara e junta 3 cores iguais", ico:"🫧", grp:"Puzzles e cartas"},
   {id:"snake", name:"Cobra", desc:"O clássico, com toque ou setas", ico:"🐍", grp:"Arcada de consola (para o toque)"},
+  {id:"fish", name:"Come-Pérolas", desc:"Apanha as pérolas e foge dos caranguejos", ico:"🐟", grp:"Arcada de consola (para o toque)"},
   {id:"brick", name:"Quebra-blocos", desc:"Arrasta o dedo para mexer a barra", ico:"🧱", grp:"Arcada de consola (para o toque)"},
   {id:"flap", name:"Voa!", desc:"Toca para voar entre os tubos", ico:"🐤", grp:"Arcada de consola (para o toque)"},
   {id:"mole", name:"Toupeiras", desc:"Apanha-as em 30 segundos", ico:"🐹", grp:"Arcada de consola (para o toque)"},
@@ -6137,7 +6139,7 @@ $("gmBack").onclick = gmExit;
 function gmStart(id){
   if(gamesLocked()) return renderGames();
   gmExit(); $("gmHub").hidden = true; $("gmBack").hidden = false; $("gmStage").hidden = false;
-  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake, c4:gameC4, mole:gameMole, simon:gameSimon, brick:gameBrick, flap:gameFlap, mines:gameMines, pong:gamePong, run:gameRun, ship:gameShip})[id]($("gmStage"));
+  ({g2048:game2048, mem:gameMemory, ttt:gameTtt, snake:gameSnake, c4:gameC4, mole:gameMole, simon:gameSimon, brick:gameBrick, flap:gameFlap, mines:gameMines, pong:gamePong, run:gameRun, ship:gameShip, fish:gameFish, bubbles:gameBubbles})[id]($("gmStage"));
 }
 function gmKeys(fn){ const h = e => { const d = {ArrowLeft:"l", ArrowRight:"r", ArrowUp:"u", ArrowDown:"d"}[e.key]; if(d){ e.preventDefault(); fn(d); } }; document.addEventListener("keydown", h); gmCleanup.push(()=>document.removeEventListener("keydown", h)); }
 function gmSwipe(el, fn){ let s = null;
@@ -6337,6 +6339,160 @@ function gameBrick(st){
   gmCleanup.push(()=>cancelAnimationFrame(raf));
 }
 
+
+/* ---------- Mais dois: Come-Pérolas (labirinto) e Bolhas (puzzle de pontaria). Jogos próprios, com personagens originais. ---------- */
+function gameFish(st){
+  const MAP = [
+    "###############",
+    "#o.....#.....o#",
+    "#.##.##.##.##.#",
+    "#.............#",
+    "#.##.#####.##.#",
+    "#....#...#....#",
+    "#.##.#...#.##.#",
+    "#.............#",
+    "#.##.#...#.##.#",
+    "#....#...#....#",
+    "#.##.#####.##.#",
+    "#.............#",
+    "#.##.##.##.##.#",
+    "#o.....#.....o#",
+    "###############"];
+  const N = 15, T = 32, W = N*T, H = N*T;
+  let grid, pearls, score, lives, level, over, raf, last, scared, t, pl, crabs, best = +LS.get("fishBest", 0), started;
+  st.innerHTML = gmBar(gmStat("Pontos","fhS",0) + gmStat("Vidas","fhL",3) + gmStat("Nível","fhN",1) + gmStat("Recorde","fhB",best) + `<button class="btn primary" id="fhNew">Novo jogo</button>`) + `<canvas class="gcv" id="fhC" width="${W}" height="${H}" style="aspect-ratio:1/1;width:min(520px,94vw,64vh)"></canvas><p class="small muted" style="margin:0">Desliza o dedo (ou usa as setas) para mudar de direção. Come as pérolas, foge dos caranguejos e apanha as conchas para os assustares.</p>`;
+  const c = $("fhC"), x = c.getContext("2d"), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const wall = (cx, cy) => cx < 0 || cy < 0 || cx >= N || cy >= N || grid[cy][cx] === "#";
+  const DIRS = {l:[-1,0], r:[1,0], u:[0,-1], d:[0,1]};
+  const mk = (cx, cy, sp) => ({x:cx, y:cy, tx:cx, ty:cy, dx:0, dy:0, mov:false, sp, hx:cx, hy:cy});
+  const step = (e, d, choose) => { let g = 0;
+    while(d > 1e-9 && g++ < 6){
+      if(!e.mov){ choose(e); if(!e.dx && !e.dy) return; const cx = Math.round(e.x), cy = Math.round(e.y); if(wall(cx + e.dx, cy + e.dy)){ e.dx = e.dy = 0; return; } e.tx = cx + e.dx; e.ty = cy + e.dy; e.mov = true; }
+      const dist = Math.abs(e.tx - e.x) + Math.abs(e.ty - e.y);
+      if(d >= dist){ e.x = e.tx; e.y = e.ty; e.mov = false; d -= dist; } else { e.x += Math.sign(e.tx - e.x)*d; e.y += Math.sign(e.ty - e.y)*d; d = 0; } } };
+  const upd = () => { $("fhS").textContent = score; $("fhL").textContent = lives; $("fhN").textContent = level; };
+  const fillMap = () => { grid = MAP.map(r => r.split("")); pearls = 0; grid.forEach(r => r.forEach(ch => { if(ch === "." || ch === "o") pearls++; })); };
+  const place = () => { pl = mk(7, 11, 5.4); pl.want = null; pl.face = 1; scared = 0;
+    const sp = 3.6 + Math.min(level, 6)*.25;
+    crabs = [[6,7],[7,7],[8,7]].map(([a, b], i) => Object.assign(mk(a, b, sp), {id:i, wait:1.2 + i*1.6, out:false, hide:0, col:["#e5484d","#f08a24","#e255b5"][i]})); started = false; };
+  const reset = () => { score = 0; lives = 3; level = 1; over = false; fillMap(); place(); upd(); };
+  const dirFree = (e, d) => d && !wall(Math.round(e.x) + d[0], Math.round(e.y) + d[1]);
+  const choosePl = e => { const w = pl.want ? DIRS[pl.want] : null;
+    if(dirFree(e, w)){ e.dx = w[0]; e.dy = w[1]; } else if(!dirFree(e, [e.dx, e.dy])){ e.dx = e.dy = 0; }
+    if(e.dx) pl.face = e.dx; };
+  const chooseCrab = e => { const cx = Math.round(e.x), cy = Math.round(e.y), opts = [];
+    for(const k in DIRS){ const d = DIRS[k]; if(wall(cx + d[0], cy + d[1])) continue; if(d[0] === -e.dx && d[1] === -e.dy && (e.dx || e.dy)) continue; opts.push(d); }
+    if(!opts.length){ e.dx = -e.dx; e.dy = -e.dy; return; }
+    let tgt = [Math.round(pl.x), Math.round(pl.y)];
+    if(e.id === 1) tgt = [tgt[0] + 3*(pl.dx || 0), tgt[1] + 3*(pl.dy || 0)];
+    if(e.id === 2 && Math.hypot(cx - tgt[0], cy - tgt[1]) < 5) tgt = [1, 13];
+    let pick;
+    if(scared > 0 || Math.random() < (e.id === 2 ? .35 : .12)) pick = scared > 0 ? opts.reduce((a, b) => Math.hypot(cx + a[0] - pl.x, cy + a[1] - pl.y) > Math.hypot(cx + b[0] - pl.x, cy + b[1] - pl.y) ? a : b) : opts[Math.floor(Math.random()*opts.length)];
+    else pick = opts.reduce((a, b) => Math.hypot(cx + a[0] - tgt[0], cy + a[1] - tgt[1]) < Math.hypot(cx + b[0] - tgt[0], cy + b[1] - tgt[1]) ? a : b);
+    e.dx = pick[0]; e.dy = pick[1]; };
+  const lose = () => { lives--; upd(); if(lives <= 0){ over = true; toast("Fim de jogo. Pontos: " + score); } else place(); };
+  const addScore = n => { score += n; if(score > best){ best = score; LS.set("fishBest", best); $("fhB").textContent = best; } upd(); };
+  const turn = k => { if(over) return; pl.want = k; started = true;
+    /* inverter a meio do caminho */
+    const d = DIRS[k]; if(pl.mov && d[0] === -pl.dx && d[1] === -pl.dy){ const ox = pl.tx - pl.dx, oy = pl.ty - pl.dy; pl.tx = ox; pl.ty = oy; pl.dx = d[0]; pl.dy = d[1]; pl.face = d[0] || pl.face; } };
+  const frame = ts => { const dt = Math.min(.04, (ts - (last || ts))/1000); last = ts; t += dt;
+    if(!over && started){
+      step(pl, pl.sp*dt, choosePl);
+      const cx = Math.round(pl.x), cy = Math.round(pl.y);
+      if(Math.abs(pl.x - cx) < .5 && Math.abs(pl.y - cy) < .5){ const ch = grid[cy][cx];
+        if(ch === "." ){ grid[cy][cx] = " "; pearls--; addScore(10); } else if(ch === "o"){ grid[cy][cx] = " "; pearls--; addScore(50); scared = 7; crabs.forEach(cr => { cr.eaten = false; }); } }
+      scared = Math.max(0, scared - dt);
+      for(const cr of crabs){
+        if(cr.wait > 0){ cr.wait -= dt; continue; }
+        if(cr.hide > 0){ cr.hide -= dt; if(cr.hide <= 0){ cr.x = cr.tx = 7; cr.y = cr.ty = 7; cr.mov = false; cr.dx = cr.dy = 0; } continue; }
+        step(cr, (scared > 0 ? cr.sp*.7 : cr.sp)*dt, chooseCrab);
+        if(Math.hypot(cr.x - pl.x, cr.y - pl.y) < .62){
+          if(scared > 0){ cr.hide = 3; cr.x = cr.tx = 7; cr.y = cr.ty = 7; cr.mov = false; cr.dx = cr.dy = 0; addScore(200); } else { lose(); break; } } }
+      if(!over && pearls <= 0){ level++; fillMap(); place(); upd(); toast("Nível " + level + "!"); }
+    }
+    x.fillStyle = css("--panel-2"); x.fillRect(0, 0, W, H);
+    for(let j = 0; j < N; j++) for(let i = 0; i < N; i++){ const ch = grid[j][i];
+      if(ch === "#"){ x.fillStyle = css("--accent"); x.globalAlpha = .28; x.fillRect(i*T + 1, j*T + 1, T - 2, T - 2); x.globalAlpha = 1; x.strokeStyle = css("--accent"); x.lineWidth = 2; x.strokeRect(i*T + 3, j*T + 3, T - 6, T - 6); }
+      else if(ch === "."){ x.fillStyle = css("--fg"); x.beginPath(); x.arc(i*T + T/2, j*T + T/2, 3.2, 0, 7); x.fill(); }
+      else if(ch === "o"){ x.fillStyle = css("--warn"); x.beginPath(); x.arc(i*T + T/2, j*T + T/2, 7 + Math.sin(t*6)*1.5, 0, 7); x.fill(); } }
+    /* caranguejos */
+    for(const cr of crabs){ if(cr.hide > 0) continue; const px = cr.x*T + T/2, py = cr.y*T + T/2, sc = scared > 0 && (scared > 2 || Math.floor(t*6)%2);
+      x.fillStyle = sc ? "#3b6fe0" : cr.col; x.beginPath(); x.ellipse(px, py + 2, 12, 9, 0, 0, 7); x.fill();
+      x.strokeStyle = x.fillStyle; x.lineWidth = 3; x.beginPath(); x.moveTo(px - 10, py - 2); x.lineTo(px - 14, py - 10); x.moveTo(px + 10, py - 2); x.lineTo(px + 14, py - 10); x.stroke();
+      for(let k = -1; k <= 1; k += 2){ x.beginPath(); x.moveTo(px + k*5, py + 9); x.lineTo(px + k*9, py + 14); x.stroke(); }
+      x.fillStyle = "#fff"; x.beginPath(); x.arc(px - 4, py - 2, 3, 0, 7); x.arc(px + 4, py - 2, 3, 0, 7); x.fill(); x.fillStyle = "#111"; x.beginPath(); x.arc(px - 4 + (pl.x - cr.x > 0 ? 1 : -1), py - 2, 1.4, 0, 7); x.arc(px + 4 + (pl.x - cr.x > 0 ? 1 : -1), py - 2, 1.4, 0, 7); x.fill(); }
+    /* peixe */
+    { const px = pl.x*T + T/2, py = pl.y*T + T/2, f = pl.face || 1; x.save(); x.translate(px, py); x.scale(f, 1);
+      x.fillStyle = "#ff9f1c"; x.beginPath(); x.ellipse(0, 0, 12, 9, 0, 0, 7); x.fill();
+      x.beginPath(); x.moveTo(-9, 0); x.lineTo(-17, -8 + Math.sin(t*14)*2); x.lineTo(-17, 8 - Math.sin(t*14)*2); x.closePath(); x.fill();
+      x.fillStyle = "#ffd166"; x.beginPath(); x.ellipse(2, 4, 6, 3, 0, 0, 7); x.fill();
+      x.fillStyle = "#fff"; x.beginPath(); x.arc(6, -3, 3.2, 0, 7); x.fill(); x.fillStyle = "#111"; x.beginPath(); x.arc(7, -3, 1.5, 0, 7); x.fill(); x.restore(); }
+    if(!started && !over){ x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(0, H/2 - 24, W, 48); x.fillStyle = "#fff"; x.font = "bold 18px sans-serif"; x.textAlign = "center"; x.fillText("Desliza para começar", W/2, H/2 + 6); }
+    if(over){ x.fillStyle = "rgba(0,0,0,.6)"; x.fillRect(0, H/2 - 30, W, 60); x.fillStyle = "#fff"; x.font = "bold 22px sans-serif"; x.textAlign = "center"; x.fillText("Fim de jogo · " + score + " pontos", W/2, H/2 + 8); }
+    raf = requestAnimationFrame(frame); };
+  t = 0; gmKeys(turn); gmSwipe(c, turn);
+  c.addEventListener("pointerdown", e => { if(over) return; started = true; });
+  $("fhNew").onclick = reset; reset(); raf = requestAnimationFrame(frame);
+  gmCleanup.push(() => cancelAnimationFrame(raf));
+  st._fish = {get pl(){ return pl; }, get crabs(){ return crabs; }, get state(){ return {score, lives, level, pearls, over, scared}; }, turn, grid:() => grid};
+}
+
+function gameBubbles(st){
+  const R = 20, W = 440, H = 560, RH = R*Math.sqrt(3), COLS = 11, LIMIT = 12, COL = ["#ff5d5d","#ffb84d","#5ddc7a","#4da6ff","#c77dff"], SX = W/2, SY = H - 34;
+  let rows, drops, cur, nxt, ang, ball, score, over, raf, last, miss, level, best = +LS.get("bubBest", 0), pops = [];
+  st.innerHTML = gmBar(gmStat("Pontos","bbS",0) + gmStat("Nível","bbN",1) + gmStat("Recorde","bbB",best) + `<button class="btn primary" id="bbNew">Novo jogo</button>`) + `<canvas class="gcv" id="bbC" width="${W}" height="${H}" style="aspect-ratio:11/14;width:min(460px,94vw,calc(64vh * .786))"></canvas><p class="small muted" style="margin:0">Aponta com o dedo e levanta para disparar (ou ← → e ↑). Junta 3 ou mais bolhas da mesma cor. A cada 5 tiros sem rebentar nada, o teto desce.</p>`;
+  const c = $("bbC"), x = c.getContext("2d");
+  const off = r => (r + drops) & 1, width = r => COLS - off(r);
+  const pos = (r, k) => [R + k*2*R + (off(r) ? R : 0), R + r*RH];
+  const mkRow = () => Array.from({length:COLS}, () => Math.floor(Math.random()*COLS_N()));
+  const COLS_N = () => Math.min(5, 3 + Math.floor(level/2));
+  const fresh = (r) => { const w = width(r), a = Array(COLS).fill(-1); for(let k = 0; k < w; k++) a[k] = Math.floor(Math.random()*COLS_N()); return a; };
+  const present = () => { const s = new Set(); rows.forEach(r => r.forEach(v => { if(v >= 0) s.add(v); })); return [...s]; };
+  const pickColor = () => { const p = present(); return p.length ? p[Math.floor(Math.random()*p.length)] : Math.floor(Math.random()*COLS_N()); };
+  const nb = (r, k) => { const o = off(r), L = [[r, k-1], [r, k+1]]; if(o){ L.push([r-1, k], [r-1, k+1], [r+1, k], [r+1, k+1]); } else { L.push([r-1, k-1], [r-1, k], [r+1, k-1], [r+1, k]); } return L.filter(([a, b]) => a >= 0 && b >= 0 && a < rows.length && b < width(a)); };
+  const upd = () => { $("bbS").textContent = score; $("bbN").textContent = level; };
+  const addScore = n => { score += n; if(score > best){ best = score; LS.set("bubBest", best); $("bbB").textContent = best; } upd(); };
+  const build = () => { drops = 0; rows = []; for(let r = 0; r < 5 + Math.min(level, 3); r++) rows.push(fresh(r)); while(rows.length < LIMIT + 2) rows.push(Array(COLS).fill(-1)); };
+  const reset = () => { score = 0; level = 1; over = false; miss = 0; ball = null; ang = -Math.PI/2; build(); cur = pickColor(); nxt = pickColor(); upd(); };
+  const cluster = (r, k) => { const col = rows[r][k], seen = new Set([r + "," + k]), q = [[r, k]], out = [];
+    while(q.length){ const [a, b] = q.pop(); out.push([a, b]); for(const [p, s] of nb(a, b)){ const key = p + "," + s; if(!seen.has(key) && rows[p][s] === col){ seen.add(key); q.push([p, s]); } } } return out; };
+  const floating = () => { const seen = new Set(), q = []; for(let k = 0; k < width(0); k++) if(rows[0][k] >= 0){ seen.add("0," + k); q.push([0, k]); }
+    while(q.length){ const [a, b] = q.pop(); for(const [p, s] of nb(a, b)){ const key = p + "," + s; if(!seen.has(key) && rows[p][s] >= 0){ seen.add(key); q.push([p, s]); } } }
+    const fl = []; rows.forEach((row, r) => row.forEach((v, k) => { if(v >= 0 && k < width(r) && !seen.has(r + "," + k)) fl.push([r, k]); })); return fl; };
+  const remove = (list, bonus) => { list.forEach(([r, k]) => { const [px, py] = pos(r, k); pops.push({x:px, y:py, col:rows[r][k], t:0, vy:bonus ? 60 : 0}); rows[r][k] = -1; }); };
+  const nearestFree = (px, py) => { let best = null, bd = 1e9;
+    for(let r = 0; r < rows.length; r++) for(let k = 0; k < width(r); k++){ if(rows[r][k] >= 0) continue; const [qx, qy] = pos(r, k), d = Math.hypot(qx - px, qy - py); if(d < bd){ bd = d; best = [r, k]; } } return best; };
+  const land = () => { const cell = nearestFree(ball.x, ball.y); const col = ball.col; ball = null; if(!cell){ over = true; return; }
+    const [r, k] = cell; rows[r][k] = col; const cl = cluster(r, k);
+    if(cl.length >= 3){ remove(cl, false); addScore(cl.length*10); const fl = floating(); if(fl.length){ remove(fl, true); addScore(fl.length*20); } miss = 0; }
+    else { miss++; if(miss >= 5){ miss = 0; rows.pop(); drops++; rows.unshift(fresh(0)); } }
+    if(rows.slice(LIMIT).some(row => row.some(v => v >= 0))) { over = true; toast("Fim de jogo. Pontos: " + score); }
+    else if(!rows.some(row => row.some(v => v >= 0))){ level++; addScore(200); toast("Nível " + level + "!"); build(); }
+    cur = nxt; nxt = pickColor(); };
+  const shoot = () => { if(over || ball) return; ball = {x:SX, y:SY, vx:Math.cos(ang)*760, vy:Math.sin(ang)*760, col:cur}; };
+  const aim = e => { const b = c.getBoundingClientRect(), px = (e.clientX - b.left)/b.width*W, py = (e.clientY - b.top)/b.height*H; let a = Math.atan2(py - SY, px - SX); a = Math.max(-Math.PI + .18, Math.min(-.18, a)); ang = a; };
+  const frame = ts => { const dt = Math.min(.03, (ts - (last || ts))/1000); last = ts;
+    if(ball){ let n = Math.ceil(Math.hypot(ball.vx, ball.vy)*dt/6); for(let i = 0; i < n && ball; i++){ ball.x += ball.vx*dt/n; ball.y += ball.vy*dt/n;
+        if(ball.x < R){ ball.x = R; ball.vx = Math.abs(ball.vx); } if(ball.x > W - R){ ball.x = W - R; ball.vx = -Math.abs(ball.vx); }
+        let hit = ball.y <= R; if(!hit) for(let r = 0; r < rows.length && !hit; r++) for(let k = 0; k < width(r); k++){ if(rows[r][k] < 0) continue; const [qx, qy] = pos(r, k); if(Math.hypot(qx - ball.x, qy - ball.y) < 2*R - 5){ hit = true; break; } }
+        if(hit) land(); } }
+    x.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel-2").trim(); x.fillRect(0, 0, W, H);
+    const line = getComputedStyle(document.documentElement).getPropertyValue("--bad").trim(); x.strokeStyle = line; x.globalAlpha = .5; x.setLineDash([6, 6]); x.beginPath(); x.moveTo(0, R + LIMIT*RH - R); x.lineTo(W, R + LIMIT*RH - R); x.stroke(); x.setLineDash([]); x.globalAlpha = 1;
+    const bub = (px, py, col, a) => { x.globalAlpha = a == null ? 1 : a; x.fillStyle = COL[col]; x.beginPath(); x.arc(px, py, R - 1.5, 0, 7); x.fill(); x.fillStyle = "rgba(255,255,255,.4)"; x.beginPath(); x.arc(px - 6, py - 6, 5, 0, 7); x.fill(); x.globalAlpha = 1; };
+    rows.forEach((row, r) => row.forEach((v, k) => { if(v >= 0 && k < width(r)){ const [px, py] = pos(r, k); bub(px, py, v); } }));
+    pops = pops.filter(p => (p.t += dt) < .45); pops.forEach(p => { p.y += p.vy*p.t*dt*8; bub(p.x, p.y, p.col, 1 - p.t/.45); });
+    if(!ball && !over){ x.strokeStyle = "rgba(255,255,255,.55)"; x.lineWidth = 2; x.setLineDash([4, 8]); x.beginPath(); x.moveTo(SX, SY); let px = SX, py = SY, vx = Math.cos(ang), vy = Math.sin(ang), len = 0; while(len < 420 && py > R){ const nx = px + vx*8, ny = py + vy*8; if(nx < R || nx > W - R) vx = -vx; px += vx*8; py += vy*8; len += 8; x.lineTo(px, py); } x.stroke(); x.setLineDash([]); }
+    if(ball) bub(ball.x, ball.y, ball.col); else if(!over) bub(SX, SY, cur);
+    bub(SX - 70, SY + 4, nxt, .9); x.fillStyle = "#fff"; x.font = "12px sans-serif"; x.textAlign = "center"; x.fillText("a seguir", SX - 70, SY + 36);
+    x.fillStyle = "#fff"; x.fillText(miss + "/5", SX + 70, SY + 8);
+    if(over){ x.fillStyle = "rgba(0,0,0,.6)"; x.fillRect(0, H/2 - 30, W, 60); x.fillStyle = "#fff"; x.font = "bold 22px sans-serif"; x.textAlign = "center"; x.fillText("Fim de jogo · " + score + " pontos", W/2, H/2 + 8); }
+    raf = requestAnimationFrame(frame); };
+  c.addEventListener("pointerdown", e => { aim(e); }); c.addEventListener("pointermove", e => { if(e.buttons || e.pointerType === "mouse") aim(e); }); c.addEventListener("pointerup", e => { aim(e); shoot(); });
+  gmKeys(d => { if(d === "l") ang = Math.max(-Math.PI + .18, ang - .09); if(d === "r") ang = Math.min(-.18, ang + .09); if(d === "u") shoot(); });
+  $("bbNew").onclick = reset; reset(); raf = requestAnimationFrame(frame);
+  gmCleanup.push(() => cancelAnimationFrame(raf));
+  st._bub = {get rows(){ return rows; }, shoot, setAng:a => { ang = a; }, get state(){ return {score, level, over, miss, drops, ball:!!ball, cur}; }, setCur:v => { cur = v; }};
+}
 
 /* ---------- Arcada original: Ténis de mesa, Corre!, Naves (jogos próprios, pensados para o toque) ---------- */
 function gamePong(st){
