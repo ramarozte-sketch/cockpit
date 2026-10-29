@@ -10032,7 +10032,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(gpsNeed()) gpsOn(); else gpsOff();
       const now = Date.now(), stale = now - D.lastData > 120000 || !!cfg.tessieOff, g = D.gps, fresh = now - g.t < 10000;
       if(!stale || !fresh) return;
-      if(D.state !== "moving" && g.fast >= 3){ D.why = "GPS " + Math.round(g.kmh) + " km/h, Tessie sem resposta"; D.parkSince = 0; driveSet("moving"); }
+      if(D.state !== "moving" && g.fast >= 3){ D.why = "GPS " + Math.round(g.kmh) + " km/h, " + (cfg.tessieOff ? "Tessie desligada" : "Tessie sem resposta"); D.parkSince = 0; driveSet("moving"); }
       else if(D.state === "moving" && g.slowSince && now - g.slowSince > 30000){ D.why = ""; driveSet("park"); }
     }catch(e){}
   }, 2000);
