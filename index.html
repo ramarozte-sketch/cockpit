@@ -1039,6 +1039,7 @@ body.layout-atv .rail{display:none}
           <button class="tab" data-mode="splitv" aria-selected="false">Cima / baixo</button>
         </div>
         <button class="btn" id="btnGuide">📅 Guia EPG</button>
+        <button class="btn" id="btnMute" aria-pressed="false" aria-label="Silenciar ou repor o som">🔊 Som</button>
         <button class="btn" id="btnCinema" aria-pressed="false">Modo cinema</button>
         <button class="btn" id="btnLeavePassenger" hidden>Sair do modo passageiro</button>
         <button class="btn" id="btnFull">Ecrã inteiro</button>
@@ -1071,7 +1072,7 @@ body.layout-atv .rail{display:none}
             <div class="cinename" id="chName">Escolhe um canal</div>
             <div class="cineepg" id="chEpg"></div>
             <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
-            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🔊 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
+            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chMute" aria-label="Silenciar ou repor o som">🔊 Som</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🔊 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
             <button class="btn" id="chAspect" data-testid="tv-aspect" aria-label="Formato da imagem">▭ Ajustar</button><button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="cinebar" id="cinebar2">
@@ -2641,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v132";
+const APP_VERSION = "v134";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10533,6 +10534,16 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     b.querySelector("#setOpenAll").onclick = () => { all().forEach(c => { const k = key(c); if(k) st[k] = 0; apply(c); }); save(); };
   }
   all().forEach(apply);
+  /* guarda a posição onde o utilizador ficou nas Definições e volta a ela quando as reabre */
+  const M = document.getElementById("main") || V.parentElement;
+  const pos = () => { let n = 0; try{ n = +localStorage.getItem("ck_setScroll") || 0; }catch(e){} return n; };
+  const scr = () => (M && M.scrollTop) || window.scrollY || 0;
+  let rT = 0, restoring = 0;
+  const onScroll = () => { if(V.hidden || restoring) return; clearTimeout(rT); rT = setTimeout(() => { try{ localStorage.setItem("ck_setScroll", String(Math.round(scr()))); }catch(e){} }, 150); };
+  if(M) M.addEventListener("scroll", onScroll, {passive:true}); window.addEventListener("scroll", onScroll, {passive:true});
+  const restore = () => { const y = pos(); if(!y) return; restoring = 1; [0, 120, 400, 900].forEach(d => setTimeout(() => { if(V.hidden) return; try{ if(M) M.scrollTop = y; else window.scrollTo(0, y); }catch(e){} }, d)); setTimeout(() => { restoring = 0; }, 1000); };
+  new MutationObserver(() => { if(!V.hidden) restore(); }).observe(V, {attributes:true, attributeFilter:["hidden"]});
+  if(!V.hidden) restore();
   /* cartões acrescentados mais tarde por outros módulos */
   new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.classList && n.classList.contains("setcard")) apply(n); else if(n.querySelectorAll) n.querySelectorAll(".setcard").forEach(apply); } }).observe(V, {childList:true, subtree:true});
   /* se outra parte da app abrir/realçar algo dentro de um cartão encolhido (ex.: ir direto a uma opção), expande-o */
@@ -10827,14 +10838,22 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     constructor(v){ this.v = v; this.ctx = null; this.g = null; this.srcs = []; this.endCtx = 0; this.endT = -1; }
     _ensure(sr){ if(!this.ctx){ const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC({sampleRate:sr}); this.g = this.ctx.createGain();
         /* a mistura Dolby para estéreo baixa o volume para não saturar: recupera ~4 dB com um limitador suave */
-        this.boost = this.ctx.createGain(); this.boost.gain.value = 1.5;
-        try{ const cp = this.ctx.createDynamicsCompressor(); cp.threshold.value = -8; cp.knee.value = 6; cp.ratio.value = 6; cp.attack.value = 0.004; cp.release.value = 0.2; this.g.connect(this.boost); this.boost.connect(cp); cp.connect(this.ctx.destination); }
+        this.agc = this.ctx.createGain(); this.agc.gain.value = 1; this.boost = this.ctx.createGain(); this.boost.gain.value = 1.5; this.env = 0; this.gA = 1; this.lastLog = 0; this.pk = 0;
+        try{ const cp = this.ctx.createDynamicsCompressor(); cp.threshold.value = -8; cp.knee.value = 6; cp.ratio.value = 6; cp.attack.value = 0.004; cp.release.value = 0.2; this.g.connect(this.agc); this.agc.connect(this.boost); this.boost.connect(cp); cp.connect(this.ctx.destination); }
         catch(e){ this.g.connect(this.ctx.destination); } }
       if(this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); }
     push(planes, sr, t){
       const v = this.v; this._ensure(sr); const c = this.ctx;
       this.g.gain.value = v.muted ? 0 : (v.volume == null ? 1 : v.volume);
       try{ this.boost.gain.value = 1.5 * (window.__amp ? window.__amp.pct() / 100 : 1); }catch(e){}
+      /* nivelação automática: filmes e canais Dolby vêm masterizados muito baixo (dialnorm ~ -27). Leva a voz para ~ -21 dBFS
+         (RMS 0,09) subindo no máximo 12x (+21 dB); sobe devagar, desce depressa, ignora silêncios */
+      try{ let e2 = 0, pk = 0; const a = planes[0]; for(let i = 0; i < a.length; i += 4){ const x = a[i]; e2 += x * x; if(x > pk) pk = x; else if(-x > pk) pk = -x; } const rms = Math.sqrt(e2 / Math.ceil(a.length / 4));
+        this.pk = Math.max(this.pk * 0.9, pk);
+        if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
+          this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
+        if(this.agc) this.agc.gain.value = this.gA;
+        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
@@ -10982,7 +11001,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const level = (g, c) => { try{ g.gain.setTargetAtTime(pct() / 100, c.currentTime, 0.05); }catch(e){ g.gain.value = pct() / 100; } };
   const apply = el => {
     try{
-      if(!(el instanceof HTMLMediaElement)) return;
+      if(!(el instanceof HTMLMediaElement) || el._noAmp) return;
       if(el._amp){ level(el._amp.g, A.ctx); return; }
       if(pct() <= 100 || el._ampBusy) return;
       if(!safe(el)){ if(!A.warned++) try{ toast("Esta ligação direta não permite amplificar o som (regra do browser)."); }catch(e){} return; }
@@ -11017,6 +11036,55 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     s2.onchange = () => { cfg.ampPct = +s2.value; saveCfg(); A.refresh(); toast(cfg.ampPct > 100 ? "Amplificação: " + cfg.ampPct + " % (limitador ligado)" : "Amplificação desligada"); };
   }catch(e){} }, 0);
 }catch(e){ console.log("amplificação", e); } })();
+</script>
+<script>
+/* ===== Silenciar/repor o som (canais, filmes, rádio…) e som sempre ativo no Tesla ===== */
+(() => { try{
+  const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "muted");
+  window.__muteAll = false;
+  const media = () => [...document.querySelectorAll("video,audio")].filter(e => !e._noAmp);
+  /* qualquer parte da app que mande calar/falar continua a funcionar; com «sem som» ativo fica sempre calado */
+  if(d && d.set) Object.defineProperty(HTMLMediaElement.prototype, "muted", {configurable:true, enumerable:d.enumerable, get:d.get, set(v){ if(!this._noAmp) this._want = !!v; d.set.call(this, window.__muteAll && !this._noAmp ? true : !!v); }});
+  const labels = () => { const m = window.__muteAll; ["btnMute", "chMute"].forEach(id => { const b = document.getElementById(id); if(b){ b.textContent = m ? "🔇 Sem som" : "🔊 Som"; b.setAttribute("aria-pressed", m ? "true" : "false"); } }); };
+  window.__setMute = on => {
+    on = !!on; if(on === window.__muteAll) return;
+    if(on) media().forEach(e => { if(e._want === undefined) e._want = e.muted; });
+    window.__muteAll = on;
+    media().forEach(e => { try{ d.set.call(e, on ? true : (e._want !== undefined ? e._want : e.defaultMuted)); }catch(x){} });
+    labels(); try{ toast(on ? "Som desligado" : "Som ligado"); }catch(x){}
+  };
+  ["btnMute", "chMute"].forEach(id => { const b = document.getElementById(id); if(b) b.addEventListener("click", e => { e.stopPropagation(); window.__setMute(!window.__muteAll); }); });
+  document.addEventListener("keydown", e => { if((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || "") && !(e.target && e.target.isContentEditable)) window.__setMute(!window.__muteAll); });
+  /* um canal novo recomeça a tocar: mantém o silêncio escolhido */
+  document.addEventListener("loadstart", e => { if(window.__muteAll && e.target instanceof HTMLMediaElement && !e.target._noAmp) try{ d.set.call(e.target, true); }catch(x){} }, true);
+  labels();
+
+  /* --- Tesla: entre canais o <video> pára um instante e o carro volta ao rádio. Um som inaudível em ciclo mantém o Cockpit como fonte ativa --- */
+  if(window.__TESLA){
+    const KA = {el:null, last:0};
+    const mk = () => {
+      const sr = 8000, n = sr, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => { for(let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      for(let i = 0; i < n; i++) v.setInt16(44 + i * 2, (Math.random() * 3 | 0) - 1, true);   /* ruído de ±1 em 32768 (-90 dB): inaudível, mas não é silêncio digital */
+      const a = new Audio(URL.createObjectURL(new Blob([b], {type:"audio/wav"}))); a.loop = true; a._noAmp = true; a.preload = "auto"; a.setAttribute("data-keepalive", "1"); return a; };
+    const on = () => (typeof cfg === "undefined" || cfg.keepAudio !== false);
+    const others = () => media().some(e => !e.paused && !e.ended && e.readyState >= 2);
+    const start = () => { if(!on()) return; if(!KA.el) KA.el = mk(); KA.last = Date.now(); if(KA.el.paused) KA.el.play().then(() => { try{ if(navigator.mediaSession){ navigator.mediaSession.playbackState = "playing"; } }catch(x){} }).catch(() => {}); };
+    document.addEventListener("playing", e => { if(e.target instanceof HTMLMediaElement && !e.target._noAmp) start(); }, true);
+    setInterval(() => {
+      if(!KA.el || KA.el.paused) return;
+      if(!on()){ KA.el.pause(); return; }
+      if(others()) KA.last = Date.now();
+      else if(Date.now() - KA.last > 30000){ KA.el.pause(); }   /* 30 s sem nada a tocar: larga o som e o carro pode voltar ao rádio */
+    }, 2000);
+    window.__keepAlive = KA;
+  }
+  setTimeout(() => { try{
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const l = document.createElement("label"); l.className = "row small"; l.innerHTML = '<input type="checkbox" id="setKeepAudio"> Tesla: manter o som ativo entre canais (evita que o rádio do carro ligue)';
+    card.appendChild(l); const c = document.getElementById("setKeepAudio"); c.checked = cfg.keepAudio !== false; c.onchange = () => { cfg.keepAudio = c.checked; saveCfg(); toast(c.checked ? "Som sempre ativo ligado" : "Som sempre ativo desligado"); };
+  }catch(e){} }, 0);
+}catch(e){ console.log("silenciar", e); } })();
 </script>
 </body>
 </html>
