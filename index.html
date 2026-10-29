@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v157";
+const APP_VERSION = "v158";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10576,12 +10576,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const v = $("vid" + slot);
     try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {};
       a.fim = {res, ms:Math.round(performance.now() - a.t0), w:v.videoWidth, h:v.videoHeight, t:+(v.currentTime || 0).toFixed(1), frames:q.totalVideoFrames || 0, perdidos:q.droppedVideoFrames || 0,
-        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), faixas:hlsInst[slot] ? trackBuf(hlsInst[slot]) : null, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : ""}; }catch(e){ a.fim = {res}; }
+        somBytes:v.webkitAudioDecodedByteCount, videoBytes:v.webkitVideoDecodedByteCount, pronto:v.readyState, rede:v.networkState, pausa:v.paused, buffer:bufStr(v), faixas:hlsInst[slot] ? trackBuf(hlsInst[slot]) : null, erroVideo:v.error ? (v.error.code + " " + scrub(v.error.message || "")) : "", som:{mudo:v.muted, vol:+(v.volume || 0).toFixed(2), bytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), imagemAndamento:(typeof mirrorOn !== "undefined" && mirrorOn)}}; }catch(e){ a.fim = {res}; }
     a.res = res; delete a.t0; delete a.__smp;
     try{ const sm = DBG.sample[slot]; if(sm && sm.n === a.n){ if(res !== "ok" && res !== "substituído por outro canal" || a.ev.some(x => /^parado/.test(x.e))){ DBG.failSample = sm; a.amostra = true; } DBG.sample[slot] = null; } }catch(e){}
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
-    if(res === "ok" && a.ch.kind === "live") DBG.watch[slot] = {n:a.n, at:now(), t0:performance.now(), t00:Date.now(), slot, ch:a.ch, ev:[], res:"em observação"};
+    if(res === "ok") DBG.watch[slot] = {n:a.n, at:now(), t0:performance.now(), t00:Date.now(), slot, ch:a.ch, ev:[], res:"em observação"};
     if(res !== "ok" && res !== "substituído por outro canal") autoSend();
   };
   /* resultado: «ok» quando há imagem a andar; «falhou» se ao fim de 25 s não houver */
@@ -10640,7 +10640,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   });
   setInterval(() => { [0, 1].forEach(slot => { const w = DBG.watch[slot]; if(!w) return; const v = $("vid" + slot), el = performance.now() - w.t0;
       if(el > 1200000 || !lastPlayed[slot]) return; try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {}; const h = hlsInst[slot], l = h && h.latency;
-        ev(slot, "estado", {buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined}); }catch(e){} }); }, 20000);
+        ev(slot, "estado", {mudo:v.muted, vol:+(v.volume || 0).toFixed(2), somBytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined}); }catch(e){} }); }, 20000);
   /* avisos de erro mostrados ao utilizador */
   try{ const t0 = window.toast; window.toast = toast = function(m, bad){ try{ if(bad){ const sl = DBG.cur[tvTarget] ? tvTarget : (DBG.cur[0] ? 0 : 1); ev(sl, "aviso", {txt:scrub(m).slice(0, 300)}); } }catch(e){} return t0.apply(this, arguments); }; }catch(e){}
   /* conta (sem credenciais): ligações em uso e estado */
