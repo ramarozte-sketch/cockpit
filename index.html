@@ -1459,7 +1459,7 @@ body.layout-atv .rail{display:none}
           <label class="f">VIN<input type="text" id="setVin" autocomplete="off"></label>
           <div class="row"><button class="btn" id="btnFindVin">Detetar VIN</button><button class="btn primary" id="btnSaveTesla">Guardar</button></div>
           <label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="setTessieOn"> Ligação à Tessie ativa</label>
-          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser.</p>
+          <p class="small muted" style="margin:0" id="tessieOffNote">Desligada: o Cockpit deixa de fazer pedidos à Tessie (sem dados nem comandos do carro). O bloqueio em andamento passa a usar o GPS do browser (acima de 50 km/h).</p>
           <p class="small muted" style="margin:0">O token fica guardado só neste browser. Quem usar o browser do carro pode controlá-lo, por isso não partilhes o carro com o token configurado se não confias.</p>
         </div>
       <div class="panel setcard">
@@ -2639,7 +2639,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v129";
+const APP_VERSION = "v130";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10022,7 +10022,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const c = pos.coords; let kmh = (c.speed != null && isFinite(c.speed)) ? c.speed * 3.6 : null;
       if(kmh == null) return;
       const g = D.gps; g.kmh = kmh; g.t = Date.now(); g.acc = c.accuracy || 999;
-      if(g.acc < 60 && kmh > 12) g.fast++; else g.fast = 0;
+      if(g.acc < 60 && kmh > 50) g.fast++; else g.fast = 0;   /* GPS: bloqueia acima de 50 km/h em 3 leituras seguidas */
       if(g.acc < 80 && kmh < 2){ if(!g.slowSince) g.slowSince = Date.now(); } else g.slowSince = 0;
     }, () => {}); }catch(e){ gid = null; }
   };
