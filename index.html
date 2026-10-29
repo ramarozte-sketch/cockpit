@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v151";
+const APP_VERSION = "v152";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10516,7 +10516,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   if(window.ANDROID) return;
   try{
   const MAX = 40;
-  const DBG = window.__dbg = {list:[], cur:[null, null], seq:0};
+  const DBG = window.__dbg = {list:[], cur:[null, null], seq:0, watch:[null, null]};
   try{ DBG.list = (LS.get("dbgLog", []) || []).slice(-MAX); }catch(e){}
   const on = () => cfg.dbgOn !== false;
   const save = () => { try{ LS.set("dbgLog", DBG.list.slice(-MAX)); }catch(e){ try{ DBG.list = DBG.list.slice(-15); LS.set("dbgLog", DBG.list); }catch(x){} } };
@@ -10541,16 +10541,19 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* buffer de cada faixa (vídeo / som) dentro do hls.js: se não se sobrepõem, o vídeo fica parado sem erro */
   const trackBuf = h => { try{ const bc = (h.coreComponents || []).find(x => x && x.sourceBuffer && typeof x.sourceBuffer === "object"); if(!bc) return null; const o = {}; for(const k of Object.keys(bc.sourceBuffer)){ const sb = bc.sourceBuffer[k]; if(sb && sb.buffered) o[k] = rs(sb.buffered); } return o; }catch(e){ return null; } };
   window.__trackBuf = trackBuf;
-  const ev = (slot, type, data) => { const a = DBG.cur[slot]; if(!a) return; if(a.ev.length < 120) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
+  const ev = (slot, type, data) => { const a = DBG.cur[slot] || DBG.watch[slot]; if(!a) return; if(a.ev.length < (a.res === "em observação" ? 250 : 120)) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
 
   /* --- uma tentativa por canal escolhido --- */
   const start = (c, slot) => {
     if(!on() || !c) return;
+    archiveWatch(slot);
     finish(slot, "substituído por outro canal");
     const sid = (/\/(?:live|movie|series)\/[^/]+\/[^/]+\/([\w-]+)\./.exec(c.url || "") || [])[1] || "";
     const ext = ((/\.([a-z0-9]{2,5})(\?|$)/i.exec(c.url || "") || [])[1] || "").toLowerCase();
     DBG.cur[slot] = {n:++DBG.seq, at:now(), t0:performance.now(), slot, ch:{name:c.name, kind:c.kind, group:c.group || "", id:sid, ext, free:!!c.free, intl:!!c.intl, url:red(c.url)}, ev:[], res:""};
   };
+  /* depois de «ok», o canal continua em observação: quebras, erros e estado do buffer ficam registados (até 20 min) */
+  const archiveWatch = slot => { const w = DBG.watch[slot]; DBG.watch[slot] = null; if(!w) return; delete w.t0; w.res = "ok (observado " + Math.round((Date.now() - w.t00) / 1000) + " s)"; delete w.t00; if(w.ev.length){ DBG.list.push(w); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); try{ save(); }catch(e){} } };
   const finish = (slot, res) => {
     const a = DBG.cur[slot]; if(!a) return; DBG.cur[slot] = null;
     const v = $("vid" + slot);
@@ -10561,6 +10564,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{ const sm = DBG.sample[slot]; if(sm && sm.n === a.n){ if(res !== "ok" && res !== "substituído por outro canal" || a.ev.some(x => /^parado/.test(x.e))){ DBG.failSample = sm; a.amostra = true; } DBG.sample[slot] = null; } }catch(e){}
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
+    if(res === "ok" && a.ch.kind === "live") DBG.watch[slot] = {n:a.n, at:now(), t0:performance.now(), t00:Date.now(), slot, ch:a.ch, ev:[], res:"em observação"};
     if(res !== "ok" && res !== "substituído por outro canal") autoSend();
   };
   /* resultado: «ok» quando há imagem a andar; «falhou» se ao fim de 25 s não houver */
@@ -10614,8 +10618,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   setInterval(wrapTs, 2000);
   ["vid0", "vid1"].forEach((id, slot) => { const v = $(id); if(!v) return;
     v.addEventListener("error", () => ev(slot, "erro vídeo", {code:v.error && v.error.code, msg:scrub(v.error && v.error.message || "")}));
-    ["stalled", "waiting"].forEach(n => v.addEventListener(n, () => { const a = DBG.cur[slot]; if(a && a.ev.filter(x => x.e === n).length < 5) ev(slot, n); }));
+    ["stalled", "waiting"].forEach(n => v.addEventListener(n, () => { const a = DBG.cur[slot] || DBG.watch[slot]; if(a && a.ev.filter(x => x.e === n).length < (a.res === "em observação" ? 60 : 5)) ev(slot, n, a.res === "em observação" ? {buf:bufStr(v), agora:+v.currentTime.toFixed(1), pronto:v.readyState} : undefined); }));
+    v.addEventListener("playing", () => { const w = DBG.watch[slot]; if(w && w.ev.length && /^(waiting|stalled)$/.test(w.ev[w.ev.length - 1].e)) ev(slot, "retoma", {buf:bufStr(v)}); });
   });
+  setInterval(() => { [0, 1].forEach(slot => { const w = DBG.watch[slot]; if(!w) return; const v = $("vid" + slot), el = performance.now() - w.t0;
+      if(el > 1200000 || !lastPlayed[slot]) return; try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {}; const h = hlsInst[slot], l = h && h.latency;
+        ev(slot, "estado", {buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined}); }catch(e){} }); }, 20000);
   /* avisos de erro mostrados ao utilizador */
   try{ const t0 = window.toast; window.toast = toast = function(m, bad){ try{ if(bad){ const sl = DBG.cur[tvTarget] ? tvTarget : (DBG.cur[0] ? 0 : 1); ev(sl, "aviso", {txt:scrub(m).slice(0, 300)}); } }catch(e){} return t0.apply(this, arguments); }; }catch(e){}
   /* conta (sem credenciais): ligações em uso e estado */
@@ -10629,7 +10637,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
       opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
       conta:await account(), bw:+LS.get("bwEst", 0) || 0};
-    const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined}));
+    const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined})).concat([0, 1].map(s => DBG.watch[s]).filter(w => w && w.ev.length).map(w => Object.assign({}, w, {res:"em observação", t0:undefined, t00:undefined})));
     return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
   };
   window.__dbgReport = report;
