@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v150";
+const APP_VERSION = "v151";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10920,10 +10920,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       /* HEVC por software: se o processador não segue o ritmo do vídeo, desiste e passa a uma versão que o browser descodifique */
       try{ if(st.hevc && st.nf > 0){ const tn = performance.now();
           if(!st.g0) st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
-          else if(tn - st.g0.t > 5000){ const fps = (st.nf + (st.sk || 0) - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
+          else if(tn - st.g0.t > 5000){ const fps = (st.nf + (st.sk || 0) - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.pdur || st.dur || 40000);
             log(key, "HEVC por software: ritmo", {fps:+fps.toFixed(1), preciso:+want.toFixed(0), w:st.w, h:st.hh, leve:!!st.lite, saltadas:st.sk || 0});
             st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
-            if(fps < want * 0.6 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
+            if(fps < want * 0.85 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
       try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
           log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - (st.vOff || 0) - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
       st.raf = requestAnimationFrame(loop);
@@ -10934,7 +10934,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   }
   /* o processador não aguenta este HEVC: lembra o canal e abre outra versão, se houver */
   function hevcSlow(key, st, fps){
-    const want = 1e6 / (st.dur || 40000); if(fps < want * 0.5) hevcMark(st.url); else hevcSess.add(st.url);
+    const want = 1e6 / (st.pdur || st.dur || 40000); if(fps < want * 0.5) hevcMark(st.url); else hevcSess.add(st.url);
     const c = typeof key === "number" ? lastPlayed[key] : null; stop(key);
     if(key === "prev" || !c) return;
     const alt = altQuality(c, autoTried[key]) || (window.__altFor && window.__altFor(c, autoTried[key]));
@@ -10976,6 +10976,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         /* modo leve (processador lento): não descodifica as imagens que nenhuma outra usa como referência — ritmo mais baixo mas certo, em vez de saltos */
         if(st.hevc){ const inf = hevcInfo(x.data); if(inf){ if(inf.tid > (st.maxTid || 0)) st.maxTid = inf.tid;
             if(st.lite && !x.key && inf.t < 16 && (inf.t & 1) === 0 && inf.tid >= (st.maxTid || 0) && usOf(st, x.pts) < now + 450000){   /* só quando já está atrasado em relação à imagem */ st.sk = (st.sk || 0) + 1; continue; } } }
+        if(st.hevc){ const pw = st.pw || (st.pw = []); pw.push(x.pts); if(pw.length >= 24){ const q = pw.slice().sort((m, n) => m - n); let mn = 0; for(let i = 1; i < q.length; i++){ const dd = Math.round((q[i] - q[i - 1]) / 90 * 1000); if(dd >= 8000 && dd <= 90000 && (!mn || dd < mn)) mn = dd; } if(mn) st.pdur = mn; st.pw = []; } }   /* intervalo real entre imagens (50p = 20 ms), mesmo com B-frames */
         const ms = Math.round(usOf(st, x.pts) / 1000); batch.push({data:x.data, pts:ms, ptshi:0}); }
       if(batch.length){
         const out = await st.L.ff_decode_multi(c, pkt, frame, batch, {ignoreErrors:true});
