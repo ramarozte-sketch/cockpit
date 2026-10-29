@@ -2647,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v147";
+const APP_VERSION = "v148";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2961,6 +2961,9 @@ function playChannel(c, slot=tvTarget, auto=false){
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(c.kind==="series" && c.sid){ openSeries(c); return; }
+  if(!auto && c.kind==="live" && (hevcBad.has(c.url) || hevcSess.has(c.url))){   /* o utilizador escolheu o canal: tenta outra vez por software (a marca era de uma tentativa anterior) */
+    hevcBad.delete(c.url); hevcSess.delete(c.url); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){}
+  }
   if(c.kind==="live" && !HEVC_OK() && (hevcSkip(c.url) || window.__hevcSw === false)){   /* sem HEVC neste browser e o software não aguentou (ou está desligado): vai logo à versão que ele descodifica */
     const alt = altQuality(c, autoTried[slot]) || (window.__altFor && window.__altFor(c, autoTried[slot]));
     if(alt && alt.url !== c.url){ autoTried[slot].add(c.url); toast(`${c.name} é HEVC e este browser não o descodifica. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
