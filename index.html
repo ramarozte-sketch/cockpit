@@ -151,6 +151,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .stage.pip .s2{position:absolute;right:14px;bottom:14px;width:32%;height:auto;aspect-ratio:16/9;border:2px solid var(--accent);border-radius:8px;z-index:2}
 .stage.split{grid-template-columns:1fr 1fr;gap:2px}
 .stage.splitv{grid-template-rows:1fr 1fr;gap:2px}
+.stage.solo{grid-template-columns:1fr;grid-template-rows:1fr}
+.stage.solo .slot:not(.active){display:none}
+.stage.solo .slot.active{position:relative;right:auto;bottom:auto;width:auto;height:auto;aspect-ratio:auto;border:0;border-radius:0}
 .slot{position:relative;min-width:0;min-height:0;display:grid}
 .slot{overflow:hidden}
 .slot video{transition:transform .25s;transform-origin:50% 50%}
@@ -2644,7 +2647,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v145";
+const APP_VERSION = "v147";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9334,12 +9337,19 @@ body.vgOn #stage{touch-action:none}
     if(c.kind === "series") return;                          /* séries: primeiro a lista de episódios */
     if(c.kind === "?" && e.target.closest("#mvGo") && window.__mvSeries) return;
     try{ if(tvBlocked()) return; }catch(x){}
-    const st = $("stage"); if(!st || !st.classList.contains("single")) return;   /* vista dupla / PIP: fica como está */
+    const st = $("stage"); if(!st) return;
+    if(!st.classList.contains("single")){ if(!/split|pip/.test(st.className)) return; st.classList.add("solo"); }   /* vista dupla / PIP: o ecrã seleccionado ocupa tudo até sair do ecrã total */
     if(window.__ah) window.__ah.pass = Date.now() + 3000;
     if(currentView !== "tv") show("tv");
     setCinema(true);
     try{ if(window.__goFull) window.__goFull(); else { const rq = st.requestFullscreen || st.webkitRequestFullscreen; if(rq && !(document.fullscreenElement || document.webkitFullscreenElement)){ const r = rq.call(st); if(r && r.catch) r.catch(() => {}); } } }catch(x){}
   }, true);
+  /* sai do ecrã total/cinema: volta à vista dupla */
+  try{
+    const unsolo = () => { const st = $("stage"); if(st && st.classList.contains("solo") && !(document.fullscreenElement || document.webkitFullscreenElement) && !$("v-tv").classList.contains("cinema")) st.classList.remove("solo"); };
+    document.addEventListener("fullscreenchange", () => setTimeout(unsolo, 150));
+    new MutationObserver(() => setTimeout(unsolo, 150)).observe($("v-tv"), {attributes:true, attributeFilter:["class"]});
+  }catch(e){}
   /* série escolhida no ecrã de informação: não entra em ecrã total */
   try{ const g = $("mvGo"); if(g) new MutationObserver(() => { window.__mvSeries = /epis/i.test(g.textContent); }).observe(g, {childList:true, characterData:true, subtree:true}); }catch(e){}
   /* Definições → TV e IPTV → Ecrã inicial da TV */
@@ -10906,10 +10916,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       try{ pump(st); draw(st); }catch(e){}
       /* HEVC por software: se o processador não segue o ritmo do vídeo, desiste e passa a uma versão que o browser descodifique */
       try{ if(st.hevc && st.nf > 0){ const tn = performance.now();
-          if(!st.g0) st.g0 = {t:tn, n:st.nf};
-          else if(tn - st.g0.t > 8000){ const fps = (st.nf - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
-            log(key, "HEVC por software: ritmo", {fps:+fps.toFixed(1), preciso:+want.toFixed(0), w:st.w, h:st.hh});
-            st.g0 = {t:tn, n:st.nf};
+          if(!st.g0) st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
+          else if(tn - st.g0.t > 8000){ const fps = (st.nf + (st.sk || 0) - st.g0.n) / ((tn - st.g0.t) / 1000), want = 1e6 / (st.dur || 40000);
+            log(key, "HEVC por software: ritmo", {fps:+fps.toFixed(1), preciso:+want.toFixed(0), w:st.w, h:st.hh, leve:!!st.lite, saltadas:st.sk || 0});
+            st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
             if(fps < want * 0.6 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
       try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
           log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - (st.vOff || 0) - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
@@ -10951,16 +10961,29 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     let dw = w; const sar = f.sample_aspect_ratio; if(Array.isArray(sar) && sar[0] > 0 && sar[1] > 0) dw = Math.round(w * sar[0] / sar[1]); else if(w === 720 && (h === 576 || h === 480)) dw = Math.round(h * 16 / 9);
     try{ return new VideoFrame(out, {format:"I420", codedWidth:w, codedHeight:h, displayWidth:dw, displayHeight:h, timestamp:us}); }catch(e){ return null; }
   };
+  /* HEVC: tipo e camada temporal da primeira fatia da imagem (Annex B) */
+  const hevcInfo = d => { const n = Math.min(d.length - 5, 8192); for(let i = 0; i < n; i++){ if(d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1){ const t = (d[i + 3] >> 1) & 0x3f; if(t < 32) return {t, tid:(d[i + 4] & 7) - 1}; i += 2; } } return null; };
   async function pumpLibav(st){
     const v = st.o.v; if(st.busy || st.init == null || !v || !st.ldec) return; st.busy = true;
     try{
       const now = v.currentTime * 1e6, p = st.pend, [, c, pkt, frame] = st.ldec;
       if(p.length && usOf(st, p[0].pts) < now - 3000000){ let k = -1; for(let i = 0; i < p.length && usOf(st, p[i].pts) <= now; i++) if(p[i].key) k = i; if(k > 0) p.splice(0, k); }
       const batch = [];
-      while(p.length && batch.length < 8 && st.frames.length < 8 && usOf(st, p[0].pts) <= now + 900000){ const x = p.shift(); const ms = Math.round(usOf(st, x.pts) / 1000); batch.push({data:x.data, pts:ms, ptshi:0}); }
+      while(p.length && batch.length < 8 && st.frames.length < 8 && usOf(st, p[0].pts) <= now + 900000){ const x = p.shift();
+        /* modo leve (processador lento): não descodifica as imagens que nenhuma outra usa como referência — ritmo mais baixo mas certo, em vez de saltos */
+        if(st.hevc){ const inf = hevcInfo(x.data); if(inf){ if(inf.tid > (st.maxTid || 0)) st.maxTid = inf.tid;
+            if(st.lite && !x.key && inf.t < 16 && (inf.t & 1) === 0 && inf.tid >= (st.maxTid || 0) && usOf(st, x.pts) < now + 450000){   /* só quando já está atrasado em relação à imagem */ st.sk = (st.sk || 0) + 1; continue; } } }
+        const ms = Math.round(usOf(st, x.pts) / 1000); batch.push({data:x.data, pts:ms, ptshi:0}); }
       if(batch.length){
         const out = await st.L.ff_decode_multi(c, pkt, frame, batch, {ignoreErrors:true});
-        for(const f of out){ if(f.format != null && f.format !== 0){ st.errs++; continue; } const vf = toVideoFrame(f, (f.pts != null ? f.pts : 0) * 1000); if(vf){ st.nf++; st.w = vf.displayWidth; st.hh = vf.displayHeight; st.frames.push(vf); if(st.frames.length > 12) st.frames.shift().close(); } }
+        const nowU = v.currentTime * 1e6;
+        for(const f of out){ if(f.format != null && f.format !== 0){ st.errs++; continue; } const vf = toVideoFrame(f, (f.pts != null ? f.pts : 0) * 1000);
+          if(vf && st.hevc){ const tn = performance.now(); if(!st.lw0) st.lw0 = tn;
+            if(tn - st.lw0 > 6000){ /* os primeiros segundos chegam sempre atrasados (arranque): só conta depois */
+              const w = st.lw || (st.lw = {t:tn, n:0, late:0}); w.n++; if(nowU - vf.timestamp > 120000) w.late++;
+              if(tn - w.t > 3000){ const bad = w.n >= 20 && w.late / w.n > .25; st.lbad = bad ? (st.lbad || 0) + 1 : 0;
+                if(!st.lite && st.lbad >= 2){ st.lite = true; log(st.key, "HEVC por software: modo leve", {atrasadas:w.late, de:w.n}); try{ toast("HEVC por software a custo: a saltar imagens não essenciais para ficar fluido."); }catch(e){} } st.lw = null; } } }
+          if(vf){ st.nf++; st.w = vf.displayWidth; st.hh = vf.displayHeight; st.frames.push(vf); if(st.frames.length > 12) st.frames.shift().close(); } }
       }
     }catch(e){ st.errs++; log(st.key, "MPEG-2: erro", {msg:String(e.message || e).slice(0, 120)}); }
     st.busy = false;
