@@ -2641,7 +2641,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v131";
+const APP_VERSION = "v132";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10598,7 +10598,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 
   /* --- desentrelaçador WebGL --- */
   const VS = "attribute vec2 p;varying vec2 uv;void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}";
-  const FS = "precision mediump float;varying vec2 uv;uniform sampler2D t;uniform float H,par,mode;" +
+  const FS = "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\nvarying vec2 uv;uniform sampler2D t;uniform float H,par,mode;" +
     "vec4 row(float r){return texture2D(t,vec2(uv.x,(clamp(r,0.,H-1.)+.5)/H));}" +
     "void main(){float y=uv.y*H-.5;" +
     "if(mode<.5){float f=(y-par)/2.;float f0=floor(f);float w=f-f0;float r0=2.*f0+par;gl_FragColor=mix(row(r0),row(r0+2.),w);}" +   /* bob: só as linhas do campo, interpolação linear */
@@ -10762,7 +10762,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     hook(slot, u, r){
       hookCore(slot, u, r, {seq:() => playSeq[slot], make:() => {
         const h = hlsInst[slot]; if(!h) return null;
-        const dims = f => { const box = slotBox(slot), dpr = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(320, Math.min(f.displayWidth, Math.round((box.clientWidth || 960) * dpr))); return [w, Math.round(w * f.displayHeight / f.displayWidth)]; };
+        const dims = f => { const box = slotBox(slot), dpr = Math.min(window.devicePixelRatio || 1, 2); let w = Math.max(320, Math.min(f.displayWidth, Math.round((box.clientWidth || 960) * dpr))); try{ if(DRIVE.state === "moving") w = Math.min(w, 1280); }catch(e){}   /* em andamento: imagem até 1280 de largura, menos trabalho para o processador */
+          return [w, Math.round(w * f.displayHeight / f.displayWidth)]; };
         return {h, v:$("vid" + slot), dims, alive:() => S[slot] && S[slot].seq === playSeq[slot] && hlsInst[slot] === h,
           out:(src, w, hh) => { const box = slotBox(slot); if(!box.classList.contains("mirroring")) box.classList.add("mirroring"); mirDraw(slot, src, w, hh); window.__svLast = window.__svLast || {}; window.__svLast[slot] = src; },
           end:() => { try{ if(!(typeof mirrorOn !== "undefined" && mirrorOn)) slotBox(slot).classList.remove("mirroring"); }catch(e){} }};
@@ -10826,13 +10827,14 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     constructor(v){ this.v = v; this.ctx = null; this.g = null; this.srcs = []; this.endCtx = 0; this.endT = -1; }
     _ensure(sr){ if(!this.ctx){ const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC({sampleRate:sr}); this.g = this.ctx.createGain();
         /* a mistura Dolby para estéreo baixa o volume para não saturar: recupera ~4 dB com um limitador suave */
-        this.boost = this.ctx.createGain(); this.boost.gain.value = 1.6;
+        this.boost = this.ctx.createGain(); this.boost.gain.value = 1.5;
         try{ const cp = this.ctx.createDynamicsCompressor(); cp.threshold.value = -8; cp.knee.value = 6; cp.ratio.value = 6; cp.attack.value = 0.004; cp.release.value = 0.2; this.g.connect(this.boost); this.boost.connect(cp); cp.connect(this.ctx.destination); }
         catch(e){ this.g.connect(this.ctx.destination); } }
       if(this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); }
     push(planes, sr, t){
       const v = this.v; this._ensure(sr); const c = this.ctx;
       this.g.gain.value = v.muted ? 0 : (v.volume == null ? 1 : v.volume);
+      try{ this.boost.gain.value = 1.5 * (window.__amp ? window.__amp.pct() / 100 : 1); }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
@@ -10851,10 +10853,18 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   window.__PcmClock = PcmClock;
   /* 5.1 → estéreo feito pelo próprio descodificador Dolby, com os níveis de centro/surround que vêm no sinal
      (o centro, onde estão as vozes, não fica abafado pelos efeitos) */
-  window.__dolbyStereo = async (L, d) => { try{ await L.av_opt_set(d[1], "downmix", "stereo", 1); }catch(e){} };
+  window.__dolbyStereo = async (L, d) => {};   /* a mistura para estéreo é feita abaixo (downmix), com a voz realçada */
   window.__ac3Frames = ac3Frames;
-  const downmix = planes => { if(planes.length <= 2) return planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a)); const n = planes[0].length, Lc = new Float32Array(n), Rc = new Float32Array(n); const [l, r, ce, , ls, rs] = planes;
-    for(let i = 0; i < n; i++){ const cc = (ce ? ce[i] : 0) * 0.707; Lc[i] = 0.5 * (l[i] + cc + (ls ? ls[i] * 0.707 : 0)); Rc[i] = 0.5 * (r[i] + cc + (rs ? rs[i] * 0.707 : 0)); } return [Lc, Rc]; };
+  /* 5.1 → estéreo com a voz (canal central) à frente. A mistura-padrão do AC-3 deixa o centro ~11 dB abaixo do resto
+     e junta os efeitos ao mesmo nível: as vozes ficam fracas e o som envolvente domina. Ordem FFmpeg: L R C LFE Ls Rs (Lb Rb) */
+  const voiceMix = () => { const k = cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice; return k === 0 ? 0.7 : k === 2 ? 1.5 : 1.0; };
+  const downmix = planes => {
+    if(planes.length <= 2) return planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a));
+    const P = planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), N = P.length, n = P[0].length, Lc = new Float32Array(n), Rc = new Float32Array(n);
+    const ci = 2, sl = N === 3 ? -1 : N === 4 ? 3 : N === 5 ? 3 : 4, sr = N === 3 ? -1 : N === 4 ? 3 : N === 5 ? 4 : 5, sl2 = N >= 8 ? 6 : -1, sr2 = N >= 8 ? 7 : -1;
+    const vc = voiceMix(), gf = 0.62, gs = 0.35, C = P[ci], l = P[0], r = P[1], A = sl >= 0 ? P[sl] : null, B = sr >= 0 ? P[sr] : null, A2 = sl2 >= 0 ? P[sl2] : null, B2 = sr2 >= 0 ? P[sr2] : null;
+    for(let i = 0; i < n; i++){ const c = C[i] * vc; Lc[i] = gf * l[i] + c + (A ? gs * A[i] : 0) + (A2 ? gs * A2[i] : 0); Rc[i] = gf * r[i] + c + (B ? gs * B[i] : 0) + (B2 ? gs * B2[i] : 0); }
+    return [Lc, Rc]; };
   window.__downmix = downmix;
   /* filmes .mkv com som AC-3/E-AC-3: lê a faixa de som do ficheiro (Range) e toca-a por software */
   window.__mka = window.__mka || [null, null];
@@ -10955,6 +10965,58 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   }catch(e){ console.log("som Dolby", e); }
 })();
+</script>
+<script>
+/* ===== Amplificação do som do browser + voz Dolby (Definições → TV e IPTV) =====
+   Com a amplificação acima de 100 %, o som dos <video>/<audio> passa por um ganho (Web Audio) e um limitador, e o som Dolby
+   por software também sobe. O browser só deixa isto nas fontes do próprio site ou em blob: (HLS/MPEG-TS pelo hls.js e mpegts.js);
+   ligações diretas de outro site (sem CORS) ficam como estão. */
+(() => { try{
+  const pct = () => { const p = +cfg.ampPct; return p >= 100 && p <= 500 ? p : 100; };
+  const A = window.__amp = {pct, ctx:null, warned:0};
+  const proxBase = () => [window.PHONE_PROXY && window.PHONE_PROXY.base, cfg.proxy2, cfg.proxy].filter(Boolean).map(x => String(x).replace(/\/+$/, ""));
+  const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
+  const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
+  const safe = el => same(el) || (el.crossOrigin === "anonymous" && proxied(el.currentSrc || el.src));
+  const ctx = () => { if(A.ctx && A.ctx.state !== "closed") return A.ctx; const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; try{ A.ctx = new AC({latencyHint:"playback"}); }catch(e){ A.ctx = null; } return A.ctx; };
+  const level = (g, c) => { try{ g.gain.setTargetAtTime(pct() / 100, c.currentTime, 0.05); }catch(e){ g.gain.value = pct() / 100; } };
+  const apply = el => {
+    try{
+      if(!(el instanceof HTMLMediaElement)) return;
+      if(el._amp){ level(el._amp.g, A.ctx); return; }
+      if(pct() <= 100 || el._ampBusy) return;
+      if(!safe(el)){ if(!A.warned++) try{ toast("Esta ligação direta não permite amplificar o som (regra do browser)."); }catch(e){} return; }
+      const c = ctx(); if(!c) return; el._ampBusy = true;
+      c.resume().catch(() => {}).then(() => { el._ampBusy = false;
+        if(c.state !== "running" || el._amp || pct() <= 100 || !safe(el)) return;
+        const src = c.createMediaElementSource(el), g = c.createGain(), cp = c.createDynamicsCompressor();
+        cp.threshold.value = -6; cp.knee.value = 4; cp.ratio.value = 12; cp.attack.value = 0.003; cp.release.value = 0.15;
+        src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; level(g, c);
+        try{ window.__dbgEv && window.__dbgEv(el.id === "vid1" ? 1 : 0, "amplificação ligada", {pct:pct(), el:el.id}); }catch(e){} });
+    }catch(e){ el._ampBusy = false; }
+  };
+  const all = () => document.querySelectorAll("video,audio");
+  A.refresh = () => { all().forEach(apply); };
+  ["playing", "loadeddata"].forEach(ev => document.addEventListener(ev, e => apply(e.target), true));
+  document.addEventListener("pointerdown", () => { if(pct() > 100){ const c = ctx(); if(c && c.state === "suspended") c.resume().catch(() => {}); } }, true);
+  /* ligações pelo proxy do Cockpit já vêm com CORS: pede o som «limpo» para o poder amplificar */
+  try{ const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src");
+    if(d && d.set) Object.defineProperty(HTMLMediaElement.prototype, "src", {configurable:true, enumerable:d.enumerable, get:d.get, set(v){
+      try{ if(!this._amp && typeof v === "string" && !/^(blob:|data:)/i.test(v)){ if(pct() > 100 && proxied(v)) this.crossOrigin = "anonymous"; else if(this.crossOrigin === "anonymous" && this._ampSet) this.removeAttribute("crossorigin"); this._ampSet = pct() > 100 && proxied(v); } }catch(e){}
+      d.set.call(this, v); }}); }catch(e){}
+  setTimeout(() => { try{
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const l1 = document.createElement("label"); l1.className = "f";
+    l1.innerHTML = 'Voz nos filmes e canais Dolby (AC-3)<select id="setDolbyVoice"><option value="0">Normal (mistura-padrão)</option><option value="1">Realçada (recomendado)</option><option value="2">Máxima (diálogos muito baixos)</option></select>';
+    const l2 = document.createElement("label"); l2.className = "f";
+    l2.innerHTML = 'Amplificação do som do browser<select id="setAmp"><option value="100">Desligada (100 %)</option><option value="150">150 %</option><option value="200">200 %</option><option value="300">300 %</option><option value="400">400 %</option></select>';
+    card.appendChild(l1); card.appendChild(l2);
+    const s1 = $("setDolbyVoice"), s2 = $("setAmp");
+    s1.value = String(cfg.dolbyVoice == null ? 1 : cfg.dolbyVoice); s1.onchange = () => { cfg.dolbyVoice = +s1.value; saveCfg(); toast("Voz Dolby: " + s1.options[s1.selectedIndex].text.split(" (")[0]); };
+    s2.value = String(pct()); if(s2.value !== String(pct())) s2.value = "100";
+    s2.onchange = () => { cfg.ampPct = +s2.value; saveCfg(); A.refresh(); toast(cfg.ampPct > 100 ? "Amplificação: " + cfg.ampPct + " % (limitador ligado)" : "Amplificação desligada"); };
+  }catch(e){} }, 0);
+}catch(e){ console.log("amplificação", e); } })();
 </script>
 </body>
 </html>
