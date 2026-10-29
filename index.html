@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v159";
+const APP_VERSION = "v160";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4324,7 +4324,6 @@ function noAudioNow(v){
 /* Escolhe a faixa de áudio que o browser do Tesla consegue tocar (AAC/MP3/Opus) e, entre essas, a portuguesa. */
 function audioPick(h){
   try{
-    if(!window.__TESLA) return;
     const tr = h && h.audioTracks; if(!tr || tr.length < 2 || h.__aPicked) return; h.__aPicked = true;
     const lvl = h.levels && h.levels[Math.max(0, h.currentLevel)] || {};
     const sc = (t, i) => { const cod = t.audioCodec || (t.attrs && t.attrs.CODECS) || ""; let s = 0;
@@ -9563,11 +9562,13 @@ body.pfull.ctlOn #vExit{opacity:1}
     const live = channels.filter(c => c.kind === "live"); if(!live.length) return [];
     const idx = new Map();
     for(const c of live){ const k = nrm(c.name); if(!k) continue; const a = idx.get(k) || []; a.push(c); idx.set(k, a); }
-    const q = c => (/\b(fhd|uhd|4k)\b/i.test(c.name) ? 0 : /\bhd\b/i.test(c.name) ? 1 : 2) + (isPtGroup(c.group) ? 0 : 10);
+    /* áudio em português: só variantes de categorias PT (ou BR, AO, MZ, CV); categorias sem país vêm depois; ES, FR, GB… ficam de fora */
+    const lang = c => { let k = ""; try{ k = window.__cty && window.__cty.ctyOfItem ? window.__cty.ctyOfItem(c) : (isPtGroup(c.group) ? "PT" : "??"); }catch(e){} return /^(PT|BR|AO|MZ|CV)$/.test(k) ? 0 : (k === "??" || k === "" || k.slice(0, 2) === "G:") ? 1 : 2; };
+    const q = c => (/\b(fhd|uhd|4k)\b/i.test(c.name) ? 0 : /\bhd\b/i.test(c.name) ? 1 : 2) + lang(c) * 10 + (isPtGroup(c.group) ? 0 : 5);
     const out = [], seen = new Set();
     for(const ent of opOrder(key)){
       let best = null;
-      for(const alias of String(ent).split("|")){ const a = idx.get(nrm(alias)); if(a){ for(const c of a) if(!seen.has(c.url) && (!best || q(c) < q(best))) best = c; } }
+      for(const alias of String(ent).split("|")){ const a = idx.get(nrm(alias)); if(a){ for(const c of a) if(!seen.has(c.url) && lang(c) < 2 && (!best || q(c) < q(best))) best = c; } }
       if(best){ seen.add(best.url); out.push(best); }
     }
     return out;
