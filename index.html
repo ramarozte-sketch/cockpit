@@ -2642,7 +2642,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v139";
+const APP_VERSION = "v140";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3817,6 +3817,51 @@ function mirrorFeed(slot, d){
    do que as que usam (max_num_ref_frames = 4, usam 5 campos). O FFmpeg tolera; o Chrome/Tesla recusa e a imagem nunca aparece.
    Reescreve, no próprio pedaço .ts, o SPS com um valor maior (8). Só mexe em vídeo entrelaçado (frame_mbs_only_flag = 0),
    sem mudar o tamanho do pedaço (compensa encurtando um código de início 00 00 00 01 → 00 00 01). */
+/* Continuidade dos relógios (PTS/DTS) entre pedaços MPEG-TS de canais em direto.
+   Alguns fornecedores trocam de emissão a meio (anúncios, failover) sem marcar descontinuidade e o relógio de cada faixa salta
+   horas para trás ou para a frente: o hls.js põe o pedaço num sítio impossível e o vídeo pára. Cada faixa é recolocada
+   logo a seguir ao fim do pedaço anterior. */
+const __contSt = {};
+function __tsContinuity(key, seq, u, sn){
+  const out = {shift:0};
+  try{
+    let st = __contSt[key]; if(!st || st.seq !== seq) st = __contSt[key] = {seq, end:{}, sn:null};
+    /* só em pedaços seguidos da lista: num salto (procurar, mudar de qualidade) recomeça */
+    if(typeof sn === "number"){ if(st.sn == null || sn !== st.sn + 1){ if(sn !== st.sn) st.end = {}; } st.sn = sn; } else st.end = {};
+    const W = 8589934592, per = {};   /* 2^33 */
+    for(let o = 0; o + 188 <= u.length; o += 188){
+      if(u[o] !== 0x47 || !(u[o + 1] & 0x40)) continue;
+      const afc = (u[o + 3] >> 4) & 3; if(!(afc & 1)) continue; let q = o + 4; if(afc & 2) q += 1 + u[o + 4];
+      if(q + 14 > o + 188 || u[q] || u[q + 1] || u[q + 2] !== 1 || !(u[q + 7] & 0x80)) continue;
+      const sid = u[q + 3]; if(!((sid >= 0xC0 && sid <= 0xEF) || sid === 0xBD)) continue;
+      const pid = ((u[o + 1] & 0x1f) << 8) | u[o + 2], x = q + 9;
+      const pts = ((u[x] >> 1) & 7) * 1073741824 + u[x + 1] * 4194304 + (u[x + 2] >> 1) * 32768 + u[x + 3] * 128 + (u[x + 4] >> 1);
+      (per[pid] = per[pid] || {list:[], min:Infinity, max:-Infinity}).list.push(q);
+      const r = per[pid]; if(r.list.length === 1){ r.base = pts; }
+      const rel = ((pts - r.base + W + W / 2) % W) - W / 2;   /* relativo ao 1.º, com a volta dos 33 bits */
+      if(rel < r.min) r.min = rel; if(rel > r.max) r.max = rel;
+    }
+    for(const pid in per){
+      const r = per[pid]; if(r.list.length < 2) continue;
+      const first = (r.base + r.min + W) % W, dur = (r.max - r.min) / (r.list.length - 1);
+      const prev = st.end[pid]; let sh = 0;
+      if(prev != null){ const delta = ((first - prev + W + W / 2) % W) - W / 2;
+        if(Math.abs(delta) > 180000) sh = -delta;   /* mais de 2 s fora de sítio */ }
+      if(sh){
+        for(const q of r.list){
+          const wr = (x, v, pre) => { v = ((v % W) + W) % W; u[x] = (pre << 4) | ((Math.floor(v / 1073741824) & 7) << 1) | 1; u[x + 1] = Math.floor(v / 4194304) & 255; u[x + 2] = ((Math.floor(v / 32768) & 127) << 1) | 1; u[x + 3] = Math.floor(v / 128) & 255; u[x + 4] = ((v & 127) << 1) | 1; };
+          const rd = x => ((u[x] >> 1) & 7) * 1073741824 + u[x + 1] * 4194304 + (u[x + 2] >> 1) * 32768 + u[x + 3] * 128 + (u[x + 4] >> 1);
+          const hasD = !!(u[q + 7] & 0x40);
+          wr(q + 9, rd(q + 9) + sh, hasD ? 3 : 2); if(hasD) wr(q + 14, rd(q + 14) + sh, 1);
+        }
+        out.shift++; out.last = {pid:+pid, seg:+(sh / 90000).toFixed(1)};
+      }
+      st.end[pid] = (first + (sh || 0) + (r.max - r.min) + dur + W) % W;
+    }
+  }catch(e){}
+  return out;
+}
+window.__tsContinuity = __tsContinuity;
 function __tsFixFn(buf, refsNew){
   refsNew = refsNew || 8;
   const d = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -3908,7 +3953,7 @@ function makeCapLoader(slot){
       const onSucc = callbacks.onSuccess;
       callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
         try{ const d0 = resp && resp.data; if(d0 && d0.byteLength > 752 && window.__tsFixOn !== false){ const u = d0 instanceof ArrayBuffer ? new Uint8Array(d0) : new Uint8Array(d0.buffer, d0.byteOffset, d0.byteLength);
-            if(u[0] === 0x47){ const r = __tsFixFn(u); window.__tsFixStat.pedacos++; try{ if(window.__sa) window.__sa.hook(slot, u); }catch(e){} try{ if(window.__sv) window.__sv.hook(slot, u, r); }catch(e){} if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
+            if(u[0] === 0x47){ try{ const fr = ctx && ctx.frag; if(fr && fr.type === "main" && fr.level !== undefined && window.__tsContOn !== false){ const cr = __tsContinuity(slot, playSeq[slot], u, fr.sn); if(cr.shift){ window.__tsFixStat.relogio = (window.__tsFixStat.relogio || 0) + 1; try{ window.__dbgEv && window.__dbgEv(slot, "relógio do pedaço corrigido", {faixas:cr.shift, salto_s:cr.last && cr.last.seg, sn:fr.sn}); }catch(e){} } } }catch(e){} const r = __tsFixFn(u); window.__tsFixStat.pedacos++; try{ if(window.__sa) window.__sa.hook(slot, u); }catch(e){} try{ if(window.__sv) window.__sv.hook(slot, u, r); }catch(e){} if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
         try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8, frag:(ctx&&ctx.frag)||context.frag}); } } }catch(e){}
         onSucc(resp,stats,ctx,net);
       }});
