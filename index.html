@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v158";
+const APP_VERSION = "v159";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3574,7 +3574,9 @@ function present(slot){
       else if(dct > 0 && dct < 1 && !v.seeking){ st.wall = false; st.offUs = null; st.ctAt = pn; }   /* o vídeo voltou a andar sozinho */
     }
     const frozen = !v.ended && !st.userPaused && !document.hidden && pn - (st.ctAt || pn) > 1500;
-    if(frozen && !st.wall){ st.wall = true; st.wallBase = st.masterUs; st.wallT0 = pn; st.wallSeekAt = 0; }
+    if(frozen && !st.wall){ st.wall = true; st.wallBase = st.masterUs; st.wallT0 = pn; st.wallSeekAt = 0;
+      /* filme parado pelo carro em andamento: a imagem segue pelo relógio do espelho, por isso o som AAC também passa a tocar por software */
+      if(st.movie && !(window.__mka && window.__mka[slot]) && Date.now() - (st.aacAt || 0) > 20000){ st.aacAt = Date.now(); try{ if(window.__mkaStart) window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], true); }catch(e){} } }
   }
   if(st.wall){
     st.masterUs = st.wallBase + (pn - st.wallT0) * 1000; audioOk = true;
@@ -4023,7 +4025,7 @@ function mkvFloat(b, p, n){ const dv = new DataView(b.buffer, b.byteOffset + p, 
 function mkvKids(b, a, z, fn){ let p = a; while(p < z){ const h = mkvHead(b, p); if(!h) return; const ds = p + h.hl, sz = h.size < 0 ? z - ds : h.size; if(fn(h.id, ds, sz, p) === false) return; p = ds + sz; } }
 function mkvRun(slot, st, src, audio){
   const alive = () => audio ? (window.__mka && window.__mka[slot] === st) : MIR[slot] === st;
-  const v = $("vid" + slot), sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
+  const v = $("vid" + slot), ct = () => st.aac && st.clock ? st.clock.v.currentTime : v.currentTime, sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
   st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
   const decoder = audio ? {reset(){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }, decode(){}} : new PacedDecoder({
     output: frame => { if(!alive()){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
@@ -4044,7 +4046,7 @@ function mkvRun(slot, st, src, audio){
       const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
           if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
           else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
-        if(audio ? (t.type === 2 && /^A_E?AC3/.test(t.codec || "") && !trk) : (t.type === 1 && !trk)) trk = t; });
+        if(audio ? (t.type === 2 && (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "") && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
         if(d + n > hb.length){ if(id === MKV.TRACKS) tracksAt = at; return false; }
@@ -4055,11 +4057,15 @@ function mkvRun(slot, st, src, audio){
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
-        const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(/EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec); st.clock = new window.__PcmClock(v); st.aq = []; st.n = 0;
+        const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
+        /* AAC: o relógio é o do espelho quando o <video> está parado (em andamento); senão o do próprio <video> */
+        st.clock = new window.__PcmClock(st.aac ? {get currentTime(){ const m = MIR[slot]; return m && m.wall && m.masterUs != null ? m.masterUs / 1e6 : v.currentTime; }, get paused(){ const m = MIR[slot]; return m && m.wall ? false : v.paused; }, get seeking(){ return v.seeking; }, get readyState(){ const m = MIR[slot]; return m && m.wall ? 4 : v.readyState; }, get muted(){ return v.muted; }, get volume(){ return v.volume; }, id:v.id} : v); st.aq = []; st.n = 0;
+        if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
+        else if(st.aac) throw new Error("AAC sem configuração");
         st.mkvInfo = {codec:trk.codec};
-        toast("Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
-        const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - v.currentTime > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
-              const x = st.aq.shift(), fr = __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
+        toast(st.aac ? "Som AAC por software (o leitor do carro parou em andamento)…" : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
+        const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
+              const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               const out = await L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}); let t = x.ts / 1e6;
               for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue; pl = __downmix(pl); st.clock.push(pl, sr, t); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); } st.abusy = false; };
         st.drain = drain;
@@ -4078,7 +4084,7 @@ function mkvRun(slot, st, src, audio){
       let cues = [];
       if(cuesAt > 0){ try{ const ch = await get(cuesAt, 16); const hh = mkvHead(ch, 0); if(hh && hh.id === MKV.CUES && hh.size > 0 && hh.size < 8e6){ const cb = await get(cuesAt + hh.hl, hh.size);
             mkvKids(cb, 0, cb.length, (id, d, n) => { if(id !== MKV.CUEPT) return; let t = -1, pos = -1, tr = 0; mkvKids(cb, d, d + n, (i2, d2, n2) => { if(i2 === MKV.CUETIME) t = mkvUint(cb, d2, n2); if(i2 === MKV.CUETP) mkvKids(cb, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.CUETRACK) tr = mkvUint(cb, d3, n3); if(i3 === MKV.CUEPOS && pos < 0) pos = mkvUint(cb, d3, n3); }); });
-              if(t >= 0 && pos >= 0 && (!tr || tr === trk.num)) cues.push({t:t * scale / 1e9, pos:seg + pos}); }); cues.sort((a, b) => a.t - b.t); } }catch(e){} }
+              if(t >= 0 && pos >= 0 && (!tr || tr === trk.num || audio)) cues.push({t:t * scale / 1e9, pos:seg + pos}); }); cues.sort((a, b) => a.t - b.t); } }catch(e){} }
       st.mkvInfo = {codec:trk.codec, cues:cues.length, dur};
       /* 3) leitura dos Clusters a partir de uma posição */
       let pos = 0, pend = new Uint8Array(0), pendAt = 0, tc = 0, lastTs = 0, resync = false, gen = 0;
@@ -4091,20 +4097,20 @@ function mkvRun(slot, st, src, audio){
         else if(t > 1 && dur && st.size){ at = Math.max(first > 0 ? first : seg, Math.floor(seg + (t * 1e9 / scale) / dur * (st.size - seg)) - (1 << 20)); resync = true; lastTs = 0; }
         pos = at; pend = new Uint8Array(0); pendAt = at; tc = 0; st.seekDbg = {t:+t.toFixed(1), at, resync, size:st.size || 0, cues:cues.length};
       };
-      st.onSeek = () => { if(alive()) seekTo(v.currentTime || 0); };
+      st.onSeek = () => { if(alive()) seekTo(ct()); };
       v.addEventListener("seeking", st.onSeek);
-      seekTo(v.currentTime || 0);
+      seekTo(ct());
       const block = (b, d, n, keyFlag) => {
         const tn = mkvVint(b, d, false); if(!tn || tn.v !== trk.num) return;
         const q = d + tn.len, rel = (b[q] << 24 >> 16) | b[q + 1], fl = b[q + 2];
-        if(audio){ const ts = Math.round((tc + rel) * scale / 1000); st.aq.push({ts, data:b.slice(q + 3, d + n)}); if(st.aq.length > 400) st.aq.splice(0, st.aq.length - 400); lastTs = ts; st.drain(); return; }
+        if(audio){ const ts = Math.round((tc + rel) * scale / 1000); st.aq.push({ts, data:b.slice(q + 3, d + n)}); if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
         if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
         const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
         try{ decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:b.slice(q + 3, d + n)}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
       while(alive() && (audio || mirrorOn)){
-        const master = Math.max(st.masterUs != null ? st.masterUs : 0, v.currentTime * 1e6);
+        const master = Math.max(st.masterUs != null ? st.masterUs : 0, ct() * 1e6);
         if(lastTs > master + (audio ? 9e6 : 12e6)){ if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
@@ -11205,13 +11211,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   window.__downmix = downmix;
   /* filmes .mkv com som AC-3/E-AC-3: lê a faixa de som do ficheiro (Range) e toca-a por software */
   window.__mka = window.__mka || [null, null];
-  window.__mkaStart = (slot, c, playId) => {
+  window.__mkaStart = (slot, c, playId, aac) => {
     try{
       const v = $("vid" + slot), src = v.currentSrc || v.src; if(!src || !/\.mkv(\?|$)/i.test(c.url) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
-      const st = window.__mka[slot] = {movie:true};
+      const st = window.__mka[slot] = {movie:true, aac:!!aac};
       mkvRun(slot, st, src, true);
-      const t = setInterval(() => { if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
+      let live0 = Date.now(); const t = setInterval(() => { const m0 = MIR[slot]; if(st.aac){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
       return true;
     }catch(e){ return false; }
   };
