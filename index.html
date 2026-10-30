@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v165";
+const APP_VERSION = "v166";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4052,6 +4052,7 @@ function mkvRun(slot, st, src, audio){
       const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
           if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
           else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
+        (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || ""});
         if(audio ? (t.type === 2 && (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "") && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
@@ -4061,6 +4062,8 @@ function mkvRun(slot, st, src, audio){
         else if(id === MKV.TRACKS) readTracks(hb, d, d + n);
       });
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
+      if(!audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas", {faixas:st.tl.slice(0, 12)});
+          const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); } }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
         const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
