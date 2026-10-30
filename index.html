@@ -369,17 +369,30 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 #gmSnd[aria-pressed=false],#gmMus[aria-pressed=false]{opacity:.6}
 .gmstage .gcv,.gmstage .gsnake{box-shadow:0 0 0 2px rgba(92,242,255,.35),0 0 38px -6px rgba(92,242,255,.45),0 20px 50px -20px #000;border-radius:16px;background:#05060f}
 .gmstage .stat b{font-variant-numeric:tabular-nums}
-#v-games.gmfull{position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:8px 12px;gap:6px;background:#03040a;overflow:hidden;display:flex;flex-direction:column}
+#v-games.gmfull{position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:0;gap:0;background:#000;overflow:hidden;display:block}
 #v-games.gmfull[hidden]{display:none}
-#v-games.gmfull>.row{flex:none;gap:8px}
-#v-games.gmfull>.row h1{font-size:18px;margin:0}
+#v-games.gmfull>.row{position:absolute;top:6px;right:8px;z-index:5;gap:6px;flex-wrap:nowrap;opacity:.55;transition:opacity .25s}
+#v-games.gmfull>.row:hover,#v-games.gmfull>.row:focus-within{opacity:1}
+#v-games.gmfull>.row h1,#v-games.gmfull>.row .spacer{display:none}
+#v-games.gmfull>.row .btn{min-height:34px;padding:4px 10px;font-size:13px;background:rgba(10,12,24,.7);backdrop-filter:blur(4px)}
 #v-games.gmfull #gmLock{display:none}
-#v-games.gmfull #gmStage{flex:1;min-height:0;padding:0;gap:8px;justify-content:center;background:transparent;border:0;box-shadow:none;overflow:hidden}
+#v-games.gmfull #gmStage{position:absolute;inset:0;padding:0;margin:0;gap:0;display:grid;place-items:center;background:#000;border:0;border-radius:0;box-shadow:none;overflow:hidden}
 #v-games.gmfull #gmStage>p.small{display:none}
-#v-games.gmfull .gmbar{flex:none;gap:8px}
-#v-games.gmfull .gmbar .stat{padding:4px 10px}
-#v-games.gmfull .gpad{flex:none}
-#v-games.gmfull .gpad.wide .btn{min-height:64px;min-width:96px;font-size:20px}
+#v-games.gmfull .gmbar{position:absolute;top:6px;left:8px;z-index:4;gap:4px;width:auto;justify-content:flex-start;opacity:.6;transition:opacity .25s}
+#v-games.gmfull .gmbar:hover{opacity:1}
+#v-games.gmfull .gmbar .stat{padding:2px 8px;background:rgba(10,12,24,.7)}
+#v-games.gmfull .gmbar .stat span{font-size:10px}
+#v-games.gmfull .gmbar .stat b{font-size:15px}
+#v-games.gmfull .gmbar .btn{min-height:30px;padding:3px 10px;font-size:12px;background:rgba(10,12,24,.7)}
+#v-games.gmfull .gmbar .btn.primary{background:rgba(92,170,255,.75)}
+#v-games.gmfull .gpad{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:4;opacity:.7}
+#v-games.gmfull .gpad.wide{left:12px;right:12px;transform:none;justify-content:space-between;pointer-events:none}
+#v-games.gmfull .gpad.wide .btn{pointer-events:auto}
+#v-games.gmfull .gpad:not(.wide){left:auto;right:16px;transform:none}
+#v-games.gmfull .gpad .btn{background:rgba(10,12,24,.55);backdrop-filter:blur(3px)}
+#v-games.gmfull .gpad.wide .btn{min-height:56px;min-width:84px;font-size:18px}
+#v-games.gmfull .gpad.wide .btn.primary{background:rgba(92,170,255,.6)}
+#v-games.gmfull #gmStage .g3wrap,#v-games.gmfull #gmStage canvas.gcv,#v-games.gmfull #gmStage canvas.gsnake{border-radius:0;box-shadow:none}
 #gmFull{font-weight:800}
 .g3wrap{position:relative;overflow:hidden;padding:0;background:#05060f}
 .g3wrap>canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
@@ -2711,7 +2724,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v181";
+const APP_VERSION = "v182";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6361,18 +6374,24 @@ const GM_FIT_SEL = ".g3wrap, canvas.gcv, canvas.gsnake, .g2048, .gmem, .gttt, .g
 function gmIsFull(){ return $("v-games").classList.contains("gmfull"); }
 /* ajusta o jogo ao espaço livre (mantém a proporção); os botões e o marcador ficam visíveis */
 function gmFit(){
-  const st = $("gmStage"); if(!st) return;
+  const st = $("gmStage"); if(!st || st.hidden) return;
   const el = st.querySelector(GM_FIT_SEL); if(!el) return;
-  if(!gmIsFull()){ if(el.dataset.fs != null){ el.setAttribute("style", el.dataset.fs); delete el.dataset.fs; } return; }
   if(el.dataset.fs == null) el.dataset.fs = el.getAttribute("style") || "";
   const cv = el.tagName === "CANVAS" ? el : el.querySelector("canvas.g3top");
-  let ar = cv ? cv.width/cv.height : (el.classList.contains("g4") ? 7/6 : el.classList.contains("gsimon") ? 1.4 : 1);
-  let other = 0; [...st.children].forEach(ch => { if(ch !== el && !ch.contains(el) && getComputedStyle(ch).display !== "none") other += ch.getBoundingClientRect().height + 8; });
-  const holder = el.parentElement === st ? null : el.parentElement;
-  const aw = st.clientWidth - 8, ah = Math.max(160, st.clientHeight - other - 8);
-  let w = Math.min(aw, ah*ar), h = w/ar;
-  el.setAttribute("style", (el.dataset.fs || "") + `;width:${Math.floor(w)}px!important;height:${Math.floor(h)}px!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important`);
-  if(holder) holder.style.maxWidth = "none";
+  const ar = cv ? cv.width/cv.height : (el.classList.contains("g4") ? 7/6 : el.classList.contains("gsimon") ? 1.4 : 1);
+  let aw, ah;
+  if(gmIsFull()){ aw = window.innerWidth; ah = window.innerHeight; }
+  else {
+    /* fora do ecrã total: toda a largura do painel e a altura que sobra até ao fundo da janela, descontando os botões por baixo */
+    el.setAttribute("style", el.dataset.fs); const r0 = el.getBoundingClientRect();
+    let below = 0, after = false; [...st.children].forEach(ch => { if(ch === el || ch.contains(el)){ after = true; return; } if(after && getComputedStyle(ch).display !== "none") below += ch.getBoundingClientRect().height + 14; });
+    const cs = getComputedStyle(st); aw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    ah = window.innerHeight - Math.max(0, r0.top) - below - 24;
+    if(ah < 220) ah = 220;
+  }
+  const w = Math.floor(Math.min(aw, ah*ar)), h = Math.floor(w/ar);
+  el.setAttribute("style", el.dataset.fs + `;width:${w}px!important;height:${h}px!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important`);
+  if(el.parentElement !== st) el.parentElement.style.maxWidth = "none";
 }
 function gmFullSet(on){
   const v = $("v-games"); if(on === gmIsFull()) return;
@@ -6382,7 +6401,8 @@ function gmFullSet(on){
   setTimeout(gmFit, 60); setTimeout(gmFit, 400);
 }
 $("gmFull").onclick = () => gmFullSet(!gmIsFull());
-window.addEventListener("resize", () => { if(gmIsFull()) gmFit(); });
+window.addEventListener("resize", () => { clearTimeout(gmFit._t); gmFit._t = setTimeout(gmFit, 80); });
+try{ new ResizeObserver(() => { clearTimeout(gmFit._t); gmFit._t = setTimeout(gmFit, 80); }).observe($("gmStage")); }catch(e){}
 document.addEventListener("fullscreenchange", () => { if(!document.fullscreenElement && gmIsFull() && gmFullSet._api){ gmFullSet(false); } gmFullSet._api = !!document.fullscreenElement; setTimeout(gmFit, 60); });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && gmIsFull() && !document.fullscreenElement) gmFullSet(false); });
 function gmExit(){ if(typeof gmIsFull === "function" && gmIsFull() && !gmExit._keep) gmFullSet(false); try{ $("gmFull").hidden = true; }catch(e){} gmCurId = null; try{ GXM.stop(); }catch(e){} gmCleanup.forEach(f=>{ try{ f(); }catch(e){} }); gmCleanup = []; $("gmStage").hidden = true; $("gmStage").innerHTML = ""; $("gmHub").hidden = false; $("gmBack").hidden = true; if(currentView === "games" && $("gmLocal").innerHTML) renderGames(); }
@@ -8895,7 +8915,7 @@ function gamePinball(st){
   /* bolas */
   const ballG = new T.SphereGeometry(R/40, 24, 18), ballM = new T.MeshStandardMaterial({color:0xe8f0ff, metalness:.85, roughness:.12, emissive:0x223355, emissiveIntensity:.6});
   const ballMs = [], trailS = []; const ballPool = n => { while(ballMs.length < n){ const m = new T.Mesh(ballG, ballM); const l = new T.PointLight(0x9fe8ff, 1.2, 3); m.add(l); scene.add(m); ballMs.push(m); const tr = []; for(let k = 0; k < 10; k++){ const s_ = g.sprite(0x5cf2ff, .4, 0); scene.add(s_); tr.push(s_); } trailS.push(tr); } ballMs.forEach((m, i) => { m.visible = i < n; trailS[i].forEach(s_ => s_.visible = i < n); }); };
-  cam.position.set(0, 10.2, 12.8); cam.lookAt(0, 0, -2.6);
+  cam.position.set(0, 17.5, 11.5); cam.lookAt(0, 0, .6);
   /* ---------- ciclo ---------- */
   gmLoop((dt, Tm) => { tAll += dt; fx.update(dt);
     if(state === "play"){
@@ -8927,7 +8947,7 @@ function gamePinball(st){
     multLamps.forEach((m, i) => m.material.color.set(i < mult ? 0xffe14a : 0x221030));
     const [px_, , pz_] = world(375, 790 + charge*30); plunger.position.set(px_, .2, pz_);
     stars.rotation.y = tAll*.01;
-    shake = Math.max(0, shake - dt); const sx = shake > 0 ? (Math.random() - .5)*shake*.6 : 0; cam.position.set(sx, 10.2, 12.8); cam.lookAt(0, 0, -2.6);
+    shake = Math.max(0, shake - dt); const sx = shake > 0 ? (Math.random() - .5)*shake*.6 : 0; cam.position.set(sx, 17.5, 11.5); cam.lookAt(0, 0, .6);
     g.render(dt, null);
     /* ---------- painel por cima ---------- */
     x.clearRect(0, 0, W, H);
