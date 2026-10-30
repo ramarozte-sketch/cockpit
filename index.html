@@ -1054,7 +1054,7 @@ body.layout-atv .rail{display:none}
           <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
             <button class="tab" data-kind="free" aria-selected="false">📡 Abertos PT</button>
             <button class="tab" data-kind="intl" aria-selected="false">🌍 Internacional</button>
-            <button class="tab" data-kind="live" aria-selected="true">Live</button>
+            <button class="tab" data-kind="live" aria-selected="true">Canais</button>
             <button class="tab" data-kind="movie" aria-selected="false">Filmes</button>
             <button class="tab" data-kind="series" aria-selected="false">Séries</button>
             <button class="tab" data-kind="fav" aria-selected="false">★ Favoritos</button>
@@ -8975,7 +8975,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
 
   /* vista */
   const sec = document.createElement("section"); sec.className = "view"; sec.id = "v-tvinicio"; sec.hidden = true;
-  sec.innerHTML = '<div class="ahTop"><h1>TV</h1><span class="spacer"></span><button class="btn" data-go="explore">🔎 Explorar lista</button><button class="btn" data-go="guide">📅 Guia</button></div><div class="ahHero" id="ahHero"></div><div id="ahRows"></div>';
+  sec.innerHTML = '<div class="ahTop"><h1>TV</h1><span class="spacer"></span><button class="btn" data-go="explore">🔎 Explorar lista</button><button class="btn" data-go="guide">📅 Guia</button></div><div id="ahStick"><div class="ahHero" id="ahHero"></div><div class="ahKinds" id="ahKindsBar"></div></div><div id="ahRows"></div>';
   $("v-tv").parentNode.insertBefore(sec, $("v-tv"));
   const srch = document.createElement("div"); srch.id = "ahSrch"; srch.hidden = true;
   srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX">✕ Fechar</button></div><div class="res" id="ahSrRes"></div></div>';
@@ -9087,8 +9087,10 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
       hero = '<div class="ahHeroTx"><small>Cockpit TV</small><h2>Bem-vindo</h2><p>' + (channels.length ? "Escolhe um canal em baixo para começar." : "Os canais abertos portugueses já estão disponíveis. Para ver mais, adiciona a tua lista IPTV nas Definições.") + '</p><div class="ahHeroBt"><button class="ahBtn pri" data-go="explore">🔎 Explorar canais</button><button class="ahBtn" data-go="settings">⚙ Definições</button></div></div>';
     }
     if(AH.hh !== hero || !$("ahHero").firstChild){ $("ahHero").innerHTML = hero; AH.hh = hero; try{ window.__ahStageHome && window.__ahStageHome(); }catch(e){} }
-    const K = [["live", "📺 Live"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
-    let rows = '<div class="ahKinds">' + K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button></div>';
+    const K = [["live", "📺 Canais"], ["movie", "🎬 Filmes"], ["series", "🍿 Séries"]];
+    const kb = K.map(([k, t]) => '<button class="ahBtn ahKind" data-kind="' + k + '" aria-pressed="' + (AH.kind === k) + '">' + t + '</button>').join("") + '<button class="ahBtn" data-srch="1">🔎 Pesquisar</button>';
+    if(AH.kb !== kb || !$("ahKindsBar").firstChild){ const had = $("ahKindsBar").contains(document.activeElement) ? (document.activeElement.dataset.kind || "srch") : ""; $("ahKindsBar").innerHTML = kb; AH.kb = kb; if(had){ const el = $("ahKindsBar").querySelector(had === "srch" ? "[data-srch]" : '[data-kind="' + had + '"]'); if(el) el.focus({preventScroll:true}); } }
+    let rows = "";
     if(AH.kind !== "live" && window.RES){ const rl = window.RES.list(AH.kind).slice(0, 20).map(e => Object.assign({}, e, {_pct:Math.round(e.p / e.d * 100), _sub:(e.group ? e.group + " · " : "") + Math.max(1, Math.round((e.d - e.p) / 60)) + " min restantes"})); if(rl.length) rows += row("▶ Continuar a ver", rl); }
     const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
     const rv = (AH.recSnap || recents()).filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(!AH.recSnap && cur && cur.url === x.url)).slice(0, 20);
@@ -10085,11 +10087,12 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
   /* tocar num canal em direto do Início: começa a dar no destaque */
   window.addEventListener("click", e => {
     const t = e.target; if(!on() || !t || !t.closest || currentView !== "tvinicio") return;
-    const b = t.closest("#ahRows .ahCard[data-k]"); if(!b) return;
+    const b = t.closest("#ahRows .ahCard[data-k], #ahHero .ahBtn.pri[data-k]"); if(!b) return;   /* «▶ Ver agora» do destaque conta como um cartão */
     const c = window.__ah && window.__ah.flat[+b.dataset.k];
     if(!c || /^(movie|series|episode|vod)$/.test(c.kind || "")) return;   /* filmes e séries: como antes (detalhes / ecrã total) */
     e.stopImmediatePropagation(); e.preventDefault();
     try{ if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); return; } }catch(x){}
+    if(window.__ahStageIn && lastPlayed[0] && lastPlayed[0].url === c.url){ goFull(); return; }   /* já está na pré-visualização: ecrã total */
     stayUntil = Date.now() + 20000;
     try{ const sm = document.querySelector('[data-mode="single"]'); if(sm && !st.classList.contains("single")) sm.click(); }catch(x){}
     window.__oneConn(c, 0);
@@ -10141,8 +10144,10 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
 </script>
 <style>
 /* ===== Início da TV: destaque (com a pré-visualização) e Live / Filmes / Séries ficam fixos no topo ao descer ===== */
-#v-tvinicio #ahHero{position:sticky;top:0;z-index:6;box-shadow:0 -24px 0 6px var(--bg),0 10px 24px #0008;transition:min-height .2s,padding .2s,gap .2s}
-#v-tvinicio #ahRows>.ahKinds{position:sticky;top:var(--ahHH,0px);z-index:6;background:var(--bg);margin:0 -6px;padding:8px 6px}
+#v-tvinicio #ahStick{position:sticky;top:0;z-index:7;background:var(--bg);box-shadow:0 -24px 0 6px var(--bg),0 10px 24px #0008;margin:0 -6px;padding:0 6px}
+#v-tvinicio #ahStick .ahHero{margin-bottom:0}
+#v-tvinicio #ahHero{transition:min-height .2s,padding .2s,gap .2s}
+#v-tvinicio #ahKindsBar{margin:0;padding:8px 0 6px}
 #v-tvinicio .ahHeroArt{transition:flex-basis .2s}
 body.ahStuck #v-tvinicio #ahHero{min-height:0!important;padding:8px 14px!important;gap:14px!important}
 body.ahStuck #v-tvinicio .ahHeroArt{flex:0 0 clamp(150px,26%,340px)!important}
@@ -10153,7 +10158,7 @@ body.ahStuck #v-tvinicio .ahHeroTx p{font-size:14px}
 body.ahStuck #v-tvinicio .ahHeroBt{margin-top:2px}
 body.ahStuck #v-tvinicio .ahHeroBt .ahBtn{min-height:38px;padding:6px 14px;font-size:15px}
 body.ahStuck #v-tvinicio .ahKind{min-width:0}
-body.ahStuck #v-tvinicio #ahRows>.ahKinds .ahBtn{min-height:40px;padding:6px 16px;font-size:15px}
+body.ahStuck #v-tvinicio #ahKindsBar .ahBtn{min-height:40px;padding:6px 16px;font-size:15px}
 body.ahStuck #v-tvinicio .ahFsHint{display:none}
 /* browser estreito (Tesla com o browser em metade do ecrã): o destaque fica em linha (imagem à esquerda, texto à direita)
    em vez de empilhado — senão a imagem ocupa o ecrã todo e a barra Live/Filmes/Séries fica por cima do vídeo */
@@ -10178,7 +10183,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   try{
   const sec = $("v-tvinicio"), hero = $("ahHero"); if(!sec || !hero) return;
   const setH = () => { try{ sec.style.setProperty("--ahHH", Math.round(hero.getBoundingClientRect().height) + "px"); }catch(e){} };
-  if(typeof ResizeObserver === "function") new ResizeObserver(setH).observe(hero); setH();
+  const kbar = $("ahKindsBar"), setK = () => { try{ sec.style.setProperty("--ahKH", Math.round(kbar.getBoundingClientRect().height) + "px"); }catch(e){} };
+  if(typeof ResizeObserver === "function"){ new ResizeObserver(setH).observe(hero); if(kbar) new ResizeObserver(setK).observe(kbar); } setH(); setK();
   hero.addEventListener("transitionend", setH);
   const scrolled = () => { const m = $("main"); return Math.max(m ? m.scrollTop : 0, window.scrollY || 0, (document.scrollingElement || {}).scrollTop || 0); };
   let raf = 0;
