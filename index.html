@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v161";
+const APP_VERSION = "v162";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9003,8 +9003,10 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     if(v === "tv" && on() && Date.now() > AH.pass && currentView !== "tv") v = "tvinicio";
     if(v === "tvinicio" && !on()) v = "tv";
     const wasHome = currentView === "tvinicio";
+    if(wasHome && v !== "tvinicio"){ try{ const m = $("main"); AH.sy = Math.max(m ? m.scrollTop : 0, window.scrollY || 0); }catch(e){} }   /* lembra onde ficaste no Início */
     const r = _show.apply(this, [v].concat([].slice.call(arguments, 1)));
     if(v === "tvinicio"){
+      if(!wasHome && AH.sy > 0){ const y = AH.sy; [0, 150, 500, 1100].forEach(d => setTimeout(() => { if(currentView !== "tvinicio") return; try{ const m = $("main"); if(m) m.scrollTop = y; window.scrollTo(0, y); }catch(e){} }, d)); }
       if(!wasHome) AH.recSnap = recents();
       document.querySelectorAll('.nav[data-view="tv"]').forEach(b => b.setAttribute("aria-current", "page"));
       try{ if(typeof tvLockUi === "function") tvLockUi(); }catch(e){}
