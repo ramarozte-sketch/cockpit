@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v167";
+const APP_VERSION = "v168";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9515,6 +9515,17 @@ body.pfull.ctlOn #vExit{pointer-events:auto}
 body.pfull:not(.ctlOn) #stage .lbl,body.pfull:not(.ctlOn) #stage .rot{opacity:0;pointer-events:none;transition:opacity .3s}
 body.pfull #vExit{display:block}
 body.pfull.ctlOn #vExit{opacity:1}
+/* lista de canais à esquerda em ecrã total (aparece com os controlos) */
+#fsCh{display:none;position:fixed;left:0;top:64px;bottom:70px;width:min(320px,42vw);z-index:215;overflow-y:auto;overscroll-behavior:contain;padding:6px 6px 6px 10px;background:linear-gradient(90deg,#000d 70%,#0000);opacity:0;pointer-events:none;transform:translateX(-14px);transition:opacity .25s,transform .25s;scrollbar-width:none}
+#fsCh::-webkit-scrollbar{display:none}
+body.pfull #fsCh{display:block}
+body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
+#fsCh button{display:flex;align-items:center;gap:10px;width:100%;margin:2px 0;padding:7px 10px;border:0;border-radius:10px;background:transparent;color:#fff;font:600 15px/1.2 inherit;text-align:left;cursor:pointer}
+#fsCh button.on{background:#ffffff33;outline:2px solid #fff8}
+#fsCh button:hover{background:#ffffff22}
+#fsCh .pi{flex:none;width:44px;height:30px;border-radius:5px;background:#ffffff14 center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-size:14px}
+#fsCh .pi img{max-width:100%;max-height:100%;object-fit:contain}
+#fsCh b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <script>
 /* ===== Tesla: ecrã total "a sério" na página (funciona mesmo quando o browser não deixa usar o ecrã inteiro) ===== */
@@ -9550,6 +9561,39 @@ body.pfull.ctlOn #vExit{opacity:1}
   fm.onclick = e => { e.stopPropagation(); const a = $("chAspect"); if(a) a.click(); fmPaint(); peek(); };
   setInterval(fmPaint, 1000); fmPaint();
   ex.onclick = e => { e.stopPropagation(); leave(); };
+  /* lista de canais (picon + nome) à esquerda, com scroll e selecção */
+  const fsl = document.createElement("div"); fsl.id = "fsCh"; document.body.appendChild(fsl);
+  let fsKey = "";
+  const fsBuild = () => {
+    const c = lastPlayed[tvTarget];
+    if(!c){ fsl.innerHTML = ""; fsKey = ""; return; }
+    let list = []; try{ list = neighbours(c); }catch(e){}
+    if(!list.length) list = [c];
+    const key = c.url + "|" + list.length + "|" + (list[0] && list[0].url);
+    if(key === fsKey) return; fsKey = key;
+    const same = fsl.dataset.g === (list[0] && list[0].url) + "|" + list.length;
+    fsl.dataset.g = (list[0] && list[0].url) + "|" + list.length;
+    if(!same){
+      fsl.innerHTML = "";
+      list.forEach((x, i) => {
+        const b = document.createElement("button"); b.type = "button"; b.dataset.u = x.url;
+        const pi = document.createElement("span"); pi.className = "pi";
+        if(x.logo){ const im = document.createElement("img"); im.loading = "lazy"; im.alt = ""; im.src = x.logo; im.onerror = () => { im.remove(); pi.textContent = "📺"; }; pi.appendChild(im); } else pi.textContent = "📺";
+        const n = document.createElement("b"); n.textContent = x.name;
+        b.append(pi, n);
+        b.onclick = e => { e.stopPropagation(); peek(); if(!lastPlayed[tvTarget] || lastPlayed[tvTarget].url !== x.url) playChannel(x); };
+        fsl.appendChild(b);
+      });
+    }
+    let cur = null;
+    fsl.querySelectorAll("button").forEach(b => { const on = b.dataset.u === c.url; b.classList.toggle("on", on); if(on) cur = b; });
+    if(cur && document.body.classList.contains("ctlOn")){ try{ cur.scrollIntoView({block:"center"}); }catch(e){} }
+  };
+  ["pointerdown", "wheel", "touchmove"].forEach(ev => fsl.addEventListener(ev, peek, {passive:true}));
+  fsl.addEventListener("scroll", peek, {passive:true});
+  fsl.addEventListener("click", e => e.stopPropagation());
+  setInterval(() => { if(document.body.classList.contains("pfull")) try{ fsBuild(); }catch(e){} }, 700);
+  new MutationObserver(() => { if(document.body.classList.contains("ctlOn")){ fsKey = ""; try{ fsBuild(); }catch(e){} } }).observe(document.body, {attributes:true, attributeFilter:["class"]});
   /* tocar no vídeo mostra/esconde os controlos */
   st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
   document.querySelectorAll("#v-tv .cinebar").forEach(b => b.addEventListener("pointerdown", peek));
