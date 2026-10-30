@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v168";
+const APP_VERSION = "v169";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9507,8 +9507,9 @@ body.pfull #v-tv.cinema .cinebar .btn{flex:none;padding:10px 14px;font-size:15px
 body.pfull.ctlOn #v-tv.cinema .cinebar{opacity:1;pointer-events:auto}
 body.pfull #vAspBtn{display:none!important}
 #vFmt{display:none;position:fixed;left:84px;top:8px;z-index:220;padding:7px 12px;border:0;border-radius:10px;background:#000c;color:#fff;font:700 14px/1 inherit;opacity:0;pointer-events:none;transition:opacity .3s}
-body.pfull #vFmt{display:block}
-body.pfull.ctlOn #vFmt{opacity:1;pointer-events:auto}
+body.pfull #vFmt,body.pfull #vFsl{display:block}
+body.pfull.ctlOn #vFmt,body.pfull.ctlOn #vFsl{opacity:1;pointer-events:auto}
+#vFsl{display:none;position:fixed;left:12px;top:58px;z-index:220;padding:7px 12px;border:0;border-radius:10px;background:#000c;color:#fff;font:700 14px/1 inherit;opacity:0;pointer-events:none;transition:opacity .3s}
 body.pfull #chAspect{display:none!important}
 #vExit{display:none;position:fixed;left:12px;top:12px;z-index:220;padding:12px 18px;border:0;border-radius:12px;background:#000c;color:#fff;font:700 17px/1 inherit;opacity:0;pointer-events:none;transition:opacity .3s}
 body.pfull.ctlOn #vExit{pointer-events:auto}
@@ -9516,7 +9517,7 @@ body.pfull:not(.ctlOn) #stage .lbl,body.pfull:not(.ctlOn) #stage .rot{opacity:0;
 body.pfull #vExit{display:block}
 body.pfull.ctlOn #vExit{opacity:1}
 /* lista de canais à esquerda em ecrã total (aparece com os controlos) */
-#fsCh{display:none;position:fixed;left:0;top:64px;bottom:70px;width:min(320px,42vw);z-index:215;overflow-y:auto;overscroll-behavior:contain;padding:6px 6px 6px 10px;background:linear-gradient(90deg,#000d 70%,#0000);opacity:0;pointer-events:none;transform:translateX(-14px);transition:opacity .25s,transform .25s;scrollbar-width:none}
+#fsCh{display:none;position:fixed;left:0;top:100px;bottom:70px;width:min(320px,42vw);z-index:215;overflow-y:auto;overscroll-behavior:contain;padding:6px 6px 6px 10px;background:linear-gradient(90deg,#000d 70%,#0000);opacity:0;pointer-events:none;transform:translateX(-14px);transition:opacity .25s,transform .25s;scrollbar-width:none}
 #fsCh::-webkit-scrollbar{display:none}
 body.pfull #fsCh{display:block}
 body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
@@ -9563,16 +9564,20 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   ex.onclick = e => { e.stopPropagation(); leave(); };
   /* lista de canais (picon + nome) à esquerda, com scroll e selecção */
   const fsl = document.createElement("div"); fsl.id = "fsCh"; document.body.appendChild(fsl);
-  let fsKey = "";
+  let fsKey = "", fsLast = "", fsCenter = true, fsWas = false;
   const fsBuild = () => {
     const c = lastPlayed[tvTarget];
     if(!c){ fsl.innerHTML = ""; fsKey = ""; return; }
-    let list = []; try{ list = neighbours(c); }catch(e){}
+    const md = LS.get("fsList", "all");
+    fsl.style.display = md === "off" ? "none" : "";
+    if(md === "off") return;
+    let list = []; try{ list = md === "all" ? (c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind === c.kind && x.kind !== "series")) : neighbours(c); }catch(e){}
     if(!list.length) list = [c];
-    const key = c.url + "|" + list.length + "|" + (list[0] && list[0].url);
+    const key = md + "|" + c.url + "|" + list.length + "|" + (list[0] && list[0].url);
     if(key === fsKey) return; fsKey = key;
-    const same = fsl.dataset.g === (list[0] && list[0].url) + "|" + list.length;
-    fsl.dataset.g = (list[0] && list[0].url) + "|" + list.length;
+    const gk = md + "|" + (list[0] && list[0].url) + "|" + list.length;
+    const same = fsl.dataset.g === gk;
+    fsl.dataset.g = gk;
     if(!same){
       fsl.innerHTML = "";
       list.forEach((x, i) => {
@@ -9587,13 +9592,18 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     }
     let cur = null;
     fsl.querySelectorAll("button").forEach(b => { const on = b.dataset.u === c.url; b.classList.toggle("on", on); if(on) cur = b; });
-    if(cur && document.body.classList.contains("ctlOn")){ try{ cur.scrollIntoView({block:"center"}); }catch(e){} }
+    if(cur && (fsCenter || fsLast !== c.url)){ fsCenter = false; try{ fsl.scrollTop = Math.max(0, cur.offsetTop - fsl.clientHeight / 2 + cur.offsetHeight / 2); }catch(e){} }
+    fsLast = c.url;
   };
   ["pointerdown", "wheel", "touchmove"].forEach(ev => fsl.addEventListener(ev, peek, {passive:true}));
   fsl.addEventListener("scroll", peek, {passive:true});
   fsl.addEventListener("click", e => e.stopPropagation());
   setInterval(() => { if(document.body.classList.contains("pfull")) try{ fsBuild(); }catch(e){} }, 700);
-  new MutationObserver(() => { if(document.body.classList.contains("ctlOn")){ fsKey = ""; try{ fsBuild(); }catch(e){} } }).observe(document.body, {attributes:true, attributeFilter:["class"]});
+  new MutationObserver(() => { const on = document.body.classList.contains("ctlOn"); if(on && !fsWas){ fsCenter = true; fsKey = ""; try{ fsBuild(); }catch(e){} } fsWas = on; }).observe(document.body, {attributes:true, attributeFilter:["class"]});
+  const fb = document.createElement("button"); fb.id = "vFsl"; fb.type = "button"; document.body.appendChild(fb);
+  const fbPaint = () => { const m = LS.get("fsList", "all"); fb.textContent = "☰ Lista: " + (m === "all" ? "todos" : m === "group" ? "grupo" : "off"); };
+  fb.onclick = e => { e.stopPropagation(); const m = LS.get("fsList", "all"); LS.set("fsList", m === "all" ? "group" : m === "group" ? "off" : "all"); fbPaint(); fsKey = ""; fsl.dataset.g = ""; fsl.style.display = ""; try{ fsBuild(); }catch(x){} peek(); };
+  fbPaint();
   /* tocar no vídeo mostra/esconde os controlos */
   st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
   document.querySelectorAll("#v-tv .cinebar").forEach(b => b.addEventListener("pointerdown", peek));
