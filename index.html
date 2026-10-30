@@ -2668,7 +2668,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v174";
+const APP_VERSION = "v175";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3611,7 +3611,15 @@ function present(slot){
   }
   else if(head!=null && audioOk){
     const kUs = st.fixedOff!=null ? st.fixedOff : autoOffUs(st, head);
-    if(kUs!=null) st.offUs = kUs; else if(st.offUs==null) st.offUs = head - v.currentTime*1e6;
+    if(kUs!=null){
+      /* Desliza suavemente para o novo valor em vez de saltar de imediato: em TV ao vivo
+         redistribuída, marcas de fragmentos consecutivas por vezes discordam por centenas de
+         ms a 1-2 s (cortes de publicidade, descontinuidades no PTS da emissão). Aceitar o valor
+         logo na hora faz o relógio mestre saltar e a imagem avançar/recuar de repente; deslizando
+         a correção ao longo de vários frames, o ajuste fica impercetível em vez de um salto. */
+      if(st.offUs==null) st.offUs = kUs;
+      else{ const d = kUs - st.offUs, STEP = 40000; st.offUs += Math.max(-STEP, Math.min(STEP, d)); }
+    } else if(st.offUs==null) st.offUs = head - v.currentTime*1e6;
     st.masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
   }
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
