@@ -1480,7 +1480,7 @@ body.layout-atv .rail{display:none}
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
         </div>
       </div>
-      <h3 class="setgrp">Aparência e voz</h3>
+      <h3 class="setgrp">Aparência</h3>
       <div class="setcards">
       <div class="panel setcard">
           <h2>Idioma e layout</h2>
@@ -1493,12 +1493,6 @@ body.layout-atv .rail{display:none}
             <button class="layoutopt" data-layout="atv" aria-pressed="false"><span class="lprev lp-atv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b>Android TV</b><span class="small muted">Ecrã de início com filas de apps, canais, filmes e séries</span></button>
             <button class="layoutopt" data-layout="auto" aria-pressed="false"><span class="lprev lp-auto"><i></i><i></i><i></i><i></i></span><b>Condução</b><span class="small muted">Inspirado no Android Auto: ícones grandes e ecrã de início</span></button>
           </div>
-          <label class="row small"><input type="checkbox" id="setFx"> Efeitos de transição entre menus</label>
-          <label class="row small"><input type="checkbox" id="setUiSnd"> Sons de interação (toques, confirmações e erros)</label>
-          <label class="f small">Volume dos sons de interação<input type="range" id="setUiVol" min="0" max="100" step="5" style="width:100%"></label>
-          <label class="row small"><input type="checkbox" id="setBoot"> Ecrã de arranque (animação Matrix ao abrir a app)</label>
-          <label class="row small"><input type="checkbox" id="setBootSnd"> Som futurista no arranque</label>
-          <div class="row"><button class="btn" id="btnBootTest">▶ Ver o arranque</button></div>
         </div>
       <div class="panel setcard">
           <h2>Cores, sons e arranque</h2>
@@ -1506,7 +1500,17 @@ body.layout-atv .rail{display:none}
           
           <h3 class="setsubh">Esquema de cores</h3>
           <div class="schemes" id="schemes" role="group" aria-label="Esquema de cores"></div>
+          <h3 class="setsubh">Sons e arranque</h3>
+          <label class="row small"><input type="checkbox" id="setFx"> Efeitos de transição entre menus</label>
+          <label class="row small"><input type="checkbox" id="setUiSnd"> Sons de interação (toques, confirmações e erros)</label>
+          <label class="f small">Volume dos sons de interação<input type="range" id="setUiVol" min="0" max="100" step="5" style="width:100%"></label>
+          <label class="row small"><input type="checkbox" id="setBoot"> Ecrã de arranque (animação Matrix ao abrir a app)</label>
+          <label class="row small"><input type="checkbox" id="setBootSnd"> Som futurista no arranque</label>
+          <div class="row"><button class="btn" id="btnBootTest">▶ Ver o arranque</button></div>
         </div>
+      </div>
+      <h3 class="setgrp">Voz e assistente</h3>
+      <div class="setcards">
       <div class="panel setcard">
           <h2>Voz e assistente</h2>
           <p class="small muted setsub" style="margin:0">Língua da voz, reconhecimento e assistente IA.</p>
@@ -1516,8 +1520,27 @@ body.layout-atv .rail{display:none}
           <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
         </div>
       </div>
-      <h3 class="setgrp">Ligações e serviços</h3>
+      <h3 class="setgrp">TV e vídeo</h3>
       <div class="setcards">
+      <div class="panel setcard">
+          <h2>TV e IPTV</h2>
+          <p class="small muted setsub" style="margin:0">A tua lista M3U ou Xtream Codes e o guia de programas.</p>
+          <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
+          <p class="small muted" style="margin:0">ou Xtream Codes:</p>
+          <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
+          <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
+          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
+          <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
+          <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
+          <p class="small muted" id="iptvStatus" style="margin:0"></p>
+        </div>
+      <div class="panel setcard">
+          <h2>Ecrã total e reprodução</h2>
+          <p class="small muted setsub" style="margin:0">Como se comporta o vídeo em ecrã total.</p>
+          <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada: todos os canais</option><option value="group">Ligada: só o grupo do canal</option><option value="off">Desligada</option></select></label>
+          <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
+        </div>
       <div class="panel setcard">
           <h2>Proxy</h2>
           <p class="small muted setsub" style="margin:0">Necessário para IPTV, Tessie e vídeo no browser do carro. Com o 2.º proxy (Deno) configurado, o vídeo e as listas passam sempre por ele; o Worker da Cloudflare fica para voz, IA, transferir definições e como reserva.</p>
@@ -1532,19 +1555,9 @@ body.layout-atv .rail{display:none}
           <div class="row"><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button></div>
           <div class="small muted" id="directTestOut" style="margin-top:6px;white-space:pre-wrap"></div>
         </div>
-      <div class="panel setcard">
-          <h2>TV e IPTV</h2>
-          <p class="small muted setsub" style="margin:0">A tua lista M3U ou Xtream Codes e o guia de programas.</p>
-          <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
-          <p class="small muted" style="margin:0">ou Xtream Codes:</p>
-          <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
-          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
-          <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
-          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
-          <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
-          <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
-          <p class="small muted" id="iptvStatus" style="margin:0"></p>
-        </div>
+      </div>
+      <h3 class="setgrp">Serviços e contas</h3>
+      <div class="setcards">
       <div class="panel setcard">
           <h2>Energia solar</h2>
           <p class="small muted setsub" style="margin:0">Growatt, tarifas e dados da casa para o carregamento solar.</p>
@@ -1599,19 +1612,13 @@ body.layout-atv .rail{display:none}
           <button class="btn" id="btnSaveApis">Guardar YouTube e Email</button>
         </div>
       </div>
-      <h3 class="setgrp">Dados</h3>
+      <h3 class="setgrp">Dados e cópias</h3>
       <div class="setcards">
       <div class="panel setcard">
           <h2>Cópia de segurança</h2>
           <p class="small muted setsub" style="margin:0">Exporta ou importa as definições e as notas.</p>
           <div class="row"><button class="btn" id="btnExport">Exportar definições e notas</button><button class="btn" id="btnImport">Importar</button></div>
           <textarea id="backupBox" hidden style="min-height:120px" class="mono small"></textarea>
-        </div>
-      <div class="panel setcard">
-          <h2>Diagnóstico e informação</h2>
-          <p class="small muted setsub" style="margin:0">Versão, listas, memória e erros recentes.</p>
-          <div class="row"><button class="btn" id="tsDgRef">Atualizar</button><button class="btn" id="tsDgCp">Copiar</button></div>
-          <pre id="tsDgOut" class="mono small" style="white-space:pre-wrap;max-height:46vh;overflow:auto;user-select:text">(toca em Atualizar)</pre>
         </div>
       <div class="panel setcard">
           <h2>Cofre no servidor (password)</h2>
@@ -1645,6 +1652,12 @@ body.layout-atv .rail{display:none}
             <label class="f">Chave do proxy<input type="text" id="syncKey" autocomplete="off"></label>
           </details>
           <p class="small muted" id="syncMsg" style="margin:0"></p>
+        </div>
+      <div class="panel setcard">
+          <h2>Diagnóstico e informação</h2>
+          <p class="small muted setsub" style="margin:0">Versão, listas, memória e erros recentes.</p>
+          <div class="row"><button class="btn" id="tsDgRef">Atualizar</button><button class="btn" id="tsDgCp">Copiar</button></div>
+          <pre id="tsDgOut" class="mono small" style="white-space:pre-wrap;max-height:46vh;overflow:auto;user-select:text">(toca em Atualizar)</pre>
         </div>
       </div>
     </section>
@@ -2648,7 +2661,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v169";
+const APP_VERSION = "v170";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9493,6 +9506,19 @@ body.vgOn #vAspBtn{display:block}
   }catch(e){ console.log("pré-visualização", e); }
 })();
 </script>
+<script>
+(function(){
+  try{
+    const sel = document.getElementById("setFsl"); if(!sel) return;
+    if(window.ANDROID){ const o = sel.querySelector('[value="group"]'); if(o) o.remove(); sel.options[0].textContent = "Ligada"; }
+    const get = () => { let m = LS.get("fsList", "all"); if(window.ANDROID && m === "group") m = "all"; return m; };
+    sel.value = get();
+    const push = () => { try{ if(window.ANDROID && Android.nfsl) Android.nfsl(get()); }catch(e){} };
+    sel.onchange = () => { LS.set("fsList", sel.value); push(); try{ const b = document.getElementById("vFsl"); if(b) b.textContent = "☰ Lista: " + (sel.value === "all" ? "todos" : sel.value === "group" ? "grupo" : "off"); }catch(e){} };
+    push();
+  }catch(e){}
+})();
+</script>
 <style>
 /* ===== Tesla: modo cinema / ecrã total ocupa o ecrã todo, com controlos por cima ===== */
 body.pfull .app .top,body.pfull .rail{visibility:hidden}
@@ -9602,7 +9628,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   new MutationObserver(() => { const on = document.body.classList.contains("ctlOn"); if(on && !fsWas){ fsCenter = true; fsKey = ""; try{ fsBuild(); }catch(e){} } fsWas = on; }).observe(document.body, {attributes:true, attributeFilter:["class"]});
   const fb = document.createElement("button"); fb.id = "vFsl"; fb.type = "button"; document.body.appendChild(fb);
   const fbPaint = () => { const m = LS.get("fsList", "all"); fb.textContent = "☰ Lista: " + (m === "all" ? "todos" : m === "group" ? "grupo" : "off"); };
-  fb.onclick = e => { e.stopPropagation(); const m = LS.get("fsList", "all"); LS.set("fsList", m === "all" ? "group" : m === "group" ? "off" : "all"); fbPaint(); fsKey = ""; fsl.dataset.g = ""; fsl.style.display = ""; try{ fsBuild(); }catch(x){} peek(); };
+  fb.onclick = e => { e.stopPropagation(); const m = LS.get("fsList", "all"); LS.set("fsList", m === "all" ? "group" : m === "group" ? "off" : "all"); fbPaint(); try{ const ss = document.getElementById("setFsl"); if(ss) ss.value = LS.get("fsList", "all"); }catch(x){} fsKey = ""; fsl.dataset.g = ""; fsl.style.display = ""; try{ fsBuild(); }catch(x){} peek(); };
   fbPaint();
   /* tocar no vídeo mostra/esconde os controlos */
   st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
