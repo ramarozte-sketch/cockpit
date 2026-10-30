@@ -2661,7 +2661,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v170";
+const APP_VERSION = "v171";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9547,7 +9547,7 @@ body.pfull.ctlOn #vExit{opacity:1}
 #fsCh::-webkit-scrollbar{display:none}
 body.pfull #fsCh{display:block}
 body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
-#fsCh button{display:flex;align-items:center;gap:10px;width:100%;margin:2px 0;padding:7px 10px;border:0;border-radius:10px;background:transparent;color:#fff;font:600 15px/1.2 inherit;text-align:left;cursor:pointer}
+#fsCh button{content-visibility:auto;contain-intrinsic-size:auto 44px;display:flex;align-items:center;gap:10px;width:100%;margin:2px 0;padding:7px 10px;border:0;border-radius:10px;background:transparent;color:#fff;font:600 15px/1.2 inherit;text-align:left;cursor:pointer}
 #fsCh button.on{background:#ffffff33;outline:2px solid #fff8}
 #fsCh button:hover{background:#ffffff22}
 #fsCh .pi{flex:none;width:44px;height:30px;border-radius:5px;background:#ffffff14 center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -9590,14 +9590,16 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   ex.onclick = e => { e.stopPropagation(); leave(); };
   /* lista de canais (picon + nome) à esquerda, com scroll e selecção */
   const fsl = document.createElement("div"); fsl.id = "fsCh"; document.body.appendChild(fsl);
-  let fsKey = "", fsLast = "", fsCenter = true, fsWas = false;
+  let fsLC = {k:"", l:null}, fsKey = "", fsLast = "", fsCenter = true, fsWas = false;
   const fsBuild = () => {
     const c = lastPlayed[tvTarget];
     if(!c){ fsl.innerHTML = ""; fsKey = ""; return; }
     const md = LS.get("fsList", "all");
     fsl.style.display = md === "off" ? "none" : "";
     if(md === "off") return;
-    let list = []; try{ list = md === "all" ? (c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind === c.kind && x.kind !== "series")) : neighbours(c); }catch(e){}
+    const lk = md + "|" + c.kind + "|" + (c.intl ? 1 : 0) + (c.free ? 1 : 0) + "|" + (md === "group" ? c.group : "") + "|" + channels.length;
+    let list = fsLC.k === lk ? fsLC.l : null;
+    if(!list){ try{ list = md === "all" ? (c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind === c.kind && x.kind !== "series")) : neighbours(c); }catch(e){ list = []; } fsLC = {k:lk, l:list}; }
     if(!list.length) list = [c];
     const key = md + "|" + c.url + "|" + list.length + "|" + (list[0] && list[0].url);
     if(key === fsKey) return; fsKey = key;
@@ -9609,7 +9611,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
       list.forEach((x, i) => {
         const b = document.createElement("button"); b.type = "button"; b.dataset.u = x.url;
         const pi = document.createElement("span"); pi.className = "pi";
-        if(x.logo){ const im = document.createElement("img"); im.loading = "lazy"; im.alt = ""; im.src = x.logo; im.onerror = () => { im.remove(); pi.textContent = "📺"; }; pi.appendChild(im); } else pi.textContent = "📺";
+        if(x.logo){ const im = document.createElement("img"); im.loading = "lazy"; im.decoding = "async"; im.alt = ""; im.src = x.logo; im.onerror = () => { im.remove(); pi.textContent = "📺"; }; pi.appendChild(im); } else pi.textContent = "📺";
         const n = document.createElement("b"); n.textContent = x.name;
         b.append(pi, n);
         b.onclick = e => { e.stopPropagation(); peek(); if(!lastPlayed[tvTarget] || lastPlayed[tvTarget].url !== x.url) playChannel(x); };
@@ -9624,7 +9626,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   ["pointerdown", "wheel", "touchmove"].forEach(ev => fsl.addEventListener(ev, peek, {passive:true}));
   fsl.addEventListener("scroll", peek, {passive:true});
   fsl.addEventListener("click", e => e.stopPropagation());
-  setInterval(() => { if(document.body.classList.contains("pfull")) try{ fsBuild(); }catch(e){} }, 700);
+  setInterval(() => { if(document.body.classList.contains("ctlOn")) try{ fsBuild(); }catch(e){} }, 1200);
   new MutationObserver(() => { const on = document.body.classList.contains("ctlOn"); if(on && !fsWas){ fsCenter = true; fsKey = ""; try{ fsBuild(); }catch(e){} } fsWas = on; }).observe(document.body, {attributes:true, attributeFilter:["class"]});
   const fb = document.createElement("button"); fb.id = "vFsl"; fb.type = "button"; document.body.appendChild(fb);
   const fbPaint = () => { const m = LS.get("fsList", "all"); fb.textContent = "☰ Lista: " + (m === "all" ? "todos" : m === "group" ? "grupo" : "off"); };
