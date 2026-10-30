@@ -1755,6 +1755,7 @@ body.layout-atv .rail{display:none}
       <button data-k="del" class="del">Apagar</button><button data-k="0">0</button><button data-k="ok" class="ok">OK</button>
     </div>
     <button class="btn" id="pinCancel" style="width:100%">Cancelar</button>
+    <button class="btn" id="pinForgot" style="width:100%;margin-top:6px;background:transparent;color:var(--muted,#8aa)">Esqueci-me do PIN</button>
   </div>
 </div>
 
@@ -1860,6 +1861,11 @@ function askPin(title, msg=""){
     const onKey = e => { if(/^\d$/.test(e.key)) press(e.key); else if(e.key==="Backspace") press("del"); else if(e.key==="Enter") press("ok"); else if(e.key==="Escape") done(null); };
     $("pinKeys").querySelectorAll("button").forEach(b => b.onclick = () => press(b.dataset.k));
     $("pinCancel").onclick = () => done(null);
+    $("pinForgot").onclick = () => {
+      if(!confirm("Isto apaga o PIN atual (não é possível recuperá-lo). As Definições e o Email ficam acessíveis sem PIN até definires um novo. Continuar?")) return;
+      cfg.pinHash = ""; cfg.pinSalt = ""; saveCfg();
+      done("__forgot__");
+    };
     document.addEventListener("keydown", onKey);
     draw(); pad.hidden = false;
   });
@@ -1868,6 +1874,7 @@ async function requirePin(reason){
   if(PIN.isOpen()){ if(PIN.isSet()) PIN.open(); return true; }
   if(Date.now() < PIN.blockedUntil){ toast("Demasiadas tentativas. Espera "+Math.ceil((PIN.blockedUntil-Date.now())/1000)+" s.", true); return false; }
   const p = await askPin(reason || "Introduz o PIN"); if(p==null) return false;
+  if(p === "__forgot__"){ PIN.fails=0; PIN.open(); renderLock(); toast("PIN apagado. Define um novo em Definições se quiseres."); return true; }
   if(await hashPin(p) === cfg.pinHash){ PIN.fails=0; PIN.open(); return true; }
   PIN.fails++; if(PIN.fails>=5){ PIN.blockedUntil = Date.now()+60e3; PIN.fails=0; }
   toast("PIN errado.", true); return false;
@@ -2661,7 +2668,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v173";
+const APP_VERSION = "v174";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -7188,7 +7195,7 @@ const VC = (() => {
 
 /* Fica de fora só o que é temporário ou próprio deste aparelho: sessões OAuth (expiram em 1 h), estado do ecrã, caches e o registo de canais. */
 const VAULT_SKIP = /^(cfg|oauthState|tok_.*|pvState|view|last\d*|solarFc|rotation|freeTv|dbgLog|dbgSent|ahCovers|chHealth|engPhotos|chT)$/;
-const VAULT_CFG_SKIP = ["passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
+const VAULT_CFG_SKIP = ["passenger","layout","srBroken","pvState","pinHash","pinSalt","__proto__","constructor","prototype"];
 const vaultMsg = (t, bad) => { const e = $("vaultMsg"); e.textContent = t || ""; e.style.color = bad ? "var(--bad)" : ""; };
 const vaultBase = () => ($("vaultProxy").value.trim() || cfg.proxy || "").replace(/\/+$/,"");
 const vaultKeyV = () => $("vaultKey").value.trim() || cfg.pkey || "";
