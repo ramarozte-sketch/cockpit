@@ -2661,7 +2661,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v172";
+const APP_VERSION = "v173";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8554,7 +8554,7 @@ function dkCast(){
   let alive = true, pc = null;
   if(w.body.dataset.ready) return; w.body.dataset.ready = "1";
   const code = castId(), link = location.origin + location.pathname + "?cast=" + code;
-  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline disablepictureinpicture></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do telemóvel ou do PC…</p></div></div>`;
+  w.body.innerHTML = `<div class="dkcast"><video autoplay playsinline disablepictureinpicture></video><div class="dkctl"><button data-a="apps" hidden>Apps do telemóvel</button><button data-a="snd" hidden>🔊 Som</button><button data-a="ctl" aria-pressed="false">🖐 Controlar</button><button data-a="back" hidden>◀ Voltar</button><button data-a="home" hidden>⌂ Início</button><button data-a="rec" hidden>▭ Recentes</button><button data-a="q"></button><button data-a="fit">Vista completa</button><button data-a="fs">Ecrã total</button></div><div class="dkapps" hidden><div class="hd"><input type="search" placeholder="Procurar app…" aria-label="Procurar app"><button data-a="close">Fechar</button></div><div class="dkappgrid"></div></div><div class="dkcastinfo"><div class="small muted">Código</div><div class="dkcode">${code}</div><p>No <b>PC</b> abre <b>${esc(location.origin + location.pathname)}?cast=${code}</b>, carrega em “Partilhar ecrã” e escolhe o ecrã ou a janela. Do <b>telemóvel Android</b>: instala a app <b>Cockpit Cast</b>, escreve este código e carrega em “Começar a transmitir”.</p><p class="small muted" id="castSt">À espera do telemóvel ou do PC…</p></div></div>`;
   const box = w.body.querySelector(".dkcast"), vid = box.querySelector("video"), st = box.querySelector("#castSt");
   const base = cfg.proxy, key = cfg.pkey;
   const apps = new Map(), gridEl = box.querySelector(".dkappgrid"), appsEl = box.querySelector(".dkapps"), btn = a => box.querySelector('.dkctl [data-a="' + a + '"]');
@@ -8576,6 +8576,48 @@ function dkCast(){
   qLabel();
   btn("q").onclick = () => { qi = (qi + 1) % QS.length; LS.set("castQ", qi); qLabel(); sendQ(); toast("Qualidade: " + QS[qi].n + (QS[qi].br ? " (" + QS[qi].br / 1000 + " Mbps)" : "")); };
   btn("fit").onclick = () => { box.classList.toggle("fill"); btn("fit").textContent = box.classList.contains("fill") ? "Vista a preencher" : "Vista completa"; };
+  /* Controlar: toca ou arrasta na imagem para tocar/deslizar no telemóvel (precisa da app Cockpit Cast com o Acesso de Acessibilidade ativado). */
+  let ctlOn = false;
+  const ctlSend = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); }catch(e){} };
+  const videoNorm = (cx, cy) => {
+    const r = vid.getBoundingClientRect(), vw = vid.videoWidth, vh = vid.videoHeight;
+    if(!vw || !vh || !r.width || !r.height) return null;
+    const cover = box.classList.contains("fill");
+    const scale = cover ? Math.max(r.width / vw, r.height / vh) : Math.min(r.width / vw, r.height / vh);
+    const dw = vw * scale, dh = vh * scale, ox = r.left + (r.width - dw) / 2, oy = r.top + (r.height - dh) / 2;
+    let x = (cx - ox) / dw, y = (cy - oy) / dh;
+    if(x < 0 || x > 1 || y < 0 || y > 1) return null;
+    return {x, y};
+  };
+  btn("ctl").onclick = () => {
+    ctlOn = !ctlOn;
+    btn("ctl").setAttribute("aria-pressed", String(ctlOn));
+    btn("ctl").textContent = ctlOn ? "🖐 A controlar" : "🖐 Controlar";
+    [btn("back"), btn("home"), btn("rec")].forEach(b => b.hidden = !ctlOn);
+    toast(ctlOn ? "A tocar na imagem toca no telemóvel." : "Controlo desligado.");
+  };
+  btn("back").onclick = () => ctlSend({t:"key", k:"back"});
+  btn("home").onclick = () => ctlSend({t:"key", k:"home"});
+  btn("rec").onclick = () => ctlSend({t:"key", k:"recents"});
+  (() => {
+    let down = null;
+    vid.addEventListener("pointerdown", e => {
+      if(!ctlOn) return;
+      const n = videoNorm(e.clientX, e.clientY); if(!n) return;
+      down = {x:n.x, y:n.y, t:Date.now()};
+      e.preventDefault();
+    });
+    vid.addEventListener("pointerup", e => {
+      if(!ctlOn || !down) return;
+      const n = videoNorm(e.clientX, e.clientY) || down;
+      const ms = Date.now() - down.t, dist = Math.hypot(n.x - down.x, n.y - down.y);
+      if(dist < 0.015) ctlSend({t:"tap", x:down.x, y:down.y});
+      else ctlSend({t:"swipe", x1:down.x, y1:down.y, x2:n.x, y2:n.y, ms});
+      down = null;
+      e.preventDefault();
+    });
+    vid.addEventListener("contextmenu", e => { if(ctlOn) e.preventDefault(); });
+  })();
   btn("fs").onclick = () => {
     const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
     if(fsEl){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
