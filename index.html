@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v163";
+const APP_VERSION = "v164";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -11460,6 +11460,27 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.matches && n.matches(SEL)) enh(n); else if(n.querySelectorAll) n.querySelectorAll(SEL).forEach(enh); } }).observe(document.body, {childList:true, subtree:true});
   window.__rowScan = scan;
 }catch(e){ console.log("filas", e); } })();
+</script>
+<script>
+/* ===== Direto parado: se o canal em direto não avança durante 15 s (o fornecedor falhou a lista e os tempos saltaram), volta a abri-lo sozinho ===== */
+(function(){
+  if(window.ANDROID) return;
+  const W = [null, null], dbg = (slot, t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
+  setInterval(() => { try{
+    [0, 1].forEach(slot => {
+      const v = document.getElementById("vid" + slot), c = lastPlayed[slot], h = hlsInst[slot];
+      if(!v || !c || !c.url || /^(movie|series|episode|vod)$/.test(c.kind || "") || document.hidden || v.paused || v.seeking || (!h && !tsInst[slot])){ W[slot] = null; return; }
+      const now = Date.now(); let w = W[slot];
+      if(!w || w.url !== c.url){ w = W[slot] = {url:c.url, t:v.currentTime, at:now, n:0, since:now}; return; }
+      if(Math.abs(v.currentTime - w.t) > 0.05){ if(w.n && now - w.rs > 20000) w.n = 0; w.t = v.currentTime; w.at = now; return; }
+      if(now - w.at < 15000 || v.readyState >= 4) return;
+      if(w.n >= 2) return;                                     /* no máximo 2 reinícios seguidos por canal */
+      w.n++; w.rs = now; w.at = now;
+      dbg(slot, "reinício automático: direto parado", {parado_s:15, buf:(function(){ let o = []; for(let i = 0; i < v.buffered.length; i++) o.push(v.buffered.start(i).toFixed(0) + "-" + v.buffered.end(i).toFixed(0)); return o.join(" "); })(), vez:w.n});
+      try{ window.playChannel(c, slot, true); }catch(e){}
+    });
+  }catch(e){} }, 3000);
+})();
 </script>
 </body>
 </html>
