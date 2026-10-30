@@ -2648,7 +2648,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v164";
+const APP_VERSION = "v165";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3504,25 +3504,31 @@ function loadMirLibs(){
 }
 
 /* Desenha uma fonte (VideoFrame ou <video>) no canvas, com rotação e letterbox. */
+const __mdC = [null, null];   /* medidas e modo de aspeto em cache: ler o tamanho da caixa e o localStorage a cada imagem (25-50 por s) custava layout e JSON.parse à toa */
 function mirDraw(slot, src, vw, vh){
-  const cv = $("cv"+slot), box = slotBox(slot);
-  const dpr = Math.min(window.devicePixelRatio||1, 2);
-  const cw = Math.max(1, Math.round(box.clientWidth*dpr)), ch = Math.max(1, Math.round(box.clientHeight*dpr));
-  if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
-  const ctx = cv.getContext("2d"), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
-  ctx.fillStyle="#000"; ctx.fillRect(0,0,cw,ch);
-  if(vw && vh){
-    ctx.save(); ctx.translate(cw/2,ch/2); if(deg) ctx.rotate(deg*Math.PI/180);
-    const aw=rot90?ch:cw, ah=rot90?cw:ch;
+  const cv = $("cv"+slot), box = slotBox(slot), pn = performance.now();
+  let m = __mdC[slot];
+  if(!m || pn - m.at > 250 || m.box !== box){
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
     let mode = "fit"; try{ const full = !!(document.fullscreenElement || document.webkitFullscreenElement) || $("v-tv").classList.contains("cinema"); mode = LS.get(full ? "tvAspectFull" : "tvAspect", full ? "stretch" : "fit") || "fit"; }catch(e){}
+    m = __mdC[slot] = {at:pn, box, cw:Math.max(1, Math.round(box.clientWidth*dpr)), ch:Math.max(1, Math.round(box.clientHeight*dpr)), mode, ctx:(m && m.cv === cv) ? m.ctx : null, cv};
+  }
+  const cw = m.cw, ch = m.ch;
+  if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
+  const ctx = m.ctx || (m.ctx = cv.getContext("2d", {alpha:false})), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
+  if(vw && vh){
+    const aw=rot90?ch:cw, ah=rot90?cw:ch, mode = m.mode;
     const rr = {"16:9":16/9, "4:3":4/3, "21:9":21/9}[mode];
     let dw, dh;
     if(mode === "stretch"){ dw = aw; dh = ah; }
     else if(rr){ dw = aw; dh = aw / rr; if(dh > ah){ dh = ah; dw = ah * rr; } }
     else { const sc = mode === "zoom" ? Math.max(aw/vw, ah/vh) : Math.min(aw/vw, ah/vh); dw = vw*sc; dh = vh*sc; }
+    /* a imagem cobre o quadro todo: não é preciso pintar de preto antes */
+    if(deg || dw < aw - 1 || dh < ah - 1){ ctx.fillStyle="#000"; ctx.fillRect(0,0,cw,ch); }
+    ctx.save(); ctx.translate(cw/2,ch/2); if(deg) ctx.rotate(deg*Math.PI/180);
     try{ ctx.drawImage(src, -dw/2, -dh/2, dw, dh); }catch(e){}
     ctx.restore();
-  }
+  } else { ctx.fillStyle="#000"; ctx.fillRect(0,0,cw,ch); }
 }
 
 /* Fallback: copia o <video> para o canvas. Só desenha se o WebCodecs não estiver a produzir
