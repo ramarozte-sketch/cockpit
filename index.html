@@ -2668,7 +2668,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v175";
+const APP_VERSION = "v176";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3438,36 +3438,142 @@ const MIR = [null, null];                 // estado do pipeline WebCodecs por sl
 const slotBox = slot => $("vid"+slot).parentElement;
 const WC_NATIVE = typeof window.VideoDecoder === "function" && typeof window.EncodedVideoChunk === "function";
 const WC_OK = WC_NATIVE || (typeof Worker === "function" && typeof WebAssembly === "object" && typeof createImageBitmap === "function");
-/* Sem WebCodecs (página em http): descodifica H.264 por software num Worker e só à medida que o áudio avança. */
+/* Sem WebCodecs (página em http): descodifica H.264 por software (FFmpeg/WASM) em Workers, à medida que o som avança.
+   v176 — o log do Tesla (RTP1 720p a 50 imagens/s) mostrava o descodificador a dar só ~28 imagens/s: a imagem ia
+   ficando para trás do som até 1,5 s e depois saltava para a imagem-chave seguinte (desvio de -0,2 a -1,8 s em ciclo).
+   Agora cada GOP (de imagem-chave a imagem-chave) é entregue inteiro a um Worker livre e há 2–3 Workers a trabalhar
+   em paralelo (o carro tem 4 núcleos), cada um começando o seu GOP com a antecedência que a sua velocidade medida exige.
+   Se mesmo assim não chegar, deita fora primeiro as imagens que nenhuma outra usa (B não-referência) e, em último
+   caso, GOPs inteiros já passados — nunca mostra imagem atrasada face ao som. */
+function __avcNonRef(u){
+  /* AVCC (tamanho de 4 bytes + NAL): true se todas as fatias têm nal_ref_idc = 0 (nenhuma imagem depende desta) */
+  try{
+    let o = 0, sl = 0;
+    while(o + 5 <= u.length){
+      const L = ((u[o] << 24) | (u[o + 1] << 16) | (u[o + 2] << 8) | u[o + 3]) >>> 0, h = u[o + 4], t = h & 31;
+      if(!L || o + 4 + L > u.length) return false;
+      if(t === 1 || t === 5){ if(h & 0x60) return false; sl++; }
+      o += 4 + L;
+    }
+    return sl > 0;
+  }catch(e){ return false; }
+}
 class SoftVideoDecoder {
-  constructor({output, error}){ this.output = output; this.onerr = error; this.state = "unconfigured"; this.pending = []; this.inflight = 0; }
+  constructor({output, error, backlog}){
+    this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
+    this.lead = 1200000; this.srcFps = 0; this.gopN = 0; this.st = {gopsSaltados:0, bSaltadas:0, drenadas:0};
+    const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
+    this.nW = hc >= 6 ? 3 : hc >= 3 ? 2 : 1;
+  }
   configure(cfg){
-    this.w = new Worker("h264soft.js");
-    this.w.onmessage = e => { const d = e.data;
+    this.cfg = cfg; this.close(); this.state = "configured";
+    for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
+  }
+  _mkWorker(cfg){
+    const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:0, fps:0, fr:0, ms:0};
+    W.w = new Worker("h264soft.js");
+    W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame"){ const b = d.bmp; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
-      else if(d.type === "done") this.inflight = Math.max(0, this.inflight - 1);
+      else if(d.type === "done"){ if(d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
+        /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
+        if(W.fr >= 10){ const f = 1000 * W.fr / Math.max(1, W.ms); W.fps = W.fps ? W.fps * 0.7 + f * 0.3 : f; W.fr = 0; W.ms = 0; } }
+      else if(d.type === "drained"){ if(d.ep !== W.ep) return; W.draining = false; W.busy = false; this.st.drenadas += d.n || 0; }
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
-    this.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    this.w.postMessage({cmd:"open", extra:cfg.description || null, shift:(cfg.codedWidth || 0) > 1280 ? 1 : 0});
-    this.state = "configured";
+    W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:(cfg.codedWidth || 0) > 1280 ? 1 : 0});
+    return W;
   }
-  decode(ch){ this.pending.push({data:new Uint8Array(ch.data), ts:ch.timestamp, key:ch.type === "key"}); if(this.pending.length > 4000) this.pending.shift(); }
-  headTs(){ return this.pending.length ? this.pending[0].ts : null; }
+  decode(ch){
+    const data = new Uint8Array(ch.data), key = ch.type === "key";
+    const c = {data, ts:ch.timestamp, key, nr:!key && __avcNonRef(data)};
+    const p = this.pending;
+    p.push(c); if(p.length > 4000) p.shift();
+  }
+  headTs(){
+    if(this.pending.length) return this.pending[0].ts;
+    for(const W of this.W) if(W.q.length) return W.q[0].ts;
+    return null;
+  }
+  info(){
+    const fps = this.W.map(W => Math.round(W.fps || 0));
+    return Object.assign({workers:this.W.length, fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000)}, this.st);
+  }
+  _free(){ return this.W.find(W => !W.busy && !W.draining && W.inflight === 0 && !W.q.length); }
+  /* antecedência necessária para um GOP de n imagens: tempo a descodificar menos tempo a mostrar, mais folga */
+  _lead(n){
+    const fs = this._dts ? 1e6 / this._dts : 25, fw = this.W.reduce((m, W) => W.fps ? Math.min(m, W.fps) : m, Infinity);
+    if(!isFinite(fw) || !n) return 1200000;
+    return Math.max(400000, Math.min(3000000, Math.round((n / fw - n / fs) * 1e6 + 300000)));
+  }
   pump(masterUs){
     if(masterUs == null || this.state !== "configured") return;
     const p = this.pending;
-    if(p.length && p[0].ts < masterUs - 1500000){ // muito atrasado: salta para o último keyframe já vencido
-      let k = -1; for(let i = 1; i < p.length && p[i].ts <= masterUs; i++) if(p[i].key) k = i;
-      if(k > 0){ p.splice(0, k); this.w.postMessage({cmd:"flush"}); }
+    /* reparte GOPs pelos Workers livres */
+    for(let guard = 0; guard < 8; guard++){
+      if(this.owner){
+        /* GOP ainda aberto: as imagens que entretanto chegaram vão para o mesmo Worker, até à próxima imagem-chave */
+        while(p.length && !p[0].key) this.owner.q.push(p.shift());
+        if(!p.length) break;
+        this.owner.done = true; this.owner = null;   /* próxima imagem-chave: o GOP deste Worker fechou */
+      }
+      while(p.length && !p[0].key) p.shift();   /* sem imagem-chave não se pode começar */
+      if(!p.length) break;
+      let e = 1; while(e < p.length && !p[e].key) e++;
+      const closed = e < p.length, endTs = closed ? p[e].ts : null;
+      /* GOP já todo no passado: não vale a pena descodificar */
+      if(closed && endTs < masterUs - 40000){ p.splice(0, e); this.st.gopsSaltados++; continue; }
+      this.lead = this._lead(closed ? e : this.gopN || 50);
+      if(p[0].ts > masterUs + this.lead) break;
+      const W = this._free(); if(!W) break;
+      W.busy = true; W.done = false;
+      if(closed && e > 2){ this.gopN = e;
+        /* imagens/s da origem: duração do GOP (por ordem de apresentação) a dividir pelo número de imagens */
+        let lo = Infinity, hi = -Infinity; for(let k = 0; k < e; k++){ const t = p[k].ts; if(t < lo) lo = t; if(t > hi) hi = t; }
+        const dt = (endTs - lo) / e; if(dt > 5000 && dt < 200000) this._dts = this._dts ? this._dts * 0.7 + dt * 0.3 : dt; }
+      const g = p.splice(0, e); for(const c of g) W.q.push(c);
+      if(closed) W.done = true; else this.owner = W;
     }
-    while(p.length && this.inflight < 3 && p[0].ts <= masterUs + 800000){
-      const c = p.shift(), buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
-      this.inflight++; this.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key}, [buf]);
+    /* alimenta cada Worker */
+    for(const W of this.W){
+      if(!W.busy) continue;
+      const q = W.q;
+      /* este Worker está atrasado em relação ao som: deita fora imagens que nenhuma outra usa */
+      while(q.length && W.inflight < 3){
+        const c = q[0];
+        const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
+        if(c.nr && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
+        if(q.length > 1 && q[q.length - 1].ts < masterUs - 40000 && !c.key){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
+        if(c.ts > masterUs + 400000 && this.backlog() >= 36) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
+        q.shift();
+        const buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
+        W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep}, [buf]);
+      }
+      /* GOP terminado: despeja as imagens retidas para reordenar e fica livre */
+      if(!q.length && W.done && W.inflight === 0 && !W.draining){ W.draining = true; W.done = false; W.w.postMessage({cmd:"drain", ep:W.ep}); }
     }
   }
-  reset(){ this.pending = []; this.inflight = 0; try{ this.w && this.w.postMessage({cmd:"flush"}); }catch(e){} }
-  close(){ this.state = "closed"; this.pending = []; try{ this.w && this.w.terminate(); }catch(e){} }
+  reset(){
+    this.pending = []; this.owner = null;
+    for(const W of this.W){ W.ep++; W.q = []; W.done = false; if(W.busy || W.inflight){ try{ W.w.postMessage({cmd:"flush"}); }catch(e){} } W.busy = false; W.draining = false; W.inflight = 0; }
+  }
+  close(){
+    this.state = "closed"; this.pending = []; this.owner = null;
+    for(const W of this.W){ try{ W.w.terminate(); }catch(e){} }
+    this.W = [];
+  }
+}
+/* Fila de imagens descodificadas: ordenada pelo tempo (com vários Workers chegam fora de ordem). As imagens do
+   descodificador por hardware prendem-lhe memória, por isso ficam no máximo 12; as do software (ImageBitmap) têm
+   um orçamento de ~160 MB, porque o GOP seguinte é descodificado com antecedência. */
+function mirPushFrame(st, frame){
+  const q = st.q = st.q || [], ts = frame.timestamp;
+  let i = q.length; while(i > 0 && q[i - 1].timestamp > ts) i--;
+  if(i > 0 && q[i - 1].timestamp === ts){ try{ frame.close(); }catch(e){} return; }
+  q.splice(i, 0, frame);
+  const px = (frame.displayWidth || frame.codedWidth || 1280) * (frame.displayHeight || frame.codedHeight || 720) * 4;
+  const cap = frame.bmp ? Math.max(12, Math.min(90, Math.floor(160e6 / px))) : 12;
+  while(q.length > cap){ const o = frame.bmp ? q.pop() : q.shift(); try{ o.close(); }catch(e){} }
 }
 
 /* WebCodecs com ritmo: guarda os pedaços codificados e só os entrega ao descodificador quando estão perto
@@ -3624,7 +3730,7 @@ function present(slot){
   }
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
-      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || ""});
+      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null});
       st.stat = {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0}; } }catch(e){}
   if(q.length && audioOk && st.masterUs!=null){
     const masterUs = st.masterUs;
@@ -3655,7 +3761,7 @@ function wcInit(slot){
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null; st.ranges = []; st.marks = []; st.curFrag = null;
     const file = MP4Box.createFile(); st.file = file;
     const decoder = new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
-      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; (st.q=st.q||[]).push(frame); while(st.q.length>12){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; },
       backlog: () => (st.q || []).length
     });
@@ -4218,7 +4324,7 @@ function mp4Run(slot, st, src){
     const v = $("vid"+slot), DS = window.DataStream || MP4Box.DataStream, CH = 1<<21, sleep = ms => new Promise(r=>setTimeout(r, ms));
     const file = MP4Box.createFile(); st.file = file; const RR = rangeReader(src, st); st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
     const decoder = new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
-      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; st.q.push(frame); while(st.q.length>12){ const o=st.q.shift(); try{o.close();}catch(e){} } startPresent(slot); },
+      output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; },
       backlog: () => (st.q || []).length
     });
