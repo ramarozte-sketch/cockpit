@@ -2694,7 +2694,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v177";
+const APP_VERSION = "v178";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3497,13 +3497,15 @@ class SoftVideoDecoder {
   }
   _mkWorker(cfg){
     const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:0, fps:0, fr:0, ms:0};
-    W.w = new Worker("h264soft.js");
+    /* ?v= obriga o browser/alojamento a ir buscar o descodificador desta versão (um h264soft.js antigo em cache não sabe trabalhar em paralelo) */
+    W.w = new Worker("h264soft.js?v=" + APP_VERSION);
     W.w.onmessage = e => { const d = e.data;
+      if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
       if(d.type === "frame"){ const b = d.bmp; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
-      else if(d.type === "done"){ if(d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
+      else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
         if(W.fr >= 10){ const f = 1000 * W.fr / Math.max(1, W.ms); W.fps = W.fps ? W.fps * 0.7 + f * 0.3 : f; W.fr = 0; W.ms = 0; } }
-      else if(d.type === "drained"){ if(d.ep !== W.ep) return; W.draining = false; W.busy = false; this.st.drenadas += d.n || 0; }
+      else if(d.type === "drained"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.draining = false; W.busy = false; this.st.drenadas += d.n || 0; }
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
@@ -3523,8 +3525,12 @@ class SoftVideoDecoder {
   }
   info(){
     const fps = this.W.map(W => Math.round(W.fps || 0));
-    return Object.assign({workers:this.W.length, fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000)}, this.st);
+    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000)}, this.st);
   }
+  /* descodificador antigo (sem "drain" nem paralelo): fica só um Worker, que segue os GOPs um atrás do outro */
+  _legacy(){ if(this.legacy) return; this.legacy = true; this.st.antigo = true;
+    while(this.W.length > 1){ const W = this.W.pop(); if(this.owner === W) this.owner = null; try{ W.w.terminate(); }catch(e){} }
+    const W = this.W[0]; if(W){ W.draining = false; } }
   _free(){ return this.W.find(W => !W.busy && !W.draining && W.inflight === 0 && !W.q.length); }
   /* antecedência necessária para um GOP de n imagens: tempo a descodificar menos tempo a mostrar, mais folga */
   _lead(n){
@@ -3576,7 +3582,8 @@ class SoftVideoDecoder {
         W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep}, [buf]);
       }
       /* GOP terminado: despeja as imagens retidas para reordenar e fica livre */
-      if(!q.length && W.done && W.inflight === 0 && !W.draining){ W.draining = true; W.done = false; W.w.postMessage({cmd:"drain", ep:W.ep}); }
+      if(!q.length && W.done && W.inflight === 0 && !W.draining){ W.done = false;
+        if(this.legacy) W.busy = false; else { W.draining = true; W.w.postMessage({cmd:"drain", ep:W.ep}); } }
     }
   }
   reset(){
