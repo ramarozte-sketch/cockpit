@@ -2729,7 +2729,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v187";
+const APP_VERSION = "v188";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -13613,7 +13613,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* no Tesla: 1080i e MPEG-2; nos outros browsers só o HEVC em MPEG-TS, e só se não o descodificarem */
   if(window.ANDROID || (!window.__TESLA && HEVC_OK())) return;
   try{
-  if(typeof VideoDecoder !== "function" || typeof EncodedVideoChunk !== "function") return;
+  /* v188: numa página em http (cockpit.page.gd) o browser esconde o WebCodecs (só existe em https). Era por isso que os
+     canais 1080i (Sport TV, Benfica TV…) deixaram de dar imagem desde a mudança para o InfinityFree: o som entrava, a imagem
+     nunca. Sem WebCodecs, o 1080i passa a ser descodificado pelo FFmpeg em WebAssembly (o mesmo da imagem em andamento),
+     com vários Workers em paralelo e a imagem reduzida a 960×540 (o que já mistura os dois campos, sem dentes de pente). */
+  const NATIVE = typeof VideoDecoder === "function" && typeof EncodedVideoChunk === "function";
+  const SOFT = !NATIVE && !!window.__TESLA && typeof SoftVideoDecoder === "function" && typeof Worker === "function" && typeof WebAssembly === "object" && typeof createImageBitmap === "function";
+  if(!NATIVE && !SOFT) return;
   const S = {}, firstSeq = {};
   const deint = () => cfg.deint || "bob";
   const log = (slot, t, d) => { try{ if(typeof slot === "number") window.__dbgEv && window.__dbgEv(slot, t, d); }catch(e){} };
@@ -13682,7 +13688,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         if(cv.width !== ow || cv.height !== oh){ cv.width = ow; cv.height = oh; }
         gl.viewport(0, 0, ow, oh);
         if(lastF !== f){ gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, f); lastF = f; }
-        gl.uniform1f(U.H, f.displayHeight); gl.uniform1f(U.par, field); gl.uniform1f(U.mode, mode === "bob" ? 0 : mode === "linear" ? 1 : 2);
+        gl.uniform1f(U.H, f.displayHeight || f.height); gl.uniform1f(U.par, field); gl.uniform1f(U.mode, mode === "bob" ? 0 : mode === "linear" ? 1 : 2);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return cv;
       }, drop(){ lastF = null; }};
     }catch(e){ console.log("desentrelaçar", e); return null; }
@@ -13695,6 +13701,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{ o.h.on(Hls.Events.INIT_PTS_FOUND, (e, d) => { if(d && d.id === "main" && st.init == null && d.timescale) st.init = d.initPTS / d.timescale; }); }catch(e){}
     const mk = () => {
       try{ if(st.dec && st.dec.state !== "closed") st.dec.close(); }catch(e){}
+      if(!NATIVE){ st.soft = true; st.prog = true;
+        st.dec = new SoftVideoDecoder({backlog:() => st.frames.length,
+          output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; const q = st.frames, ts = f.timestamp; let i = q.length; while(i > 0 && q[i - 1].timestamp > ts) i--;
+            if(i > 0 && q[i - 1].timestamp === ts){ f.close(); return; } q.splice(i, 0, f); while(q.length > 70) q.pop().close(); },
+          error:e => { st.errs++; log(key, "erro na imagem por software (WASM)", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 12){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); } }});
+        return; }
       st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
         error:e => { st.errs++; st.needKey = true; log(key, "erro na imagem por software", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 6){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); return; } setTimeout(() => { if(st.on){ mk(); if(st.cfg) try{ st.dec.configure(st.cfg); }catch(x){} } }, 300); }});
     };
@@ -13721,7 +13733,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
-    log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:deint(), webgl:!!st.gl});
+    log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:st.soft ? "960×540 (campos misturados)" : deint(), webgl:!!st.gl, motor:st.soft ? "FFmpeg/WASM (página http)" : "WebCodecs"});
     return st;
   }
   /* o processador não aguenta este HEVC: lembra o canal e abre outra versão, se houver */
@@ -13788,6 +13800,17 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     if(st.mpeg2){ pumpLibav(st); return; }
     const v = st.o.v; if(st.init == null || !v) return;
     const now = v.currentTime * 1e6, p = st.pend;
+    if(st.soft){
+      if(!st.cfg){ if(!p.some(x => x.key)) return; st.cfg = {codec:codecOf(p.find(x => x.key).data), codedWidth:1920, codedHeight:1080}; try{ st.dec.configure(st.cfg); }catch(e){ log(st.key, "imagem por software (WASM): configurar falhou", {msg:String(e.message || e).slice(0, 160)}); stop(st.key); return; }
+        log(st.key, "imagem por software: configurar", {codec:st.cfg.codec, motor:"FFmpeg/WASM", workers:st.dec.nW}); }
+      while(p.length){ const c = p.shift(); if(st.needKey && !c.key) continue; st.needKey = false;
+        try{ st.dec.decode({type:c.key ? "key" : "delta", timestamp:usOf(st, c.pts), data:c.data}); }catch(e){} }
+      try{ st.dec.pump(now); }catch(e){}
+      /* medição a cada 10 s: imagens/s mostradas e atraso face ao som */
+      const tn = performance.now(); if(!st.mT) st.mT = {t:tn, n:st.nf};
+      else if(tn - st.mT.t > 10000){ log(st.key, "1080i por software: ritmo", Object.assign({fps:+((st.nf - st.mT.n) / ((tn - st.mT.t) / 1000)).toFixed(1), fila:st.frames.length, desvio_ms:st.shown ? Math.round((st.shown.timestamp - now) / 1000) : null}, (() => { try{ return st.dec.info(); }catch(e){ return {}; } })())); st.mT = {t:tn, n:st.nf}; }
+      return;
+    }
     if(!st.cfg){ const k = p.find(x => x.key); if(!k){ if(!st.noKeyLog && p.length > 60){ st.noKeyLog = 1; log(st.key, "imagem por software: sem imagem-chave", {pedacos:p.length}); } return; }
       st.cfg = {codec:codecOf(k.data), hardwareAcceleration:"prefer-software", optimizeForLatency:true};
       VideoDecoder.isConfigSupported(st.cfg).then(r => log(st.key, "imagem por software: configurar", {codec:st.cfg && st.cfg.codec, suportado:!!(r && r.supported)})).catch(() => {});
@@ -13824,7 +13847,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const tag = f.timestamp + ":" + field + ":" + mode; if(tag === st.last) return; st.last = tag;
     let src = f;
     const t0 = performance.now();
-    if(st.gl && mode !== "off"){ try{ const dm = st.o.dims ? st.o.dims(f) : [f.displayWidth, f.displayHeight]; src = st.gl.render(f, field, mode, dm[0], dm[1]); }catch(e){ src = f; } }
+    if(f.bmp) src = f.bmp;
+    if(st.gl && mode !== "off"){ try{ const dm = st.o.dims ? st.o.dims(f) : [f.displayWidth, f.displayHeight]; src = st.gl.render(src, field, mode, dm[0], dm[1]); }catch(e){ src = f.bmp || f; } }
     st.o.out(src, f.displayWidth, f.displayHeight);
     /* se o processador não aguenta 50 imagens/s, passa sozinho para «Linear» (25/s) neste canal */
     if(mode === "bob"){ const dt = performance.now() - t0; st.avg = st.avg == null ? dt : st.avg * 0.95 + dt * 0.05; st.nr = (st.nr || 0) + 1;
@@ -13840,6 +13864,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       const pp = findPids(u), mp2 = pp.vtype === 0x02, hv = pp.vtype === 0x24 && !HEVC_OK() && window.__hevcSw !== false;   /* HEVC em MPEG-TS só por software, e só em browsers sem HEVC */
       if(!window.__TESLA && !hv) return;
       if(!mp2 && !hv && !(r && r.interlaced)) return;
+      if(!NATIVE && (mp2 || hv)) return;   /* MPEG-2/HEVC por software precisam de VideoFrame (só em https) */
       const o = mk.make(); if(!o) return; o.seq = seq; o.mpeg2 = mp2 || hv; o.hevc = hv; st = S[key] = start(key, o); st.pids = pp;
       /* alguns canais (ex.: Sport TV 2) trazem o vídeo com relógio (PTS) desfasado do som em dezenas de segundos:
          alinha pelo que chega junto no mesmo pedaço */
