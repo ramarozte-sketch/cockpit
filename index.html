@@ -390,7 +390,16 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 #v-games.gmfull .gpad.wide .btn{pointer-events:auto}
 #v-games.gmfull .gpad:not(.wide){left:auto;right:16px;transform:none}
 #v-games.gmfull .gpad .btn{background:rgba(10,12,24,.55);backdrop-filter:blur(3px)}
-#v-games.gmfull .gpad.wide .btn{min-height:56px;min-width:84px;font-size:18px}
+#v-games.gmfull .gpad.wide .btn{min-height:96px;min-width:132px;font-size:24px;border-radius:22px}
+#v-games.gmfull .gpad:not(.wide) .btn{min-height:84px;font-size:30px}
+/* ecrã total: botões agrupados nos cantos (mão esquerda / mão direita) */
+#v-games.gmfull .gpad.wide{justify-content:flex-start;gap:14px}
+#v-games.gmfull .gpad.wide>.btn:first-child:nth-last-child(2)~.btn,
+#v-games.gmfull .gpad.wide>.btn:first-child:nth-last-child(3)~.btn:last-child,
+#v-games.gmfull .gpad.wide>.btn:first-child:nth-last-child(4)~.btn:nth-child(3),
+#v-games.gmfull .gpad.wide>.btn:first-child:nth-last-child(5)~.btn:nth-child(3),
+#v-games.gmfull .gpad.wide>.btn:first-child:nth-last-child(6)~.btn:nth-child(4){margin-left:auto}
+#v-games.gmfull>.row .btn{min-height:44px;padding:6px 14px;font-size:14px}
 #v-games.gmfull .gpad.wide .btn.primary{background:rgba(92,170,255,.6)}
 #v-games.gmfull #gmStage .gweb{position:absolute;inset:0;height:auto;border-radius:0}
 #v-games.gmfull .gwbar{top:auto;bottom:8px;left:8px;opacity:.45}
@@ -404,7 +413,11 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 .g3top{background:transparent!important;touch-action:none}
 #gmG3[aria-pressed=false]{opacity:.6}
 .gpad.wide{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;grid-template-columns:none}
-.gpad.wide .btn{min-width:84px;min-height:58px;font-size:18px;touch-action:none;user-select:none}
+/* v191: botões dos jogos com tamanho generoso para o toque do Tesla (ecrã grande, toque menos preciso) */
+.gpad.wide{gap:14px}
+.gpad.wide .btn{min-width:120px;min-height:84px;font-size:22px;border-radius:20px;touch-action:none;user-select:none;-webkit-user-select:none}
+.gpad .btn:active,.gpad .btn.on{transform:scale(.96);filter:brightness(1.3)}
+canvas.gcv{touch-action:none}
 .gmstage{align-items:center;gap:16px}
 .gmbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
 .g2048{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;padding:12px;border-radius:20px;background:linear-gradient(160deg,#1d1640,#0b0a1c);box-shadow:0 0 0 2px rgba(255,184,77,.25),0 24px 50px -24px #000;width:min(560px,92vw,70vh);aspect-ratio:1;touch-action:none}
@@ -421,8 +434,8 @@ body.layout-auto .view.navview{height:calc(100vh - 32px)}
 .gttt button{aspect-ratio:1;border-radius:18px;border:0;background:linear-gradient(160deg,#16213e,#0a0f22);box-shadow:inset 0 0 0 2px rgba(92,242,255,.18);font:900 clamp(40px,8vw,72px) var(--f-display);color:#5cf2ff;text-shadow:0 0 18px #5cf2ff}
 .gttt button.o{color:#ff3e9a;text-shadow:0 0 18px #ff3e9a} .gttt button.wl{background:linear-gradient(160deg,#2a1a50,#140a2c);box-shadow:inset 0 0 0 3px #ffe14a,0 0 24px -4px #ffe14a}
 .gsnake{width:min(560px,92vw,62vh);aspect-ratio:1;border-radius:16px;background:#05060f;touch-action:none}
-.gpad{display:grid;grid-template-columns:repeat(3,72px);gap:8px}
-.gpad .btn{min-height:64px;font-size:24px}
+.gpad{display:grid;grid-template-columns:repeat(3,96px);gap:12px}
+.gpad .btn{min-height:88px;font-size:30px;border-radius:20px;touch-action:none;user-select:none;-webkit-user-select:none}
 .engbig{display:flex;gap:12px;justify-content:space-around;text-align:center}.engbig div{display:flex;flex-direction:column}.engbig b{font-size:54px;line-height:1.05;font-variant-numeric:tabular-nums}.engbig span{font-size:13px;opacity:.65}
 .enggauge{width:min(440px,100%);margin:0 auto}.enggauge svg{display:block;width:100%;height:auto}.enggauge text{font-family:var(--f-display,inherit);fill:currentColor}
 .engbar{height:12px;border-radius:6px;background:rgba(127,127,127,.25);overflow:hidden}.engbar i{display:block;height:100%;width:0;background:var(--accent,#3b82f6);transition:width .08s}
@@ -2729,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v190";
+const APP_VERSION = "v191";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3530,6 +3543,16 @@ function svdWarm(n){
   try{ if(typeof Worker !== "function" || typeof WebAssembly !== "object") return;
     while(SVD_POOL.length < n){ const w = new Worker("h264soft.js?v=" + APP_VERSION); w.onmessage = null; w.postMessage({cmd:"warm"}); SVD_POOL.push(w); } }catch(e){}
 }
+/* Annex B (00 00 01 + NAL): {nr: todas as fatias com nal_ref_idc = 0, idr: tem fatia IDR, ref: alguma fatia de referência} */
+function __annexInfo(u){
+  let sl = 0, nr = true, idr = false;
+  for(let i = 0; i + 3 < u.length; i++){
+    if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const h = u[i + 3], t = h & 31;
+      if(t === 1 || t === 5){ sl++; if(h & 0x60) nr = false; if(t === 5) idr = true; if(sl >= 1 && i > 64) break; }
+      i += 2; }
+  }
+  return {nr:sl > 0 && nr, idr, ref:sl > 0 && !nr};
+}
 class SoftVideoDecoder {
   constructor({output, error, backlog}){
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
@@ -3561,7 +3584,9 @@ class SoftVideoDecoder {
   }
   decode(ch){
     const data = new Uint8Array(ch.data), key = ch.type === "key";
-    const c = {data, ts:ch.timestamp, key, nr:!key && __avcNonRef(data)};
+    const annex = data.length > 4 && data[0] === 0 && data[1] === 0 && (data[2] === 1 || (data[2] === 0 && data[3] === 1));
+    const ai = annex ? __annexInfo(data) : null;
+    const c = {data, ts:ch.timestamp, key, nr:!key && (ai ? ai.nr : __avcNonRef(data)), ref:ai ? ai.ref || key : !key ? !__avcNonRef(data) : true, open:key && !!ai && !ai.idr};
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
   }
@@ -3578,6 +3603,8 @@ class SoftVideoDecoder {
   _legacy(){ if(this.legacy) return; this.legacy = true; this.st.antigo = true;
     while(this.W.length > 1){ const W = this.W.pop(); if(this.owner === W) this.owner = null; try{ W.w.terminate(); }catch(e){} }
     const W = this.W[0]; if(W){ W.draining = false; } }
+  /* imagens de referência do GOP atual (por ordem de descodificação); ao começar outro GOP passam a ser as do anterior */
+  _track(g){ for(const c of g){ if(c.key){ this.prevRefs = this.curRefs; this.curRefs = [c]; } else if(c.ref && this.curRefs && this.curRefs.length < 120) this.curRefs.push(c); } }
   _free(){ return this.W.find(W => !W.busy && !W.draining && W.inflight === 0 && !W.q.length); }
   /* antecedência necessária para um GOP de n imagens: tempo a descodificar menos tempo a mostrar, mais folga */
   _lead(n){
@@ -3593,7 +3620,7 @@ class SoftVideoDecoder {
     for(let guard = 0; guard < 8; guard++){
       if(this.owner){
         /* GOP ainda aberto: as imagens que entretanto chegaram vão para o mesmo Worker, até à próxima imagem-chave */
-        while(p.length && !p[0].key) this.owner.q.push(p.shift());
+        while(p.length && !p[0].key){ const c = p.shift(); this._track([c]); this.owner.q.push(c); }
         if(!p.length) break;
         if(!this.legacy) this.owner.q.push(Object.assign({}, p[0], {extra:true}));   /* ver abaixo: a imagem-chave seguinte solta a última do GOP */
         this.owner.done = true; this.owner = null;   /* próxima imagem-chave: o GOP deste Worker fechou */
@@ -3612,7 +3639,14 @@ class SoftVideoDecoder {
         /* imagens/s da origem: duração do GOP (por ordem de apresentação) a dividir pelo número de imagens */
         let lo = Infinity, hi = -Infinity; for(let k = 0; k < e; k++){ const t = p[k].ts; if(t < lo) lo = t; if(t > hi) hi = t; }
         const dt = (endTs - lo) / e; if(dt > 5000 && dt < 200000) this._dts = this._dts ? this._dts * 0.7 + dt * 0.3 : dt; }
-      const g = p.splice(0, e); for(const c of g) W.q.push(c);
+      const g = p.splice(0, e);
+      /* v191: GOP aberto (a imagem-chave não é IDR — ex.: Sport TV, Benfica TV): as primeiras imagens B do GOP usam a última
+         imagem do GOP anterior, que este Worker não tem, e o FFmpeg deita-as fora (~1 em cada 5 imagens → micro-saltos).
+         Passa-se primeiro ao Worker as imagens de referência do GOP anterior, só para descodificar (sem as mostrar). */
+      if(g[0].open && this.prevRefs && this.prevRefs.length && this.prevRefs[0].ts < g[0].ts && g[0].ts - this.prevRefs[0].ts < 6e6)
+        for(const c of this.prevRefs) W.q.push(Object.assign({}, c, {pre:true}));
+      this._track(g);
+      for(const c of g) W.q.push(c);
       /* v189: o FFmpeg retém a última imagem do GOP (por ordem de apresentação) até chegar mais vídeo, e o fim de sequência
          não a solta — perdia-se uma imagem por GOP, um pequeno soluço a cada ~1 s. Passa-se também a imagem-chave seguinte
          (a duplicada que daí sai é ignorada, porque o Worker seguinte também a descodifica). */
@@ -3627,13 +3661,13 @@ class SoftVideoDecoder {
       while(q.length && W.inflight < 3){
         const c = q[0];
         const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
-        if(c.nr && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
+        if(c.nr && !c.pre && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
         const qe = q[q.length - 1].extra && q.length > 1 ? q[q.length - 2] : q[q.length - 1];
-        if(q.length > 1 && qe.ts < masterUs - 40000 && !c.key){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
+        if(q.length > 1 && qe.ts < masterUs - 40000 && !c.key && !c.pre){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
         if(c.ts > masterUs + 400000 && this.backlog() >= 36) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
         q.shift();
         const buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
-        W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep}, [buf]);
+        W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep, nout:!!c.pre}, [buf]);
       }
       /* GOP terminado: despeja as imagens retidas para reordenar e fica livre */
       if(!q.length && W.done && W.inflight === 0 && !W.draining){ W.done = false;
@@ -4054,7 +4088,7 @@ function avcFeed(slot, st, u, frag){
   const inf = st.av; const L = __tsPes(u, inf.vpid, inf.pidOf, inf.payStart); let first = true;
   const nalTypes = d => { const t = []; for(let i = 0; i + 3 < d.length && i < 4000; i++){ if(d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1){ const k = d[i + 3] & 31; t.push({k, at:i}); if(k === 1 || k === 5) break; i += 2; } } return t; };
   for(const x of L){
-    let data = x.data; const nt = nalTypes(data), key = nt.some(n => n.k === 5);
+    let data = x.data; const nt = nalTypes(data), key = nt.some(n => n.k === 5) || (nt.some(n => n.k === 7) && nt.some(n => n.k === 1));
     if(key){ const sp = nt.find(n => n.k === 7), sl = nt.find(n => n.k === 1 || n.k === 5);
       if(sp && sl){ st.avPS = data.slice(Math.max(0, sp.at - 1), sl.at); }
       else if(!sp && st.avPS){ const nb = new Uint8Array(st.avPS.length + data.length); nb.set(st.avPS); nb.set(data, st.avPS.length); data = nb; } }
@@ -7232,7 +7266,7 @@ const GX = (() => {
   return {sfx, tone, noise, FX, bg, glow, noGlow, rr, overlay, pt, best, soundOn, font:"system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"};
 })();
 /* botões que o dedo pode manter carregados (para os jogos de ação) */
-function gmHold(el, on, off){ const d = e => { e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(x){} on(); }, u = e => { e.preventDefault(); off(); };
+function gmHold(el, on, off){ const d = e => { e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(x){} el.classList.add("on"); on(); }, u = e => { e.preventDefault(); el.classList.remove("on"); off(); };
   el.addEventListener("pointerdown", d); el.addEventListener("pointerup", u); el.addEventListener("pointercancel", u); el.addEventListener("lostpointercapture", u); }
 function gmKeyState(){ const k = {}; const dn = e => { if(/^(Arrow|Space)/.test(e.code)){ e.preventDefault(); k[e.code] = true; } }, up = e => { k[e.code] = false; };
   document.addEventListener("keydown", dn); document.addEventListener("keyup", up); gmCleanup.push(() => { document.removeEventListener("keydown", dn); document.removeEventListener("keyup", up); }); return k; }
@@ -8908,9 +8942,11 @@ function gamePinball(st){
   const newBall = (lane) => { balls.push({p:[375, 750], v:[0, 0], trail:[], lane:true, hold:0}); };
   const reset = () => { balls = []; score = 0; ballNo = 1; mult = 1; reactorHits = 0; jackpot = false; multi = false; drops.forEach(d => d.up = true); rolls.forEach(r => r.on = false); newBall(); state = "play"; save = 0; upd(); GXM.play("synth"); say("BOA SORTE!", "#5cf2ff"); };
   /* ---------- controlos ---------- */
-  const setFlip = (i, on) => { if(state !== "play") return; if(on && !flips[i].up) GX.tone(140, .05, "square", .12, 90); flips[i].up = on; };
+  /* v191: largar o flipper funciona sempre (antes, se a bola se perdesse com o dedo em cima, o flipper ficava levantado
+     na bola seguinte e a bola ficava parada em cima dele) */
+  const setFlip = (i, on) => { if(!on){ flips[i].up = false; return; } if(state !== "play") return; if(on && !flips[i].up) GX.tone(140, .05, "square", .12, 90); flips[i].up = on; };
   const pz = {}; c.addEventListener("pointerdown", e => { e.preventDefault(); if(state !== "play"){ reset(); return; } const [px] = GX.pt(c, e); const i = px < W/2 ? 0 : 1; pz[e.pointerId] = i; setFlip(i, true); try{ c.setPointerCapture(e.pointerId); }catch(z){} });
-  const pu = e => { const i = pz[e.pointerId]; if(i != null){ delete pz[e.pointerId]; if(!Object.values(pz).includes(i)) setFlip(i, false); } }; c.addEventListener("pointerup", pu); c.addEventListener("pointercancel", pu);
+  const pu = e => { const i = pz[e.pointerId]; if(i != null){ delete pz[e.pointerId]; if(!Object.values(pz).includes(i)) setFlip(i, false); } }; c.addEventListener("pointerup", pu); c.addEventListener("pointercancel", pu); c.addEventListener("lostpointercapture", pu);
   gmHold($("pbL"), () => setFlip(0, true), () => setFlip(0, false)); gmHold($("pbR2"), () => setFlip(1, true), () => setFlip(1, false));
   gmHold($("pbP"), () => { if(state !== "play"){ reset(); return; } charging = true; }, () => { launch(); });
   const launch = () => { if(!charging) return; charging = false; const b = balls.find(q => q.lane && q.p[1] > 700); if(b){ b.v = [0, -(950 + 1250*charge)]; GX.noise(.25, .3, 1800); GX.tone(200, .25, "sawtooth", .1, 900); save = 7; } charge = 0; };
@@ -8954,6 +8990,8 @@ function gamePinball(st){
       /* rollovers e buraco negro */
       for(const r of rolls) if(!r.on && Math.abs(b.p[0] - r.x) < 10 && Math.abs(b.p[1] - r.y) < 12){ r.on = true; r.fl = .4; add(500); GX.tone(1100, .1, "triangle", .1); if(rolls.every(q => q.on)){ mult = Math.min(5, mult + 1); rolls.forEach(q => q.on = false); say("MULTIPLICADOR x" + mult, "#ffe14a"); GX.sfx("power"); upd(); } }
       if(Math.hypot(b.p[0] - hole.c[0], b.p[1] - hole.c[1]) < hole.r && !b.lane && b.cool !== true){ b.cap = 1.3; b.p = hole.c.slice(); b.v = [0, 0]; GX.tone(80, 1.2, "sine", .2, 30); if(hole.lit){ add(multi ? 50000 : 25000); say(multi ? "SUPER JACKPOT!" : "JACKPOT!", "#ff3e9a"); GX.sfx("win"); hole.lit = false; jackpot = false; shake = .4; } else { add(2500); say("BURACO NEGRO +2500", "#5cf2ff"); } }
+      /* bola quase parada fora da calha durante 2,5 s (ex.: encostada entre o flipper e a guia): um pequeno empurrão */
+      if(!b.lane && !b.cap){ if(Math.hypot(b.v[0], b.v[1]) < 25){ b.still = (b.still || 0) + dts; if(b.still > 2.5){ b.still = 0; b.v = [(b.p[0] < CX ? 1 : -1)*(90 + Math.random()*60), -260]; flips.forEach(f => f.up = false); GX.tone(180, .08, "triangle", .08); } } else b.still = 0; }
       if(b.lane && b.p[0] < 355) b.lane = false; if(!b.lane && b.p[0] > 362 && b.p[1] > 250) b.lane = true;
     }
   };
