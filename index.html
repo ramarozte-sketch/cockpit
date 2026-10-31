@@ -2724,7 +2724,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v184";
+const APP_VERSION = "v185";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -8458,7 +8458,7 @@ G3R.foot = (create, c2d) => {
 
 /* ---------------- Templo Perdido 3D (vista de lado, com luz das tochas e da lanterna) ---------------- */
 G3R.tomb = (create, c2d) => {
-  const g = create(c2d, {bg:0x050308, fov:50, bloom:.85, thr:.55, exposure:1.25, fog:[0x050308, 10, 26]}), T = g.T, TS = 32;
+  const g = create(c2d, {bg:0x050308, fov:50, bloom:.85, thr:.8, exposure:1.1, fog:[0x050308, 10, 26]}), T = g.T, TS = 32;
   const amb = new T.AmbientLight(0x3a2a40, .35); g.scene.add(amb); const hemi = new T.HemisphereLight(0xffd8a0, 0x0a0608, .18); g.scene.add(hemi);
   const stoneTex = g.canvasTex(128, 128, (x, w, h) => { const gr = x.createLinearGradient(0, 0, w, h); gr.addColorStop(0, "#8a7050"); gr.addColorStop(1, "#4a3826"); x.fillStyle = gr; x.fillRect(0, 0, w, h);
     for(let i = 0; i < 500; i++){ x.fillStyle = `rgba(${Math.random() < .5 ? "255,240,210" : "20,10,0"},${Math.random()*.15})`; x.fillRect(Math.random()*w, Math.random()*h, 2 + Math.random()*4, 2 + Math.random()*4); }
@@ -8471,18 +8471,18 @@ G3R.tomb = (create, c2d) => {
   let solidI = null, crackI = null, doorI = null, plankI = null, ladI = null, spikeI = null, wall = null, statics = [], built = null, ver = -1;
   const M4 = new T.Matrix4(), V = new T.Vector3(), Q = new T.Quaternion(), S = new T.Vector3(1, 1, 1), E = new T.Euler();
   const lights = []; for(let i = 0; i < 6; i++){ const l = new T.PointLight(0xff9a40, 0, 9, 1.6); g.scene.add(l); lights.push(l); }
-  const lantern = new T.PointLight(0xffd9a0, 1.8, 11, 1.4); g.scene.add(lantern);
+  const lantern = new T.PointLight(0xffd9a0, 1.25, 13, 1.2); g.scene.add(lantern);
   /* exploradora (original): pernas, botas, calças, camisa, mochila, lenço, cabeça, capacete de explorador e lanterna */
-  const hero = new T.Group(); const m_ = c => new T.MeshStandardMaterial({color:c, roughness:.7});
-  const torso = new T.Mesh(new T.BoxGeometry(.42, .5, .3), m_(0xc8b48a)); torso.position.y = .55; hero.add(torso);
+  const hero = new T.Group(); const m_ = c => new T.MeshStandardMaterial({color:new T.Color(c).multiplyScalar(.82), roughness:.85, metalness:0});
+  const torso = new T.Mesh(new T.BoxGeometry(.42, .5, .3), m_(0x8f7a4e)); torso.position.y = .55; hero.add(torso);
   const pack = new T.Mesh(new T.BoxGeometry(.2, .42, .34), m_(0x6b4a2a)); pack.position.set(-.3, .58, 0); hero.add(pack);
   const scarf = new T.Mesh(new T.BoxGeometry(.46, .1, .34), m_(0x2a9d8f)); scarf.position.y = .82; hero.add(scarf);
   const tail = new T.Mesh(new T.BoxGeometry(.35, .08, .1), m_(0x2a9d8f)); tail.position.set(-.35, .8, 0); hero.add(tail);
-  const headM = new T.Mesh(new T.SphereGeometry(.19, 16, 12), m_(0xe0b48a)); headM.position.y = 1.02; hero.add(headM);
-  const hat = new T.Mesh(new T.SphereGeometry(.22, 16, 10, 0, Math.PI*2, 0, Math.PI/2), m_(0xe8dcb0)); hat.position.y = 1.08; hero.add(hat); const brim = new T.Mesh(new T.CylinderGeometry(.34, .34, .03, 20), m_(0xe8dcb0)); brim.position.y = 1.08; hero.add(brim);
+  const headM = new T.Mesh(new T.SphereGeometry(.19, 16, 12), m_(0xc98f68)); headM.position.y = 1.02; hero.add(headM);
+  const hat = new T.Mesh(new T.SphereGeometry(.22, 16, 10, 0, Math.PI*2, 0, Math.PI/2), m_(0x7a5a32)); hat.position.y = 1.08; hero.add(hat); const brim = new T.Mesh(new T.CylinderGeometry(.34, .34, .03, 20), m_(0x7a5a32)); brim.position.y = 1.08; hero.add(brim);
   const legs = [-.1, .1].map(z => { const l = new T.Group(); const up = new T.Mesh(new T.BoxGeometry(.14, .34, .14), m_(0x4f6a3a)); up.position.y = -.17; const boot = new T.Mesh(new T.BoxGeometry(.18, .1, .16), m_(0x5a3a1a)); boot.position.set(.03, -.36, 0); l.add(up, boot); l.position.set(0, .32, z); hero.add(l); return l; });
-  const arms = [-.24, .24].map(z => { const a = new T.Group(); const s_ = new T.Mesh(new T.BoxGeometry(.1, .36, .1), m_(0xe0b48a)); s_.position.y = -.17; a.add(s_); a.position.set(0, .76, z); hero.add(a); return a; });
-  const lamp = new T.Mesh(new T.SphereGeometry(.07, 10, 8), g.neon(0xffcf6b, 2.5)); lamp.position.set(-.18, .42, .2); hero.add(lamp);
+  const arms = [-.24, .24].map(z => { const a = new T.Group(); const s_ = new T.Mesh(new T.BoxGeometry(.1, .36, .1), m_(0xc98f68)); s_.position.y = -.17; a.add(s_); a.position.set(0, .76, z); hero.add(a); return a; });
+  const lamp = new T.Mesh(new T.SphereGeometry(.07, 10, 8), g.neon(0xffcf6b, 1.4)); lamp.position.set(-.18, .42, .2); hero.add(lamp);
   g.scene.add(hero);
   const dyn = {}; const pool = (k, n, mk) => { const a = dyn[k] = dyn[k] || []; while(a.length < n){ const m = mk(); g.scene.add(m); a.push(m); } a.forEach((m, i) => m.visible = i < n); return a; };
   const gemG = new T.OctahedronGeometry(.22), gemB = g.neon(0x3ef0ff, 1.8), gemR = g.neon(0xff4d6d, 1.8), goldM = new T.MeshStandardMaterial({color:0xffd23e, emissive:0xffb000, emissiveIntensity:.8, metalness:.9, roughness:.25});
@@ -8513,7 +8513,7 @@ G3R.tomb = (create, c2d) => {
       if(s.pl.climb){ const c = Math.sin(s.pl.run*3)*.6; legs[0].rotation.z = c; legs[1].rotation.z = -c; arms[0].rotation.z = Math.PI - c; arms[1].rotation.z = Math.PI + c; hero.rotation.y = -Math.PI/2; }
       else { legs[0].rotation.z = sw; legs[1].rotation.z = -sw; arms[0].rotation.z = -sw*.8 + (air ? -1.2 : 0); arms[1].rotation.z = sw*.8 + (air ? -1.2 : 0); }
       tail.rotation.y = Math.sin(t*10)*.3; hero.visible = s.state !== "over" && !(s.pl.inv > 0 && s.state === "play" && Math.floor(s.pl.inv*12) % 2);
-      lantern.position.set(px + s.pl.face*.4, py + .6, 1.2); lantern.intensity = 1.7 + Math.sin(t*13)*.08 + Math.sin(t*7.3)*.08;
+      lantern.position.set(px + s.pl.face*.9, py + 1.4, 2.9); lantern.intensity = 1.05 + Math.sin(t*13)*.05 + Math.sin(t*7.3)*.05;
       /* tochas: as 6 mais perto têm luz verdadeira */
       const torches = s.ents.filter(e => e.t === "torch"); const fl = pool("flame", torches.length, flameMk), st = pool("stick", torches.length, () => new T.Mesh(new T.CylinderGeometry(.05, .07, .5, 8), new T.MeshStandardMaterial({color:0x3a2410})));
       torches.forEach((e, i) => { const x = e.x*k, y = -e.y*k; fl[i].position.set(x, y + .25, 1.12); const f = 1 + Math.sin(t*20 + e.x)*.15; fl[i].scale.set(.7*f, 1.1*f, 1); st[i].position.set(x, y - .1, 1.12); });
