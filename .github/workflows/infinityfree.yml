@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Preparar cópia (JavaScript em ficheiros separados)
+        run: python3 .github/split.py ${{ github.sha }}
       - name: Enviar por FTP (só os ficheiros alterados)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -22,6 +24,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: ${{ secrets.FTP_DIR || '/htdocs/' }}
+          local-dir: ./dist/
           protocol: ftp
           port: 21
           timeout: 120000
@@ -29,3 +32,13 @@ jobs:
             **/.git*
             **/.git*/**
             .github/**
+      - name: Confirmar que o index.html ficou no servidor
+        env:
+          S: ${{ secrets.FTP_SERVER }}
+          U: ${{ secrets.FTP_USERNAME }}
+          P: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sleep 20
+          L=$(curl -s "ftp://$S/htdocs/" --user "$U:$P")
+          echo "$L" | grep -qE " index\.html\s*$" || { echo "::error title=InfinityFree::o index.html desapareceu do servidor"; exit 1; }
+          echo "::notice title=InfinityFree::index.html presente"
