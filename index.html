@@ -2729,7 +2729,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v188";
+const APP_VERSION = "v189";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3519,6 +3519,14 @@ function __avcNonRef(u){
     return sl > 0;
   }catch(e){ return false; }
 }
+/* v189: os Workers do FFmpeg ficam guardados entre canais (compilar o WebAssembly de cada Worker demorava ao abrir
+   cada canal em andamento) e são preparados de antemão quando o modo em andamento está ligado */
+const SVD_POOL = [];
+let SVD_EP = 1;
+function svdWarm(n){
+  try{ if(typeof Worker !== "function" || typeof WebAssembly !== "object") return;
+    while(SVD_POOL.length < n){ const w = new Worker("h264soft.js?v=" + APP_VERSION); w.onmessage = null; w.postMessage({cmd:"warm"}); SVD_POOL.push(w); } }catch(e){}
+}
 class SoftVideoDecoder {
   constructor({output, error, backlog}){
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
@@ -3531,10 +3539,11 @@ class SoftVideoDecoder {
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
   }
   _mkWorker(cfg){
-    const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:0, fps:0, fr:0, ms:0};
+    const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:SVD_EP += 1000, fps:0, fr:0, ms:0};
     /* ?v= obriga o browser/alojamento a ir buscar o descodificador desta versão (um h264soft.js antigo em cache não sabe trabalhar em paralelo) */
-    W.w = new Worker("h264soft.js?v=" + APP_VERSION);
+    W.w = SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION);
     W.w.onmessage = e => { const d = e.data;
+      if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
       if(d.type === "frame"){ const b = d.bmp; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
@@ -3544,7 +3553,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:(cfg.codedWidth || 0) > 1280 ? 1 : 0});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -3582,6 +3591,7 @@ class SoftVideoDecoder {
         /* GOP ainda aberto: as imagens que entretanto chegaram vão para o mesmo Worker, até à próxima imagem-chave */
         while(p.length && !p[0].key) this.owner.q.push(p.shift());
         if(!p.length) break;
+        if(!this.legacy) this.owner.q.push(Object.assign({}, p[0], {extra:true}));   /* ver abaixo: a imagem-chave seguinte solta a última do GOP */
         this.owner.done = true; this.owner = null;   /* próxima imagem-chave: o GOP deste Worker fechou */
       }
       while(p.length && !p[0].key) p.shift();   /* sem imagem-chave não se pode começar */
@@ -3599,6 +3609,10 @@ class SoftVideoDecoder {
         let lo = Infinity, hi = -Infinity; for(let k = 0; k < e; k++){ const t = p[k].ts; if(t < lo) lo = t; if(t > hi) hi = t; }
         const dt = (endTs - lo) / e; if(dt > 5000 && dt < 200000) this._dts = this._dts ? this._dts * 0.7 + dt * 0.3 : dt; }
       const g = p.splice(0, e); for(const c of g) W.q.push(c);
+      /* v189: o FFmpeg retém a última imagem do GOP (por ordem de apresentação) até chegar mais vídeo, e o fim de sequência
+         não a solta — perdia-se uma imagem por GOP, um pequeno soluço a cada ~1 s. Passa-se também a imagem-chave seguinte
+         (a duplicada que daí sai é ignorada, porque o Worker seguinte também a descodifica). */
+      if(closed && !this.legacy) W.q.push(Object.assign({}, p[0], {extra:true}));
       if(closed) W.done = true; else this.owner = W;
     }
     /* alimenta cada Worker */
@@ -3610,7 +3624,8 @@ class SoftVideoDecoder {
         const c = q[0];
         const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
         if(c.nr && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
-        if(q.length > 1 && q[q.length - 1].ts < masterUs - 40000 && !c.key){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
+        const qe = q[q.length - 1].extra && q.length > 1 ? q[q.length - 2] : q[q.length - 1];
+        if(q.length > 1 && qe.ts < masterUs - 40000 && !c.key){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
         if(c.ts > masterUs + 400000 && this.backlog() >= 36) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
         q.shift();
         const buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
@@ -3623,11 +3638,13 @@ class SoftVideoDecoder {
   }
   reset(){
     this.pending = []; this.owner = null;
-    for(const W of this.W){ W.ep++; W.q = []; W.done = false; if(W.busy || W.inflight){ try{ W.w.postMessage({cmd:"flush"}); }catch(e){} } W.busy = false; W.draining = false; W.inflight = 0; }
+    for(const W of this.W){ W.ep++; W.q = []; W.done = false; if(W.busy || W.inflight){ try{ W.w.postMessage({cmd:"flush", ep:W.ep}); }catch(e){} } W.busy = false; W.draining = false; W.inflight = 0; }
   }
   close(){
     this.state = "closed"; this.pending = []; this.owner = null;
-    for(const W of this.W){ try{ W.w.terminate(); }catch(e){} }
+    /* o Worker volta para a reserva (até 3) já com o FFmpeg carregado; os restantes terminam */
+    for(const W of this.W){ try{ W.w.onmessage = null; W.w.onerror = null;
+        if(!this.legacy && SVD_POOL.length < 3){ W.w.postMessage({cmd:"flush", ep:++SVD_EP}); SVD_POOL.push(W.w); } else W.w.terminate(); }catch(e){} }
     this.W = [];
   }
 }
@@ -3864,6 +3881,8 @@ function wcInit(slot){
       st.ranges.push({start:st.fileStart, end:st.fileStart+ab.byteLength, frag:st.curFrag});
       ab.fileStart=st.fileStart; st.fileStart+=ab.byteLength; file.appendBuffer(ab);
     });
+    /* pedaços que chegaram enquanto isto se preparava */
+    try{ const pq = window.__mirPre && window.__mirPre[slot]; if(pq && pq.length){ const L = pq.splice(0).filter(x => x.seq === playSeq[slot]); for(const x of L) mirrorFeed(slot, x.d); } }catch(e){}
   });
 }
 /* ---------- .ts direto (mpegts.js) na imagem em andamento ----------
@@ -4006,7 +4025,7 @@ function __hevcCodec(data, at){
   return "hev1." + (["", "A", "B", "C"][sp]) + prof + "." + rev.toString(16) + "." + (tier ? "H" : "L") + rb[12] + (cons.length ? "." + cons.map(x => x.toString(16)).join(".") : "");
 }
 function hevcFeed(slot, st, u, frag){
-  const inf = st.hv || (st.hv = __tsVideoInfo(u)); if(inf.vpid < 0) return;
+  const inf = st.hv = __tsVideoInfo(u); if(inf.vpid < 0) return;   /* v189: recalculado por pedaço (antes lia sempre os bytes do 1.º pedaço) */
   const L = __tsPes(u, inf.vpid, inf.pidOf, inf.payStart); let first = true;
   for(const x of L){
     const nals = __hevcNals(x.data), key = nals.some(n => n.type >= 16 && n.type <= 21);
@@ -4025,6 +4044,26 @@ function hevcFeed(slot, st, u, frag){
   }
   startPresent(slot);
 }
+/* H.264 em .ts → descodificador por software (Annex B). Guarda o SPS/PPS e repõe-no nas imagens-chave que não o trazem
+   (cada GOP é descodificado num Worker que pode ter acabado de reabrir o descodificador). */
+function avcFeed(slot, st, u, frag){
+  const inf = st.av; const L = __tsPes(u, inf.vpid, inf.pidOf, inf.payStart); let first = true;
+  const nalTypes = d => { const t = []; for(let i = 0; i + 3 < d.length && i < 4000; i++){ if(d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1){ const k = d[i + 3] & 31; t.push({k, at:i}); if(k === 1 || k === 5) break; i += 2; } } return t; };
+  for(const x of L){
+    let data = x.data; const nt = nalTypes(data), key = nt.some(n => n.k === 5);
+    if(key){ const sp = nt.find(n => n.k === 7), sl = nt.find(n => n.k === 1 || n.k === 5);
+      if(sp && sl){ st.avPS = data.slice(Math.max(0, sp.at - 1), sl.at); }
+      else if(!sp && st.avPS){ const nb = new Uint8Array(st.avPS.length + data.length); nb.set(st.avPS); nb.set(data, st.avPS.length); data = nb; } }
+    if(!st.avCfg){ const sp = nt.find(n => n.k === 7); if(!key || !sp) continue;
+      const h = v => v.toString(16).padStart(2, "0"); st.avCfg = {codec:"avc1." + h(data[sp.at + 4]) + h(data[sp.at + 5]) + h(data[sp.at + 6]), autoShift:true, optimizeForLatency:true};
+      try{ st.decoder.configure(st.avCfg); st.err = null; }catch(e){ st.err = "configure: " + e.message; return; }
+      try{ window.__dbgEv && window.__dbgEv(slot, "andamento: H.264 direto ao descodificador", {codec:st.avCfg.codec, workers:st.decoder.nW}); }catch(e){} }
+    const ts = Math.round(x.pts * 100 / 9);
+    if(first){ first = false; st.marks.push({ts, frag}); st.marks.sort((a, b) => a.ts - b.ts); if(st.marks.length > 30) st.marks.shift(); }
+    try{ st.decoder.decode({type:key ? "key" : "delta", timestamp:ts, data}); }catch(e){ st.err = "decode: " + e.message; }
+  }
+  startPresent(slot);
+}
 /* Recebe os bytes de cada fragmento HLS (já clonados pelo loader) e alimenta o transmuxer. */
 function mirrorFeed(slot, d){
   const st = MIR[slot];
@@ -4032,7 +4071,8 @@ function mirrorFeed(slot, d){
   /* fMP4: guarda o segmento de inicialização (moov), que chega antes de o descodificador estar pronto */
   try{ const u2 = payload instanceof Uint8Array ? payload : new Uint8Array(payload); const bx2 = u2.length > 8 ? String.fromCharCode(u2[4], u2[5], u2[6], u2[7]) : "";
     if(/^(ftyp|moov)$/.test(bx2)){ (window.__mirInit = window.__mirInit || [])[slot] = u2.slice(); } }catch(e){}
-  if(!st || !st.tm) return;
+  /* descodificador ainda a preparar-se: guarda os pedaços (os primeiros perdiam-se e a imagem só aparecia no pedaço seguinte, ~10 s depois) */
+  if(!st || !st.tm){ if(mirrorOn){ const pq = (window.__mirPre = window.__mirPre || [[], []])[slot]; pq.push({d, seq:playSeq[slot]}); while(pq.length > 3) pq.shift(); } return; }
   st.segs = (st.segs||0)+1; st.curFrag = d.frag || null;
   /* HLS com pedaços MP4 (fMP4/CMAF, EXT-X-MAP): não passam pelo mux.js; vão diretos ao mp4box (H.264 ou HEVC) */
   try{ const u1 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
@@ -4046,6 +4086,13 @@ function mirrorFeed(slot, d){
       ab.fileStart = st.fileStart; st.fileStart += ab.byteLength; st.file.appendBuffer(ab);
       return;
     } }catch(e){ st.err = "fMP4: " + e.message; return; }
+  /* v189 — página http (FFmpeg por software): H.264 em .ts vai direto (PES → Annex B) para o descodificador, sem passar
+     pelo mux.js nem pelo mp4box. Converter cada pedaço de 10 s (4–5 MB) no processo principal parava o desenho da imagem
+     ~170 ms a cada pedaço (as «paragens» do log) e atrasava a 1.ª imagem ao abrir o canal. */
+  try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+    if(!WC_NATIVE && u0[0] === 0x47 && st.decoder && st.decoder.pump && !st.hevc && window.__mirFast !== false){
+      const inf = st.av = __tsVideoInfo(u0);   /* por pedaço: as funções de leitura ficam presas aos bytes deste pedaço */
+      if(inf.vpid >= 0 && inf.type === 0x1b){ st.fastTs = true; avcFeed(slot, st, u0, st.curFrag); return; } } }catch(e){ st.err = "H.264 direto: " + e.message; }
   /* HEVC em .ts: o mux.js não o converte; lê-se diretamente (só com WebCodecs nativo) */
   try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
     if(u0[0] === 0x47 && WC_NATIVE && st.decoder && st.decoder.pump && (st.hevc || (!st.gotInit && __tsVideoInfo(u0).type === 0x24))){ st.hevc = true; hevcFeed(slot, st, u0, st.curFrag); return; } }catch(e){ st.err = "HEVC: " + e.message; }
@@ -4479,6 +4526,7 @@ function stopMirror(slot){
   const box=slotBox(slot); if(box) box.classList.remove("mirroring");
 }
 function syncMirror(){
+  if(mirrorOn && !WC_NATIVE) setTimeout(() => svdWarm(3), 1500);
   for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
   const b = $("btnMirror"); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); }
 }
@@ -13704,7 +13752,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       if(!NATIVE){ st.soft = true; st.prog = true;
         st.dec = new SoftVideoDecoder({backlog:() => st.frames.length,
           output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; const q = st.frames, ts = f.timestamp; let i = q.length; while(i > 0 && q[i - 1].timestamp > ts) i--;
-            if(i > 0 && q[i - 1].timestamp === ts){ f.close(); return; } q.splice(i, 0, f); while(q.length > 70) q.pop().close(); },
+            if(i > 0 && q[i - 1].timestamp === ts){ try{ q[i - 1].close(); }catch(e){} q[i - 1] = f; return; }   /* repetida: fica a mais recente (a do Worker seguinte, com os dois campos) */
+            q.splice(i, 0, f); while(q.length > 70) q.pop().close(); },
           error:e => { st.errs++; log(key, "erro na imagem por software (WASM)", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 12){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); } }});
         return; }
       st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
