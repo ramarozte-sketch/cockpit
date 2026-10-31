@@ -2742,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v196";
+const APP_VERSION = "v197";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12071,6 +12071,9 @@ body.gdNew #gdDays .tab{flex:none}
 #vGest .tr{width:10px;height:150px;border-radius:6px;background:#ffffff33;position:relative;overflow:hidden}
 #vGest .tr i{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:6px}
 #vGest .ic{font-size:22px}
+#vGest .tr i{will-change:height}
+/* v197: brilho por camada por cima do vídeo (mudar a opacidade é só composição; o filtro no <video> refazia a imagem a cada passo e atrasava o gesto) */
+#vBri{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;will-change:opacity}
 body.vgOn #stage{touch-action:none}
 /* ===== Tesla: zoom do Início ===== */
 #v-tvinicio{touch-action:pan-x pan-y}
@@ -12105,17 +12108,24 @@ body.vgOn #stage{touch-action:none}
     if(!(G.v >= 0 && G.v <= 1)) G.v = 1;
     const vids = () => [$("vid0"), $("vid1")];
     const full = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || $("v-tv").classList.contains("cinema");
-    const applyB = () => vids().forEach(v => { if(v) v.style.filter = Math.abs(G.b - 1) < 0.01 ? "" : "brightness(" + G.b.toFixed(2) + ")"; });
+    const bri = document.createElement("div"); bri.id = "vBri"; st.appendChild(bri);
+    vids().forEach(v => { if(v) v.style.filter = ""; });
+    let briUp = null;
+    const applyB = () => { const b = G.b;
+      if(Math.abs(b - 1) < 0.01){ bri.style.opacity = "0"; return; }
+      const up = b > 1; if(up !== briUp){ briUp = up; bri.style.background = up ? "#fff" : "#000"; bri.style.mixBlendMode = up ? "soft-light" : "normal"; }
+      bri.style.opacity = up ? Math.min(1, (b - 1) * 0.9).toFixed(3) : Math.min(0.85, 1 - b).toFixed(3); };
     const applyV = () => { try{ const v = $("vid" + audioSlot); if(v && !v.muted) v.volume = G.v; }catch(e){} };
     applyB();
     vids().forEach(v => v && ["playing", "loadeddata"].forEach(ev => v.addEventListener(ev, applyV)));
     let hideT = 0;
+    const tIc = tag.querySelector(".ic"), tBar = tag.querySelector(".tr i"), tVl = tag.querySelector(".vl"); let tKind = "", tIco = "", tTxt = "";
     const show = (kind, val, txt) => {
-      tag.querySelector(".ic").textContent = kind === "b" ? "☀️" : val === 0 ? "🔇" : "🔊";
-      tag.querySelector(".tr i").style.height = Math.round(Math.min(1, val / (kind === "b" ? 2 : 1)) * 100) + "%";
-      tag.querySelector(".vl").textContent = txt;
-      tag.style.left = kind === "b" ? "24px" : ""; tag.style.right = kind === "b" ? "" : "24px";
-      tag.classList.add("on"); clearTimeout(hideT); hideT = setTimeout(() => tag.classList.remove("on"), 900);
+      const ico = kind === "b" ? "☀️" : val === 0 ? "🔇" : "🔊"; if(ico !== tIco){ tIco = ico; tIc.textContent = ico; }
+      tBar.style.height = Math.round(Math.min(1, val / (kind === "b" ? 2 : 1)) * 100) + "%";
+      if(txt !== tTxt){ tTxt = txt; tVl.textContent = txt; }
+      if(kind !== tKind){ tKind = kind; tag.style.left = kind === "b" ? "24px" : ""; tag.style.right = kind === "b" ? "" : "24px"; }
+      if(!tag.classList.contains("on")) tag.classList.add("on"); clearTimeout(hideT); hideT = setTimeout(() => tag.classList.remove("on"), 900);
     };
     const sync = () => document.body.classList.toggle("vgOn", full() && currentView === "tv");
     document.addEventListener("fullscreenchange", sync); new MutationObserver(sync).observe($("v-tv"), {attributes:true, attributeFilter:["class"]});
@@ -12129,13 +12139,15 @@ body.vgOn #stage{touch-action:none}
     st.addEventListener("pointermove", e => {
       if(!s || e.pointerId !== s.id) return;
       const dy = s.y - e.clientY, dx = e.clientX - s.x;
-      if(!s.on){ if(Math.abs(dy) < 14 || Math.abs(dy) < Math.abs(dx) * 1.3) return; s.on = true; G.drag = true; try{ st.setPointerCapture(e.pointerId); }catch(x){} }
+      if(!s.on){ if(Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx) * 1.2) return; s.on = true; G.drag = true; try{ st.setPointerCapture(e.pointerId); }catch(x){} }
       e.preventDefault();
       const k = dy / (s.h * 0.75);
-      if(s.side === "b"){ G.b = Math.max(0.3, Math.min(2, s.b0 + k * 1.7)); applyB(); show("b", G.b, Math.round(G.b * 100) + "%"); }
-      else { G.v = Math.max(0, Math.min(1, s.v0 + k)); applyV(); show("v", G.v, Math.round(G.v * 100) + "%"); }
+      if(s.side === "b") G.b = Math.max(0.3, Math.min(2, s.b0 + k * 1.7)); else G.v = Math.max(0, Math.min(1, s.v0 + k));
+      /* v197: vários movimentos do dedo por imagem do ecrã → aplica só uma vez, na imagem seguinte */
+      if(!s.raf){ const side = s.side; s.raf = requestAnimationFrame(() => { if(s) s.raf = 0;
+        if(side === "b"){ applyB(); show("b", G.b, Math.round(G.b * 100) + "%"); } else { applyV(); show("v", G.v, Math.round(G.v * 100) + "%"); } }); }
     });
-    const end = e => { if(!s || (e && e.pointerId !== s.id)) return; if(s.on){ LS.set("tvBright", +G.b.toFixed(2)); LS.set("tvVol", +G.v.toFixed(2)); G.lastGest = Date.now(); } s = null; setTimeout(() => { G.drag = false; }, 50); };
+    const end = e => { if(!s || (e && e.pointerId !== s.id)) return; if(s.on){ try{ if(s.raf) cancelAnimationFrame(s.raf); applyB(); applyV(); }catch(x){} LS.set("tvBright", +G.b.toFixed(2)); LS.set("tvVol", +G.v.toFixed(2)); G.lastGest = Date.now(); } s = null; setTimeout(() => { G.drag = false; }, 50); };
     st.addEventListener("pointerup", end, true); st.addEventListener("pointercancel", end);
     /* um gesto não conta como toque/duplo toque para sair do ecrã total */
     st.addEventListener("pointerup", e => { if(G.lastGest && Date.now() - G.lastGest < 60){ e.stopImmediatePropagation(); } }, true);
