@@ -1,0 +1,15 @@
+name: Diagnóstico InfinityFree
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Listar FTP e testar site
+        env:
+          S: ${{ secrets.FTP_SERVER }}
+          U: ${{ secrets.FTP_USERNAME }}
+          P: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          echo "::warning title=root::$(curl -s --list-only "ftp://$S/" --user "$U:$P" | tr '\n' ' ')"
+          echo "::warning title=htdocs::$(curl -s "ftp://$S/htdocs/" --user "$U:$P" | awk '{print $1,$5,$9}' | tr '\n' ';' | cut -c1-900)"
+          echo "::warning title=site::$(curl -s -o /dev/null -w '%{http_code} %{size_download}' http://cockpit.page.gd/)"
