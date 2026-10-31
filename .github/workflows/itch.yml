@@ -5,9 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in kodub.itch.io/polytrack virtual-turtle-games.itch.io/hypnotic eric-gurt.itch.io/star-defenders-3d kodub.itch.io/dustsim terraformingtitans.itch.io/terraforming-titans-demo transmutrix.itch.io/soup-js qwook.itch.io/last-seen-online pelicanparty.itch.io/narrow-one dekdev.itch.io/hordesio; do
+          for u in virtual-turtle-games.itch.io/hypnotic terraformingtitans.itch.io/terraforming-titans-demo transmutrix.itch.io/soup-js qwook.itch.io/last-seen-online; do
             h=$(curl -sL -A "Mozilla/5.0" "https://$u")
+            h=$(echo "$h" | sed 's#\\/#/#g')
             src=$(echo "$h" | grep -oE '(html-classic\.itch\.zone|html\.itch\.zone)/html/[0-9]+/[^&"]*' | head -1)
+            echo "::warning title=dbg $u::$(echo "$h" | grep -oiE '(itch\.zone[^"]{0,80}|load_iframe[^>]{0,120}|launch[^<]{0,60}|purchase[^<]{0,40}|data-game_id[^ ]*|game_frame[^>]{0,160})' | sort -u | head -8 | tr '\n' ' ')"
             emb=$(echo "$h" | grep -oE 'embed-upload/[0-9]+' | head -1)
             wh=$(echo "$h" | grep -oE 'width=&quot;[0-9]+&quot; height=&quot;[0-9]+' | head -1 | tr -d '&quot;')
             xfo=""; [ -n "$src" ] && xfo=$(curl -sI -A "Mozilla/5.0" "https://$src" | grep -iE '^(HTTP|x-frame|content-security)' | tr '\r\n' '  ')
