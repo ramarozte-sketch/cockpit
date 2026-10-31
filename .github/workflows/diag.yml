@@ -4,12 +4,16 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Listar FTP e testar site
+      - uses: actions/checkout@v4
+      - name: Enviar index.html e verificar
         env:
           S: ${{ secrets.FTP_SERVER }}
           U: ${{ secrets.FTP_USERNAME }}
           P: ${{ secrets.FTP_PASSWORD }}
         run: |
-          echo "::warning title=root::$(curl -s --list-only "ftp://$S/" --user "$U:$P" | tr '\n' ' ')"
-          echo "::warning title=htdocs::$(curl -s "ftp://$S/htdocs/" --user "$U:$P" | awk '{print $1,$5,$9}' | tr '\n' ';' | cut -c1-900)"
-          echo "::warning title=site::$(curl -s -o /dev/null -w '%{http_code} %{size_download}' http://cockpit.page.gd/)"
+          out=$(curl -sS -T index.html "ftp://$S/htdocs/index.html" --user "$U:$P" -w 'code=%{response_code} up=%{size_upload}' 2>&1 | tail -c 400)
+          echo "::warning title=upload::$out"
+          sleep 5
+          echo "::warning title=after5s::$(curl -s "ftp://$S/htdocs/" --user "$U:$P" | grep -i index | awk '{print $5,$9}' | tr '\n' ';')"
+          sleep 25
+          echo "::warning title=after30s::$(curl -s "ftp://$S/htdocs/" --user "$U:$P" | grep -i index | awk '{print $5,$9}' | tr '\n' ';')"
