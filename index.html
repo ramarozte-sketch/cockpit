@@ -2742,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v192";
+const APP_VERSION = "v193";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3629,10 +3629,15 @@ class SoftVideoDecoder {
       while(p.length && !p[0].key) p.shift();   /* sem imagem-chave não se pode começar */
       if(!p.length) break;
       let e = 1; while(e < p.length && !p[e].key) e++;
+      /* v193: GOP aberto (Sport TV, Benfica TV…): junta GOPs seguidos até ~1,6 s no mesmo Worker. Assim as imagens de
+         referência do GOP anterior (ver abaixo) só se descodificam uma vez por bloco, e não uma vez por GOP (~0,4 s cada). */
+      if(p[0].open && e < p.length){ let k = e; while(k < p.length && p[k].ts - p[0].ts < 1600000){ let n = k + 1; while(n < p.length && !p[n].key) n++; if(n >= p.length) break; e = n; k = n; } }
       const closed = e < p.length, endTs = closed ? p[e].ts : null;
       /* GOP já todo no passado: não vale a pena descodificar */
-      if(closed && endTs < masterUs - 40000){ p.splice(0, e); this.st.gopsSaltados++; continue; }
-      this.lead = this._lead(closed ? e : this.gopN || 50);
+      if(closed && endTs < masterUs - 40000){ const g0 = p.splice(0, e); this._track(g0); this.st.gopsSaltados++; continue; }
+      /* referências do GOP imediatamente anterior (v191 usava por engano as de dois GOPs antes: não serviam e só gastavam tempo) */
+      const R0 = this.curRefs, pre = p[0].open && R0 && R0.length && R0[0].ts < p[0].ts && p[0].ts - R0[0].ts < 6e6 ? R0 : null;
+      this.lead = this._lead((closed ? e : this.gopN || 50) + (pre ? pre.length : 0));
       if(p[0].ts > masterUs + this.lead) break;
       const W = this._free(); if(!W) break;
       W.busy = true; W.done = false;
@@ -3644,8 +3649,7 @@ class SoftVideoDecoder {
       /* v191: GOP aberto (a imagem-chave não é IDR — ex.: Sport TV, Benfica TV): as primeiras imagens B do GOP usam a última
          imagem do GOP anterior, que este Worker não tem, e o FFmpeg deita-as fora (~1 em cada 5 imagens → micro-saltos).
          Passa-se primeiro ao Worker as imagens de referência do GOP anterior, só para descodificar (sem as mostrar). */
-      if(g[0].open && this.prevRefs && this.prevRefs.length && this.prevRefs[0].ts < g[0].ts && g[0].ts - this.prevRefs[0].ts < 6e6)
-        for(const c of this.prevRefs) W.q.push(Object.assign({}, c, {pre:true}));
+      if(pre) for(const c of pre) W.q.push(Object.assign({}, c, {pre:true}));
       this._track(g);
       for(const c of g) W.q.push(c);
       /* v189: o FFmpeg retém a última imagem do GOP (por ordem de apresentação) até chegar mais vídeo, e o fim de sequência
