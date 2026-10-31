@@ -1611,7 +1611,7 @@ body.layout-atv .rail{display:none}
       <div class="panel setcard">
           <h2>Ecrã total e reprodução</h2>
           <p class="small muted setsub" style="margin:0">Como se comporta o vídeo em ecrã total.</p>
-          <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada: todos os canais</option><option value="group">Ligada: só o grupo do canal</option><option value="off">Desligada</option></select></label>
+          <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada (a lista de onde abriste o canal)</option><option value="off">Desligada</option></select></label>
           <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
         </div>
       <div class="panel setcard">
@@ -2742,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v191";
+const APP_VERSION = "v192";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2930,7 +2930,8 @@ function renderTvList(){
   if(tvKind==="intl" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${intlLoading ? "A carregar canais…" : esc(intlErr || "Nada para mostrar.")}</p>`;
   if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
   $("tvCount").textContent = tvKind==="intl" && list.length ? `${list.length} canais gratuitos (${(INTL_SETS.find(x=>x[0]===intlSet)||[,""])[1]}). Listas públicas da comunidade: alguns estão em baixo ou bloqueados por país. Usa 🩺 Testar canais.` : tvKind==="free" && list.length ? `${list.length} canais públicos. 🌍 = pode só funcionar em Portugal. Alguns streams podem estar em baixo.` : list.length>300 ? `A mostrar 300 de ${list.length}. Usa a pesquisa ou as categorias.` : list.length ? `${list.length} entradas` : "";
-  $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
+  window.__tvFull = list;
+  $("tvList").querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.play]; if(c && c.kind !== "series") window.__srcSet(list, c); c.kind==="series" && c.sid ? openSeries(c) : playChannel(c); });
   $("tvList").querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{ const c=shown[+b.dataset.fav]; favs.has(c.url)?favs.delete(c.url):favs.add(c.url); LS.set("tvfavs",[...favs]); b.classList.toggle("on"); });
   if(paged && list.length > shown.length){ const mb = document.createElement("button"); mb.className = "btn"; mb.id = "tvMore"; mb.style.cssText = "width:100%;margin:10px 0;min-height:52px"; mb.textContent = "Carregar mais 25 (" + shown.length + " de " + list.length + ")"; mb.onclick = () => { const st = $("tvList").scrollTop; window.__tvLim += 25; renderTvList(); $("tvList").scrollTop = st; const n = $("tvMore"); if(!n){ const it = $("tvList").querySelectorAll("div.item[data-i]"); if(it.length) it[Math.max(0, it.length - 1)].querySelector("button").focus({preventScroll:true}); } }; $("tvList").appendChild(mb); }
   // Guia dos canais visíveis
@@ -4811,10 +4812,24 @@ function updateCinemaBar(){
 const nowTxt = nn => nn && nn.now ? hm(nn.now.start) + "–" + hm(nn.now.stop) + " · " + nn.now.title : "";
 function renderCineEpg(){ const e = $("chEpg"); if(!e) return; const c = lastPlayed[tvTarget]; e.textContent = c ? nowTxt(nowNext(c)) : ""; }
 setInterval(renderCineEpg, 60000);
+/* v192 — lista de origem: o ecrã total (Tesla e Android) e o zapping usam só a lista de onde o canal foi aberto
+   (categoria/favoritos/pesquisa do separador TV, ou a fila do Início). Sem origem conhecida, usa o grupo do canal. */
+window.__srcNext = null; window.__src = [null, null];
+window.__srcSet = (list, c) => { try{ if(!list || !c || !c.url) return; const L = list.filter(x => x && x.url && x.kind === c.kind); if(L.some(x => x.url === c.url)) window.__srcNext = {list:L.slice(0, 4000), url:c.url}; }catch(e){} };
+window.__srcFromRow = (b, flat) => { try{ const c = flat[+b.dataset.k], row = b.closest(".ahRow,.thRow"); if(!row || !c) return;
+    let L = [...row.querySelectorAll("[data-k]")].map(x => flat[+x.dataset.k]).filter(Boolean);
+    /* fila de uma categoria (mostra só as primeiras): usa a categoria inteira */
+    if(L.length > 3 && L.every(x => x.group === c.group)){ const n = neighbours(c); if(n && n.length > L.length) L = n; }
+    window.__srcSet(L, c); }catch(e){} };
+window.__srcPick = (c, slot) => { try{ if(slot == null) slot = tvTarget; const N = window.__srcNext;
+    if(N && c && N.url === c.url){ window.__src[slot] = N.list; window.__srcNext = null; }
+    else if(!(window.__src[slot] && c && window.__src[slot].some(x => x.url === c.url))) window.__src[slot] = null;
+    return window.__src[slot]; }catch(e){ return null; } };
+window.__srcListFor = (c, slot) => { if(slot == null) slot = tvTarget; const L = window.__src[slot]; if(L && c && L.some(x => x.url === c.url)) return L; try{ return neighbours(c); }catch(e){ return c ? [c] : []; } };
 function neighbours(c){ return orgChannels(c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.intl ? "intl" : c.free ? "free" : c.kind, c.group || "x"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
-  const list = neighbours(c); if(list.length < 2) return false;
+  const list = window.__srcListFor(c, tvTarget); if(list.length < 2) return false;
   const i = list.findIndex(x => x.url===c.url);
   playChannel(list[(i + dir + list.length) % list.length]); return true;
 }
@@ -11923,7 +11938,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     if(b.dataset.go === "explore"){ AH.pass = Date.now() + 1500; show("tv"); return; }
     if(b.dataset.go === "guide"){ try{ if(typeof openGuide === "function") openGuide(); else $("btnGuide").click(); }catch(x){} return; }
     if(b.dataset.go){ show(b.dataset.go); return; }
-    if(b.dataset.k != null) watch(AH.flat[+b.dataset.k]);
+    if(b.dataset.k != null){ window.__srcFromRow(b, AH.flat); watch(AH.flat[+b.dataset.k]); }
   });
   function watch(c){
     if(!c) return;
@@ -12255,11 +12270,10 @@ body.vgOn #vAspBtn{display:block}
 (function(){
   try{
     const sel = document.getElementById("setFsl"); if(!sel) return;
-    if(window.ANDROID){ const o = sel.querySelector('[value="group"]'); if(o) o.remove(); sel.options[0].textContent = "Ligada"; }
-    const get = () => { let m = LS.get("fsList", "all"); if(window.ANDROID && m === "group") m = "all"; return m; };
+    const get = () => { let m = LS.get("fsList", "all"); if(m === "group") m = "all"; return m; };
     sel.value = get();
     const push = () => { try{ if(window.ANDROID && Android.nfsl) Android.nfsl(get()); }catch(e){} };
-    sel.onchange = () => { LS.set("fsList", sel.value); push(); try{ const b = document.getElementById("vFsl"); if(b) b.textContent = "☰ Lista: " + (sel.value === "all" ? "todos" : sel.value === "group" ? "grupo" : "off"); }catch(e){} };
+    sel.onchange = () => { LS.set("fsList", sel.value); push(); try{ const b = document.getElementById("vFsl"); if(b) b.textContent = "☰ Lista: " + (sel.value === "off" ? "off" : "ligada"); }catch(e){} };
     push();
   }catch(e){}
 })();
@@ -12342,9 +12356,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     const md = LS.get("fsList", "all");
     fsl.style.display = md === "off" ? "none" : "";
     if(md === "off") return;
-    const lk = md + "|" + c.kind + "|" + (c.intl ? 1 : 0) + (c.free ? 1 : 0) + "|" + (md === "group" ? c.group : "") + "|" + channels.length;
-    let list = fsLC.k === lk ? fsLC.l : null;
-    if(!list){ try{ list = md === "all" ? (c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind === c.kind && x.kind !== "series")) : neighbours(c); }catch(e){ list = []; } fsLC = {k:lk, l:list}; }
+    let list; try{ list = window.__srcListFor(c, tvTarget); }catch(e){ list = []; }
     if(!list.length) list = [c];
     const key = md + "|" + c.url + "|" + list.length + "|" + (list[0] && list[0].url);
     if(key === fsKey) return; fsKey = key;
@@ -12374,8 +12386,8 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   setInterval(() => { if(document.body.classList.contains("ctlOn")) try{ fsBuild(); }catch(e){} }, 1200);
   new MutationObserver(() => { const on = document.body.classList.contains("ctlOn"); if(on && !fsWas){ fsCenter = true; fsKey = ""; try{ fsBuild(); }catch(e){} } fsWas = on; }).observe(document.body, {attributes:true, attributeFilter:["class"]});
   const fb = document.createElement("button"); fb.id = "vFsl"; fb.type = "button"; document.body.appendChild(fb);
-  const fbPaint = () => { const m = LS.get("fsList", "all"); fb.textContent = "☰ Lista: " + (m === "all" ? "todos" : m === "group" ? "grupo" : "off"); };
-  fb.onclick = e => { e.stopPropagation(); const m = LS.get("fsList", "all"); LS.set("fsList", m === "all" ? "group" : m === "group" ? "off" : "all"); fbPaint(); try{ const ss = document.getElementById("setFsl"); if(ss) ss.value = LS.get("fsList", "all"); }catch(x){} fsKey = ""; fsl.dataset.g = ""; fsl.style.display = ""; try{ fsBuild(); }catch(x){} peek(); };
+  const fbPaint = () => { const m = LS.get("fsList", "all"); fb.textContent = "☰ Lista: " + (m === "off" ? "off" : "ligada"); };
+  fb.onclick = e => { e.stopPropagation(); const m = LS.get("fsList", "all"); LS.set("fsList", m === "off" ? "all" : "off"); fbPaint(); try{ const ss = document.getElementById("setFsl"); if(ss) ss.value = LS.get("fsList", "all"); }catch(x){} fsKey = ""; fsl.dataset.g = ""; fsl.style.display = ""; try{ fsBuild(); }catch(x){} peek(); };
   fbPaint();
   /* tocar no vídeo mostra/esconde os controlos */
   st.addEventListener("click", e => { if(!document.body.classList.contains("pfull") || e.target.closest("button")) return; if(document.body.classList.contains("ctlOn")){ clearTimeout(hT); document.body.classList.remove("ctlOn"); } else peek(); });
@@ -14349,6 +14361,56 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       try{ window.playChannel(c, slot, true); }catch(e){}
     });
   }catch(e){} }, 3000);
+})();
+</script>
+<script>
+/* v192 — (1) a lista de origem é escolhida antes de qualquer outro embrulho do playChannel (instalado depois de todos, incluindo o do ecrã nativo do Android)
+          (2) posição do ecrã guardada por separador: cada zona com scroll (página, lista de canais, filas do Início) volta onde a deixaste, também depois de fechar a app */
+(function(){
+  setTimeout(() => { try{ const _pc = window.playChannel; window.playChannel = function(c, slot, auto){ try{ if(!auto) window.__srcPick(c, slot); }catch(e){} return _pc.apply(this, arguments); }; }catch(e){} }, 3200);
+  try{
+    let POS = {}; try{ POS = JSON.parse(localStorage.getItem("ck_scrollPos") || "{}") || {}; }catch(e){ POS = {}; }
+    let saveT = 0, restoring = 0;
+    const ctx = () => { try{ return currentView + (currentView === "tv" ? "|" + tvKind + "|" + (($("tvGroup") || {}).value || "") : ""); }catch(e){ return "?"; } };
+    const keyOf = el => {
+      if(el === document.scrollingElement || el === document.documentElement || el === document.body) return ctx() + "|doc";
+      if(!el || !el.closest || el.tagName === "MAIN") return null;
+      if(el.closest("#fsCh,.gdlist,.gdsched,dialog,[role=dialog],.trkbox,.mvtx")) return null;   /* listas temporárias: não guarda */
+      const view = el.closest(".view"); if(!view && el.tagName !== "MAIN") return null;
+      let id = el.id;
+      if(!id){ const host = el.parentElement && el.parentElement.closest("[id]"); const sib = host ? [...host.querySelectorAll("." + [...el.classList].join("."))].indexOf(el) : -1; const h2 = el.closest(".ahRow,.thRow"); const t = h2 && h2.querySelector("h2,h3"); id = (host ? host.id : "") + ">" + [...el.classList].join(".") + (t ? ":" + t.textContent.trim().slice(0, 40) : ":" + sib); }
+      return ctx() + "|" + id;
+    };
+    const save = () => { saveT = 0; try{ const ks = Object.keys(POS); if(ks.length > 300) ks.slice(0, ks.length - 300).forEach(k => delete POS[k]); localStorage.setItem("ck_scrollPos", JSON.stringify(POS)); }catch(e){} };
+    document.addEventListener("scroll", e => {
+      if(restoring > Date.now()) return;
+      const el = e.target === document ? document.scrollingElement : e.target; const k = keyOf(el); if(!k) return;
+      const v = [Math.round(el.scrollTop || 0), Math.round(el.scrollLeft || 0)]; delete POS[k]; POS[k] = v;
+      if(!saveT) saveT = setTimeout(save, 600);
+    }, true);
+    const restore = () => {
+      const c = ctx(), pre = c + "|"; restoring = Date.now() + 400;
+      Object.keys(POS).forEach(k => {
+        if(!k.startsWith(pre)) return; const id = k.slice(pre.length), v = POS[k];
+        let el = null;
+        if(id === "doc") el = document.scrollingElement;
+        else if(!id.includes(">")) el = document.getElementById(id);
+        else { const [hid, rest] = id.split(">"); const host = hid ? document.getElementById(hid) : document; if(!host || !rest) return; const [cls, tag] = rest.split(":");
+          const cand = [...host.querySelectorAll("." + cls)]; el = cand.find(x => { const h = x.closest(".ahRow,.thRow"); const t = h && h.querySelector("h2,h3"); return t && t.textContent.trim().slice(0, 40) === tag; }) || cand[+tag] || null; }
+        if(el && v){ try{ if(el.scrollHeight > el.clientHeight) el.scrollTop = v[0]; if(el.scrollWidth > el.clientWidth) el.scrollLeft = v[1]; }catch(e){} }
+      });
+      /* a área principal da app (main) */
+      try{ const m = document.querySelector("main"); const v = POS[c + "|main"]; if(m && v) m.scrollTop = v[0]; }catch(e){}
+    };
+    /* «main» não tem id: dá-lhe uma chave própria */
+    document.addEventListener("scroll", e => { if(e.target && e.target.tagName === "MAIN" && restoring <= Date.now()){ POS[ctx() + "|main"] = [Math.round(e.target.scrollTop), 0]; if(!saveT) saveT = setTimeout(save, 600); } }, true);
+    const later = () => { [60, 400, 1200].forEach(ms => setTimeout(restore, ms)); };
+    const _sh = window.show; window.show = function(v){ const r = _sh.apply(this, arguments); try{ later(); }catch(e){} return r; };
+    let lastK = ""; const _rt = window.renderTvList;
+    if(typeof _rt === "function") window.renderTvList = function(){ const r = _rt.apply(this, arguments); try{ const k = ctx(); if(k !== lastK){ lastK = k; later(); } }catch(e){} return r; };
+    window.addEventListener("pagehide", save); document.addEventListener("visibilitychange", () => { if(document.hidden) save(); });
+    setTimeout(later, 1500);
+  }catch(e){ console.log("posição do ecrã", e); }
 })();
 </script>
 </body>
