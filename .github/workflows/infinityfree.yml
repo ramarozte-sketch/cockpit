@@ -1,0 +1,31 @@
+# Publica automaticamente o Cockpit no InfinityFree (cockpit.page.gd) sempre que há um push.
+# Precisa de 3 segredos no repositório (Settings → Secrets and variables → Actions):
+#   FTP_SERVER   ex.: ftpupload.net
+#   FTP_USERNAME ex.: if0_12345678
+#   FTP_PASSWORD a palavra-passe FTP da conta (painel InfinityFree → FTP Details)
+# Opcional: FTP_DIR (por omissão /htdocs/) se o site estiver noutra pasta.
+name: Publicar no InfinityFree
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+concurrency: infinityfree
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enviar por FTP (só os ficheiros alterados)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DIR || '/htdocs/' }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
