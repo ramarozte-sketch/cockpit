@@ -2724,7 +2724,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v183";
+const APP_VERSION = "v184";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6354,6 +6354,16 @@ const GAMES_LOCAL = [
 ];
 // Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
+  /* os mais populares de itch.io/games/made-with-threejs que se jogam no browser (outubro 2026) */
+  {cat:"Top itch.io · 3D Three.js", name:"PolyTrack", desc:"Corridas low-poly com loopings e saltos. Dá para jogar com toque", ico:"🏁", url:"https://kodub.itch.io/polytrack", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Narrow One", desc:"Arco e flecha medieval: captura a bandeira, multijogador", ico:"🏹", url:"https://narrow.one/", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Hordes.io", desc:"RPG online em tempo real com milhares de jogadores", ico:"⚔️", url:"https://hordes.io/", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Hypnotic", desc:"Corrida 3D hipnótica, toda velocidade e ritmo", ico:"🌀", url:"https://virtual-turtle-games.itch.io/hypnotic", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Star Defenders 3D", desc:"Tiros na primeira pessoa em mundos de blocos destrutíveis", ico:"🚀", url:"https://eric-gurt.itch.io/star-defenders-3d", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"DustSim", desc:"Caixa de areia física com milhões de partículas", ico:"⏳", url:"https://kodub.itch.io/dustsim", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Terraforming Titans", desc:"Jogo incremental: transforma planetas (demo)", ico:"🪐", url:"https://terraformingtitans.itch.io/terraforming-titans-demo", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"SOUP JS", desc:"Recriação fiel do SOUP 0.91, um jogo artístico estranho", ico:"🍲", url:"https://transmutrix.itch.io/soup-js", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Last Seen Online", desc:"Puzzle de terror no computador de um estranho (para adultos)", ico:"💻", url:"https://qwook.itch.io/last-seen-online", ext:true},
   {cat:"Para jogar com amigos", name:"Gartic Phone", desc:"Desenha e adivinha, em grupo", ico:"🎨", url:"https://garticphone.com/pt", ext:true},
   {cat:"Para jogar com amigos", name:"skribbl.io", desc:"Pictionary online com salas privadas", ico:"✏️", url:"https://skribbl.io/", ext:true},
   {cat:"Para jogar com amigos", name:"Board Game Arena", desc:"Centenas de jogos de tabuleiro a sério", ico:"🎲", url:"https://boardgamearena.com/", ext:true},
@@ -6418,7 +6428,7 @@ function renderGames(){
     return `<button class="gmcard${small ? " sm" : ""}" ${attr} ${lock ? "disabled" : ""} style="--c1:${c1};--c2:${c2}"><span class="gmart"><span class="gmico">${g.ico}</span></span>${g.nova ? `<em class="gmnew">NOVO</em>` : G3_GAMES.has(g.id) ? `<em class="gmnew" style="background:#5cf2ff;box-shadow:0 0 14px #5cf2ff">3D</em>` : ""}<b>${esc(g.name)}</b><span class="gmdesc">${esc(g.desc)}</span>${rec ? `<span class="gmrec">🏆 ${esc(rec)}</span>` : ""}</button>`; };
   const lgrp = [...new Set(GAMES_LOCAL.map(g=>g.grp || "Jogos"))];
   $("gmLocal").innerHTML = lgrp.map(gp=>`<h3 class="gmcat">${esc(gp)}</h3><div class="gmrow">${GAMES_LOCAL.filter(g=>(g.grp || "Jogos") === gp).map(g=>card(g, `data-gm="${g.id}"`)).join("")}</div>`).join("");
-  const ONC = {"Para jogar com amigos":"#ff9f3e,#2a1206", "Palavras e puzzles":"#4dff8a,#06240f", "Corrida e arcada":"#ff3e9a,#2a0b4a", "Portais de jogos":"#4d7dff,#081438"};
+  const ONC = {"Top itch.io · 3D Three.js":"#fa5c5c,#2a0610", "Para jogar com amigos":"#ff9f3e,#2a1206", "Palavras e puzzles":"#4dff8a,#06240f", "Corrida e arcada":"#ff3e9a,#2a0b4a", "Portais de jogos":"#4d7dff,#081438"};
   const cats = [...new Set(GAMES_ONLINE.map(g=>g.cat))];
   $("gmOnline").innerHTML = cats.map(c=>`<h3 class="gmcat">${esc(c)}</h3><div class="gmrow">${GAMES_ONLINE.map((g,i)=>g.cat === c ? card(Object.assign({c:ONC[c]}, g), `data-go="${i}"`, true) : "").join("")}</div>`).join("");
   const gb = $("gmG3"); if(gb){ const on = LS.get("gm3d", true) !== false; gb.textContent = on ? "🧊 3D" : "🧊 2D"; gb.setAttribute("aria-pressed", on ? "true" : "false"); }
