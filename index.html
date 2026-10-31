@@ -2742,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v194";
+const APP_VERSION = "v195";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3862,7 +3862,8 @@ function present(slot){
   try{
     const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return true; } })();
     if(v && v.currentTime !== st.hwCt){ st.hwCt = v.currentTime; st.hwCtAt = pn; }
-    const hwOk = !moving && !st.wall && v && v.readyState >= 3 && v.videoWidth > 0 && !v.paused && pn - (st.hwCtAt || 0) < 900 && window.__hwPark !== false;
+    /* v195: desligado por pedido — é o botão «Andamento» que decide (ligado = imagem por software, desligado = hardware) */
+    const hwOk = window.__hwPark === true && !moving && !st.wall && v && v.readyState >= 3 && v.videoWidth > 0 && !v.paused && pn - (st.hwCtAt || 0) < 900;
     /* com folga, para não andar a trocar: entra no hardware ao fim de 1,5 s estável; sai em andamento logo, ou se o vídeo parar 1,2 s */
     if(hwOk){ st.hwBad = 0; if(!st.hwGood) st.hwGood = pn; } else { st.hwGood = 0; if(!st.hwBad) st.hwBad = pn; }
     const useHw = st.hwMode ? !(moving || (st.hwBad && pn - st.hwBad > 1200)) : (hwOk && pn - st.hwGood > 1500);
@@ -4012,6 +4013,12 @@ function tsMirFeed(slot, bytes){
   st.segs = (st.segs || 0) + 1; st.tsBytes = (st.tsBytes || 0) + bytes.length;
   for(const x of st.tsd.push(bytes)){
     let data = x.data;
+    if(st.soft){   /* FFmpeg/WASM: só H.264 */
+      if(x.type !== 0x1b) continue;
+      if(!st.tsCfg){ if(!x.key || x.sps < 0) continue; const h = v => v.toString(16).padStart(2, "0"); st.tsCfg = {codec:"avc1." + h(data[x.sps + 1]) + h(data[x.sps + 2]) + h(data[x.sps + 3]), autoShift:true}; try{ st.decoder.configure(st.tsCfg); }catch(e){ st.err = "configure: " + e.message; continue; } }
+      try{ st.decoder.decode({type:x.key ? "key" : "delta", timestamp:Math.round(x.pts * 100 / 9), data:data.slice ? data.slice() : data}); }catch(e){ st.err = "decode: " + e.message; }
+      continue;
+    }
     if(!st.tsCfg){
       if(!x.key || x.sps < 0) continue;
       let codec, soft = false;
@@ -4035,7 +4042,6 @@ function tsMirFeed(slot, bytes){
   startPresent(slot);
 }
 function tsMirInit(slot){
-  if(!WC_NATIVE){ const st0 = MIR[slot] = MIR[slot] || {}; st0.err = "este canal (.ts direto) só tem imagem em andamento com WebCodecs (página https)"; return; }
   const tap = window.__tsTaps[slot];
   if(!tap || !tap.on || tap.url !== (tsInst[slot] && tsInst[slot].__url)){
     /* o canal foi aberto antes de ligar o modo: reabre-o (uma ligação de cada vez) para o fluxo passar pelo leitor da imagem */
@@ -4044,6 +4050,13 @@ function tsMirInit(slot){
     return;
   }
   const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null};
+  if(!WC_NATIVE){   /* v195: página http — o mesmo FFmpeg/WASM em paralelo (Annex B, sem WebCodecs) */
+    st.soft = true;
+    st.decoder = new SoftVideoDecoder({output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; mirPushFrame(st, frame); startPresent(slot); },
+      error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).length});
+    const pre = tap.pre || []; tap.pre = []; tap.preN = 0; for(const b of pre) tsMirFeed(slot, b);
+    return;
+  }
   st.decoder = new PacedDecoder({
     output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
     error: e => { st.err = "decoder: " + e.message; },
@@ -4755,7 +4768,7 @@ function loadMpegts(){
 async function playTs(v, url, slot, onFail){
   if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
   /* imagem em andamento: o fluxo é duplicado para o leitor da imagem (precisa do mpegts.js fora do Worker) */
-  const tapOn = typeof mirrorOn !== "undefined" && mirrorOn && WC_NATIVE && !window.ANDROID;
+  const tapOn = typeof mirrorOn !== "undefined" && mirrorOn && WC_OK && !window.ANDROID;
   if(tapOn) window.__tsTaps[slot] = {url, on:true, fn:b => tsMirFeed(slot, b)}; else if(window.__tsTaps[slot]) window.__tsTaps[slot].on = false;
   const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:!tapOn, liveBufferLatencyChasing:true, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
     liveBufferLatencyMaxLatency:4, liveBufferLatencyMinRemain:1,
