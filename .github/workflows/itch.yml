@@ -1,0 +1,17 @@
+name: Descobrir jogos itch.io
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in kodub.itch.io/polytrack virtual-turtle-games.itch.io/hypnotic eric-gurt.itch.io/star-defenders-3d kodub.itch.io/dustsim terraformingtitans.itch.io/terraforming-titans-demo transmutrix.itch.io/soup-js qwook.itch.io/last-seen-online pelicanparty.itch.io/narrow-one dekdev.itch.io/hordesio; do
+            h=$(curl -sL -A "Mozilla/5.0" "https://$u")
+            src=$(echo "$h" | grep -oE '(html-classic\.itch\.zone|html\.itch\.zone)/html/[0-9]+/[^&"]*' | head -1)
+            emb=$(echo "$h" | grep -oE 'embed-upload/[0-9]+' | head -1)
+            wh=$(echo "$h" | grep -oE 'width=&quot;[0-9]+&quot; height=&quot;[0-9]+' | head -1 | tr -d '&quot;')
+            xfo=""; [ -n "$src" ] && xfo=$(curl -sI -A "Mozilla/5.0" "https://$src" | grep -iE '^(HTTP|x-frame|content-security)' | tr '\r\n' '  ')
+            pxfo=$(curl -sI -A "Mozilla/5.0" "https://$u" | grep -iE '^(x-frame|content-security)' | tr '\r\n' '  ' | cut -c1-120)
+            echo "::warning title=$u::src=$src emb=$emb $wh | $xfo | page: $pxfo"
+          done
+          for s in https://narrow.one/ https://hordes.io/; do echo "::warning title=$s::$(curl -sI -A Mozilla/5.0 $s | grep -iE '^(HTTP|x-frame|content-security)' | tr '\r\n' '  ' | cut -c1-300)"; done
