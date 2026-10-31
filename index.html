@@ -2742,7 +2742,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v193";
+const APP_VERSION = "v194";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3856,6 +3856,28 @@ function present(slot){
     } else if(st.offUs==null) st.offUs = head - v.currentTime*1e6;
     st.masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
   }
+  /* v194: parado, a imagem vem do descodificador de hardware do carro (o <video>, copiado para o ecrã pelo copyLoop):
+     melhor qualidade e o processador fica livre. O descodificador por software só trabalha em andamento — ou se o
+     vídeo deixar de andar (o carro bloqueou o <video>), e aí retoma na imagem-chave seguinte. */
+  try{
+    const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return true; } })();
+    if(v && v.currentTime !== st.hwCt){ st.hwCt = v.currentTime; st.hwCtAt = pn; }
+    const hwOk = !moving && !st.wall && v && v.readyState >= 3 && v.videoWidth > 0 && !v.paused && pn - (st.hwCtAt || 0) < 900 && window.__hwPark !== false;
+    /* com folga, para não andar a trocar: entra no hardware ao fim de 1,5 s estável; sai em andamento logo, ou se o vídeo parar 1,2 s */
+    if(hwOk){ st.hwBad = 0; if(!st.hwGood) st.hwGood = pn; } else { st.hwGood = 0; if(!st.hwBad) st.hwBad = pn; }
+    const useHw = st.hwMode ? !(moving || (st.hwBad && pn - st.hwBad > 1200)) : (hwOk && pn - st.hwGood > 1500);
+    if(useHw){
+      if(!st.hwMode){ st.hwMode = true; st.hwSince = pn;
+        (st.q || []).forEach(f => { try{ f.close(); }catch(e){} }); st.q = []; st.lastFrame = 0;
+        /* pára os Workers mas guarda os pedaços já recebidos (o leitor descarrega ~30 s à frente: sem eles, ao arrancar o carro ficava sem imagem até ao pedaço seguinte) */
+        try{ const d = st.decoder, keep = d && Array.isArray(d.pending) ? d.pending.slice() : null; d && d.reset && d.reset(); if(keep) d.pending = keep; }catch(e){}
+        try{ window.__dbgEv && window.__dbgEv(slot, "parado: imagem pelo descodificador do carro", {w:v.videoWidth, h:v.videoHeight}); }catch(e){} }
+      /* deita fora o que já passou, mas guarda desde a última imagem-chave antes de agora (para retomar logo em andamento) */
+      try{ const pd = st.decoder && st.decoder.pending, mu = st.masterUs; if(pd && pd.length && mu != null){ let k = -1; for(let i = 0; i < pd.length && pd[i].ts <= mu; i++) if(pd[i].key) k = i; if(k > 0) pd.splice(0, k); } }catch(e){}
+      requestAnimationFrame(() => present(slot)); return;
+    }
+    if(st.hwMode){ st.hwMode = false; st.stat = null; st.hwExitAt = pn; try{ window.__dbgEv && window.__dbgEv(slot, "em andamento: imagem por software", {parado_s:Math.round((pn - (st.hwSince || pn)) / 1000)}); }catch(e){} }
+  }catch(e){}
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
       if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null});
@@ -3867,6 +3889,7 @@ function present(slot){
     if(idx>=0){
       for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados para apanhar o áudio
       const f=q[idx]; mirDraw(slot, f.bmp||f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=performance.now();
+      if(st.hwExitAt){ try{ window.__dbgEv && window.__dbgEv(slot, "em andamento: 1.ª imagem por software", {ms:Math.round(pn - st.hwExitAt)}); }catch(e){} st.hwExitAt = 0; }
       /* medições da imagem em andamento (vão para o log a cada 10 s): imagens mostradas, saltadas, paragens e desvio da imagem face ao som */
       try{ const S2 = st.stat = st.stat || {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0};
         if(S2.last){ const gap = pn - S2.last; if(gap > S2.maxGap) S2.maxGap = gap; if(gap > 120) S2.stalls++; } S2.last = pn; S2.shown++; S2.skip += idx; S2.av = (f.timestamp - masterUs) / 1000; }catch(e){}
