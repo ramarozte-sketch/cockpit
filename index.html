@@ -2729,7 +2729,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v186";
+const APP_VERSION = "v187";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6360,15 +6360,15 @@ const GAMES_LOCAL = [
 // Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
   /* os mais populares de itch.io/games/made-with-threejs que se jogam no browser (outubro 2026) */
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"PolyTrack", desc:"Corridas low-poly com loopings e saltos. Dá para jogar com toque", ico:"🏁", url:"https://kodub.itch.io/polytrack", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"PolyTrack", desc:"Corridas low-poly com loopings e saltos. Dá para jogar com toque", ico:"🏁", url:"https://html-classic.itch.zone/html/19260993/index.html", page:"https://kodub.itch.io/polytrack", ext:true},
   {play:1, cat:"Top itch.io · 3D Three.js", name:"Narrow One", desc:"Arco e flecha medieval: captura a bandeira, multijogador", ico:"🏹", url:"https://narrow.one/", ext:true},
   {play:1, cat:"Top itch.io · 3D Three.js", name:"Hordes.io", desc:"RPG online em tempo real com milhares de jogadores", ico:"⚔️", url:"https://hordes.io/", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"Hypnotic", desc:"Corrida 3D hipnótica, toda velocidade e ritmo", ico:"🌀", url:"https://virtual-turtle-games.itch.io/hypnotic", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"Star Defenders 3D", desc:"Tiros na primeira pessoa em mundos de blocos destrutíveis", ico:"🚀", url:"https://eric-gurt.itch.io/star-defenders-3d", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"DustSim", desc:"Caixa de areia física com milhões de partículas", ico:"⏳", url:"https://kodub.itch.io/dustsim", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"Terraforming Titans", desc:"Jogo incremental: transforma planetas (demo)", ico:"🪐", url:"https://terraformingtitans.itch.io/terraforming-titans-demo", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"SOUP JS", desc:"Recriação fiel do SOUP 0.91, um jogo artístico estranho", ico:"🍲", url:"https://transmutrix.itch.io/soup-js", ext:true},
-  {play:1, cat:"Top itch.io · 3D Three.js", name:"Last Seen Online", desc:"Puzzle de terror no computador de um estranho (para adultos)", ico:"💻", url:"https://qwook.itch.io/last-seen-online", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"Hypnotic", desc:"Corrida 3D hipnótica, toda velocidade e ritmo", ico:"🌀", url:"https://html-classic.itch.zone/html/1304610/index.html", page:"https://virtual-turtle-games.itch.io/hypnotic", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"Star Defenders 3D", desc:"Tiros na primeira pessoa em mundos de blocos destrutíveis", ico:"🚀", url:"https://html-classic.itch.zone/html/8537129/index.html", page:"https://eric-gurt.itch.io/star-defenders-3d", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"DustSim", desc:"Caixa de areia física com milhões de partículas", ico:"⏳", url:"https://html-classic.itch.zone/html/4501816/index.html", page:"https://kodub.itch.io/dustsim", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"Terraforming Titans", desc:"Jogo incremental: transforma planetas (demo)", ico:"🪐", url:"https://html-classic.itch.zone/html/18337783/index.html", page:"https://terraformingtitans.itch.io/terraforming-titans-demo", ext:true},
+  {play:1, cat:"Top itch.io · 3D Three.js", name:"SOUP JS", desc:"Recriação fiel do SOUP 0.91, um jogo artístico estranho", ico:"🍲", url:"https://html-classic.itch.zone/html/12838978/index.html", page:"https://transmutrix.itch.io/soup-js", ext:true},
+  {cat:"Top itch.io · 3D Three.js", name:"Last Seen Online", desc:"Puzzle de terror no computador de um estranho (para adultos)", ico:"💻", url:"https://qwook.itch.io/last-seen-online", ext:true},
   {cat:"Para jogar com amigos", name:"Gartic Phone", desc:"Desenha e adivinha, em grupo", ico:"🎨", url:"https://garticphone.com/pt", ext:true},
   {cat:"Para jogar com amigos", name:"skribbl.io", desc:"Pictionary online com salas privadas", ico:"✏️", url:"https://skribbl.io/", ext:true},
   {cat:"Para jogar com amigos", name:"Board Game Arena", desc:"Centenas de jogos de tabuleiro a sério", ico:"🎲", url:"https://boardgamearena.com/", ext:true},
@@ -6430,12 +6430,12 @@ function gmWebPlay(g){
   const st = $("gmStage");
   st.innerHTML = `<div class="gmbar gwbar"><b style="align-self:center;padding:0 6px">${esc(g.ico + " " + g.name)}</b><button class="btn" id="gwRe">⟳</button><button class="btn" id="gwOut">↗ Abrir fora</button></div>` +
     `<div class="gweb"><iframe id="gwF" title="${esc(g.name)}" src="${esc(g.url)}" allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope; pointer-lock; clipboard-write; encrypted-media; screen-wake-lock" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>` +
-    `<p class="gwhint">A carregar ${esc(g.name)}… ${/itch\.io/.test(g.url) ? "No itch.io toca em <b>Run game</b> e depois no botão de ecrã total do próprio jogo. " : ""}Se ficar em branco, toca em <b>↗ Abrir fora</b>.</p></div>`;
+    `<p class="gwhint">A carregar ${esc(g.name)}… Se ficar em branco, toca em <b>↗ Abrir fora</b>.</p></div>`;
   const f = $("gwF"), hint = st.querySelector(".gwhint"); let hT = setTimeout(() => hint && (hint.style.opacity = 0), 9000);
   f.addEventListener("load", () => { clearTimeout(hT); hT = setTimeout(() => hint && (hint.style.opacity = 0), 5000); });
   gmCleanup.push(() => { clearTimeout(hT); try{ f.src = "about:blank"; }catch(e){} });
   $("gwRe").onclick = () => { f.src = "about:blank"; setTimeout(() => f.src = g.url, 60); };
-  $("gwOut").onclick = () => { gmExit(); openExt(g.url); };
+  $("gwOut").onclick = () => { gmExit(); openExt(g.page || g.url); };
   try{ gmFullSet(true); }catch(e){}
 }
 function gmExit(){ if(typeof gmIsFull === "function" && gmIsFull() && !gmExit._keep) gmFullSet(false); try{ $("gmFull").hidden = true; }catch(e){} gmCurId = null; try{ GXM.stop(); }catch(e){} gmCleanup.forEach(f=>{ try{ f(); }catch(e){} }); gmCleanup = []; $("gmStage").hidden = true; $("gmStage").innerHTML = ""; $("gmHub").hidden = false; $("gmBack").hidden = true; if(currentView === "games" && $("gmLocal").innerHTML) renderGames(); }
