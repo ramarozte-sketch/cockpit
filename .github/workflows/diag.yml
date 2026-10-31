@@ -5,11 +5,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        if: false
       - name: Enviar index.html e verificar
         env:
           S: ${{ secrets.FTP_SERVER }}
           U: ${{ secrets.FTP_USERNAME }}
           P: ${{ secrets.FTP_PASSWORD }}
         run: |
-          echo "::warning title=list::x $(curl -s "ftp://$S/htdocs/" --user "$U:$P" | awk '{print $5,$9}' | tr '\n' ';')"
+          for f in diagt/*; do curl -s -T $f "ftp://$S/htdocs/diagt/$(basename $f)" --ftp-create-dirs --user "$U:$P"; done
+          echo "::warning title=t0::x $(curl -s "ftp://$S/htdocs/diagt/" --user "$U:$P" | awk '{print $5,$9}' | tr '\n' ';')"
+          sleep 45
+          echo "::warning title=t45::x $(curl -s "ftp://$S/htdocs/diagt/" --user "$U:$P" | awk '{print $5,$9}' | tr '\n' ';')"
