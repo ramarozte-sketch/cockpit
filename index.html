@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v206";
+const APP_VERSION = "v207";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4444,9 +4444,9 @@ function mkvRun(slot, st, src, audio){
       const seg = p + sg.hl; let scale = 1000000, dur = 0, trk = null, cuesAt = -1, tracksAt = -1, first = -1;
       const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
           if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
-          else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
-        (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || ""});
-        if(audio ? (t.type === 2 && (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "") && !trk) : (t.type === 1 && !trk)) trk = t; });
+          else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
+        (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || "", lang:t.lang || "", nome:t.nome || ""});
+        if(audio ? (t.type === 2 && (st.trackNum != null ? t.num === st.trackNum : (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "")) && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
         if(d + n > hb.length){ if(id === MKV.TRACKS) tracksAt = at; return false; }
@@ -4457,11 +4457,19 @@ function mkvRun(slot, st, src, audio){
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas", {faixas:st.tl.slice(0, 12)});
           const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); }
-          /* v205: no Tesla os filmes .mkv não dão som pelo leitor do carro (o contador de bytes sobe mas não se ouve; visto com E-AC3 e com AAC): toca o som por software logo no arranque */
-          if(window.__TESLA && snd.length && /^A_(E?AC3|AAC)/.test(snd[0].codec) && !(/^A_E?AC3/.test(snd[0].codec) && window.HW && window.HW.eac3) && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot], aac0 = /^A_AAC/.test(snd[0].codec); window.__dbgEv && window.__dbgEv(slot, "som por software desde o início", {faixa:snd[0].codec}); setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0, aac0, aac0); }catch(e){} }, 800); } }catch(e){} }
+          /* v205: no Tesla os filmes .mkv não dão som pelo leitor do carro (o contador de bytes sobe mas não se ouve; visto com E-AC3 e com AAC): toca o som por software logo no arranque.
+             v207: escolhe a faixa portuguesa (se houver) e guarda a lista para o botão 🎚 Áudio */
+          if(window.__TESLA && snd.length){
+            const okc = x => /^A_(E?AC3|AAC)/.test(x.codec) && !(/^A_E?AC3/.test(x.codec) && window.HW && window.HW.eac3);
+            const ispt = x => /^(pt|por)/i.test(x.lang || "") || /portug|\bpt\b/i.test(x.nome || "");
+            const pk = snd.find(x => okc(x) && ispt(x)) || snd.find(okc);
+            window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)), cur:pk ? pk.n : null};
+            if(pk && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot], aac0 = /^A_AAC/.test(pk.codec);
+              window.__dbgEv && window.__dbgEv(slot, "som por software desde o início", {faixa:pk.codec, idioma:pk.lang || pk.nome || "", de:snd.length});
+              setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0, aac0, aac0, pk.n); }catch(e){} }, 800); } } }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
-        const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
+        const L = await window.__libav(); st.L = L; if(st.trackNum != null) st.aac = /^A_AAC/.test(trk.codec || ""); st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
         /* AAC: o relógio é o do espelho quando o <video> está parado (em andamento); senão o do próprio <video> */
         st.clock = new window.__PcmClock(st.aac ? {get currentTime(){ const m = MIR[slot]; return m && m.wall && m.masterUs != null ? m.masterUs / 1e6 : v.currentTime; }, get paused(){ const m = MIR[slot]; return m && m.wall ? false : v.paused; }, get seeking(){ return v.seeking; }, get readyState(){ const m = MIR[slot]; return m && m.wall ? 4 : v.readyState; }, get muted(){ return v.muted; }, get volume(){ return v.volume; }, id:v.id} : v); st.aq = []; st.n = 0;
         if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
@@ -10802,11 +10810,14 @@ function trkAudioList(slot){
   const h = hlsInst[slot], v = $("vid"+slot);
   if(h && h.audioTracks && h.audioTracks.length > 0) return {kind:"hls", items:h.audioTracks.map((t,i)=>({i, name:trkName(t,i), on:h.audioTrack === i}))};
   if(v.audioTracks && v.audioTracks.length > 0) return {kind:"native", items:[...v.audioTracks].map((t,i)=>({i, name:trkName({name:t.label, lang:t.language}, i), on:t.enabled}))};
+  const mk = window.__mkaTracks && window.__mkaTracks[slot];
+  if(mk && mk.seq === playSeq[slot] && mk.list.length > 1) return {kind:"mka", items:mk.list.map((t, i) => ({i, n:t.n, name:trkName({name:t.nome, lang:t.lang}, i) + " · " + t.codec.replace(/^A_/, ""), on:mk.cur === t.n}))};
   return {kind:"none", items:[]};
 }
 function trkSetAudio(slot, kind, i){
   /* filmes e episódios: trocar a faixa não pode mexer na posição (se o leitor recuar, repõe-na) */
   const v = $("vid"+slot), c = lastPlayed[slot], keep = c && c.kind !== "live" && v && isFinite(v.currentTime) ? v.currentTime : -1, seq = playSeq[slot];
+  if(kind === "mka"){ const mk = window.__mkaTracks[slot], t = mk && mk.list[i]; if(t){ mk.cur = t.n; try{ window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], /^A_AAC/.test(t.codec), /^A_AAC/.test(t.codec), t.n); }catch(e){} } return; }
   if(kind === "hls") hlsInst[slot].audioTrack = i;
   else if(kind === "native") [...$("vid"+slot).audioTracks].forEach((t,k) => { t.enabled = k === i; });
   if(keep > 3){
@@ -14272,11 +14283,11 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__downmix = downmix;
   /* filmes .mkv com som AC-3/E-AC-3: lê a faixa de som do ficheiro (Range) e toca-a por software */
   window.__mka = window.__mka || [null, null];
-  window.__mkaStart = (slot, c, playId, aac, keep) => {
+  window.__mkaStart = (slot, c, playId, aac, keep, trackNum) => {
     try{
       const v = $("vid" + slot), src = v.currentSrc || v.src; if(!src || !/\.mkv(\?|$)/i.test(c.url) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
-      const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep};
+      const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
       mkvRun(slot, st, src, true);
       let live0 = Date.now(); const t = setInterval(() => { const m0 = MIR[slot]; if(st.aac && !st.keep){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
       return true;
