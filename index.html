@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v205";
+const APP_VERSION = "v206";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4457,8 +4457,8 @@ function mkvRun(slot, st, src, audio){
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas", {faixas:st.tl.slice(0, 12)});
           const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); }
-          /* v204: no Tesla o leitor "descodifica" o E-AC3 (o contador de bytes sobe) mas não sai som; com E-AC3/AC-3 na 1.ª faixa toca o som por software logo no arranque */
-          if(window.__TESLA && snd.length && /^A_E?AC3/.test(snd[0].codec) && !(window.HW && window.HW.eac3) && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot]; window.__dbgEv && window.__dbgEv(slot, "som Dolby por software desde o início", {faixa:snd[0].codec}); setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0); }catch(e){} }, 800); } }catch(e){} }
+          /* v205: no Tesla os filmes .mkv não dão som pelo leitor do carro (o contador de bytes sobe mas não se ouve; visto com E-AC3 e com AAC): toca o som por software logo no arranque */
+          if(window.__TESLA && snd.length && /^A_(E?AC3|AAC)/.test(snd[0].codec) && !(/^A_E?AC3/.test(snd[0].codec) && window.HW && window.HW.eac3) && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot], aac0 = /^A_AAC/.test(snd[0].codec); window.__dbgEv && window.__dbgEv(slot, "som por software desde o início", {faixa:snd[0].codec}); setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0, aac0, aac0); }catch(e){} }, 800); } }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
         const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
@@ -4467,7 +4467,7 @@ function mkvRun(slot, st, src, audio){
         if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
         else if(st.aac) throw new Error("AAC sem configuração");
         st.mkvInfo = {codec:trk.codec};
-        toast(st.aac ? "Som AAC por software (o leitor do carro parou em andamento)…" : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
+        toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
         const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
               const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               const out = await L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}); let t = x.ts / 1e6;
@@ -14272,13 +14272,13 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__downmix = downmix;
   /* filmes .mkv com som AC-3/E-AC-3: lê a faixa de som do ficheiro (Range) e toca-a por software */
   window.__mka = window.__mka || [null, null];
-  window.__mkaStart = (slot, c, playId, aac) => {
+  window.__mkaStart = (slot, c, playId, aac, keep) => {
     try{
       const v = $("vid" + slot), src = v.currentSrc || v.src; if(!src || !/\.mkv(\?|$)/i.test(c.url) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
-      const st = window.__mka[slot] = {movie:true, aac:!!aac};
+      const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep};
       mkvRun(slot, st, src, true);
-      let live0 = Date.now(); const t = setInterval(() => { const m0 = MIR[slot]; if(st.aac){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
+      let live0 = Date.now(); const t = setInterval(() => { const m0 = MIR[slot]; if(st.aac && !st.keep){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
       return true;
     }catch(e){ return false; }
   };
