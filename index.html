@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v209";
+const APP_VERSION = "v210";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3570,7 +3570,7 @@ function __annexInfo(u){
 class SoftVideoDecoder {
   constructor({output, error, backlog}){
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
-    this.lead = 1200000; this.srcFps = 0; this.gopN = 0; this.st = {gopsSaltados:0, bSaltadas:0, drenadas:0};
+    this.lead = 1200000; this.srcFps = 0; this.gopN = 0; this.st = {gopsSaltados:0, bSaltadas:0, drenadas:0, bFinas:0}; this.thin = false; this._tn = 0;
     const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
     this.nW = hc >= 6 ? 3 : hc >= 3 ? 2 : 1;
   }
@@ -3672,6 +3672,8 @@ class SoftVideoDecoder {
       if(closed) W.done = true; else this.owner = W;
     }
     /* alimenta cada Worker */
+    { const tot = this.W.reduce((m, W) => m + (W.fps || 0), 0), sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && this.W.every(W => W.fps) ? tot < sf * 1.35 : false;
+      if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
       if(!W.busy) continue;
       const q = W.q;
@@ -3680,6 +3682,9 @@ class SoftVideoDecoder {
         const c = q[0];
         const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
         if(c.nr && !c.pre && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
+        /* v210: o conjunto dos Workers mal chega ao ritmo da origem (ex.: 1080i50 com ~20 imagens/s cada): em vez de deixar as imagens B atrasadas caírem em rajadas (saltos de 100-200 ms),
+           larga uma B sim, outra não, de forma regular, antes de gastar tempo a descodificá-la */
+        if(this.thin && c.nr && !c.pre && q.length > 1 && ((this._tn = (this._tn || 0) + 1) & 1)){ q.shift(); this.st.bFinas++; continue; }
         const qe = q[q.length - 1].extra && q.length > 1 ? q[q.length - 2] : q[q.length - 1];
         if(q.length > 1 && qe.ts < masterUs - 40000 && !c.key && !c.pre){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
         if(c.ts > masterUs + 400000 && this.backlog() >= 36) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
@@ -4479,7 +4484,7 @@ function mkvRun(slot, st, src, audio){
         st.clock = new window.__PcmClock(st.aac ? {get currentTime(){ const m = MIR[slot]; return m && m.wall && m.masterUs != null ? m.masterUs / 1e6 : v.currentTime; }, get paused(){ const m = MIR[slot]; return m && m.wall ? false : v.paused; }, get seeking(){ return v.seeking; }, get readyState(){ const m = MIR[slot]; return m && m.wall ? 4 : v.readyState; }, get muted(){ return v.muted; }, get volume(){ return v.volume; }, id:v.id} : v); st.aq = []; st.n = 0;
         if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
         else if(st.aac) throw new Error("AAC sem configuração");
-        st.mkvInfo = {codec:trk.codec};
+        st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, canaisDaFaixa:st.adts ? st.adts.ch : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
         toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
         const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
               const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
@@ -14290,7 +14295,13 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
      e junta os efeitos ao mesmo nível: as vozes ficam fracas e o som envolvente domina. Ordem FFmpeg: L R C LFE Ls Rs (Lb Rb) */
   const voiceMix = () => { const k = cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice; return k === 0 ? 0.7 : k === 2 ? 1.5 : 1.0; };
   const downmix = planes => {
-    if(planes.length <= 2) return planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a));
+    if(planes.length <= 2){
+      const Q = planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), vk = cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice;
+      /* v210: som já em estéreo (muitos filmes AAC): as vozes vão no centro (soma L+R) e os efeitos/música nos lados (L-R). Com voz «Realçada» ou «Máxima» sobe o centro e baixa os lados */
+      if(Q.length === 2 && vk >= 1){ const g = vk === 2 ? 1.7 : 1.3, w = vk === 2 ? 0.55 : 0.75, a = Q[0], b = Q[1], n = a.length, L2 = new Float32Array(n), R2 = new Float32Array(n);
+        for(let i = 0; i < n; i++){ const m = (a[i] + b[i]) * 0.5 * g, d = (a[i] - b[i]) * 0.5 * w; L2[i] = m + d; R2[i] = m - d; }
+        return [L2, R2]; }
+      return Q; }
     const P = planes.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), N = P.length, n = P[0].length, Lc = new Float32Array(n), Rc = new Float32Array(n);
     const ci = 2, sl = N === 3 ? -1 : N === 4 ? 3 : N === 5 ? 3 : 4, sr = N === 3 ? -1 : N === 4 ? 3 : N === 5 ? 4 : 5, sl2 = N >= 8 ? 6 : -1, sr2 = N >= 8 ? 7 : -1;
     const vc = voiceMix(), gf = 0.62, gs = 0.35, C = P[ci], l = P[0], r = P[1], A = sl >= 0 ? P[sl] : null, B = sr >= 0 ? P[sr] : null, A2 = sl2 >= 0 ? P[sl2] : null, B2 = sr2 >= 0 ? P[sr2] : null;
