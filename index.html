@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v207";
+const APP_VERSION = "v208";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -13649,7 +13649,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   });
   setInterval(() => { [0, 1].forEach(slot => { const w = DBG.watch[slot]; if(!w) return; const v = $("vid" + slot), el = performance.now() - w.t0;
       if(el > 1200000 || !lastPlayed[slot]) return; try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {}; const h = hlsInst[slot], l = h && h.latency;
-        ev(slot, "estado", {mudo:v.muted, vol:+(v.volume || 0).toFixed(2), somBytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined}); }catch(e){} }); }, 20000);
+        ev(slot, "estado", {mudo:v.muted, vol:+(v.volume || 0).toFixed(2), somBytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined, memJS_MB:performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : undefined, memLimite_MB:performance.memory ? Math.round(performance.memory.jsHeapSizeLimit / 1048576) : undefined}); }catch(e){} }); }, 20000);
   /* avisos de erro mostrados ao utilizador */
   try{ const t0 = window.toast; window.toast = toast = function(m, bad){ try{ if(bad){ const sl = DBG.cur[tvTarget] ? tvTarget : (DBG.cur[0] ? 0 : 1); ev(sl, "aviso", {txt:scrub(m).slice(0, 300)}); } }catch(e){} return t0.apply(this, arguments); }; }catch(e){}
   /* conta (sem credenciais): ligações em uso e estado */
@@ -13668,6 +13668,17 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   };
   window.__dbgReport = report;
   window.__dbgEv = ev;
+  /* v208: pista para falhas da página («Ah, não! Código de erro: 9»): batimento a cada 4 s; ao abrir, se o anterior não fechou limpo, regista o último estado conhecido */
+  try{ const prev = LS.get("hb", null), clean = LS.get("hbClean", true);
+    if(prev && !clean && Date.now() - prev.t < 6 * 3600 * 1000) setTimeout(() => { try{ ev(0, "sessão anterior terminou sem fechar (falha da página?)", Object.assign({haSegundos:Math.round((Date.now() - prev.t) / 1000)}, prev, {t:undefined})); }catch(e){} }, 3000);
+    LS.set("hbClean", false);
+    const beat = () => { try{ const a = typeof lastPlayed !== "undefined" ? lastPlayed : []; const c = a[0] || a[1];
+      LS.set("hb", {t:Date.now(), v:APP_VERSION, canal:c ? c.name : "", tipo:c ? c.kind : "", ext:c && c.ext || "", memJS_MB:performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
+        andamento:(typeof drivingEff === "function" && drivingEff()) || false, workers:(typeof MIR !== "undefined" ? MIR : []).map(m => m && m.decoder && m.decoder.W ? m.decoder.W.length : 0).join("/")}); }catch(e){} };
+    setInterval(beat, 4000); beat();
+    const ok = () => { try{ LS.set("hbClean", true); }catch(e){} }; window.addEventListener("pagehide", ok); window.addEventListener("beforeunload", ok);
+    window.addEventListener("pageshow", () => { try{ LS.set("hbClean", false); }catch(e){} });
+  }catch(e){}
   const text = r => { const L = []; (r.tentativas || []).slice().reverse().forEach(a => {
       L.push((a.res === "ok" ? "✓" : a.res === "a decorrer" ? "…" : "✗") + " " + a.at.slice(11, 19) + " " + a.ch.name + " [" + a.ch.kind + (a.ch.ext ? " ." + a.ch.ext : "") + "] " + a.res + (a.fim ? " · " + a.fim.ms + " ms · " + a.fim.w + "x" + a.fim.h : ""));
       a.ev.forEach(x => { const d = Object.assign({}, x); delete d.t; delete d.e; L.push("   " + (x.t / 1000).toFixed(1) + " s  " + x.e + " " + JSON.stringify(d).slice(0, 220)); });
