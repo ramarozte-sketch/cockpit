@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v208";
+const APP_VERSION = "v209";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3191,7 +3191,12 @@ function playChannel(c, slot=tvTarget, auto=false){
           const iv = setInterval(() => { try{ if(++k > 40 || nj >= 3 || !v.isConnected){ clearInterval(iv); return; } const t = v.currentTime; if(v.paused || v.readyState >= 3 || v.seeking){ last = -1; same = 0; return; }
               same = Math.abs(t - last) < 0.01 ? same + 1 : 0; last = t;
               if(same >= 2){ for(let i = 0; i < v.buffered.length; i++) if(v.buffered.start(i) <= t + 0.05 && v.buffered.end(i) > t + 1){ nj++; same = 0; v.currentTime = t + 0.08; break; } } }catch(e){ clearInterval(iv); } }, 150); }); }catch(e){}
-      h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); hlsInst[slot]=h; return h;
+      /* v209: no Tesla, em direto, o fornecedor recusa a ligação nova se a do canal anterior ainda está aberta (erros de rede e arranques de 12 s logo a seguir a trocar de canal): espera até 600 ms desde o último fecho */
+      try{ if(window.__TESLA && !Hls.__killMark){ Hls.__killMark = true; const od = Hls.prototype.destroy; Hls.prototype.destroy = function(){ window.__hlsKillAt = Date.now(); return od.apply(this, arguments); }; } }catch(e){}
+      const gap = window.__TESLA && live ? 600 - (Date.now() - (window.__hlsKillAt || 0)) : 0;
+      const go = () => { h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); };
+      if(gap > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gap)}); }catch(e){} setTimeout(() => { if(playId !== playSeq[slot] || hlsInst[slot] !== h) return; try{ go(); }catch(e){} }, gap); } else go();
+      hlsInst[slot]=h; return h;
     };
     // Canais abertos (https): primeiro direto do Tesla, que tem IP português e evita os bloqueios a datacenters; se falhar, usa o proxy.
     let viaProxy = !(DIRECT_VIDEO() || (c.free && /^https:/i.test(c.url) && HASPX()));
