@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v210";
+const APP_VERSION = "v211";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3672,7 +3672,7 @@ class SoftVideoDecoder {
       if(closed) W.done = true; else this.owner = W;
     }
     /* alimenta cada Worker */
-    { const tot = this.W.reduce((m, W) => m + (W.fps || 0), 0), sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && this.W.every(W => W.fps) ? tot < sf * 1.35 : false;
+    { const tot = this.W.reduce((m, W) => m + (W.fps || 0), 0), sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && this.W.every(W => W.fps) ? tot < sf * 1.6 : false;
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
       if(!W.busy) continue;
@@ -4484,12 +4484,16 @@ function mkvRun(slot, st, src, audio){
         st.clock = new window.__PcmClock(st.aac ? {get currentTime(){ const m = MIR[slot]; return m && m.wall && m.masterUs != null ? m.masterUs / 1e6 : v.currentTime; }, get paused(){ const m = MIR[slot]; return m && m.wall ? false : v.paused; }, get seeking(){ return v.seeking; }, get readyState(){ const m = MIR[slot]; return m && m.wall ? 4 : v.readyState; }, get muted(){ return v.muted; }, get volume(){ return v.volume; }, id:v.id} : v); st.aq = []; st.n = 0;
         if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
         else if(st.aac) throw new Error("AAC sem configuração");
-        st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, canaisDaFaixa:st.adts ? st.adts.ch : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
+        st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, asc:trk.priv ? Array.from(trk.priv.slice(0, 8)).map(x => x.toString(16).padStart(2, "0")).join("") : null, aot:trk.priv ? trk.priv[0] >> 3 : null, canaisDaFaixa:st.adts ? st.adts.ch : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
         toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
         const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
               const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               const out = await L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}); let t = x.ts / 1e6;
-              for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue; pl = __downmix(pl); st.clock.push(pl, sr, t); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); } st.abusy = false; };
+              for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
+                /* v211: de 8 em 8 s regista a energia de cada canal à saída do descodificador (5.1: L R C LFE Ls Rs): mostra se as vozes (centro) existem e a taxa de amostragem real */
+                try{ const nw = performance.now(); if(!st.chLogAt || nw - st.chLogAt > 8000){ st.chLogAt = nw; const db = pl.map(a => { let e2 = 0, k = 0; for(let i = 0; i < a.length; i += 3){ e2 += a[i] * a[i]; k++; } return +(10 * Math.log10(e2 / Math.max(1, k) + 1e-12)).toFixed(1); });
+                    window.__dbgEv && window.__dbgEv(slot, "som: energia por canal (dB)", {canais:pl.length, taxa:sr, dB:db, fmt:fo.format}); } }catch(e){}
+                pl = __downmix(pl); st.clock.push(pl, sr, t); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); } st.abusy = false; };
         st.drain = drain;
       }
       if(!audio){
@@ -14268,7 +14272,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
           this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
         if(this.agc) this.agc.gain.value = this.gA;
-        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100}); } }catch(e){}
+        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
