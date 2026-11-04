@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v204";
+const APP_VERSION = "v205";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3620,7 +3620,7 @@ class SoftVideoDecoder {
     const fs = this._dts ? 1e6 / this._dts : 25, fw = this.W.reduce((m, W) => W.fps ? Math.min(m, W.fps) : m, Infinity);
     if(!isFinite(fw) || !n) return 1200000;
     /* v190: folga de 0,5 s (era 0,3 s) e mínimo de 0,6 s — absorve as quebras de ritmo do processador do carro */
-    return Math.max(600000, Math.min(3000000, Math.round((n / fw - n / fs) * 1e6 + 500000)));
+    return Math.max(600000, Math.min(4500000, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
     if(masterUs == null || this.state !== "configured") return;
@@ -3772,10 +3772,11 @@ const __mdC = [null, null];   /* medidas e modo de aspeto em cache: ler o tamanh
    Desenhar cada imagem num canvas 2D custava ~15-30 ms por imagem no carro e limitava a imagem em andamento a ~23 por s. */
 const __BMR = [null, null];
 let __bmrOk = null;
-function mirBmr(slot, cv, src, vw, vh, mode, deg){
+function mirBmr(slot, cv, src, vw, vh, mode, deg, bw, bh){
   if(__bmrOk === null){ try{ __bmrOk = !!window.__TESLA && typeof ImageBitmap !== "undefined" && LS.get("bmrOff", false) !== true; }catch(e){ __bmrOk = false; } }
   if(!__bmrOk || deg || typeof ImageBitmap === "undefined" || !(src instanceof ImageBitmap)) return false;
-  const fit = mode === "stretch" ? "fill" : mode === "zoom" ? "cover" : mode === "fit" ? "contain" : null;
+  const RR = {"16:9":16/9, "4:3":4/3, "21:9":21/9}[mode];
+  const fit = mode === "stretch" ? "fill" : mode === "zoom" ? "cover" : mode === "fit" ? "contain" : RR && bw > 0 && bh > 0 ? "fill" : null;
   if(!fit) return false;
   let b = __BMR[slot];
   if(!b || !b.cv.isConnected){
@@ -3785,6 +3786,11 @@ function mirBmr(slot, cv, src, vw, vh, mode, deg){
     b = __BMR[slot] = {cv:c, ctx, on:false, fit:""};
   }
   if(b.fit !== fit){ b.cv.style.objectFit = fit; b.fit = fit; }
+  /* v205: proporções fixas (16:9, 4:3, 21:9): canvas centrado com a proporção pedida, imagem esticada lá dentro (antes caía no desenho 2D, mais lento) */
+  let geo = ""; if(RR){ let dw = bw, dh = bw / RR; if(dh > bh){ dh = bh; dw = bh * RR; } geo = Math.round(dw) + "x" + Math.round(dh); }
+  if(b.geo !== geo){ b.geo = geo; const z = b.cv.style;
+    if(geo){ const g = geo.split("x"); z.inset = "auto"; z.left = "50%"; z.top = "50%"; z.transform = "translate(-50%,-50%)"; z.width = g[0] + "px"; z.height = g[1] + "px"; }
+    else { z.inset = ""; z.left = ""; z.top = ""; z.transform = ""; z.width = ""; z.height = ""; } }
   /* o tamanho do canvas define a proporção usada pelo «object-fit»: igual ao da imagem */
   const iw = src.width || vw, ih = src.height || vh; if(b.cv.width !== iw) b.cv.width = iw; if(b.cv.height !== ih) b.cv.height = ih;
   try{ b.ctx.transferFromImageBitmap(src); }catch(e){
@@ -3802,10 +3808,10 @@ function mirDraw(slot, src, vw, vh){
   if(!m || pn - m.at > 250 || m.box !== box){
     const dpr = Math.min(window.devicePixelRatio||1, 2);
     let mode = "fit"; try{ const full = !!(document.fullscreenElement || document.webkitFullscreenElement) || $("v-tv").classList.contains("cinema"); mode = LS.get(full ? "tvAspectFull" : "tvAspect", full ? "stretch" : "fit") || "fit"; }catch(e){}
-    m = __mdC[slot] = {at:pn, box, cw:Math.max(1, Math.round(box.clientWidth*dpr)), ch:Math.max(1, Math.round(box.clientHeight*dpr)), mode, ctx:(m && m.cv === cv) ? m.ctx : null, cv};
+    m = __mdC[slot] = {at:pn, box, bw:box.clientWidth, bh:box.clientHeight, cw:Math.max(1, Math.round(box.clientWidth*dpr)), ch:Math.max(1, Math.round(box.clientHeight*dpr)), mode, ctx:(m && m.cv === cv) ? m.ctx : null, cv};
   }
   const cw = m.cw, ch = m.ch;
-  if(vw && vh && mirBmr(slot, cv, src, vw, vh, m.mode, (rotation[slot]||0)%360)) return;
+  if(vw && vh && mirBmr(slot, cv, src, vw, vh, m.mode, (rotation[slot]||0)%360, m.bw, m.bh)) return;
   mirBmrOff(slot, cv, (typeof ImageBitmap !== "undefined" && src instanceof ImageBitmap) ? "formato " + m.mode : (src && src.tagName ? src.tagName.toLowerCase() : typeof src));
   if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
   const ctx = m.ctx || (m.ctx = cv.getContext("2d", {alpha:false})), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
@@ -4450,7 +4456,9 @@ function mkvRun(slot, st, src, audio){
       });
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas", {faixas:st.tl.slice(0, 12)});
-          const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); } }catch(e){} }
+          const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); }
+          /* v204: no Tesla o leitor "descodifica" o E-AC3 (o contador de bytes sobe) mas não sai som; com E-AC3/AC-3 na 1.ª faixa toca o som por software logo no arranque */
+          if(window.__TESLA && snd.length && /^A_E?AC3/.test(snd[0].codec) && !(window.HW && window.HW.eac3) && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot]; window.__dbgEv && window.__dbgEv(slot, "som Dolby por software desde o início", {faixa:snd[0].codec}); setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0); }catch(e){} }, 800); } }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
         const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
