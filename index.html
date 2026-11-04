@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v203";
+const APP_VERSION = "v204";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3169,10 +3169,10 @@ function playChannel(c, slot=tvTarget, auto=false){
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
         ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
-          manifestLoadingTimeOut:8000, levelLoadingTimeOut:9000, fragLoadingTimeOut:25000} : {}),
+          manifestLoadingTimeOut:live ? 4000 : 8000, levelLoadingTimeOut:live ? 4500 : 9000, fragLoadingTimeOut:25000} : {}),
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
-        manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
-        levelLoadingMaxRetry: window.__TESLA && live ? 10 : 4, levelLoadingRetryDelay:800, levelLoadingMaxRetryTimeout:4000,
+        manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:window.__TESLA && live ? 350 : 800,
+        levelLoadingMaxRetry: window.__TESLA && live ? 10 : 4, levelLoadingRetryDelay:window.__TESLA && live ? 350 : 800, levelLoadingMaxRetryTimeout:4000,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
       if(window.__TESLA) h.on(Hls.Events.FRAG_LOADED, () => { try{ const t = Date.now(); if(t - (window.__bwT || 0) > 15000 && h.bandwidthEstimate > 0){ window.__bwT = t; LS.set("bwEst", Math.round(h.bandwidthEstimate)); } }catch(e){} });
