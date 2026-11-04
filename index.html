@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v201";
+const APP_VERSION = "v202";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3833,7 +3833,8 @@ function copyLoop(slot){
 /* Pequeno diagnóstico no canvas enquanto o WebCodecs não produz imagem (para testar no carro). */
 function mirDiag(slot, st){
   const cv=$("cv"+slot); if(!cv.width) return; const ctx=cv.getContext("2d");
-  const msg = st.err ? ("WebCodecs: "+st.err) : ("A descodificar\u2026 fragmentos:"+(st.segs||0)+" frames:"+(st.frames||0));
+  if(!st.err) return;   /* v202: sem o texto azul «A descodificar… fragmentos/frames» por cima do vídeo */
+  const msg = "WebCodecs: "+st.err;
   ctx.save(); ctx.font="14px monospace"; ctx.textAlign="center";
   const w=ctx.measureText(msg).width+20;
   ctx.fillStyle="rgba(0,0,0,.6)"; ctx.fillRect(cv.width/2-w/2, cv.height-34, w, 24);
@@ -3890,6 +3891,15 @@ function present(slot){
       else{ const d = kUs - st.offUs, STEP = 40000; st.offUs += Math.max(-STEP, Math.min(STEP, d)); }
     } else if(st.offUs==null) st.offUs = head - v.currentTime*1e6;
     st.masterUs = v.currentTime*1e6 + st.offUs - mirDelFor(slot)*1000;
+    /* v202: relógio suavizado — o currentTime do <video> anda aos saltos (avança de 20-40 em 20-40 ms) e a imagem escolhida
+       em cada atualização do ecrã ficava irregular (1 imagem, depois 2, depois 0…). Entre saltos prevê o tempo pelo relógio
+       do browser e corrige devagar; num salto grande (procura, pausa, espera) acompanha logo o valor real. */
+    try{ if(window.__TESLA && !v.paused && !v.seeking && v.readyState >= 2){
+        const raw = st.masterUs;
+        if(st.smT != null && pn - st.smT < 250){ const pred = st.smU + (pn - st.smT) * 1000, err = raw - pred; st.smU = Math.abs(err) > 150000 ? raw : pred + err * 0.08; }
+        else st.smU = raw;
+        st.smT = pn; st.masterUs = st.smU;
+      } else st.smT = null; }catch(e){}
   }
   /* v194: parado, a imagem vem do descodificador de hardware do carro (o <video>, copiado para o ecrã pelo copyLoop):
      melhor qualidade e o processador fica livre. O descodificador por software só trabalha em andamento — ou se o
@@ -4934,6 +4944,8 @@ $("btnCinema").onclick = () => { const on = !$("v-tv").classList.contains("cinem
 (function(){
   let last = 0, lx = 0, ly = 0;
   const exitFs = () => {
+    /* v202: o duplo toque que acabou de abrir o ecrã total (no Início) também gera um «dblclick»: não o deixa fechar logo a seguir */
+    if(Date.now() - (window.__fsEnterAt || 0) < 900) return false;
     if(window.__fsLeave && document.body.classList.contains("pfull")){ window.__fsLeave(); return true; }
     if(document.fullscreenElement || document.webkitFullscreenElement){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return true; }
     if($("v-tv").classList.contains("cinema")){ setCinema(false); return true; }
@@ -13063,7 +13075,7 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
   }, true);
   /* duplo toque (ou duplo clique) no vídeo do destaque: ecrã total */
   const goFull = () => {
-    stayUntil = 0; window.__fsFromHome = true;
+    stayUntil = 0; window.__fsFromHome = true; window.__fsEnterAt = Date.now();
     if(window.__ah) window.__ah.pass = Date.now() + 3000;
     show("tv"); setCinema(true);
     try{ window.__goFull && window.__goFull(); }catch(e){}
