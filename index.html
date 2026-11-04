@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v202";
+const APP_VERSION = "v203";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3172,7 +3172,7 @@ function playChannel(c, slot=tvTarget, auto=false){
           manifestLoadingTimeOut:8000, levelLoadingTimeOut:9000, fragLoadingTimeOut:25000} : {}),
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
-        levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
+        levelLoadingMaxRetry: window.__TESLA && live ? 10 : 4, levelLoadingRetryDelay:800, levelLoadingMaxRetryTimeout:4000,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
       });
       if(window.__TESLA) h.on(Hls.Events.FRAG_LOADED, () => { try{ const t = Date.now(); if(t - (window.__bwT || 0) > 15000 && h.bandwidthEstimate > 0){ window.__bwT = t; LS.set("bwEst", Math.round(h.bandwidthEstimate)); } }catch(e){} });
@@ -3787,11 +3787,15 @@ function mirBmr(slot, cv, src, vw, vh, mode, deg){
   if(b.fit !== fit){ b.cv.style.objectFit = fit; b.fit = fit; }
   /* o tamanho do canvas define a proporção usada pelo «object-fit»: igual ao da imagem */
   const iw = src.width || vw, ih = src.height || vh; if(b.cv.width !== iw) b.cv.width = iw; if(b.cv.height !== ih) b.cv.height = ih;
-  try{ b.ctx.transferFromImageBitmap(src); }catch(e){ __bmrOk = false; mirBmrOff(slot, cv); return false; }
+  try{ b.ctx.transferFromImageBitmap(src); }catch(e){
+    /* v203: um erro isolado já não desliga a placa gráfica para sempre (só ao fim de 30 erros); fica registado o motivo */
+    b.errs = (b.errs || 0) + 1; if(b.errs === 1 || b.errs === 30){ try{ window.__dbgEv && window.__dbgEv(slot, "placa gráfica: erro", {n:b.errs, msg:String(e && e.message || e).slice(0, 120)}); }catch(x){} }
+    if(b.errs >= 30) __bmrOk = false; mirBmrOff(slot, cv, "erro"); return false; }
   if(!b.on){ b.on = true; b.cv.style.display = "block"; cv.style.visibility = "hidden"; try{ window.__dbgEv && window.__dbgEv(slot, "imagem pela placa gráfica (bitmaprenderer)", {w:vw, h:vh, formato:fit}); }catch(e){} }
   return true;
 }
-function mirBmrOff(slot, cv){ const b = __BMR[slot]; if(!b || !b.on) return; b.on = false; b.cv.style.display = ""; if(cv) cv.style.visibility = ""; }
+function mirBmrOff(slot, cv, why){ const b = __BMR[slot]; if(!b || !b.on) return; b.on = false; b.cv.style.display = ""; if(cv) cv.style.visibility = "";
+  b.offs = (b.offs || 0) + 1; b.why = why || "outro"; }
 function mirDraw(slot, src, vw, vh){
   const cv = $("cv"+slot), box = slotBox(slot), pn = performance.now();
   let m = __mdC[slot];
@@ -3802,7 +3806,7 @@ function mirDraw(slot, src, vw, vh){
   }
   const cw = m.cw, ch = m.ch;
   if(vw && vh && mirBmr(slot, cv, src, vw, vh, m.mode, (rotation[slot]||0)%360)) return;
-  mirBmrOff(slot, cv);
+  mirBmrOff(slot, cv, (typeof ImageBitmap !== "undefined" && src instanceof ImageBitmap) ? "formato " + m.mode : (src && src.tagName ? src.tagName.toLowerCase() : typeof src));
   if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
   const ctx = m.ctx || (m.ctx = cv.getContext("2d", {alpha:false})), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
   if(vw && vh){
@@ -3927,7 +3931,7 @@ function present(slot){
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
   try{ if(st.rafLast){ const g = pn - st.rafLast; if(g > 0 && g < 500){ st.rafN = (st.rafN || 0) + 1; st.rafSum = (st.rafSum || 0) + g; } } st.rafLast = pn; }catch(e){}
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
-      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on)});
+      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on), placaDesligada:__BMR[slot] ? (__BMR[slot].offs || 0) + "× (" + (__BMR[slot].why || "-") + ")" : null, relogioSuave:st.smT != null});
       st.rafN = 0; st.rafSum = 0;
       st.stat = {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0}; } }catch(e){}
   if(q.length && audioOk && st.masterUs!=null){
