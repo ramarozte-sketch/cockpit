@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v200";
+const APP_VERSION = "v201";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14568,6 +14568,7 @@ window.__sa = {
   }catch(e){ console.log("posição do ecrã", e); }
 })();
 </script>
+<script>
 setTimeout(() => { try{
   const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2")||{}).textContent||"").trim() === "TV e IPTV");
   if(!card) return;
@@ -14586,5 +14587,6 @@ setTimeout(() => { try{
   paint();
   const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ sel.value = cfg.eac3Mode || "auto"; paint(); }catch(e){} return r; };
 }catch(e){} }, 0);
+</script>
 </body>
 </html>
