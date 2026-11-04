@@ -159,6 +159,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .slot video{transition:transform .25s;transform-origin:50% 50%}
 .slot canvas.mirror{position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;display:none}
 .slot.mirroring canvas.mirror{display:block}
+.slot canvas.mirb{position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;display:none}
+.slot:not(.mirroring) canvas.mirb{display:none!important}
 .slot.mirroring video{opacity:0;pointer-events:none}
 #btnMirror.on{background:var(--accent);color:var(--accent-ink)}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
@@ -2742,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v197";
+const APP_VERSION = "v200";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3167,7 +3169,7 @@ function playChannel(c, slot=tvTarget, auto=false){
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
         ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
-          manifestLoadingTimeOut:15000, levelLoadingTimeOut:15000, fragLoadingTimeOut:25000} : {}),
+          manifestLoadingTimeOut:8000, levelLoadingTimeOut:9000, fragLoadingTimeOut:25000} : {}),
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:800,
         levelLoadingMaxRetry:4, levelLoadingRetryDelay:800,
@@ -3260,9 +3262,15 @@ function playChannel(c, slot=tvTarget, auto=false){
     const hlsPattern = /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i;
     fileViaHls = () => { if(stage >= 2 || !hlsPattern.test(c.url) || !(window.Hls && Hls.isSupported())) return false; stage = 1; triedDirect = true; v.onerror && v.onerror(); return true; };
     v.src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
+    /* v200: guarda onde ia o filme; se a ligação cair a meio, volta a pedir o mesmo endereço e continua desse ponto */
+    let fT = 0, fRe = 0; const fTu = () => { if(playId === playSeq[slot] && v.currentTime > 0) fT = v.currentTime; }; try{ if(v.__fTu) v.removeEventListener("timeupdate", v.__fTu); }catch(e){} v.__fTu = fTu; v.addEventListener("timeupdate", fTu);
+    const fResume = () => { if(fT < 3) return; const t = fT; const go = () => { v.removeEventListener("loadedmetadata", go); if(playId !== playSeq[slot]) return; try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); };
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
+      if(code === 2 && fT > 5 && fRe < 3 && v.currentSrc){ fRe++; const src0 = v.currentSrc; try{ window.__dbgEv && window.__dbgEv(slot, "filme: ligação caiu a meio, retoma no mesmo ponto", {em_s:Math.round(fT), vez:fRe}); }catch(e){}
+        setTimeout(() => { if(playId !== playSeq[slot]) return; fResume(); v.src = src0; v.load(); v.play().catch(()=>{}); }, 600 * fRe); return; }
+      fResume();
       if(stage === -1){ stage = 0; if(VPX()){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
       if(stage === 0 && VPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
       // O proxy foi recusado (ex.: servidor atrás da Cloudflare): o Tesla liga-se diretamente ao servidor.
@@ -3759,6 +3767,31 @@ function loadMirLibs(){
 
 /* Desenha uma fonte (VideoFrame ou <video>) no canvas, com rotação e letterbox. */
 const __mdC = [null, null];   /* medidas e modo de aspeto em cache: ler o tamanho da caixa e o localStorage a cada imagem (25-50 por s) custava layout e JSON.parse à toa */
+/* v200 (Tesla): as imagens já descodificadas (ImageBitmap) vão direto para um canvas «bitmaprenderer» — sem desenhar
+   no processador principal; o redimensionamento e o formato (ajustar/zoom/esticar) ficam a cargo da placa gráfica.
+   Desenhar cada imagem num canvas 2D custava ~15-30 ms por imagem no carro e limitava a imagem em andamento a ~23 por s. */
+const __BMR = [null, null];
+let __bmrOk = null;
+function mirBmr(slot, cv, src, vw, vh, mode, deg){
+  if(__bmrOk === null){ try{ __bmrOk = !!window.__TESLA && typeof ImageBitmap !== "undefined" && LS.get("bmrOff", false) !== true; }catch(e){ __bmrOk = false; } }
+  if(!__bmrOk || deg || typeof ImageBitmap === "undefined" || !(src instanceof ImageBitmap)) return false;
+  const fit = mode === "stretch" ? "fill" : mode === "zoom" ? "cover" : mode === "fit" ? "contain" : null;
+  if(!fit) return false;
+  let b = __BMR[slot];
+  if(!b || !b.cv.isConnected){
+    const c = document.createElement("canvas"); c.className = "mirb"; c.id = "cvb" + slot;
+    const ctx = c.getContext("bitmaprenderer"); if(!ctx){ __bmrOk = false; return false; }
+    cv.insertAdjacentElement("afterend", c);
+    b = __BMR[slot] = {cv:c, ctx, on:false, fit:""};
+  }
+  if(b.fit !== fit){ b.cv.style.objectFit = fit; b.fit = fit; }
+  /* o tamanho do canvas define a proporção usada pelo «object-fit»: igual ao da imagem */
+  const iw = src.width || vw, ih = src.height || vh; if(b.cv.width !== iw) b.cv.width = iw; if(b.cv.height !== ih) b.cv.height = ih;
+  try{ b.ctx.transferFromImageBitmap(src); }catch(e){ __bmrOk = false; mirBmrOff(slot, cv); return false; }
+  if(!b.on){ b.on = true; b.cv.style.display = "block"; cv.style.visibility = "hidden"; try{ window.__dbgEv && window.__dbgEv(slot, "imagem pela placa gráfica (bitmaprenderer)", {w:vw, h:vh, formato:fit}); }catch(e){} }
+  return true;
+}
+function mirBmrOff(slot, cv){ const b = __BMR[slot]; if(!b || !b.on) return; b.on = false; b.cv.style.display = ""; if(cv) cv.style.visibility = ""; }
 function mirDraw(slot, src, vw, vh){
   const cv = $("cv"+slot), box = slotBox(slot), pn = performance.now();
   let m = __mdC[slot];
@@ -3768,6 +3801,8 @@ function mirDraw(slot, src, vw, vh){
     m = __mdC[slot] = {at:pn, box, cw:Math.max(1, Math.round(box.clientWidth*dpr)), ch:Math.max(1, Math.round(box.clientHeight*dpr)), mode, ctx:(m && m.cv === cv) ? m.ctx : null, cv};
   }
   const cw = m.cw, ch = m.ch;
+  if(vw && vh && mirBmr(slot, cv, src, vw, vh, m.mode, (rotation[slot]||0)%360)) return;
+  mirBmrOff(slot, cv);
   if(cv.width!==cw) cv.width=cw; if(cv.height!==ch) cv.height=ch;
   const ctx = m.ctx || (m.ctx = cv.getContext("2d", {alpha:false})), deg=(rotation[slot]||0)%360, rot90=deg%180!==0;
   if(vw && vh){
@@ -3880,8 +3915,10 @@ function present(slot){
     if(st.hwMode){ st.hwMode = false; st.stat = null; st.hwExitAt = pn; try{ window.__dbgEv && window.__dbgEv(slot, "em andamento: imagem por software", {parado_s:Math.round((pn - (st.hwSince || pn)) / 1000)}); }catch(e){} }
   }catch(e){}
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
+  try{ if(st.rafLast){ const g = pn - st.rafLast; if(g > 0 && g < 500){ st.rafN = (st.rafN || 0) + 1; st.rafSum = (st.rafSum || 0) + g; } } st.rafLast = pn; }catch(e){}
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
-      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null});
+      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on)});
+      st.rafN = 0; st.rafSum = 0;
       st.stat = {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0}; } }catch(e){}
   if(q.length && audioOk && st.masterUs!=null){
     const masterUs = st.masterUs;
@@ -4334,7 +4371,7 @@ function mp4Init(slot){
   const c = lastPlayed[slot], v = $("vid"+slot);
   const isMkv = c && /\.(mkv|webm)(\?|$)/i.test(c.url);
   if(!c || !(isMkv || /\.(mp4|m4v|mov)(\?|$)/i.test(c.url))) return;
-  if(isMkv && !WC_NATIVE){ toast("Filmes .mkv só têm imagem em andamento com WebCodecs (página https).", true); return; }
+  /* v200: sem WebCodecs (página http) os .mkv em H.264 também usam o descodificador por software */
   const st = MIR[slot] = MIR[slot] || {};
   if(st.movie) return;
   st.movie = true; st.fixedOff = 0;
@@ -4367,8 +4404,10 @@ function mkvRun(slot, st, src, audio){
   const alive = () => audio ? (window.__mka && window.__mka[slot] === st) : MIR[slot] === st;
   const v = $("vid" + slot), ct = () => st.aac && st.clock ? st.clock.v.currentTime : v.currentTime, sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
   st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
-  const decoder = audio ? {reset(){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }, decode(){}} : new PacedDecoder({
-    output: frame => { if(!alive()){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
+  const decoder = audio ? {reset(){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }, decode(){}} : new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
+    output: frame => { if(!alive()){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1;
+      if(!WC_NATIVE){ mirPushFrame(st, frame); startPresent(slot); return; }   /* software: vários Workers, as imagens chegam fora de ordem */
+      st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
     error: e => { st.err = "decoder: " + e.message; },
     backlog: () => (st.q || []).length
   });
@@ -4419,7 +4458,8 @@ function mkvRun(slot, st, src, audio){
       const h2 = x => x.toString(16).padStart(2, "0");
       const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
       st.cfg = {codec, description:trk.priv, codedWidth:trk.w, codedHeight:trk.h, optimizeForLatency:true};
-      const sup = await VideoDecoder.isConfigSupported(st.cfg).catch(() => null);
+      if(!WC_NATIVE && isHevc){ st.err = "HEVC"; toast("Este filme é HEVC/H.265: sem WebCodecs (página em http) não é possível mostrá-lo em andamento.", true); return; }
+      const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
       if(!sup || !sup.supported){ st.err = codec + " não suportado"; toast("Este filme usa " + (isHevc ? "HEVC/H.265" : codec) + " e o descodificador deste browser não o mostra em andamento.", true); return; }
       decoder.configure(st.cfg);
       }
@@ -4671,7 +4711,12 @@ function audioPick(h){
     const tr = h && h.audioTracks; if(!tr || tr.length < 2 || h.__aPicked) return; h.__aPicked = true;
     const lvl = h.levels && h.levels[Math.max(0, h.currentLevel)] || {};
     const sc = (t, i) => { const cod = t.audioCodec || (t.attrs && t.attrs.CODECS) || ""; let s = 0;
-      if(cod && !audioOk(cod)) s -= 100; if(/^(pt|por|pt-pt|pt-br)$/i.test(t.lang || "") || /portug/i.test(t.name || "")) s += 10; if(t.default) s += 1; return s; };
+      if(cod && !audioOk(cod)){
+        /* audioOk() devolve false para ac-3/ec-3; num dispositivo com hardware isso não deve penalizar */
+        const hwOk = HW.eac3 && /ec-3|ac-3/i.test(cod);
+        if(!hwOk) s -= 100;
+      }
+      if(/^(pt|por|pt-pt|pt-br)$/i.test(t.lang || "") || /portug/i.test(t.name || "")) s += 10; if(t.default) s += 1; return s; };
     let best = h.audioTrack, bs = -1e9; tr.forEach((t, i) => { const v = sc(t, i); if(v > bs){ bs = v; best = i; } });
     if(best !== h.audioTrack && best >= 0) h.audioTrack = best;
   }catch(e){}
@@ -4683,6 +4728,8 @@ function audioWatch(slot, c, playId, viaHls){
     if(playId !== playSeq[slot] || ++ticks > 24){ clearInterval(audioWatchT[slot]); return; }
     if(window.__sa && window.__sa.on(slot)){ if(window.__sa.n(slot) > 0) clearInterval(audioWatchT[slot]); return; }
     if(!noAudioNow(v)) { if(typeof v.webkitAudioDecodedByteCount === "number" && v.webkitAudioDecodedByteCount > 0) clearInterval(audioWatchT[slot]); return; }
+    /* num dispositivo com hardware, o pipeline Dolby pode levar 2–4 s a inicializar */
+    if(HW.eac3 && eac3Mode() === "hw" && ticks < 30) return;   /* até ~15 s */
     if(ticks < (c.kind === "live" ? 12 : 4)) return; // dá tempo ao arranque
     clearInterval(audioWatchT[slot]);
     const h = hlsInst[slot], tr = h && h.audioTracks ? h.audioTracks : [];
@@ -14068,6 +14115,46 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     stop
   };
   /* Definições → TV: modo de desentrelaçar */
+/* ===== Sonda: este dispositivo descodifica E-AC3/AC-3 por hardware? =====
+   MediaSource.isTypeSupported("ec-3") só devolve true se o Chromium tiver um descodificador
+   registado no sistema (TVs Android e telemóveis com Dolby licenciado). WebCodecs e
+   mediaCapabilities confirmam o mesmo e dizem se é "powerEfficient" (hardware).
+   Resultado guardado na sessão — não muda enquanto a app estiver aberta. */
+const HW = { done:false, ac3:false, eac3:false, efficient:false, why:"" };
+async function probeHardwareEac3(){
+  if(HW.done) return HW;
+  const sup = t => { try{ return !!(window.MediaSource && MediaSource.isTypeSupported(t)); }catch(e){ return false; } };
+  HW.ac3  = sup('audio/mp4; codecs="ac-3"');
+  HW.eac3 = sup('audio/mp4; codecs="ec-3"');
+  try{
+    if(window.AudioDecoder && AudioDecoder.isConfigSupported){
+      const r = await AudioDecoder.isConfigSupported({ codec:"ec-3", sampleRate:48000, numberOfChannels:6, bitrate:384000 });
+      if(r && r.supported){ HW.eac3 = true; HW.efficient = true; }
+    }
+  }catch(e){}
+  try{
+    if(navigator.mediaCapabilities && navigator.mediaCapabilities.decodingInfo){
+      const r = await navigator.mediaCapabilities.decodingInfo({ type:"file", audio:{ contentType:'audio/mp4; codecs="ec-3"', channels:"6", samplerate:48000, bitrate:384000 } });
+      if(r && r.supported){ HW.eac3 = true; if(r.powerEfficient) HW.efficient = true; }
+    }
+  }catch(e){}
+  HW.done = true;
+  HW.why = !HW.eac3 ? "sem descodificador E-AC3 no sistema"
+        : HW.efficient ? "descodificador de hardware"
+        : "descodificador presente (software ou não confirmado)";
+  try{ window.__dbgEv && window.__dbgEv(0, "sonda E-AC3", { ac3:HW.ac3, eac3:HW.eac3, eficiente:HW.efficient, motivo:HW.why }); }catch(e){}
+  return HW;
+}
+/* modo: "auto" (hardware se existir), "hw" (forçar), "sw" (libav/WASM) */
+function eac3Mode(){
+  const m = cfg.eac3Mode || "auto";
+  if(m === "sw") return "sw";
+  if(m === "hw") return "hw";
+  return HW.eac3 ? "hw" : "sw";
+}
+probeHardwareEac3();
+/* v200: estes nomes são usados noutros blocos da página (escolha da faixa de som e som Dolby): ficam globais */
+try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = probeHardwareEac3; }catch(e){}
   setTimeout(() => { try{
     if(!window.__TESLA) return;
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
@@ -14238,24 +14325,34 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }catch(e){ st.err = String(e.message || e); }
     st.busy = false;
   }
-  window.__sa = {
-    hook(slot, u){
-      if(window.__saOff) return;
-      const seq = playSeq[slot], isFirst = first[slot] !== seq; first[slot] = seq;
-      let st = S[slot]; if(st && st.seq !== seq){ stop(slot); st = null; }
-      if(!st){
-        if(!isFirst) return;
-        const L = pmtAudio(u); if(!L || !L.length) return;
-        const native = L.some(x => x.kind === "aac" || x.kind === "mpa"); if(native) return;
-        const tr = L.find(x => x.kind === "ac3" || x.kind === "eac3"); if(!tr || !hlsInst[slot]) return;
-        st = S[slot] = start(slot, tr); if(!st) return;
+window.__sa = {
+  hook(slot, u){
+    if(window.__saOff) return;
+    const seq = playSeq[slot], isFirst = first[slot] !== seq; first[slot] = seq;
+    let st = S[slot]; if(st && st.seq !== seq){ stop(slot); st = null; }
+    if(!st){
+      if(!isFirst) return;
+      const L = pmtAudio(u); if(!L || !L.length) return;
+      /* se houver AAC/MP3 na PMT, o próprio <video> toca — não mexer */
+      const native = L.some(x => x.kind === "aac" || x.kind === "mpa"); if(native) return;
+      const tr = L.find(x => x.kind === "ac3" || x.kind === "eac3"); if(!tr || !hlsInst[slot]) return;
+      const mode = eac3Mode();
+      if(mode === "hw"){
+        /* deixa o HLS.js mapear a faixa; o <video> usa o descodificador do sistema */
+        log(slot, "E-AC3 por hardware (HLS nativo)", { codec:tr.kind, mediaSource:HW.eac3, eficiente:HW.efficient });
+        return;
       }
-      feed(st, u);
-    },
-    on: slot => !!S[slot],
-    n: slot => S[slot] ? S[slot].n : 0,
-    stop
-  };
+      /* modo "sw" ou "auto" sem hardware: libav/WASM */
+      st = S[slot] = start(slot, tr); if(!st) return;
+      log(slot, "E-AC3 por software (libav/WASM)", { codec:tr.kind, sonda:HW.why });
+    }
+    feed(st, u);
+  },
+  on: slot => !!S[slot],
+  n: slot => S[slot] ? S[slot].n : 0,
+  stop,
+  hw: () => Object.assign({}, HW)
+};
   }catch(e){ console.log("som Dolby", e); }
 })();
 </script>
@@ -14471,5 +14568,23 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   }catch(e){ console.log("posição do ecrã", e); }
 })();
 </script>
+setTimeout(() => { try{
+  const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2")||{}).textContent||"").trim() === "TV e IPTV");
+  if(!card) return;
+  const l = document.createElement("label"); l.className = "f";
+  l.innerHTML = 'Som Dolby (AC-3 / E-AC-3)<select id="setEac3"><option value="auto">Automático (hardware quando existir, senão software)</option><option value="hw">Sempre por hardware (se falhar, fica só imagem)</option><option value="sw">Sempre por software (libav — compatível com tudo)</option></select>';
+  card.appendChild(l);
+  const sel = document.getElementById("setEac3"), info = document.createElement("p");
+  info.className = "small muted"; info.style.margin = "4px 0 0"; card.appendChild(info);
+  const paint = async () => { await probeHardwareEac3();
+    info.textContent = HW.eac3
+      ? "Este dispositivo tem descodificador E-AC3 (" + HW.why + "). Modo atual: " + (cfg.eac3Mode || "auto") + "."
+      : "Este dispositivo não tem descodificador E-AC3 — o Cockpit usa o libav (software)."; };
+  sel.value = cfg.eac3Mode || "auto";
+  sel.onchange = () => { cfg.eac3Mode = sel.value; saveCfg(); paint();
+    try{ const c = lastPlayed[tvTarget]; if(c && c.kind === "live") window.__oneConn(c, tvTarget); }catch(e){} };
+  paint();
+  const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ sel.value = cfg.eac3Mode || "auto"; paint(); }catch(e){} return r; };
+}catch(e){} }, 0);
 </body>
 </html>
