@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v220";
+const APP_VERSION = "v221";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3635,10 +3635,12 @@ class SoftVideoDecoder {
   _free(){ return this.W.find(W => !W.busy && !W.draining && W.inflight === 0 && !W.q.length); }
   /* antecedência necessária para um GOP de n imagens: tempo a descodificar menos tempo a mostrar, mais folga */
   _lead(n){
-    const fs = this._dts ? 1e6 / this._dts : 25, fw = this.W.reduce((m, W) => W.fps ? Math.min(m, W.fps) : m, Infinity);
+    const fs = this._dts ? 1e6 / this._dts : 25, fl = this.W.filter(W => W.fps > 0).map(W => W.fps).sort((x, y) => x - y), fw = fl.length ? fl[Math.floor((fl.length - 1) / 2)] : Infinity;   /* v221: mediana (não o mais lento): um só Worker lento (30 imagens/s) puxava a antecedência para 1,9 s */
     if(!isFinite(fw) || !n) return 1200000;
     /* v190: folga de 0,5 s (era 0,3 s) e mínimo de 0,6 s — absorve as quebras de ritmo do processador do carro */
-    return Math.max(this.px && this.px <= 2.6e6 ? 1000000 : 600000, Math.min(4500000, Math.round((n / fw - n / fs) * 1e6 + 600000)));
+    /* nunca pede mais antecedência do que a fila deixa ter (limite de imagens prontas): senão os Workers param à espera e as imagens chegam tarde */
+    const room = Math.max(600000, Math.round((this.bkLimit() - 4) / fs * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000;
+    return Math.max(minLead, Math.min(4500000, room, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
     if(masterUs == null || this.state !== "configured") return;
