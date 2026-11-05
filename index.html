@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v221";
+const APP_VERSION = "v222";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3593,7 +3593,7 @@ class SoftVideoDecoder {
     W.w = SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION);
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
-      if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
+      if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
       if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
@@ -3602,7 +3602,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1", ep:W.ep});
     return W;
   }
   decode(ch){
@@ -14284,6 +14284,9 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     const l2 = document.createElement("label"); l2.className = "f";
     l2.innerHTML = 'Bob por software no 1080i (50 imagens/s, página http; experimental, pesa no processador do carro)<select id="setBobSw"><option value="off">Desligado (25 imagens/s, mais estável)</option><option value="on">Ligado (só com o carro parado)</option></select>';
     card.appendChild(l2); const sb = $("setBobSw"); sb.value = cfg.bobSw === true ? "on" : "off"; sb.onchange = () => { cfg.bobSw = sb.value === "on"; saveCfg(); toast("Bob por software: " + (cfg.bobSw ? "ligado (vale no próximo canal)" : "desligado")); };
+    const l3 = document.createElement("label"); l3.className = "f";
+    l3.innerHTML = 'Cor do vídeo por software na placa gráfica (página http; experimental, poupa processador se a placa do carro ajudar)<select id="setGpuC"><option value="0">Desligado (conversão no processador)</option><option value="1">Ligado (vale no próximo canal)</option></select>';
+    card.appendChild(l3); const sg = $("setGpuC"); sg.value = LS.get("gpuColor", "0") === "1" ? "1" : "0"; sg.onchange = () => { LS.set("gpuColor", sg.value); toast("Cor na placa gráfica: " + (sg.value === "1" ? "ligada (vale no próximo canal)" : "desligada")); };
     card.appendChild(l); const sel = $("setDeint"); sel.value = deint(); sel.onchange = () => { cfg.deint = sel.value; saveCfg(); toast("Desentrelaçar: " + sel.options[sel.selectedIndex].text.split(" —")[0]); };
   }catch(e){} }, 0);
   }catch(e){ console.log("vídeo por software", e); }
