@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v218";
+const APP_VERSION = "v219";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -13664,11 +13664,11 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 
   /* --- amostra: cópia do 1.º pedaço de vídeo de cada canal (só bytes de vídeo; sem endereço nem credenciais) ---
      Se o canal falhar, a amostra pode ser enviada para o GitHub e analisada (ffprobe) para perceber o que o Tesla rejeita. */
-  DBG.sample = [null, null]; DBG.failSample = null;
+  DBG.sample = [null, null]; DBG.failSample = null; DBG.keep = [];   /* v219: as amostras dos últimos 3 canais (mesmo os que abriram bem) vão no envio manual do registo */
   try{ const _mcl = window.makeCapLoader; if(typeof _mcl === "function") window.makeCapLoader = function(slot){ const B = _mcl.apply(this, arguments);
       return class extends B { load(ctx, cf, cb){ try{ const a = DBG.cur[slot]; if(a && !a.__smp && on() && ctx && /frag/i.test(ctx.type || "frag")){ const os = cb.onSuccess;
           cb = Object.assign({}, cb, {onSuccess:(r, st, cx, n) => { try{ const a2 = DBG.cur[slot], d = r && r.data; if(a2 && !a2.__smp && d && (d.byteLength || 0) > 1000 && d.byteLength < 14e6){ a2.__smp = 1;
-                DBG.sample[slot] = {n:a2.n, at:a2.at, name:a2.ch.name, u8:d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength))}; ev(slot, "amostra guardada", {kB:Math.round(d.byteLength / 1024)}); } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
+                DBG.sample[slot] = {n:a2.n, at:a2.at, name:a2.ch.name, u8:d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength))}; try{ const k = DBG.sample[slot]; DBG.keep = DBG.keep.filter(x => x.name !== k.name); DBG.keep.push(k); while(DBG.keep.length > 3) DBG.keep.shift(); }catch(e){} ev(slot, "amostra guardada", {kB:Math.round(d.byteLength / 1024)}); } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
   window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot; if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
@@ -13760,6 +13760,14 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
           let bin = ""; for(let i = 0; i < sm.u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, sm.u8.subarray(i, i + 0x8000));
           const r2 = await fetch("https://api.github.com/repos/" + repo + "/contents/logs/" + sn, {method:"PUT", headers:{Authorization:"Bearer " + tok, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}, body:JSON.stringify({message:"Amostra de vídeo " + sn, content:btoa(bin)})});
           if(r2.ok){ sm.sent = true; extra = " + amostra de vídeo"; } }catch(e){} }
+      /* envio manual: também as amostras dos últimos canais abertos (para analisar formato, entrelaçamento e ritmo com o ffprobe) */
+      if(!why || why === "manual"){ let nk = 0;
+        for(const k of (DBG.keep || []).slice().reverse()){ if(!k || !k.u8 || k.sent || k === sm || nk >= 3) continue;
+          try{ const sn2 = name.replace(/\.json$/, "") + "_amostra_" + String(k.name || "canal").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) + ".ts";
+            let bin2 = ""; for(let i = 0; i < k.u8.length; i += 0x8000) bin2 += String.fromCharCode.apply(null, k.u8.subarray(i, i + 0x8000));
+            const r3 = await fetch("https://api.github.com/repos/" + repo + "/contents/logs/" + sn2, {method:"PUT", headers:{Authorization:"Bearer " + tok, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28"}, body:JSON.stringify({message:"Amostra de vídeo " + sn2, content:btoa(bin2)})});
+            if(r3.ok){ k.sent = true; nk++; } }catch(e){} }
+        if(nk) extra += " + " + nk + " amostras"; }
       LS.set("dbgSent", Date.now()); return name + extra;
     } finally { sending = false; }
   };
