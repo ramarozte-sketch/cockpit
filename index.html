@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v213";
+const APP_VERSION = "v214";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3585,7 +3585,7 @@ class SoftVideoDecoder {
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
-      if(d.type === "frame"){ const b = d.bmp; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
+      if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
         if(W.fr >= 10){ const f = 1000 * W.fr / Math.max(1, W.ms); W.fps = W.fps ? W.fps * 0.7 + f * 0.3 : f; W.fr = 0; W.ms = 0; } }
@@ -3604,6 +3604,8 @@ class SoftVideoDecoder {
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
   }
+  /* v214: quantas imagens prontas se aceitam antes de parar de descodificar à frente (tem de ficar abaixo do tecto da fila, senão as das Workers em curso perdem-se) */
+  bkLimit(){ const cap = this.px ? Math.max(12, Math.min(90, Math.floor(200e6 / this.px))) : 48; return Math.max(24, Math.min(60, cap - 12)); }
   headTs(){
     if(this.pending.length) return this.pending[0].ts;
     for(const W of this.W) if(W.q.length) return W.q[0].ts;
@@ -3611,7 +3613,7 @@ class SoftVideoDecoder {
   }
   info(){
     const fps = this.W.map(W => Math.round(W.fps || 0));
-    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000)}, this.st);
+    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000), limiteFila:this.bkLimit()}, this.st);
   }
   /* descodificador antigo (sem "drain" nem paralelo): fica só um Worker, que segue os GOPs um atrás do outro */
   _legacy(){ if(this.legacy) return; this.legacy = true; this.st.antigo = true;
@@ -3625,7 +3627,7 @@ class SoftVideoDecoder {
     const fs = this._dts ? 1e6 / this._dts : 25, fw = this.W.reduce((m, W) => W.fps ? Math.min(m, W.fps) : m, Infinity);
     if(!isFinite(fw) || !n) return 1200000;
     /* v190: folga de 0,5 s (era 0,3 s) e mínimo de 0,6 s — absorve as quebras de ritmo do processador do carro */
-    return Math.max(600000, Math.min(4500000, Math.round((n / fw - n / fs) * 1e6 + 600000)));
+    return Math.max(this.px && this.px <= 2.6e6 ? 1000000 : 600000, Math.min(4500000, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
     if(masterUs == null || this.state !== "configured") return;
@@ -3687,7 +3689,7 @@ class SoftVideoDecoder {
         if(this.thin && c.nr && !c.pre && q.length > 1 && ((this._tn = (this._tn || 0) + 1) & 1)){ q.shift(); this.st.bFinas++; continue; }
         const qe = q[q.length - 1].extra && q.length > 1 ? q[q.length - 2] : q[q.length - 1];
         if(q.length > 1 && qe.ts < masterUs - 40000 && !c.key && !c.pre){ q.length = 0; this.st.gopsSaltados++; break; }   /* resto do GOP todo atrasado */
-        if(c.ts > masterUs + 400000 && this.backlog() >= 36) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
+        if(c.ts > masterUs + 400000 && this.backlog() >= this.bkLimit()) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
         q.shift();
         const buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
         W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep, nout:!!c.pre}, [buf]);
@@ -3718,8 +3720,8 @@ function mirPushFrame(st, frame){
   if(i > 0 && q[i - 1].timestamp === ts){ try{ frame.close(); }catch(e){} return; }
   q.splice(i, 0, frame);
   const px = (frame.displayWidth || frame.codedWidth || 1280) * (frame.displayHeight || frame.codedHeight || 720) * 4;
-  const cap = frame.bmp ? Math.max(12, Math.min(90, Math.floor(160e6 / px))) : 12;
-  while(q.length > cap){ const o = frame.bmp ? q.pop() : q.shift(); try{ o.close(); }catch(e){} }
+  const cap = frame.bmp ? Math.max(12, Math.min(90, Math.floor(200e6 / px))) : 12;
+  while(q.length > cap){ const o = frame.bmp ? q.pop() : q.shift(); try{ o.close(); }catch(e){} st.ovf = (st.ovf || 0) + 1; }
 }
 
 /* WebCodecs com ritmo: guarda os pedaços codificados e só os entrega ao descodificador quando estão perto
@@ -3947,7 +3949,7 @@ function present(slot){
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
   try{ if(st.rafLast){ const g = pn - st.rafLast; if(g > 0 && g < 500){ st.rafN = (st.rafN || 0) + 1; st.rafSum = (st.rafSum || 0) + g; } } st.rafLast = pn; }catch(e){}
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
-      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on), placaDesligada:__BMR[slot] ? (__BMR[slot].offs || 0) + "× (" + (__BMR[slot].why || "-") + ")" : null, relogioSuave:st.smT != null});
+      if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, filaCheia:st.ovf || 0, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on), placaDesligada:__BMR[slot] ? (__BMR[slot].offs || 0) + "× (" + (__BMR[slot].why || "-") + ")" : null, relogioSuave:st.smT != null});
       st.rafN = 0; st.rafSum = 0;
       st.stat = {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0}; } }catch(e){}
   if(q.length && audioOk && st.masterUs!=null){
@@ -4193,22 +4195,40 @@ function hevcFeed(slot, st, u, frag){
 /* H.264 em .ts → descodificador por software (Annex B). Guarda o SPS/PPS e repõe-no nas imagens-chave que não o trazem
    (cada GOP é descodificado num Worker que pode ter acabado de reabrir o descodificador). */
 function avcFeed(slot, st, u, frag){
-  const inf = st.av; const L = __tsPes(u, inf.vpid, inf.pidOf, inf.payStart); let first = true;
+  const inf = st.av; let first = true, off = 0, cur = null, eof = false; const L = [];
+  /* a montagem das imagens (PES) também é feita aos poucos: __tsPes de uma vez custava ~20 ms (60 ms no carro) */
+  const closeCur = () => { if(!cur) return; let n = 0; cur.forEach(x => n += x.length); const b = new Uint8Array(n); let k = 0; cur.forEach(x => { b.set(x, k); k += x.length; });
+    if(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80)){ const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1); L.push({pts, data:b.slice(9 + b[8])}); }
+    cur = null; };
+  const collect = nPk => { for(let k = 0; off + 188 <= u.length && k < nPk; off += 188, k++){
+      if(u[off] !== 0x47 || inf.pidOf(off) !== inf.vpid) continue;
+      if(u[off + 1] & 0x40){ closeCur(); cur = []; }
+      const p = inf.payStart(off); if(cur && p >= 0) cur.push(u.subarray(p, off + 188)); }
+    if(off + 188 > u.length){ closeCur(); eof = true; } };
   const nalTypes = d => { const t = []; for(let i = 0; i + 3 < d.length && i < 4000; i++){ if(d[i] === 0 && d[i + 1] === 0 && d[i + 2] === 1){ const k = d[i + 3] & 31; t.push({k, at:i}); if(k === 1 || k === 5) break; i += 2; } } return t; };
-  for(const x of L){
-    let data = x.data; const nt = nalTypes(data), key = nt.some(n => n.k === 5) || (nt.some(n => n.k === 7) && nt.some(n => n.k === 1));
-    if(key){ const sp = nt.find(n => n.k === 7), sl = nt.find(n => n.k === 1 || n.k === 5);
-      if(sp && sl){ st.avPS = data.slice(Math.max(0, sp.at - 1), sl.at); }
-      else if(!sp && st.avPS){ const nb = new Uint8Array(st.avPS.length + data.length); nb.set(st.avPS); nb.set(data, st.avPS.length); data = nb; } }
-    if(!st.avCfg){ const sp = nt.find(n => n.k === 7); if(!key || !sp) continue;
-      const h = v => v.toString(16).padStart(2, "0"); st.avCfg = {codec:"avc1." + h(data[sp.at + 4]) + h(data[sp.at + 5]) + h(data[sp.at + 6]), autoShift:true, optimizeForLatency:true};
-      try{ st.decoder.configure(st.avCfg); st.err = null; }catch(e){ st.err = "configure: " + e.message; return; }
-      try{ window.__dbgEv && window.__dbgEv(slot, "andamento: H.264 direto ao descodificador", {codec:st.avCfg.codec, workers:st.decoder.nW}); }catch(e){} }
-    const ts = Math.round(x.pts * 100 / 9);
-    if(first){ first = false; st.marks.push({ts, frag}); st.marks.sort((a, b) => a.ts - b.ts); if(st.marks.length > 30) st.marks.shift(); }
-    try{ st.decoder.decode({type:key ? "key" : "delta", timestamp:ts, data}); }catch(e){ st.err = "decode: " + e.message; }
-  }
-  startPresent(slot);
+  /* v214: o pedaço (500 imagens) era entregue de uma vez no processo principal (~100 ms no carro a cada 10 s = um soluço visível).
+     Agora em fatias de ~5 ms, com o ecrã a desenhar entre elas; a ordem mantém-se. */
+  const run = () => {
+    const t0 = performance.now();
+    for(;;){
+      if(performance.now() - t0 > 5){ setTimeout(() => { if(MIR[slot] === st) run(); }, 0); startPresent(slot); return; }
+      if(!L.length){ if(eof) break; collect(500); continue; }
+      const x = L.shift();
+      let data = x.data; const nt = nalTypes(data), key = nt.some(n => n.k === 5) || (nt.some(n => n.k === 7) && nt.some(n => n.k === 1));
+      if(key){ const sp = nt.find(n => n.k === 7), sl = nt.find(n => n.k === 1 || n.k === 5);
+        if(sp && sl){ st.avPS = data.slice(Math.max(0, sp.at - 1), sl.at); }
+        else if(!sp && st.avPS){ const nb = new Uint8Array(st.avPS.length + data.length); nb.set(st.avPS); nb.set(data, st.avPS.length); data = nb; } }
+      if(!st.avCfg){ const sp = nt.find(n => n.k === 7); if(!key || !sp) continue;
+        const h = v => v.toString(16).padStart(2, "0"); st.avCfg = {codec:"avc1." + h(data[sp.at + 4]) + h(data[sp.at + 5]) + h(data[sp.at + 6]), autoShift:true, optimizeForLatency:true};
+        try{ st.decoder.configure(st.avCfg); st.err = null; }catch(e){ st.err = "configure: " + e.message; return; }
+        try{ window.__dbgEv && window.__dbgEv(slot, "andamento: H.264 direto ao descodificador", {codec:st.avCfg.codec, workers:st.decoder.nW}); }catch(e){} }
+      const ts = Math.round(x.pts * 100 / 9);
+      if(first){ first = false; st.marks.push({ts, frag}); st.marks.sort((a, b) => a.ts - b.ts); if(st.marks.length > 30) st.marks.shift(); }
+      try{ st.decoder.decode({type:key ? "key" : "delta", timestamp:ts, data}); }catch(e){ st.err = "decode: " + e.message; }
+    }
+    startPresent(slot);
+  };
+  run();
 }
 /* Recebe os bytes de cada fragmento HLS (já clonados pelo loader) e alimenta o transmuxer. */
 function mirrorFeed(slot, d){
