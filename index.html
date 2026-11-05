@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v217";
+const APP_VERSION = "v218";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3012,6 +3012,10 @@ const autoTried = [new Set(), new Set()];
 const HEVC_OK = () => !!(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'));
 const hevcBad = (() => { let a = []; try{ a = JSON.parse(localStorage.getItem("ck_hevcBad") || "[]") || []; }catch(e){} return new Set(a); })();
 const hevcMark = u => { if(!u || hevcBad.has(u)) return; hevcBad.add(u); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){} };
+/* v218: canais cujo HLS traz HEVC em MPEG-TS (o hls.js não lê): abrem logo em .ts pelo mpegts.js, sem passar pela falha e pelo aviso */
+const hevcTs = (() => { let a = []; try{ a = JSON.parse(localStorage.getItem("ck_hevcTs") || "[]") || []; }catch(e){} return new Set(a); })();
+const hevcTsMark = u => { if(!u || hevcTs.has(u)) return; hevcTs.add(u); try{ localStorage.setItem("ck_hevcTs", JSON.stringify([...hevcTs].slice(-200))); }catch(e){} };
+const maintAt = new Map();   /* canais que o fornecedor serve com o vídeo «Maintenance…mp4» (momento do aviso) */
 const hevcSess = new Set();   /* só nesta sessão: o computador ficou perto do ritmo mas não chegou lá */
 const hevcSkip = u => !HEVC_OK() && (hevcBad.has(u) || hevcSess.has(u));
 function altQuality(c, tried){
@@ -3062,6 +3066,8 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(!auto && c.kind==="live" && (hevcBad.has(c.url) || hevcSess.has(c.url))){   /* o utilizador escolheu o canal: tenta outra vez por software (a marca era de uma tentativa anterior) */
     hevcBad.delete(c.url); hevcSess.delete(c.url); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){}
   }
+  if(c.kind==="live" && HEVC_OK() && hevcTs.has(c.url) && /\/live\/.+\.m3u8(\?|$)/i.test(c.url)){
+    playChannel(Object.assign({}, c, {url:c.url.replace(/\.m3u8(\?|$)/i, ".ts$1")}), slot, auto); return; }
   if(c.kind==="live" && !HEVC_OK() && (hevcSkip(c.url) || window.__hevcSw === false)){   /* sem HEVC neste browser e o software não aguentou (ou está desligado): vai logo à versão que ele descodifica */
     const alt = altQuality(c, autoTried[slot]) || (window.__altFor && window.__altFor(c, autoTried[slot]));
     if(alt && alt.url !== c.url){ autoTried[slot].add(c.url); toast(`${c.name} é HEVC e este browser não o descodifica. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
@@ -3220,7 +3226,10 @@ function playChannel(c, slot=tvTarget, auto=false){
       h.on(Hls.Events.ERROR, (ev, d)=>{
         /* HEVC em MPEG-TS que o browser não descodifica: não adianta tentar recuperar, passa logo à alternativa */
         if(playId === playSeq[slot] && d.details === "fragParsingError" && /Unsupported HEVC/i.test(String(d.reason || (d.error && d.error.message) || ""))){
-          if(!h.__hevc){ h.__hevc = 1; hevcMark(c.url); fail("HLS", "vídeo em HEVC/H.265"); } return; }
+          if(!h.__hevc){ h.__hevc = 1; hevcMark(c.url); if(HEVC_OK()) hevcTsMark(c.url); fail("HLS", "vídeo em HEVC/H.265"); } return; }
+        /* o fornecedor serve um vídeo de «manutenção» no lugar do canal: não adianta insistir (proxies, .ts…) */
+        if(playId === playSeq[slot] && /Maintenance\d*\.mp4/i.test(String((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || ""))){
+          if(!h.__mnt){ h.__mnt = 1; maintAt.set(c.url, Date.now()); try{ window.__dbgEv && window.__dbgEv(slot, "canal em manutenção no fornecedor", {}); }catch(e){} fail("HLS", "HINT:" + c.name + ": o fornecedor tem este canal em manutenção neste momento. Tenta outra versão do canal ou mais tarde."); } return; }
         if(!d.fatal || playId!==playSeq[slot]) return;
         const code = d.response?.code || 0;
         if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
@@ -13804,7 +13813,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* abre a versão .ts do mesmo canal (uma vez por canal); devolve true se mudou */
   window.__tTryTs = (slot, c) => {
     try{
-      if(!c || c.kind !== "live" || !/\/live\/.+\.m3u8(\?|$)/i.test(c.url) || Date.now() - (tsFrom.get(c.url) || 0) < 120000) return false;
+      if(!c || c.kind !== "live" || !/\/live\/.+\.m3u8(\?|$)/i.test(c.url) || Date.now() - (tsFrom.get(c.url) || 0) < 120000 || Date.now() - (maintAt.get(c.url) || 0) < 600000) return false;
       const c2 = Object.assign({}, c, {url:c.url.replace(/\.m3u8(\?|$)/i, ".ts$1")}); tsFrom.set(c.url, Date.now());
       log(slot, "sem imagem: muda para .ts (mpegts.js)", {});
       toast(c.name + ": sem imagem pelo leitor HLS. A tentar o outro leitor…");
