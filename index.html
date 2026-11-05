@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v211";
+const APP_VERSION = "v212";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4486,14 +4486,14 @@ function mkvRun(slot, st, src, audio){
         else if(st.aac) throw new Error("AAC sem configuração");
         st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, asc:trk.priv ? Array.from(trk.priv.slice(0, 8)).map(x => x.toString(16).padStart(2, "0")).join("") : null, aot:trk.priv ? trk.priv[0] >> 3 : null, canaisDaFaixa:st.adts ? st.adts.ch : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
         toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
-        const drain = async () => { if(st.abusy) return; st.abusy = true; try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
+        const drain = async () => { if(st.abusy) return; st.abusy = true; st.busyAt = performance.now(); try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
               const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
-              const out = await L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}); let t = x.ts / 1e6;
+              const out = await Promise.race([L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]); let t = x.ts / 1e6; st.lastDec = performance.now();
               for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
                 /* v211: de 8 em 8 s regista a energia de cada canal à saída do descodificador (5.1: L R C LFE Ls Rs): mostra se as vozes (centro) existem e a taxa de amostragem real */
                 try{ const nw = performance.now(); if(!st.chLogAt || nw - st.chLogAt > 8000){ st.chLogAt = nw; const db = pl.map(a => { let e2 = 0, k = 0; for(let i = 0; i < a.length; i += 3){ e2 += a[i] * a[i]; k++; } return +(10 * Math.log10(e2 / Math.max(1, k) + 1e-12)).toFixed(1); });
                     window.__dbgEv && window.__dbgEv(slot, "som: energia por canal (dB)", {canais:pl.length, taxa:sr, dB:db, fmt:fo.format}); } }catch(e){}
-                pl = __downmix(pl); st.clock.push(pl, sr, t); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); } st.abusy = false; };
+                pl = __downmix(pl); st.clock.push(pl, sr, t); st.lastOut = performance.now(); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err, fila:st.aq.length}); }catch(e2){} if(/parado/.test(st.err)){ try{ st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); }catch(e3){} } } st.abusy = false; };
         st.drain = drain;
       }
       if(!audio){
@@ -13663,7 +13663,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   });
   setInterval(() => { [0, 1].forEach(slot => { const w = DBG.watch[slot]; if(!w) return; const v = $("vid" + slot), el = performance.now() - w.t0;
       if(el > 1200000 || !lastPlayed[slot]) return; try{ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {}; const h = hlsInst[slot], l = h && h.latency;
-        ev(slot, "estado", {mudo:v.muted, vol:+(v.volume || 0).toFixed(2), somBytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined, memJS_MB:performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : undefined, memLimite_MB:performance.memory ? Math.round(performance.memory.jsHeapSizeLimit / 1048576) : undefined}); }catch(e){} }); }, 20000);
+        ev(slot, "estado", {mudo:v.muted, vol:+(v.volume || 0).toFixed(2), somBytes:v.webkitAudioDecodedByteCount, andamento:(typeof drivingEff === "function" && drivingEff()), buf:bufStr(v), agora:+v.currentTime.toFixed(1), perdidos:q.droppedVideoFrames || 0, pronto:v.readyState, pausa:v.paused, atraso:l ? +l.toFixed(1) : undefined, kbps:h && h.bandwidthEstimate ? Math.round(h.bandwidthEstimate / 1000) : undefined, memJS_MB:performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : undefined, memLimite_MB:performance.memory ? Math.round(performance.memory.jsHeapSizeLimit / 1048576) : undefined, softSom:(() => { const m = window.__mka && window.__mka[slot]; if(!m) return null; const nw = performance.now(); return {fila:m.aq ? m.aq.length : null, cabeca_menos_agora_s:m.aq && m.aq.length && m.clock ? +(m.aq[0].ts / 1e6 - m.clock.v.currentTime).toFixed(1) : null, ocupado:!!m.abusy, descodificados:m.n, haSemSaida_s:m.lastOut ? +((nw - m.lastOut) / 1000).toFixed(1) : null, erro:m.err || "", ctx:m.clock && m.clock.ctx ? m.clock.ctx.state : null}; })()}); }catch(e){} }); }, 20000);
   /* avisos de erro mostrados ao utilizador */
   try{ const t0 = window.toast; window.toast = toast = function(m, bad){ try{ if(bad){ const sl = DBG.cur[tvTarget] ? tvTarget : (DBG.cur[0] ? 0 : 1); ev(sl, "aviso", {txt:scrub(m).slice(0, 300)}); } }catch(e){} return t0.apply(this, arguments); }; }catch(e){}
   /* conta (sem credenciais): ligações em uso e estado */
@@ -14320,7 +14320,13 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
       const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
       mkvRun(slot, st, src, true);
-      let live0 = Date.now(); const t = setInterval(() => { const m0 = MIR[slot]; if(st.aac && !st.keep){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
+      let live0 = Date.now(); const t = setInterval(() => { try{ const nw = performance.now(); if(nw - (st.wdAt || 0) > 5000 && window.__mka[slot] === st && st.aq && st.aq.length && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 4000){ st.wdAt = nw; const cur = st.clock ? st.clock.v.currentTime : v.currentTime, h0 = st.aq[0].ts / 1e6;
+          window.__dbgEv && window.__dbgEv(slot, "som por software: parado", {fila:st.aq.length, cabeca_menos_agora_s:+(h0 - cur).toFixed(1), ocupado:!!st.abusy, ocupadoHa_s:st.abusy ? +((nw - (st.busyAt || nw)) / 1000).toFixed(1) : null, descodificados:st.n, erro:st.err || "", ctx:st.clock && st.clock.ctx ? st.clock.ctx.state : null});
+          if(st.abusy && nw - (st.busyAt || nw) > 8000) st.abusy = false;
+          if(!st.abusy && st.drain) st.drain();
+          if(st.clock && st.clock.ctx && st.clock.ctx.state !== "running") st.clock.ctx.resume().catch(() => {}); }
+        /* fila vazia e sem som há mais de 8 s com o filme a andar: a leitura do som parou (ligação perdida sem erro): recomeça-a no ponto atual */
+        else if(nw - (st.rsAt || 0) > 15000 && window.__mka[slot] === st && (!st.aq || !st.aq.length) && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 8000){ st.rsAt = nw; window.__dbgEv && window.__dbgEv(slot, "som por software: leitura parada, a recomeçar", {erro:st.err || "", descodificados:st.n}); setTimeout(() => { try{ if(playId === playSeq[slot]) window.__mkaStart(slot, c, playId, st.aac, st.keep, st.trackNum); }catch(e){} }, 50); } }catch(e){} const m0 = MIR[slot]; if(st.aac && !st.keep){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
       return true;
     }catch(e){ return false; }
   };
