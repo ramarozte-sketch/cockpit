@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v216";
+const APP_VERSION = "v217";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14101,7 +14101,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     st.busy = false;
   }
   /* Bob por software: só com «Bob» escolhido, imagem entrelaçada de 1080 e carro parado (em andamento poupa o processador) */
-  const wantBob = st => { try{ if(st.noBob || st.prog || deint() !== "bob") return false; return DRIVE.state !== "moving"; }catch(e){ return !st.noBob; } };
+  const wantBob = st => { try{ if(st.noBob || st.prog || cfg.bobSw !== true || deint() !== "bob") return false; return DRIVE.state !== "moving"; }catch(e){ return !st.noBob; } };
   function pump(st){
     if(st.mpeg2){ pumpLibav(st); return; }
     const v = st.o.v; if(st.init == null || !v) return;
@@ -14262,6 +14262,9 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
     const l = document.createElement("label"); l.className = "f";
     l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s; em andamento passa a Linear)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
+    const l2 = document.createElement("label"); l2.className = "f";
+    l2.innerHTML = 'Bob por software no 1080i (50 imagens/s, página http; experimental, pesa no processador do carro)<select id="setBobSw"><option value="off">Desligado (25 imagens/s, mais estável)</option><option value="on">Ligado (só com o carro parado)</option></select>';
+    card.appendChild(l2); const sb = $("setBobSw"); sb.value = cfg.bobSw === true ? "on" : "off"; sb.onchange = () => { cfg.bobSw = sb.value === "on"; saveCfg(); toast("Bob por software: " + (cfg.bobSw ? "ligado (vale no próximo canal)" : "desligado")); };
     card.appendChild(l); const sel = $("setDeint"); sel.value = deint(); sel.onchange = () => { cfg.deint = sel.value; saveCfg(); toast("Desentrelaçar: " + sel.options[sel.selectedIndex].text.split(" —")[0]); };
   }catch(e){} }, 0);
   }catch(e){ console.log("vídeo por software", e); }
