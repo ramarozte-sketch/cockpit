@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v215";
+const APP_VERSION = "v216";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3593,7 +3593,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -3605,7 +3605,9 @@ class SoftVideoDecoder {
     p.push(c); if(p.length > 4000) p.shift();
   }
   /* v214: quantas imagens prontas se aceitam antes de parar de descodificar à frente (tem de ficar abaixo do tecto da fila, senão as das Workers em curso perdem-se) */
-  bkLimit(){ const cap = this.px ? Math.max(12, Math.min(90, Math.floor(200e6 / this.px))) : 48; return Math.max(24, Math.min(60, cap - 12)); }
+  /* v216: Bob por software (1080i → 2 quadros de 960×540 por imagem, 50/s): liga/desliga em todos os Workers */
+  setBob(on){ on = !!on; if(!this.cfg || !!this.cfg.bob === on) return; this.cfg.bob = on; for(const W of this.W) try{ W.w.postMessage({cmd:"bob", on}); }catch(e){} }
+  bkLimit(){ if(this.cfg && this.cfg.bob && this.px) return Math.max(36, Math.min(84, Math.floor(200e6 / this.px) - 8)); const cap = this.px ? Math.max(12, Math.min(90, Math.floor(200e6 / this.px))) : 48; return Math.max(24, Math.min(60, cap - 12)); }
   headTs(){
     if(this.pending.length) return this.pending[0].ts;
     for(const W of this.W) if(W.q.length) return W.q[0].ts;
@@ -14006,7 +14008,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         st.dec = new SoftVideoDecoder({backlog:() => st.frames.length,
           output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; const q = st.frames, ts = f.timestamp; let i = q.length; while(i > 0 && q[i - 1].timestamp > ts) i--;
             if(i > 0 && q[i - 1].timestamp === ts){ try{ q[i - 1].close(); }catch(e){} q[i - 1] = f; return; }   /* repetida: fica a mais recente (a do Worker seguinte, com os dois campos) */
-            q.splice(i, 0, f); while(q.length > 70) q.pop().close(); },
+            q.splice(i, 0, f); while(q.length > (st.bobOn ? 100 : 70)) q.pop().close(); },
           error:e => { st.errs++; log(key, "erro na imagem por software (WASM)", {msg:String(e && e.message || e).slice(0, 160)}); if(st.errs > 12){ stop(key); if(key !== "prev") toast("Este canal não deu imagem nem por software. Fica só o som.", true); } }});
         return; }
       st.dec = new VideoDecoder({output:f => { st.nf++; st.w = f.displayWidth; st.hh = f.displayHeight; st.frames.push(f); if(st.frames.length > 12) st.frames.shift().close(); },
@@ -14035,7 +14037,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       st.raf = requestAnimationFrame(loop);
     };
     st.raf = requestAnimationFrame(loop);
-    log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:st.soft ? "960×540 (campos misturados)" : deint(), webgl:!!st.gl, motor:st.soft ? "FFmpeg/WASM (página http)" : "WebCodecs"});
+    log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:st.soft ? (wantBob(st) ? "960×540 Bob (50 imagens/s)" : "960×540 (campos misturados)") : deint(), webgl:!!st.gl, motor:st.soft ? "FFmpeg/WASM (página http)" : "WebCodecs"});
     return st;
   }
   /* o processador não aguenta este HEVC: lembra o canal e abre outra versão, se houver */
@@ -14098,19 +14100,25 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     }catch(e){ st.errs++; log(st.key, "MPEG-2: erro", {msg:String(e.message || e).slice(0, 120)}); }
     st.busy = false;
   }
+  /* Bob por software: só com «Bob» escolhido, imagem entrelaçada de 1080 e carro parado (em andamento poupa o processador) */
+  const wantBob = st => { try{ if(st.noBob || st.prog || deint() !== "bob") return false; return DRIVE.state !== "moving"; }catch(e){ return !st.noBob; } };
   function pump(st){
     if(st.mpeg2){ pumpLibav(st); return; }
     const v = st.o.v; if(st.init == null || !v) return;
     const now = v.currentTime * 1e6, p = st.pend;
     if(st.soft){
-      if(!st.cfg){ if(!p.some(x => x.key)) return; st.cfg = {codec:codecOf(p.find(x => x.key).data), autoShift:true}; try{ st.dec.configure(st.cfg); }catch(e){ log(st.key, "imagem por software (WASM): configurar falhou", {msg:String(e.message || e).slice(0, 160)}); stop(st.key); return; }
+      if(!st.cfg){ if(!p.some(x => x.key)) return; st.cfg = {codec:codecOf(p.find(x => x.key).data), autoShift:true, bob:wantBob(st)}; try{ st.dec.configure(st.cfg); }catch(e){ log(st.key, "imagem por software (WASM): configurar falhou", {msg:String(e.message || e).slice(0, 160)}); stop(st.key); return; }
         log(st.key, "imagem por software: configurar", {codec:st.cfg.codec, motor:"FFmpeg/WASM", workers:st.dec.nW}); }
       while(p.length){ const c = p.shift(); if(st.needKey && !c.key) continue; st.needKey = false;
         try{ st.dec.decode({type:c.key ? "key" : "delta", timestamp:usOf(st, c.pts), data:c.data}); }catch(e){} }
+      try{ const wb = wantBob(st); if(st.bobOn !== wb){ st.bobOn = wb; st.dec.setBob(wb); log(st.key, wb ? "1080i por software: Bob (50 imagens/s)" : "1080i por software: 25 imagens/s", {}); } }catch(e){}
       try{ st.dec.pump(now); }catch(e){}
       /* medição a cada 10 s: imagens/s mostradas e atraso face ao som */
       const tn = performance.now(); if(!st.mT) st.mT = {t:tn, n:st.nf};
-      else if(tn - st.mT.t > 10000){ log(st.key, "1080i por software: ritmo", Object.assign({fps:+((st.nf - st.mT.n) / ((tn - st.mT.t) / 1000)).toFixed(1), fila:st.frames.length, desvio_ms:st.shown ? Math.round((st.shown.timestamp - now) / 1000) : null}, (() => { try{ return st.dec.info(); }catch(e){ return {}; } })())); st.mT = {t:tn, n:st.nf}; }
+      else if(tn - st.mT.t > 10000){ log(st.key, "1080i por software: ritmo", Object.assign({fps:+((st.nf - st.mT.n) / ((tn - st.mT.t) / 1000)).toFixed(1), fila:st.frames.length, desvio_ms:st.shown ? Math.round((st.shown.timestamp - now) / 1000) : null}, (() => { try{ return st.dec.info(); }catch(e){ return {}; } })())); 
+        /* Bob pesado: se o processador do carro não chega perto das 50 imagens/s em duas medições seguidas, volta aos 25/s neste canal */
+        try{ const fpsB = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.bobOn && st.nf > 0){ st.bobSlow = fpsB < 38 ? (st.bobSlow || 0) + 1 : 0; if(st.bobSlow >= 2){ st.noBob = true; log(st.key, "1080i por software: Bob pesado, volta a 25 imagens/s", {fps:+fpsB.toFixed(1)}); } } }catch(e){}
+        st.mT = {t:tn, n:st.nf}; }
       return;
     }
     if(!st.cfg){ const k = p.find(x => x.key); if(!k){ if(!st.noKeyLog && p.length > 60){ st.noKeyLog = 1; log(st.key, "imagem por software: sem imagem-chave", {pedacos:p.length}); } return; }
