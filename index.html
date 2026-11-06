@@ -2765,7 +2765,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v242";
+const APP_VERSION = "v243";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4861,6 +4861,28 @@ async function keepAwake(on){
   }catch(e){}
 }
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && (lastPlayed[0]||lastPlayed[1])) keepAwake(true); });
+/* v243: o browser do Tesla pode congelar a página durante minutos (todos os temporizadores param, incluindo o vigia do direto).
+   Ao acordar, o direto ficava parado ou a tocar de onde tinha ficado (log de 6/11: RTP 1 UHD, 7 min sem nada). Ao voltar, reabre os canais em direto. */
+(function(){
+  let beat = performance.now(), pend = 0;
+  const reopen = (gap, why) => {
+    for(const s of [0,1]){
+      const c = lastPlayed[s]; if(!c || c.kind !== "live") continue;
+      try{ if(window.__dbgEv) window.__dbgEv(s, "página esteve parada: reabre o direto", {s:Math.round(gap / 1000), motivo:why}); }catch(e){}
+      try{ playChannel(c, s, true); }catch(e){}
+    }
+  };
+  const check = why => {
+    const now = performance.now(), gap = Math.max(now - beat, pend); beat = now;
+    if(gap <= 20000) return;
+    if(document.hidden){ pend = gap; return; }   /* ainda escondida: reabre só quando voltar a ser vista */
+    pend = 0; reopen(gap, why);
+  };
+  setInterval(() => check("temporizadores parados"), 2000);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) check("página voltou a ser vista"); });
+  document.addEventListener("resume", () => check("página retomada"));
+  addEventListener("pageshow", e => { if(e.persisted) check("página voltou da memória"); });
+})();
 /* ---------- Som dos filmes ---------- */
 /* O browser do Tesla não descodifica AC3 / E-AC3 / DTS / TrueHD (muito comuns em MKV e MP4): o vídeo toca, mas fica sem som. */
 const audioOk = codec => {
