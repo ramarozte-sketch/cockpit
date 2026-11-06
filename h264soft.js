@@ -109,10 +109,11 @@ function pull(nout){
       if(G){
         try{
           const ys = M._ys(), us = M._us(), vs = M._vs(), cw = M._cw(), ch = M._ch(), H = M.HEAPU8, py = M._py(), pu = M._pu(), pv = M._pv();
+          let lm = 0; for(let i = 1; i <= 3; i++) for(let j = 1; j <= 3; j++) lm += H[py + ((h * j / 4) | 0) * ys + ((w * i / 4) | 0)]; lm = lm / 9;   /* v227: luminância média da imagem, para o ecrã verificar que a GPU não devolve preto */
           gpuDraw(w, h, H.subarray(py, py + ys * (h - 1) + w), ys, H.subarray(pu, pu + us * (ch - 1) + cw), us, H.subarray(pv, pv + vs * (ch - 1) + cw), vs, cw, ch, s ? 1 : 0, !!M._full(), M._mid());
           M._rel();
           const bmp = G.cv.transferToImageBitmap(), e0 = ep; n++;
-          postMessage({type: "frame", ts, w: bmp.width, h: bmp.height, bmp, ep: e0}, [bmp]);
+          postMessage({type: "frame", ts, w: bmp.width, h: bmp.height, bmp, ep: e0, lum: lm}, [bmp]);
           continue;
         }catch(x){ G = false; gErr = "execução: " + String(x && x.message || x).slice(0, 60); postMessage({type: "gpuoff", msg: "gpu desligada: " + gErr}); }
       }
@@ -167,6 +168,7 @@ async function handle(d){
     /* depois do fim de sequência o FFmpeg não retoma bem com SPS/PPS do avcC: abre um descodificador novo (barato) */
     try{ M._dec_close(); }catch(x){} open();
     postMessage({type: "drained", n, ep: d.ep});
+  } else if(d.cmd === "gpu"){ useGpu = !!d.on;
   } else if(d.cmd === "bob"){ bob = !!d.on; prevTs = null;
   } else if(d.cmd === "flush"){ if(d.ep !== undefined) ep = d.ep; if(opened) M._dec_flush(); }
 }

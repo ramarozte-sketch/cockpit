@@ -923,7 +923,7 @@ body.layout-atv .rail{display:none}
           <div class="hdests" id="hDests"></div>
         </div>
         <div class="hcard">
-          <div class="row"><h2>A tocar</h2><span class="spacer"></span><button class="btn" id="hMirror" aria-pressed="false" aria-label="Imagem em andamento (ligar ou desligar)" title="Imagem em andamento: ligar ou desligar (funciona com o carro em movimento)" style="min-width:44px;padding:0 10px;opacity:.75">🖼</button><button class="btn" id="hOpenPlay">Abrir</button></div>
+          <div class="row"><h2>A tocar</h2><span class="spacer"></span><button class="btn" id="hMirror" aria-pressed="false" aria-label="Imagem em andamento (ligar ou desligar)" title="Imagem em andamento: ligar ou desligar (funciona com o carro em movimento)" style="min-width:56px;min-height:48px;padding:0 14px;font-size:26px;line-height:1;opacity:.9">🖼</button><button class="btn" id="hOpenPlay">Abrir</button></div>
           <div class="hplay"><span class="aico" id="hPlayIco">🎵</span><div style="min-width:0;flex:1"><b id="hPlayName">Nada a tocar</b><div class="small muted" id="hPlaySub">Escolhe uma rádio ou um canal</div></div></div>
           <div class="row hctl"><button class="btn" id="hPrev" aria-label="Anterior">◀</button><button class="btn primary" id="hStop">■ Parar</button><button class="btn" id="hNext" aria-label="Seguinte">▶</button></div>
           <div class="hchips" id="hRadios"></div>
@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v226";
+const APP_VERSION = "v227";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3597,7 +3597,7 @@ class SoftVideoDecoder {
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
       if(d.type === "gpuoff"){ window.__gpuMsg = d.msg; return; }
-      if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
+      if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, lum:d.lum, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
         if(W.fr >= 10){ const f = 1000 * W.fr / Math.max(1, W.ms); W.fps = W.fps ? W.fps * 0.7 + f * 0.3 : f; W.fr = 0; W.ms = 0; } }
@@ -3605,7 +3605,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1", ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -14026,7 +14026,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         if(lastF !== f){ gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, f); lastF = f; }
         gl.uniform1f(U.H, f.displayHeight || f.height); gl.uniform1f(U.par, field); gl.uniform1f(U.mode, mode === "bob" ? 0 : mode === "linear" ? 1 : 2);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); return cv;
-      }, drop(){ lastF = null; }};
+      }, probe(){ const w = cv.width, h = cv.height, b = new Uint8Array(4); let t = 0; for(let i = 1; i <= 3; i++) for(let j = 1; j <= 3; j++){ gl.readPixels(Math.floor(w * i / 4), Math.floor(h * j / 4), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); t += (b[0] + b[1] + b[2]) / 3; } return t / 9; },
+      drop(){ lastF = null; }};
     }catch(e){ console.log("desentrelaçar", e); return null; }
   }
 
@@ -14194,7 +14195,10 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     let src = f;
     const t0 = performance.now();
     if(f.bmp) src = f.bmp;
-    if(st.gl && mode !== "off"){ try{ const dm = st.o.dims ? st.o.dims(f) : [f.displayWidth, f.displayHeight]; src = st.gl.render(src, field, mode, dm[0], dm[1]); }catch(e){ src = f.bmp || f; } }
+    if(st.gl && mode !== "off"){ try{ const dm = st.o.dims ? st.o.dims(f) : [f.displayWidth, f.displayHeight]; src = st.gl.render(src, field, mode, dm[0], dm[1]);
+        /* v227: cor na placa gráfica ligada: de vez em quando confirma que o ecrã não ficou preto com a imagem a chegar clara; se ficar, desliga a GPU e volta à conversão no processador */
+        if(f.lum > 40 && !((st.nChk = (st.nChk || 0) + 1) % 30)){ const pl = st.gl.probe(); if(pl < 6){ st.blk = (st.blk || 0) + 1; if(st.blk >= 2 && !window.__gpuBad){ window.__gpuBad = 1; window.__gpuMsg = "desligada: ecrã preto"; log(st.key, "ecrã preto com a cor na placa gráfica: volta à conversão no processador", {lum:+f.lum.toFixed(0), ecra:+pl.toFixed(1)}); try{ for(const W of st.dec.W) W.w.postMessage({cmd:"gpu", on:false}); }catch(x){} } } else st.blk = 0; }
+      }catch(e){ src = f.bmp || f; } }
     st.o.out(src, f.displayWidth, f.displayHeight);
     /* se o processador não aguenta 50 imagens/s, passa sozinho para «Linear» (25/s) neste canal */
     if(mode === "bob"){ const dt = performance.now() - t0; st.avg = st.avg == null ? dt : st.avg * 0.95 + dt * 0.05; st.nr = (st.nr || 0) + 1;
