@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v232";
+const APP_VERSION = "v233";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3583,9 +3583,11 @@ class SoftVideoDecoder {
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
     this.lead = 1200000; this.srcFps = 0; this.gopN = 0; this.st = {gopsSaltados:0, bSaltadas:0, drenadas:0, bFinas:0}; this.thin = false; this._tn = 0;
     const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
-    this.nW = hc >= 6 ? 3 : hc >= 3 ? 2 : 1;
+    this.nW = hc >= 8 ? 4 : hc >= 6 ? 3 : hc >= 3 ? 2 : 1;   /* v233: 4 Workers em processadores de 8 ou mais fios */
   }
   /* v230: imagem inteira (1920x1080) com a cor convertida na placa gráfica: o ecrã desentrelaça (Bob, 50 imagens/s) em vez de misturar os campos a 960x540 */
+  /* v233: sem filtro de blocos nas imagens B quando o conjunto dos Workers mal chega ao ritmo da origem; volta ao normal quando há folga */
+  setFast(on){ this.fast = !!on; this.st.rapido = this.fast ? 1 : 0; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:this.fast}); }catch(e){} } }
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
     this.cfg = cfg; this.close(); this.state = "configured";
@@ -3607,7 +3609,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -3693,6 +3695,9 @@ class SoftVideoDecoder {
     }
     /* alimenta cada Worker */
     { const tot = this.W.reduce((m, W) => m + (W.fps || 0), 0), sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && this.W.every(W => W.fps) ? tot < sf * 1.6 : false;
+      try{ const ok = sf > 0 && this.W.every(W => W.fps), nowT = performance.now(), fk = this._fk || (this._fk = {t:nowT, b:this.st.bSaltadas});
+        if(nowT - fk.t > 2000){ const grow = this.st.bSaltadas - fk.b; fk.t = nowT; fk.b = this.st.bSaltadas;
+          if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
       if(!W.busy) continue;
@@ -3701,7 +3706,7 @@ class SoftVideoDecoder {
       while(q.length && W.inflight < 3){
         const c = q[0];
         const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
-        if(c.nr && !c.pre && c.ts < masterUs + lat && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }
+        if(c.nr && !c.pre && c.ts < masterUs + lat - 30000 && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }   /* v233: 30 ms de tolerância (antes largava imagens B por pouco) */
         /* v210: o conjunto dos Workers mal chega ao ritmo da origem (ex.: 1080i50 com ~20 imagens/s cada): em vez de deixar as imagens B atrasadas caírem em rajadas (saltos de 100-200 ms),
            larga uma B sim, outra não, de forma regular, antes de gastar tempo a descodificá-la */
         if(this.thin && c.nr && !c.pre && q.length > 1 && ((this._tn = (this._tn || 0) + 1) & 1)){ q.shift(); this.st.bFinas++; continue; }
@@ -14166,7 +14171,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       else if(tn - st.mT.t > 10000){ log(st.key, "1080i por software: ritmo", Object.assign({fps:+((st.nf - st.mT.n) / ((tn - st.mT.t) / 1000)).toFixed(1), fila:st.frames.length, desvio_ms:st.shown ? Math.round((st.shown.timestamp - now) / 1000) : null}, (() => { try{ return st.dec.info(); }catch(e){ return {}; } })())); 
         /* Bob pesado: se o processador do carro não chega perto das 50 imagens/s em duas medições seguidas, volta aos 25/s neste canal */
         try{ const fpsB = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.bobOn && st.nf > 0){ st.bobSlow = fpsB < 38 ? (st.bobSlow || 0) + 1 : 0; if(st.bobSlow >= 2){ st.noBob = true; log(st.key, "1080i por software: Bob pesado, volta a 25 imagens/s", {fps:+fpsB.toFixed(1)}); } } }catch(e){}
-        try{ const fpsG = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.gb && st.nf > 0){ st.gbSlow = fpsG < 20 ? (st.gbSlow || 0) + 1 : 0; if(st.gbSlow >= 2){ st.noGb = true; log(st.key, "1080i: Bob na placa gráfica não chega ao ritmo, volta a 960×540", {fps:+fpsG.toFixed(1)}); } } }catch(e){}
+        try{ const fpsG = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.gb && st.nf > 0){ st.gbSlow = fpsG < (st.gbLin ? 18 : 20) ? (st.gbSlow || 0) + 1 : 0;
+          /* 1.º passo: Bob → Linear na placa gráfica (imagem inteira, 25 imagens/s, gasta menos); 2.º passo: volta ao 960×540 */
+          if(st.gbSlow >= 2){ st.gbSlow = 0; if(!st.gbLin){ st.gbLin = 1; log(st.key, "1080i: Bob na placa gráfica pesado, passa a Linear (imagem inteira, 25 imagens/s)", {fps:+fpsG.toFixed(1)}); } else { st.noGb = true; log(st.key, "1080i: placa gráfica não chega ao ritmo, volta a 960×540", {fps:+fpsG.toFixed(1)}); } } } }catch(e){}
         st.mT = {t:tn, n:st.nf}; }
       return;
     }
@@ -14200,7 +14207,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     let mode = st.prog || (st.soft && (f.displayHeight || 0) <= 544 && (f.displayWidth || 0) >= 900) ? "off" : deint();
     /* em andamento: Linear (25 imagens/s) em vez de Bob, para poupar o processador do carro; volta ao Bob parado */
     const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return false; } })();
-    if(mode === "bob" && (st.slow || (moving && !st.gb))) mode = "linear";
+    if(mode === "bob" && (st.slow || st.gbLin || (moving && !st.gb))) mode = "linear";   /* v233: sem Bob na GPU (ou com a GPU apertada) o Linear dá 25 imagens/s nítidas */
     if(moving !== st.wasMoving){ st.wasMoving = moving; if(deint() === "bob") log(st.key, moving ? "em andamento: Bob → Linear" : "parado: volta ao Bob", {}); }
     /* Bob: 1.º campo (linhas de cima) na primeira metade da imagem, 2.º campo na segunda → 50 imagens/s */
     const field = mode === "bob" && now - f.timestamp >= st.dur / 2 ? 1 : 0;
