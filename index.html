@@ -2494,6 +2494,27 @@ let TVORG = LS.get("tvOrg", null) || {};
 const orgSave = () => LS.set("tvOrg", TVORG);
 /* Categorias começadas por PT (PT | Desporto, PT: Filmes, Portugal…) aparecem primeiro, a menos que a ordem tenha sido definida à mão */
 const isPtGroup = n => /^[\s\W_]*(PT|PORTUGAL|PORTUGUES)(?![A-Za-zÀ-ÿ])/i.test(String(n || ""));
+/* v242: géneros de filmes e séries (Ação, Comédia, Terror, Drama…): o fornecedor só dá categorias (não género por título), por isso agrupa as categorias cujo nome indica o género */
+const GENRES = [
+  ["acao", "💥 Ação", /acao|action|accion/], ["comedia", "😂 Comédia", /comedia|comedy|humor/], ["terror", "👻 Terror", /terror|horror|\bmedo\b/], ["drama", "🎭 Drama", /drama/],
+  ["romance", "💕 Romance", /romanc|romant/], ["ficcao", "🚀 Ficção científica", /ficcao|ficcion|sci-?fi|science.?fiction/], ["thriller", "🔪 Thriller", /thriller|suspense|misterio|mystery/], ["crime", "🕵️ Crime", /\bcrime|policia|gangster/],
+  ["animacao", "🧸 Animação", /animac|cartoon|desenhos|animation|\banime\b/], ["aventura", "🧭 Aventura", /aventura|adventure/], ["fantasia", "🧙 Fantasia", /fantasi/], ["doc", "🎥 Documentários", /document/],
+  ["familia", "👨‍👩‍👧 Família", /familia|family|infantil|\bkids\b|crianca/], ["guerra", "🪖 Guerra", /\bguerra|\bwar\b/], ["western", "🤠 Western", /western|faroeste/]
+];
+const _gg = new Map(), _gi = {};
+function genresOfGroup(g){
+  let r = _gg.get(g); if(r) return r;
+  const n = String(g || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  r = GENRES.filter(x => x[2].test(n)).map(x => x[0]); _gg.set(g, r); return r;
+}
+/* Map género → filmes/séries (guardado até a lista mudar); os de categorias portuguesas vêm primeiro */
+function genreIndex(kind){
+  const key = kind + "|" + channels.length; if(_gi[kind] && _gi[kind].k === key) return _gi[kind].m;
+  const m = new Map();
+  for(const c of channels){ if(c.kind !== kind) continue; const gs = genresOfGroup(c.group); for(const k of gs){ let a = m.get(k); if(!a){ a = []; m.set(k, a); } a.push(c); } }
+  for(const [k, a] of m){ let pt = [], ot = []; for(const c of a) (isPtGroup(c.group) ? pt : ot).push(c); m.set(k, pt.concat(ot)); }
+  _gi[kind] = {k:key, m}; return m;
+}
 function orgGroupList(kind, names, withHidden){
   const ord = (TVORG.grp || {})[kind] || [], hid = new Set((TVORG.grpHide || {})[kind] || []);
   const idx = n => { const i = ord.indexOf(n); return i < 0 ? (isPtGroup(n) ? -1 : 1e6) : i; };
@@ -2744,7 +2765,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v241";
+const APP_VERSION = "v242";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2912,16 +2933,20 @@ function fillGroups(){
   $("tvGroup").hidden = false;
   const groups = orgGroupList(tvKind==="fav" ? "live" : tvKind, [...new Set(channels.filter(c=>tvKind==="fav"||c.kind===tvKind).map(c=>c.group))], false);
   const gcn = new Map(); channels.forEach(c => { if(tvKind==="fav" || c.kind===tvKind){ gcn.set(c.group, (gcn.get(c.group)||0)+1); } });
-  $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>`+groups.map(g=>`<option value="${esc(g)}">${esc(g)}  ·  ${gcn.get(g)||0}</option>`).join("");
+  const opts = groups.map(g=>`<option value="${esc(g)}">${esc(g)}  ·  ${gcn.get(g)||0}</option>`).join("");
+  let gen = ""; try{ if(tvKind === "movie" || tvKind === "series"){ const gi = genreIndex(tvKind); gen = GENRES.filter(x => gi.get(x[0]) && gi.get(x[0]).length).map(x => `<option value="g:${x[0]}">${x[1]}  ·  ${gi.get(x[0]).length}</option>`).join(""); } }catch(e){}
+  $("tvGroup").innerHTML = `<option value="">Todas as categorias</option>` + (gen ? `<optgroup label="Géneros">${gen}</optgroup><optgroup label="Categorias do fornecedor">${opts}</optgroup>` : opts);
 }
 function renderTvList(){
   const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
   let list = tvKind==="free" ? freeChans : tvKind==="intl" ? intlChans : channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
   if(tvKind==="free" || tvKind==="intl"){ $("freeTools").hidden = false; if($("hideDead").checked) list = list.filter(c=>hState(c)!=="dead"); list = [...list].sort((a,b)=>(hState(a)==="ok"?0:1)-(hState(b)==="ok"?0:1)); } else $("freeTools").hidden = true;
   if(tvKind==="fav") list = [...channels, ...freeChans].filter((c,i,a)=>favs.has(c.url) && a.findIndex(x=>x.url===c.url)===i);
-  if(g && tvKind!=="free" && tvKind!=="intl") list = list.filter(c=>c.group===g);
+  const isGen = !!g && g.startsWith("g:") && (tvKind === "movie" || tvKind === "series");
+  if(isGen) list = genreIndex(tvKind).get(g.slice(2)) || [];
+  else if(g && tvKind!=="free" && tvKind!=="intl") list = list.filter(c=>c.group===g);
   if(q) list = list.filter(c=>norm(c.name).includes(q));
-  list = orgChannels(list, orgKindNow(), tvKind==="fav" ? "x" : g);
+  list = orgChannels(list, orgKindNow(), tvKind==="fav" || isGen ? "x" : g);
   const _k = tvKind+"|"+g+"|"+q; if(window.__tvK !== _k){ window.__tvK = _k; window.__tvLim = 25; }
   const paged = tvKind==="movie" || tvKind==="series";
   const shown = list.slice(0, paged ? window.__tvLim : 300); window.__tvShown = shown;
@@ -12152,6 +12177,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let names = []; try{ names = orgGroupList(AH.kind, [...gm.keys()], false); }catch(e){ names = [...gm.keys()]; }
     let sel = names.filter(n => isPtGroup(n));
     if(!sel.length && AH.kind !== "live"){ const re = /(^|[^A-Za-zÀ-ÿ])(PT|PT-PT|PORTUGAL|PORTUGU[EÊ]S|PORTUGUESA)([^A-Za-zÀ-ÿ]|$)|🇵🇹/i; sel = names.filter(n => re.test(n)); if(!sel.length) sel = names; }
+    if(AH.kind !== "live"){ try{ const gi = genreIndex(AH.kind); for(const x of GENRES){ const l = gi.get(x[0]); if(!l || l.length < 6) continue; const lk = "gen|" + AH.kind + "|" + x[0]; rows += row(sx(x[1]), l.slice(0, AH.lim[lk] || 25), l.length, lk); } }catch(e){} }   /* v242: filas por género */
     for(const g of sel.slice(0, 14)){ const l = gm.get(g) || []; const lk = AH.kind + "|" + g; const n = AH.kind === "live" ? 40 : (AH.lim[lk] || 25); rows += row(sx(g), l.slice(0, n), l.length, AH.kind === "live" ? "" : lk); }
     if(AH.kind === "live" && !channels.some(c => c.kind === "live") && freeChans.length) rows += row("📡 Canais abertos PT", freeChans.slice(0, 40), freeChans.length);
     if(!rows.includes("ahRow")){
