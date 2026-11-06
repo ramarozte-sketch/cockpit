@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v222";
+const APP_VERSION = "v223";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3561,6 +3561,8 @@ function __avcNonRef(u){
 /* v189: os Workers do FFmpeg ficam guardados entre canais (compilar o WebAssembly de cada Worker demorava ao abrir
    cada canal em andamento) e são preparados de antemão quando o modo em andamento está ligado */
 const SVD_POOL = [];
+/* v223: o descodificador (2 MB) é descarregado em segundo plano logo após abrir a página: o 1.º canal em 4G lento esperava ~45 s por ele (log de 06/11) */
+try{ if(!WC_NATIVE) addEventListener("load", () => setTimeout(() => { try{ fetch("h264soft.js?v=" + APP_VERSION).then(r => r.arrayBuffer()).catch(() => {}); }catch(e){} }, 1200)); }catch(e){}
 let SVD_EP = 1;
 function svdWarm(n){
   try{ if(typeof Worker !== "function" || typeof WebAssembly !== "object") return;
@@ -14052,6 +14054,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
             st.g0 = {t:tn, n:st.nf + (st.sk || 0)};
             if(fps < want * 0.85 && !st.gaveUp){ st.gaveUp = 1; hevcSlow(key, st, fps); return; } } } }catch(e){}
       try{ const tn = performance.now(); if(!st.t0) st.t0 = tn; if(st.nf < 3 && tn - (st.diagT || st.t0) > 5000){ st.diagT = tn; const v0 = o.v;
+          /* v223: o fornecedor envia só vídeo, sem áudio (relógio do vídeo nunca arranca): explica em vez de ficar a preto em silêncio */
+          if(st.init == null && st.nf === 0 && tn - st.t0 > 9000 && !st.noAud){ st.noAud = 1; log(key, "canal sem áudio do fornecedor: o relógio do vídeo não arranca", {pendentes:st.pend.length}); try{ if(key !== "prev") toast("Este canal está a chegar sem áudio do fornecedor e fica sem imagem. Experimenta outra versão do canal.", true); }catch(e){} }
           log(key, "imagem por software: ainda sem imagens", {imagens:st.nf, pendentes:st.pend.length, fila:st.dec ? st.dec.decodeQueueSize : -1, estado:st.dec ? st.dec.state : (st.ldec ? "libav" : "-"), init:st.init != null, chave:!st.needKey, cfg:st.cfg ? st.cfg.codec : "", agora:v0 ? +v0.currentTime.toFixed(1) : 0, primeiro:st.pend.length && st.init != null ? +(st.pend[0].pts / 90000 - (st.vOff || 0) - st.init).toFixed(1) : null, erros:st.errs}); } }catch(e){}
       st.raf = requestAnimationFrame(loop);
     };
