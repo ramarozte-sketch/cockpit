@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v233";
+const APP_VERSION = "v234";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4936,7 +4936,9 @@ async function playTs(v, url, slot, onFail){
       const ahead = () => { try{ const bf = v.buffered; return bf.length ? bf.end(bf.length - 1) - v.currentTime : 0; }catch(e){ return 9; } };
       if(ahead() > 0.4) return;
       rb = true; try{ v.pause(); }catch(e){} const t0 = performance.now();
-      const iv = setInterval(() => { if(tsInst[slot] !== p || ahead() >= 2.5 || performance.now() - t0 > 4000){ clearInterval(iv); rb = false; try{ if(tsInst[slot] === p) v.play().catch(() => {}); }catch(e){} } }, 250); };
+      const iv = setInterval(() => { const tmo = performance.now() - t0 > 4000; if(tsInst[slot] !== p || ahead() >= 2.5 || tmo){ clearInterval(iv); rb = false; try{ if(tsInst[slot] === p) v.play().catch(() => {}); }catch(e){}
+        /* v234: se passou 4 s sem juntar 2,5 s, o servidor está a entregar em tempo real (borda do direto): esperar só congela a imagem (Eleven Sports 3). Desliga a guarda e deixa correr. */
+        if(tmo){ v.removeEventListener("waiting", wf); } } }, 250); };
     v.addEventListener("waiting", wf); }catch(e){} }
   let failed = false;
   p.on(mpegts.Events.ERROR, ()=>{ if(failed) return; failed = true; onFail(); });
