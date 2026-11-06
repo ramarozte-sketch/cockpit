@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v223";
+const APP_VERSION = "v224";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4913,11 +4913,20 @@ async function playTs(v, url, slot, onFail){
   /* v196: com rede lenta, «perseguir o direto» fazia saltos para a frente depois de cada quebra; aí fica desligado */
   let slowNet = false; try{ const n = navigator.connection; if(n && ((n.effectiveType && /^(slow-2g|2g|3g)$/.test(n.effectiveType)) || (n.downlink && n.downlink < 3))) slowNet = true; const bw = +LS.get("bwEst", 0); if(bw && bw < 3e6) slowNet = true; }catch(e){}
   const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:!tapOn, liveBufferLatencyChasing:!slowNet, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
-    liveBufferLatencyMaxLatency:4, liveBufferLatencyMinRemain:1,
+    liveBufferLatencyMaxLatency:8, liveBufferLatencyMinRemain:3,
     autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:30, autoCleanupMinBackwardDuration:15, fixAudioTimestampGap:true} : {}));
   p.__url = url; p.attachMediaElement(v); p.load(); tsInst[slot]=p;
   if(tapOn) setTimeout(() => { try{ if(tsInst[slot] === p && mirrorOn) startMirror(slot); }catch(e){} }, 0);
   if(window.__TESLA){ try{ watchStall(slot, v, () => { try{ if(tsInst[slot] !== p) return; p.unload(); p.load(); v.play().catch(()=>{}); }catch(e){} }); }catch(e){} }
+  /* v224: o .ts em direto (HEVC 1080p50) chegava mesmo ao fim do que estava carregado e parava ~1 vez por segundo (log de 06/11 09:19: RTP 1 UHD a preto).
+     Quando pára por falta de dados, espera até haver ~2,5 s à frente (no máximo 4 s) antes de retomar: menos paragens, mais longas e raras, e o descodificador do carro não é esgotado */
+  if(window.__TESLA){ try{ let rb = false;
+    const wf = () => { if(tsInst[slot] !== p){ v.removeEventListener("waiting", wf); return; } if(rb || v.paused) return;
+      const ahead = () => { try{ const bf = v.buffered; return bf.length ? bf.end(bf.length - 1) - v.currentTime : 0; }catch(e){ return 9; } };
+      if(ahead() > 0.4) return;
+      rb = true; try{ v.pause(); }catch(e){} const t0 = performance.now();
+      const iv = setInterval(() => { if(tsInst[slot] !== p || ahead() >= 2.5 || performance.now() - t0 > 4000){ clearInterval(iv); rb = false; try{ if(tsInst[slot] === p) v.play().catch(() => {}); }catch(e){} } }, 250); };
+    v.addEventListener("waiting", wf); }catch(e){} }
   let failed = false;
   p.on(mpegts.Events.ERROR, ()=>{ if(failed) return; failed = true; onFail(); });
   v.play().catch(()=>{});
