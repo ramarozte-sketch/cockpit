@@ -159,6 +159,7 @@ async function handle(d){
     const r = open();
     postMessage({type: r === 0 ? "ready" : "error", msg: "open " + r + (useGpu ? " gpu:" + (gpuState()) : ""), ver: 2});
   } else if(d.cmd === "warm"){ /* so carrega o FFmpeg (compilar o WebAssembly demora): fica pronto para o proximo canal */
+    if(d.wasm && !MH){ try{ const buf = await (await fetch(d.wasm)).arrayBuffer(); MH = await H264Mod(new Uint8Array(buf)); }catch(x){} }   /* v241: H.265 preparado de antemão */
   } else if(d.cmd === "decode"){
     if(d.ep !== undefined) ep = d.ep;
     if(d.xt) xts = d.ts;

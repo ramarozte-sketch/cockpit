@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v240";
+const APP_VERSION = "v241";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3564,6 +3564,9 @@ const SVD_POOL = [];
 /* v223: o descodificador (2 MB) é descarregado em segundo plano logo após abrir a página: o 1.º canal em 4G lento esperava ~45 s por ele (log de 06/11) */
 try{ if(!WC_NATIVE) addEventListener("load", () => setTimeout(() => { try{ fetch("h264soft.js?v=" + APP_VERSION).then(r => r.arrayBuffer()).catch(() => {}); }catch(e){} }, 1200)); }catch(e){}
 let SVD_EP = 1;
+function svdWarmHevc(){
+  try{ const u = new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href; for(const w of SVD_POOL) try{ w.postMessage({cmd:"warm", wasm:u}); }catch(e){} }catch(e){}
+}
 function svdWarm(n){
   try{ if(typeof Worker !== "function" || typeof WebAssembly !== "object") return;
     while(SVD_POOL.length < n){ const w = new Worker("h264soft.js?v=" + APP_VERSION); w.onmessage = null; w.postMessage({cmd:"warm"}); SVD_POOL.push(w); } }catch(e){}
@@ -3599,7 +3602,7 @@ class SoftVideoDecoder {
   setFast(on){ this.fast = !!on; this.st.rapido = this.fast ? 1 : 0; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:this.fast}); }catch(e){} } }
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
-    this.cfg = cfg; this.hevc = !!cfg.hevc; this.close(); this.state = "configured";
+    this.cfg = cfg; this.hevc = !!cfg.hevc; if(this.hevc) this.fast = true; this.close(); this.state = "configured";
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
   }
   _mkWorker(cfg){
@@ -3704,10 +3707,10 @@ class SoftVideoDecoder {
       if(closed) W.done = true; else this.owner = W;
     }
     /* alimenta cada Worker */
-    { const tot = this.W.reduce((m, W) => m + (W.fps || 0), 0), sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && this.W.every(W => W.fps) ? tot < sf * 1.6 : false;
-      try{ const ok = sf > 0 && this.W.every(W => W.fps), nowT = performance.now(), fk = this._fk || (this._fk = {t:nowT, b:this.st.bSaltadas});
+    { const mw = this.W.filter(W => W.fps > 0), tot = mw.length ? mw.reduce((m, W) => m + W.fps, 0) / mw.length * this.W.length : 0, sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && mw.length ? tot < sf * 1.6 : false;   /* v241: Workers que ainda não trabalharam contam com a média dos outros (antes, um só parado impedia o modo rápido) */
+      try{ const ok = sf > 0 && mw.length > 0, nowT = performance.now(), fk = this._fk || (this._fk = {t:nowT, b:this.st.bSaltadas});
         if(nowT - fk.t > 2000){ const grow = this.st.bSaltadas - fk.b; fk.t = nowT; fk.b = this.st.bSaltadas;
-          if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
+          if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
       if(!W.busy) continue;
@@ -4158,10 +4161,10 @@ function tsMirInit(slot){
     if(c && !st0.reopened){ st0.reopened = true; setTimeout(() => { try{ if(window.__oneConn) window.__oneConn(c, slot); else playChannel(c, slot); }catch(e){} }, 300); }
     return;
   }
-  const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null};
+  const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null, t0:performance.now()};
   if(!WC_NATIVE){   /* v195: página http — o mesmo FFmpeg/WASM em paralelo (Annex B, sem WebCodecs) */
     st.soft = true;
-    st.decoder = new SoftVideoDecoder({output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; mirPushFrame(st, frame); startPresent(slot); },
+    st.decoder = new SoftVideoDecoder({output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; if(st.frames === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "primeira imagem em andamento", {ms:Math.round(performance.now() - st.t0)}); }catch(e){} } mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).length});
     const pre = tap.pre || []; tap.pre = []; tap.preN = 0; for(const b of pre) tsMirFeed(slot, b);
     return;
@@ -4773,6 +4776,7 @@ function uhdSwitch(slot, force){
 }
 function startMirror(slot){
   if(!mirrorOn) return;
+  try{ const c0 = lastPlayed[slot]; if(!WC_NATIVE && c0 && /UHD|4K/i.test(String(c0.name).normalize("NFKD"))){ svdWarm(3); svdWarmHevc(); } }catch(e){}   /* v241: H.265 preparado antes de ser preciso */
   slotBox(slot).classList.add("mirroring");
   const c = lastPlayed[slot];
   if(tsInst[slot] && !hlsInst[slot]){ if(uhdSwitch(slot)) return; tsMirInit(slot); cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot); return; }
@@ -14735,12 +14739,17 @@ window.__sa = {
       if(!v || !c || !c.url || /^(movie|series|episode|vod)$/.test(c.kind || "") || document.hidden || v.paused || v.seeking || (!h && !tsInst[slot])){ W[slot] = null; return; }
       const now = Date.now(); let w = W[slot];
       if(!w || w.url !== c.url){ w = W[slot] = {url:c.url, t:v.currentTime, at:now, n:0, since:now}; return; }
+      /* v241: canal UHD/4K que em 8 s não tem nada no buffer: o fornecedor não o emite; passa logo para a versão H.264 (sem esperar 15 s) */
+      if(!w.alt && now - w.since > 8000 && !v.buffered.length && /UHD|4K/i.test(String(c.name).normalize("NFKD"))){
+        const sib = window.__h264Sib(c);
+        if(sib){ w.alt = 1; dbg(slot, "sem dados em 8 s: para a versão H.264", {de:c.name, para:sib.name}); try{ toast("Sem sinal em " + c.name + ": a abrir " + sib.name); }catch(e){} window.playChannel(sib, slot); return; }
+      }
       if(Math.abs(v.currentTime - w.t) > 0.05){ if(w.n && now - w.rs > 20000) w.n = 0; w.t = v.currentTime; w.at = now; return; }
       if(now - w.at < 15000 || v.readyState >= 4) return;
       if(w.n >= 2) return;                                     /* no máximo 2 reinícios seguidos por canal */
       /* v235: canal (ex. RTP 1 UHD, Eleven Sports 3 UHD) que não entrega NENHUM dado em 15 s: o fornecedor não está a emitir esta versão. Passa para a versão H.264 do mesmo canal, se existir. */
       try{
-        if(!w.alt && !v.buffered.length && !v.videoWidth){
+        if(!w.alt && !v.buffered.length){
           const sib = window.__h264Sib(c);
           if(sib){ w.alt = 1; dbg(slot, "sem dados: para a versão H.264", {de:c.name, para:sib.name}); try{ toast("Sem sinal em " + c.name + ": a abrir " + sib.name); }catch(e){} window.playChannel(sib, slot); return; }
         }
