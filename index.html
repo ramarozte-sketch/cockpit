@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v234";
+const APP_VERSION = "v235";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14695,6 +14695,14 @@ window.__sa = {
       if(Math.abs(v.currentTime - w.t) > 0.05){ if(w.n && now - w.rs > 20000) w.n = 0; w.t = v.currentTime; w.at = now; return; }
       if(now - w.at < 15000 || v.readyState >= 4) return;
       if(w.n >= 2) return;                                     /* no máximo 2 reinícios seguidos por canal */
+      /* v235: canal (ex. RTP 1 UHD, Eleven Sports 3 UHD) que não entrega NENHUM dado em 15 s: o fornecedor não está a emitir esta versão. Passa para a versão H.264 do mesmo canal, se existir. */
+      try{
+        if(!w.alt && v.readyState === 0 && !v.buffered.length){
+          const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+          const k0 = key(c.name), sib = k0 ? (channels || []).find(x => x && x.url && x.url !== c.url && x.kind === c.kind && key(x.name) === k0) : null;
+          if(sib){ w.alt = 1; dbg(slot, "sem dados: para a versão H.264", {de:c.name, para:sib.name}); try{ toast("Sem sinal em " + c.name + ": a abrir " + sib.name); }catch(e){} window.playChannel(sib, slot); return; }
+        }
+      }catch(e){}
       w.n++; w.rs = now; w.at = now;
       dbg(slot, "reinício automático: direto parado", {parado_s:15, buf:(function(){ let o = []; for(let i = 0; i < v.buffered.length; i++) o.push(v.buffered.start(i).toFixed(0) + "-" + v.buffered.end(i).toFixed(0)); return o.join(" "); })(), vez:w.n});
       try{ window.playChannel(c, slot, true); }catch(e){}
