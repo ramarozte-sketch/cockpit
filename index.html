@@ -30,6 +30,7 @@ window.__TESLA = (function(){ var m = "auto"; try{ m = JSON.parse(localStorage.g
   });
 })();</script>
 <style>
+.h265{font-style:normal;font-size:.85em;font-weight:700;color:#ffd27a;background:#ffd27a22;border-radius:6px;padding:0 6px;margin-right:4px}
 /* Layout: rail de navegação à esquerda, barra de estado no topo, painel de trabalho à direita — pensado para o ecrã horizontal do Tesla, com alvos de toque grandes. */
 :root{
   --bg:#0d131c; --panel:#141c28; --panel-2:#1b2535; --line:#263246;
@@ -2765,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v247";
+const APP_VERSION = "v248";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2952,7 +2953,7 @@ function renderTvList(){
   const shown = list.slice(0, paged ? window.__tvLim : 300); window.__tvShown = shown;
   $("tvList").innerHTML = shown.map((c,i)=>{
     const nn = nowNext(c);
-    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${nn?esc(hm(nn.now.start)+"–"+hm(nn.now.stop)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
+    return `<div class="item" data-i="${i}"><button class="item" style="padding:0;min-height:0" data-play="${i}">${c.logo?`<img src="${esc(imgSrc(c.logo))}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">`:'<span class="ph"></span>'}<span class="t"><b>${(c.free?hBadge(c):"")}${esc(c.name)}</b><span>${window.__h265Tag&&window.__h265Tag(c)?'<i class="h265">H.265 · só parado</i> ':""}${nn?esc(hm(nn.now.start)+"–"+hm(nn.now.stop)+" "+nn.now.title):esc(c.group)}</span></span></button><button class="star ${favs.has(c.url)?"on":""}" data-fav="${i}" aria-label="Favorito">★</button></div>`;
   }).join("") || `<p class="muted small" style="margin:8px">Nada para mostrar.</p>`;
   if(tvKind==="intl" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${intlLoading ? "A carregar canais…" : esc(intlErr || "Nada para mostrar.")}</p>`;
   if(tvKind==="free" && !list.length) $("tvList").innerHTML = `<p class="muted small" style="margin:8px">${freeLoading ? "A carregar canais…" : esc(freeErr || "Nada para mostrar.")}</p>`;
@@ -3194,6 +3195,10 @@ function playChannel(c, slot=tvTarget, auto=false){
   }
   else if(isHls && window.Hls && Hls.isSupported()){
     // Afinado para o browser do Tesla: pouca memória, qualidade ajustada ao tamanho do ecrã, muitas tentativas de rede.
+    /* v248: com rede boa (estimativa > 6 Mbps e não 2G/3G) o direto começa 2 pedaços atrás em vez de 3: ~10 s mais perto da emissão.
+       Se a rede piorar, a folga do direto (abaixo) recua dentro do buffer. */
+    const goodNet = (() => { try{ if(!live || !window.__TESLA) return false; const et = navigator.connection && navigator.connection.effectiveType; if(et && /(^|-)(2g|3g)$/.test(et)) return false; return (+LS.get("bwEst", 0) || 0) > 6e6; }catch(e){ return false; } })();
+    if(goodNet){ try{ window.__dbgEv && window.__dbgEv(slot, "direto mais perto da emissão (rede boa)", {pedacos:2}); }catch(e){} }
     const mk = () => {
       const h = new Hls({
         fLoader: makeCapLoader(slot),
@@ -3201,7 +3206,7 @@ function playChannel(c, slot=tvTarget, auto=false){
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
         ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
           manifestLoadingTimeOut:live ? 4000 : 8000, levelLoadingTimeOut:live ? 4500 : 9000, fragLoadingTimeOut:25000} : {}),
-        liveSyncDurationCount:3, liveMaxLatencyDurationCount:10,
+        liveSyncDurationCount:goodNet ? 2 : 3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:window.__TESLA && live ? 350 : 800,
         levelLoadingMaxRetry: window.__TESLA && live ? 10 : 4, levelLoadingRetryDelay:window.__TESLA && live ? 350 : 800, levelLoadingMaxRetryTimeout:4000,
         fragLoadingMaxRetry:6, fragLoadingRetryDelay:500
@@ -3300,7 +3305,16 @@ function playChannel(c, slot=tvTarget, auto=false){
     let stage = DIRECT_VIDEO() ? -1 : 0, triedDirect = DIRECT_VIDEO();
     const hlsPattern = /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i;
     fileViaHls = () => { if(stage >= 2 || !hlsPattern.test(c.url) || !(window.Hls && Hls.isSupported())) return false; stage = 1; triedDirect = true; v.onerror && v.onerror(); return true; };
-    v.src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
+    /* v248: a conta só aceita 1 ligação: um filme aberto logo a seguir a um canal ficava sem dados (Scary Movie, log de 6/11).
+       Espera até 1 s desde o último fecho e, se em 10 s o servidor não mandar nada, pede o ficheiro outra vez (uma vez). */
+    { const src1 = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
+      const gapF = window.__TESLA ? 1000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
+      const setF = () => { if(playId !== playSeq[slot]) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
+      if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
+      setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
+        const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme sem dados do servidor: pede outra vez", {}); }catch(e){}
+        const s0 = v.currentSrc || src1; v.removeAttribute("src"); v.load(); setTimeout(() => { if(playId !== playSeq[slot]) return; v.src = s0; v.load(); v.play().catch(()=>{}); }, 800); }catch(e){} }, 10000 + Math.max(0, gapF)); }
     /* v200: guarda onde ia o filme; se a ligação cair a meio, volta a pedir o mesmo endereço e continua desse ponto */
     let fT = 0, fRe = 0; const fTu = () => { if(playId === playSeq[slot] && v.currentTime > 0) fT = v.currentTime; }; try{ if(v.__fTu) v.removeEventListener("timeupdate", v.__fTu); }catch(e){} v.__fTu = fTu; v.addEventListener("timeupdate", fTu);
     const fResume = () => { if(fT < 3) return; const t = fT; const go = () => { v.removeEventListener("loadedmetadata", go); if(playId !== playSeq[slot]) return; try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); };
@@ -3562,6 +3576,31 @@ const mirrorRAF = [null, null];
 const MIR = [null, null];                 // estado do pipeline WebCodecs por slot
 const slotBox = slot => $("vid"+slot).parentElement;
 const WC_NATIVE = typeof window.VideoDecoder === "function" && typeof window.EncodedVideoChunk === "function";
+/* v248: filmes H.265 numa página http não têm imagem em andamento. O Cockpit lembra-se deles (marca «H.265 · só parado» nas listas)
+   e, ao descobrir um, procura outra versão do mesmo filme (mesmo título e ano) e abre-a. */
+const HEVCM = (() => { try{ return new Set(JSON.parse(localStorage.getItem("ck_hevcMov") || "[]")); }catch(e){ return new Set(); } })();
+window.__h265Tag = c => { try{ return !WC_NATIVE && c && /^(movie|episode|vod)$/.test(c.kind || "") && HEVCM.has(c.url); }catch(e){ return false; } };
+const movBase = n => String(n || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  .replace(/^\s*(\|[a-z]{2,3}\||[a-z]{2,3}\s*[-:|])\s*/i, "")
+  .replace(/\b(4k|uhd|fhd|hd|sd|hevc|x265|h\.?265|x264|h\.?264|1080p|2160p|720p|480p|hdr|10bit|multi|dual|dublado|legendado|leg|dub)\b/g, " ")
+  .replace(/[^a-z0-9]+/g, "");
+window.__hevcMovie = (slot, c) => {
+  try{
+    if(!c || !c.url) return false;
+    HEVCM.add(c.url); try{ localStorage.setItem("ck_hevcMov", JSON.stringify([...HEVCM].slice(-500))); }catch(e){}
+    const b = movBase(c.name); if(!b || b.length < 3) return false;
+    const pref = String(c.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]?/i), lg = pref ? pref[1].toLowerCase() : "";
+    const tag = n => /\b(4k|uhd|hevc|x265|h\.?265|2160p)\b/i.test(String(n || "").normalize("NFKD"));
+    const cand = channels.filter(x => x && x.kind === c.kind && x.url !== c.url && !HEVCM.has(x.url) && movBase(x.name) === b)
+      .sort((x, y) => (tag(x.name) - tag(y.name)) || ((lg && !String(y.name).toLowerCase().startsWith(lg)) - (lg && !String(x.name).toLowerCase().startsWith(lg))));
+    const sib = cand[0];
+    try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 em andamento", {outraVersao:sib ? sib.name : null}); }catch(e){}
+    if(!sib) return false;
+    toast(c.name + " é H.265 (sem imagem em andamento). A abrir outra versão: " + sib.name);
+    setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot, true); }catch(e){} }, 60);
+    return true;
+  }catch(e){ return false; }
+};
 const WC_OK = WC_NATIVE || (typeof Worker === "function" && typeof WebAssembly === "object" && typeof createImageBitmap === "function");
 /* Sem WebCodecs (página em http): descodifica H.264 por software (FFmpeg/WASM) em Workers, à medida que o som avança.
    v176 — o log do Tesla (RTP1 720p a 50 imagens/s) mostrava o descodificador a dar só ~28 imagens/s: a imagem ia
@@ -4599,7 +4638,7 @@ function mkvRun(slot, st, src, audio){
       const h2 = x => x.toString(16).padStart(2, "0");
       const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
       st.cfg = {codec, description:trk.priv, codedWidth:trk.w, codedHeight:trk.h, optimizeForLatency:true};
-      if(!WC_NATIVE && isHevc){ st.err = "HEVC"; toast("Este filme é HEVC/H.265: sem WebCodecs (página em http) não é possível mostrá-lo em andamento.", true); return; }
+      if(!WC_NATIVE && isHevc){ st.err = "HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
       const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
       if(!sup || !sup.supported){ st.err = codec + " não suportado"; toast("Este filme usa " + (isHevc ? "HEVC/H.265" : codec) + " e o descodificador deste browser não o mostra em andamento.", true); return; }
       decoder.configure(st.cfg);
@@ -4713,7 +4752,7 @@ function mp4Run(slot, st, src){
     file.onError = e => { st.err = "mp4box: "+e; };
     file.onReady = info => {
       const vt = (info.videoTracks||[])[0]; if(!vt){ st.err="sem pista de vídeo"; return; }
-      if(/^(hvc1|hev1)/i.test(vt.codec) && !WC_NATIVE){ st.err="HEVC"; toast("Este filme é HEVC/H.265: sem WebCodecs (página em http) não é possível mostrá-lo em andamento.", true); return; }
+      if(/^(hvc1|hev1)/i.test(vt.codec) && !WC_NATIVE){ st.err="HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
       let desc=null; const trak=file.getTrackById(vt.id);
       for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC||e.hvcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
       st.cfg = {codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height)};
@@ -4777,6 +4816,25 @@ function wcDestroy(slot){
   MIR[slot] = null;
 }
 /* v236: versão H.264 do mesmo canal (ex. «RTP 1 UHD» → «RTP1»): mesmo nome sem UHD/FHD/HD/SD/4K, outro endereço */
+const I1080 = (() => { try{ return new Set(JSON.parse(localStorage.getItem("ck_i1080") || "[]")); }catch(e){ return new Set(); } })();
+window.__i1080 = slot => {
+  try{
+    const c = lastPlayed[slot]; if(!c || c.kind !== "live") return;
+    I1080.add(c.url); try{ localStorage.setItem("ck_i1080", JSON.stringify([...I1080].slice(-400))); }catch(e){}
+    if(!(typeof drivingEff === "function" && drivingEff())) return;
+    const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    const k0 = key(c.name); if(!k0) return;
+    const now = Date.now(); window.__i1080T = window.__i1080T || {}; if(now - (window.__i1080T[k0] || 0) < 120000) return;   /* uma troca por canal a cada 2 min: sem voltas */
+    const tag = n => /UHD|4K/i.test(String(n).normalize("NFKD"));
+    const sib = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !I1080.has(x.url) && key(x.name) === k0 && !(window.__parHide && window.__parHide(x)))
+      .sort((a, b) => tag(a.name) - tag(b.name))[0];
+    try{ window.__dbgEv && window.__dbgEv(slot, "andamento: 1080i", {outraVersao:sib ? sib.name : null}); }catch(e){}
+    if(!sib || tag(sib.name)) return;
+    window.__i1080T[k0] = now;
+    toast(c.name + " é 1080i (menos fluido em andamento). A experimentar " + sib.name + "…");
+    setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot, true); }catch(e){} }, 400);
+  }catch(e){}
+};
 window.__h264Sib = function(c){
   try{
     const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
@@ -4991,7 +5049,7 @@ function stopSlot(slot){
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
   if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
   if(dashInst[slot]){ try{ dashInst[slot].reset(); }catch(e){} dashInst[slot]=null; }
-  const v=$("vid"+slot); v.onerror=null; v.removeAttribute("src"); v.load();
+  const v=$("vid"+slot); try{ if(v.currentSrc) window.__connCloseAt = Date.now(); }catch(e){} v.onerror=null; v.removeAttribute("src"); v.load();
   if(typeof stopMirror==="function") stopMirror(slot);
 }
 let mpegtsLoading = null;
@@ -12171,7 +12229,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   function card(c, k){
     const ini = sx(gdIni(c.name));
     const lg = (isPoster(c) && CV.map[c.url]) || c.logo;
-    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c._pct ? '<span class="ahBar"><i style="width:' + c._pct + '%"></i></span>' : "") + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
+    return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c._pct ? '<span class="ahBar"><i style="width:' + c._pct + '%"></i></span>' : "") + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + (window.__h265Tag && window.__h265Tag(c) ? '<i class="h265">H.265 · só parado</i> ' : "") + sx(subOf(c)) + '</small></span></button>';
   }
   function row(title, list, total, lm, cls, extra){
     list = uniq(list).filter(c => !(window.__parHide && window.__parHide(c))); if(!list.length) return "";
@@ -14215,6 +14273,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     };
     st.raf = requestAnimationFrame(loop);
     log(key, o.hevc ? "vídeo HEVC: imagem por software" : o.mpeg2 ? "vídeo MPEG-2: imagem por software" : "vídeo 1080i: imagem por software", {desentrelacar:st.soft ? (wantBob(st) ? "960×540 Bob (50 imagens/s)" : "960×540 (campos misturados)") : deint(), webgl:!!st.gl, motor:st.soft ? "FFmpeg/WASM (página http)" : "WebCodecs"});
+    /* v248: em andamento o 1080i por software fica em 18–21 imagens/s: se o mesmo canal tiver outra versão que ainda não se saiba ser 1080i, abre-a (720p é mais fluido) */
+    try{ if(!o.hevc && !o.mpeg2 && typeof key === "number") window.__i1080(key); }catch(e){}
     return st;
   }
   /* o processador não aguenta este HEVC: lembra o canal e abre outra versão, se houver */
@@ -14488,7 +14548,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__libav = libav;
   /* --- relógio: PCM seguido, ancorado ao tempo do vídeo --- */
   class PcmClock {
-    constructor(v){ this.v = v; this.ctx = null; this.g = null; this.srcs = []; this.endCtx = 0; this.endT = -1; }
+    constructor(v){ this.v = v; this.ctx = null; this.g = null; this.srcs = []; this.endCtx = 0; this.endT = -1; this.born = performance.now(); }
     _ensure(sr){ if(!this.ctx){ const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC({sampleRate:sr}); this.g = this.ctx.createGain();
         /* a mistura Dolby para estéreo baixa o volume para não saturar: recupera ~4 dB com um limitador suave */
         this.agc = this.ctx.createGain(); this.agc.gain.value = 1; this.boost = this.ctx.createGain(); this.boost.gain.value = 1.5; this.env = 0; this.gA = 1; this.lastLog = 0; this.pk = 0;
@@ -14511,6 +14571,14 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
       let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < 0.08) ? this.endCtx : anchor;
+      /* v248: no arranque de um filme o descodificador Dolby (WASM) demora a aquecer e a imagem avança sem som: os primeiros ~5 s eram deitados fora.
+         Uma vez, nos primeiros 20 s, recua a imagem até ao primeiro som pronto: começa já certo. */
+      if(at + dur < c.currentTime + 0.01 && !this.sync0 && performance.now() - this.born < 20000){
+        this.sync0 = true;
+        try{ const el = v.el || v, sl = el.id === "vid1" ? 1 : 0, cc = typeof lastPlayed !== "undefined" && lastPlayed[sl];
+          const lag = el.currentTime - t;
+          if(cc && /^(movie|episode|vod)$/.test(cc.kind || "") && lag > 0.4 && lag < 15){ window.__dbgEv && window.__dbgEv(sl, "som Dolby atrasado no arranque: recua a imagem", {s:+lag.toFixed(1)}); el.currentTime = t; this.endT = -1; return; } }catch(e){}
+      }
       if(at + dur < c.currentTime + 0.01){ this.endT = -1; this.drops = (this.drops || 0) + 1; this.dropLate = (this.dropLate || 0) + 1; return; }
       /* o leitor enche o buffer de vídeo muito à frente (30-150 s em direto): o som desses pedaços tem de ficar agendado, não ser deitado fora */
       if(at > c.currentTime + 300){ this.endT = -1; this.drops = (this.drops || 0) + 1; this.dropAhead = (this.dropAhead || 0) + 1; return; }
