@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v229";
+const APP_VERSION = "v230";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3585,6 +3585,8 @@ class SoftVideoDecoder {
     const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
     this.nW = hc >= 6 ? 3 : hc >= 3 ? 2 : 1;
   }
+  /* v230: imagem inteira (1920x1080) com a cor convertida na placa gráfica: o ecrã desentrelaça (Bob, 50 imagens/s) em vez de misturar os campos a 960x540 */
+  setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
     this.cfg = cfg; this.close(); this.state = "configured";
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
@@ -3605,7 +3607,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -14151,12 +14153,16 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       while(p.length){ const c = p.shift(); if(st.needKey && !c.key) continue; st.needKey = false;
         try{ st.dec.decode({type:c.key ? "key" : "delta", timestamp:usOf(st, c.pts), data:c.data}); }catch(e){} }
       try{ const wb = wantBob(st); if(st.bobOn !== wb){ st.bobOn = wb; st.dec.setBob(wb); log(st.key, wb ? "1080i por software: Bob (50 imagens/s)" : "1080i por software: 25 imagens/s", {}); } }catch(e){}
+      /* v230: Bob na placa gráfica: com a cor na GPU a funcionar, o worker entrega a imagem inteira e o desentrelaçador WebGL da página faz o Bob (nítido e 50 imagens/s, também em andamento) */
+      try{ const gb = !st.noGb && !st.prog && !wantBob(st) && deint() === "bob" && LS.get("gpuColor", "0") === "1" && !window.__gpuBad && /gpu:on/.test(window.__gpuMsg || "");
+        if(!!st.gb !== gb){ st.gb = gb; st.dec.setFull(gb); log(st.key, gb ? "1080i: Bob na placa gráfica (imagem inteira, 50 imagens/s)" : "1080i: volta a 960×540 (campos misturados)", {}); } }catch(e){}
       try{ st.dec.pump(now); }catch(e){}
       /* medição a cada 10 s: imagens/s mostradas e atraso face ao som */
       const tn = performance.now(); if(!st.mT) st.mT = {t:tn, n:st.nf};
       else if(tn - st.mT.t > 10000){ log(st.key, "1080i por software: ritmo", Object.assign({fps:+((st.nf - st.mT.n) / ((tn - st.mT.t) / 1000)).toFixed(1), fila:st.frames.length, desvio_ms:st.shown ? Math.round((st.shown.timestamp - now) / 1000) : null}, (() => { try{ return st.dec.info(); }catch(e){ return {}; } })())); 
         /* Bob pesado: se o processador do carro não chega perto das 50 imagens/s em duas medições seguidas, volta aos 25/s neste canal */
         try{ const fpsB = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.bobOn && st.nf > 0){ st.bobSlow = fpsB < 38 ? (st.bobSlow || 0) + 1 : 0; if(st.bobSlow >= 2){ st.noBob = true; log(st.key, "1080i por software: Bob pesado, volta a 25 imagens/s", {fps:+fpsB.toFixed(1)}); } } }catch(e){}
+        try{ const fpsG = (st.nf - st.mT.n) / ((tn - st.mT.t) / 1000); if(st.gb && st.nf > 0){ st.gbSlow = fpsG < 20 ? (st.gbSlow || 0) + 1 : 0; if(st.gbSlow >= 2){ st.noGb = true; log(st.key, "1080i: Bob na placa gráfica não chega ao ritmo, volta a 960×540", {fps:+fpsG.toFixed(1)}); } } }catch(e){}
         st.mT = {t:tn, n:st.nf}; }
       return;
     }
@@ -14190,7 +14196,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     let mode = st.prog || (st.soft && (f.displayHeight || 0) <= 544 && (f.displayWidth || 0) >= 900) ? "off" : deint();
     /* em andamento: Linear (25 imagens/s) em vez de Bob, para poupar o processador do carro; volta ao Bob parado */
     const moving = (() => { try{ return DRIVE.state === "moving"; }catch(e){ return false; } })();
-    if(mode === "bob" && (st.slow || moving)) mode = "linear";
+    if(mode === "bob" && (st.slow || (moving && !st.gb))) mode = "linear";
     if(moving !== st.wasMoving){ st.wasMoving = moving; if(deint() === "bob") log(st.key, moving ? "em andamento: Bob → Linear" : "parado: volta ao Bob", {}); }
     /* Bob: 1.º campo (linhas de cima) na primeira metade da imagem, 2.º campo na segunda → 50 imagens/s */
     const field = mode === "bob" && now - f.timestamp >= st.dur / 2 ? 1 : 0;

@@ -171,6 +171,7 @@ async function handle(d){
     try{ M._dec_close(); }catch(x){} open();
     xts = null;
     postMessage({type: "drained", n, ep: d.ep});
+  } else if(d.cmd === "shift"){ shift = d.shift | 0; autoS = -1;   /* v230: muda o tamanho de saída a meio (0 = inteiro, -1 = automático) */
   } else if(d.cmd === "gpu"){ useGpu = !!d.on;
   } else if(d.cmd === "bob"){ bob = !!d.on; prevTs = null;
   } else if(d.cmd === "flush"){ xts = null; if(d.ep !== undefined) ep = d.ep; if(opened) M._dec_flush(); }
