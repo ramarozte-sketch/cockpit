@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v249";
+const APP_VERSION = "v250";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -13890,7 +13890,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   try{ const _mcl = window.makeCapLoader; if(typeof _mcl === "function") window.makeCapLoader = function(slot){ const B = _mcl.apply(this, arguments);
       return class extends B { load(ctx, cf, cb){ try{ const a = DBG.cur[slot]; if(a && !a.__smp && on() && ctx && /frag/i.test(ctx.type || "frag")){ const os = cb.onSuccess;
           cb = Object.assign({}, cb, {onSuccess:(r, st, cx, n) => { try{ const a2 = DBG.cur[slot], d = r && r.data; if(a2 && !a2.__smp && d && (d.byteLength || 0) > 1000 && d.byteLength < 14e6){ a2.__smp = 1;
-                DBG.sample[slot] = {n:a2.n, at:a2.at, name:a2.ch.name, u8:d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength))}; try{ const k = DBG.sample[slot]; DBG.keep = DBG.keep.filter(x => x.name !== k.name); DBG.keep.push(k); while(DBG.keep.length > 3) DBG.keep.shift(); }catch(e){} ev(slot, "amostra guardada", {kB:Math.round(d.byteLength / 1024)}); } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
+                DBG.sample[slot] = {n:a2.n, at:a2.at, name:a2.ch.name, u8:d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength))}; try{ const k = DBG.sample[slot]; DBG.keep = DBG.keep.filter(x => x.name !== k.name); DBG.keep.push(k); while(DBG.keep.length > 3) DBG.keep.shift(); }catch(e){} ev(slot, "amostra guardada", {kB:Math.round(d.byteLength / 1024)});
+                /* v250: taxa real do som (cabeçalhos ADTS) e do contexto da amplificação: para perceber som «em câmara lenta» (Sport TV 1, 44,1 kHz) */
+                try{ const u = DBG.sample[slot].u8, R = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350], cnt = {}; let hits = 0;
+                  for(let i = 0; i < u.length - 4 && hits < 40; i++){ if(u[i] === 0xFF && (u[i + 1] & 0xF6) === 0xF0){ const si = (u[i + 2] >> 2) & 15, ch = ((u[i + 2] & 1) << 2) | (u[i + 3] >> 6), pr = u[i + 2] >> 6; if(si < 13 && ch > 0 && ch < 8){ const k = R[si] + "|" + ch + "|" + pr; cnt[k] = (cnt[k] || 0) + 1; hits++; } } }
+                  const best = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+                  if(best){ const [hz, ch, pr] = best[0].split("|"); const A = window.__amp, vv = document.getElementById("vid" + slot);
+                    ev(slot, "som do canal", {Hz:+hz, canais:+ch, perfil:["Main","LC","SSR","LTP"][+pr], amplificacao:!!(vv && vv._amp), ctxAmplificacao_Hz:A && A.ctx ? A.ctx.sampleRate : null, ctxEstado:A && A.ctx ? A.ctx.state : null}); } }catch(e){} } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
   window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot; if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
