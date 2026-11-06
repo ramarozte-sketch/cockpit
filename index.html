@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v238";
+const APP_VERSION = "v239";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3655,7 +3655,8 @@ class SoftVideoDecoder {
     if(!isFinite(fw) || !n) return 1200000;
     /* v190: folga de 0,5 s (era 0,3 s) e mínimo de 0,6 s — absorve as quebras de ritmo do processador do carro */
     /* nunca pede mais antecedência do que a fila deixa ter (limite de imagens prontas): senão os Workers param à espera e as imagens chegam tarde */
-    const room = Math.max(600000, Math.round((this.bkLimit() - 4) / fs * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000;
+    /* v239: um Worker mais lento que a origem (H.265: ~25 imagens/s para 50) só enche a fila ao ritmo dele, não ao da origem: a antecedência pode ser maior (antes ficava em 1,1 s e os GOPs de 2 s chegavam tarde → saltos) */
+    const room = Math.max(600000, Math.round((this.bkLimit() - 4) / Math.min(fs, fw) * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000;
     return Math.max(minLead, Math.min(4500000, room, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
