@@ -26,7 +26,7 @@ async function H264Mod(){
    v176: as mensagens são tratadas por ordem (fila), a conversão para ImageBitmap não pára a descodificação,
    e "drain" despeja as imagens que o FFmpeg retém no fim de um GOP (NAL de fim de sequência), para vários
    Workers poderem descodificar GOPs diferentes em paralelo. */
-let M = null, shift = 0, bob = false, half = 20000, prevTs = null, ready = null, chain = Promise.resolve(), extra = null, opened = false, ep = 0, autoS = -1, useGpu = false;
+let M = null, shift = 0, bob = false, half = 20000, prevTs = null, ready = null, chain = Promise.resolve(), extra = null, opened = false, ep = 0, autoS = -1, useGpu = false, xts = null;   /* xts: ts da imagem «extra» (a chave do GOP seguinte, enviada só para soltar a última do GOP): a sua própria imagem não se emite, o GOP seguinte já a emite */
 function open(){
   let p = 0, n = 0;
   if(extra && extra.byteLength){ n = extra.byteLength; p = M._malloc(n); M.HEAPU8.set(extra, p); }
@@ -100,6 +100,7 @@ function pull(nout){
   /* v189: shift -1 = automatico (imagens com mais de 1280 de largura saem a metade do tamanho) */
   while((k = M._rx())){
     const w = M._dec_w(), h = M._dec_h(), ts = M._dec_pts();
+    if(xts !== null && ts === xts){ M._rel(); continue; }   /* v229: não repete a imagem do GOP seguinte */
     if(nout && !(bob && w > 1280 && h > 700)){ M._rel(); n++; continue; }   /* v191: imagem so para referencia (GOP anterior): nem se converte */
     if(shift < 0 && autoS < 0) autoS = w > 1280 ? 1 : 0;
     const s = bob ? 0 : shift < 0 ? autoS : shift;
@@ -149,12 +150,13 @@ function send(u8, ts, key){
 async function handle(d){
   await load();
   if(d.cmd === "open"){
-    shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
+    shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
     const r = open();
     postMessage({type: r === 0 ? "ready" : "error", msg: "open " + r + (useGpu ? " gpu:" + (gpuState()) : ""), ver: 2});
   } else if(d.cmd === "warm"){ /* so carrega o FFmpeg (compilar o WebAssembly demora): fica pronto para o proximo canal */
   } else if(d.cmd === "decode"){
     if(d.ep !== undefined) ep = d.ep;
+    if(d.xt) xts = d.ts;
     const t0 = performance.now();
     send(new Uint8Array(d.data), d.ts, d.key);
     const n = pull(!!d.nout);
@@ -167,10 +169,11 @@ async function handle(d){
     try{ M._dec_send(0, 0, 0, 0); n += pull(); }catch(x){}
     /* depois do fim de sequência o FFmpeg não retoma bem com SPS/PPS do avcC: abre um descodificador novo (barato) */
     try{ M._dec_close(); }catch(x){} open();
+    xts = null;
     postMessage({type: "drained", n, ep: d.ep});
   } else if(d.cmd === "gpu"){ useGpu = !!d.on;
   } else if(d.cmd === "bob"){ bob = !!d.on; prevTs = null;
-  } else if(d.cmd === "flush"){ if(d.ep !== undefined) ep = d.ep; if(opened) M._dec_flush(); }
+  } else if(d.cmd === "flush"){ xts = null; if(d.ep !== undefined) ep = d.ep; if(opened) M._dec_flush(); }
 }
 onmessage = e => {
   const d = e.data;

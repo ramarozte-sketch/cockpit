@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v228";
+const APP_VERSION = "v229";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3708,7 +3708,7 @@ class SoftVideoDecoder {
         if(c.ts > masterUs + 400000 && this.backlog() >= this.bkLimit()) break;   /* já há muitas imagens prontas à espera: não gasta memória com as de mais à frente */
         q.shift();
         const buf = c.data.buffer.slice(c.data.byteOffset, c.data.byteOffset + c.data.byteLength);
-        W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep, nout:!!c.pre}, [buf]);
+        W.inflight++; W.w.postMessage({cmd:"decode", data:buf, ts:c.ts, key:c.key, ep:W.ep, nout:!!c.pre, xt:!!c.extra}, [buf]);
       }
       /* GOP terminado: despeja as imagens retidas para reordenar e fica livre */
       if(!q.length && W.done && W.inflight === 0 && !W.draining){ W.done = false;
