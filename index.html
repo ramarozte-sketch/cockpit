@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v227";
+const APP_VERSION = "v228";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4742,6 +4742,7 @@ function syncMirror(){
   if(mirrorOn && !WC_NATIVE) setTimeout(() => svdWarm(3), 1500);
   for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
   for(const id of ["btnMirror", "hMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } }
+  try{ tvDriveSync(); }catch(e){}
 }
 function syncMirrorBtns(){ for(const id of ["btnMirror", "hMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } } }
 function toggleMirror(){
@@ -5954,7 +5955,9 @@ document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.r
 
 /* ---------- TV bloqueada com o carro em andamento (o modo "só áudio" foi removido) ---------- */
 let drivingNow = false;
-const tvBlocked = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff();
+const tvBlockedRaw = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff();
+/* v228: com o botão «Andamento» ligado a TV não bloqueia em andamento (a imagem passa pelo descodificador da app, não pelo <video> que o carro bloqueia) */
+const tvBlocked = () => tvBlockedRaw() && !(typeof mirrorOn !== "undefined" && mirrorOn);
 function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !tvBlocked(); }
 function tvHaltPlayback(){ try{ stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false); }catch(e){} }
 /* Valores fixos: verificação em repouso de 10 em 10 s (mín. de 60 em 60 s com a TV/Jogos/Desktop abertos) e 6 s em P para desbloquear. */
@@ -5971,7 +5974,7 @@ function tvDriveSync(){
 }
 /* Mesma regra da TV para o vídeo do ecrã Media: YouTube na app, vídeo por link e trailers.
    Áudio (rádio, YouTube Music, Spotify, links .mp3) continua livre. */
-const mediaBlocked = () => tvBlocked();
+const mediaBlocked = () => tvBlockedRaw();
 const isAudioUrl = u => /\.(mp3|aac|m4a|ogg|opus|flac|wav)(\?|#|$)/i.test(String(u||""));
 const isVideoSite = u => { try{ const h = new URL(String(u), location.href).hostname.replace(/^www\./, ""); return h === "rtp.pt"; }catch(e){ return false; } };   /* YouTube e NOS TV ficam livres em andamento */
 function mediaLockUi(){ const el = $("mediaLock"); if(el) el.hidden = !mediaBlocked(); }
