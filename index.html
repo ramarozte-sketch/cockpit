@@ -2038,7 +2038,7 @@ document.addEventListener("pointerdown", e => { const sl = e.target.closest && e
 function drivingEff(){ return DRIVE.state === "moving"; }
 function driveChip(){
   const eff = drivingEff();
-  const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? "🚗 em andamento — bloqueios ativos" : "🅿️ parado");
+  const di = document.getElementById("driveInfo"); if(di) di.textContent = "Estado agora: " + (eff ? ((typeof mirrorOn !== "undefined" && mirrorOn) ? "🚗 em andamento — Andamento ligado, sem bloqueios" : "🚗 em andamento — bloqueios ativos") : "🅿️ parado");
   const c = document.getElementById("chipDrive"); if(c){ c.hidden = false; c.className = "chip " + (eff ? "warn" : "ok"); c.querySelector("span").textContent = eff ? "Em andamento" : "Parado"; }
   document.body.classList.toggle("driving", eff);
 }
@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v236";
+const APP_VERSION = "v237";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4772,6 +4772,7 @@ function syncMirror(){
   for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
   for(const id of ["btnMirror", "hMirror", "tMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } }
   try{ tvDriveSync(); }catch(e){}
+  try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); if(typeof mediaLockUi === "function") mediaLockUi(); if(typeof tvLockUi === "function") tvLockUi(); streamGuard(); }catch(e){}
 }
 function syncMirrorBtns(){ for(const id of ["btnMirror", "hMirror", "tMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } } }
 function toggleMirror(){
@@ -5986,7 +5987,8 @@ document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.r
 
 /* ---------- TV bloqueada com o carro em andamento (o modo "só áudio" foi removido) ---------- */
 let drivingNow = false;
-const tvBlockedRaw = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff();
+/* v237: com o botão «Andamento» ligado nada fica bloqueado em andamento (TV, vídeo por link, jogos, janelas e Cast) */
+const tvBlockedRaw = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff() && !(typeof mirrorOn !== "undefined" && mirrorOn);
 /* v228: com o botão «Andamento» ligado a TV não bloqueia em andamento (a imagem passa pelo descodificador da app, não pelo <video> que o carro bloqueia) */
 const isVodKind = k => /^(movie|series|episode|vod)$/.test(k || "");
 /* v232: filmes e séries não seguem o bloqueio dos canais de TV (a TV em direto continua a bloquear em andamento, a não ser com o botão «Andamento» ligado) */
@@ -6719,7 +6721,7 @@ const GAMES_ONLINE = [
   {cat:"Portais de jogos", name:"Poki", desc:"Centenas de jogos grátis no browser", ico:"🎮", url:"https://poki.com/pt"},
   {cat:"Portais de jogos", name:"CrazyGames", desc:"Jogos grátis, sem instalar nada", ico:"🕹️", url:"https://www.crazygames.com/"}
 ];
-const gamesLocked = () => !cfg.passenger && !demo() && drivingEff();
+const gamesLocked = () => !cfg.passenger && !demo() && drivingEff() && !(typeof mirrorOn !== "undefined" && mirrorOn);
 let gmCleanup = [];
 /* ---------- Ecrã total dos jogos ---------- */
 const GM_FIT_SEL = ".g3wrap, canvas.gcv, canvas.gsnake, .g2048, .gmem, .gttt, .g4, .gmole, .gsimon, .gmines";
