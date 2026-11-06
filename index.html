@@ -2765,7 +2765,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v245";
+const APP_VERSION = "v246";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12017,6 +12017,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
 .ahKind[aria-pressed=true]{background:#7cc4ff;color:#06101f}
 .ahRow h3{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:16px 4px 0;font-size:22px;font-weight:700}
 .ahRow h3 span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ahRow h3 .ahQ{flex:none;margin-left:auto;font:inherit;font-size:.6em;font-weight:700;color:#fff;background:#ffffff1f;border:1px solid #ffffff40;border-radius:999px;padding:6px 16px;cursor:pointer}.ahRow h3 .ahQ.on{background:var(--accent,#7cc4ff);color:#001;border-color:transparent}
 .ahRow h3 em{flex:none;font-style:normal;font-size:.62em;font-weight:600;opacity:.7;background:#ffffff1f;border-radius:999px;padding:2px 12px}
 .ahScroll{display:flex;gap:16px;overflow-x:auto;padding:12px 8px 24px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .ahScroll::-webkit-scrollbar{display:none}
@@ -12172,11 +12173,11 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const lg = (isPoster(c) && CV.map[c.url]) || c.logo;
     return '<button class="ahCard' + (isPoster(c) ? " poster" : "") + '" data-k="' + k + '"><span class="ahArt">' + (c._pct ? '<span class="ahBar"><i style="width:' + c._pct + '%"></i></span>' : "") + (lg ? '<img src="' + sx(img(lg)) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="window.__ahImgErr && window.__ahImgErr(this)">' : "") + '<b class="ahInit">' + ini + '</b></span><span class="ahMeta"><b title="' + sx(c.name) + '">' + sx(c.name) + '</b><small>' + sx(subOf(c)) + '</small></span></button>';
   }
-  function row(title, list, total, lm, cls){
+  function row(title, list, total, lm, cls, extra){
     list = uniq(list).filter(c => !(window.__parHide && window.__parHide(c))); if(!list.length) return "";
     const k0 = AH.flat.length; list.forEach(c => AH.flat.push(c));
     const more = lm && total > list.length ? '<button class="ahCard ahMore" data-lm="' + sx(lm) + '">Carregar mais 25<br><small>' + list.length + ' de ' + total + '</small></button>' : "";
-    return '<div class="ahRow' + (cls ? " " + cls : "") + '"><h3><span>' + title + '</span><em>' + (total || list.length) + '</em></h3><div class="ahScroll">' + list.map((c, i) => card(c, k0 + i)).join("") + more + '</div></div>';
+    return '<div class="ahRow' + (cls ? " " + cls : "") + '"><h3><span>' + title + '</span>' + (extra || "") + '<em>' + (total || list.length) + '</em></h3><div class="ahScroll">' + list.map((c, i) => card(c, k0 + i)).join("") + more + '</div></div>';
   }
   const favList = kind => { try{ const ord = LS.get("favOrd", []) || [], rk = c => { const i = ord.indexOf(c.url); return i < 0 ? 1e6 : i; }; return uniq([...channels, ...freeChans].filter(c => favs.has(c.url) && (kind === "live" ? !isPoster(c) && c.kind !== "episode" : c.kind === kind))).sort((a, b) => rk(a) - rk(b)); }catch(e){ return []; } };
   AH.favList = favList;
@@ -12202,7 +12203,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const fl = favList(AH.kind); if(fl.length) rows += row("⭐ Favoritos", fl.slice(0, 40));
     const rv = (AH.recSnap || recents()).filter(x => x && x.url && (AH.kind === "live" ? !isPoster(x) && x.kind !== "episode" : x.kind === AH.kind) && !(!AH.recSnap && cur && cur.url === x.url)).slice(0, 20);
     if(rv.length) rows += row("🕘 Vistos recentemente", rv);
-    if(AH.kind === "live" && window.__op){ try{ const ok = window.__op.opKey(); if(ok){ const ol = window.__op.opChannels(ok); if(ol.length) rows += row("📺 " + sx(window.__op.opTitle(ok)), ol.slice(0, 80), ol.length, null, "ahOp"); } }catch(e){} }
+    if(AH.kind === "live" && window.__op){ try{ const ok = window.__op.opKey(); if(ok){ const ol = window.__op.opChannels(ok); if(ol.length){ const hq = window.__op.opQual() === "hd"; rows += row("📺 " + sx(window.__op.opTitle(ok)), ol.slice(0, 80), ol.length, null, "ahOp", '<button class="ahQ' + (hq ? "" : " on") + '" data-opq="1" title="Versão dos canais desta lista">' + (hq ? "HD" : "Ultra HD") + '</button>'); } } }catch(e){} }
     const gm = groupsOf(AH.kind);
     let names = []; try{ names = orgGroupList(AH.kind, [...gm.keys()], false); }catch(e){ names = [...gm.keys()]; }
     let sel = names.filter(n => isPtGroup(n));
@@ -12249,7 +12250,8 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
 
   /* toques */
   sec.addEventListener("click", e => {
-    const b = e.target.closest("[data-k],[data-go],[data-kind],[data-lm],[data-srch]"); if(!b) return;
+    const b = e.target.closest("[data-k],[data-go],[data-kind],[data-lm],[data-srch],[data-opq]"); if(!b) return;
+    if(b.dataset.opq){ e.stopPropagation(); try{ window.__op.opToggle(); }catch(x){} render(true); return; }
     if(b.dataset.lm){ AH.lim[b.dataset.lm] = (AH.lim[b.dataset.lm] || 25) + 25; render(true); return; }
     if(b.dataset.kind){ AH.kind = b.dataset.kind; LS.set("ahKind", AH.kind); render(true); return; }
     if(b.dataset.srch){ openSearch(); return; }
@@ -12745,6 +12747,20 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   const opCustom = () => { try{ return String(LS.get("tvOpCustom", "") || ""); }catch(e){ return ""; } };
   const nrm = n => String(n || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/^[\s\W_]*(pt|portugal)\b[\s|:\-\/]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ").replace(/\b(fhd|uhd|hd|sd|4k|8k|hevc|h265|raw|plus)\b/g, " ").replace(/[^a-z0-9]+/g, "");
   const opOrder = key => key === "custom" ? opCustom().split(/\r?\n/).map(x => x.trim()).filter(Boolean) : ((OPS[key] || {}).list || []);
+  const opQual = () => { try{ return LS.get("tvOpQ", "uhd") === "hd" ? "hd" : "uhd"; }catch(e){ return "uhd"; } };
+  /* troca a versão e, se estiver a dar um canal desta lista, passa logo para a outra versão dele (o ecrã total continua na lista) */
+  function opToggle(){
+    const k = opKey(); if(!k) return;
+    LS.set("tvOpQ", opQual() === "hd" ? "uhd" : "hd");
+    const ol = opChannels(k), hd = opQual() === "hd";
+    toast("Lista " + ((OPS[k] || {}).label || "do operador") + ": canais em " + (hd ? "HD" : "Ultra HD"));
+    try{
+      const slot = tvTarget, c = lastPlayed[slot]; if(!c || c.kind !== "live") return;
+      const b = nrm(c.name), nc = ol.find(x => nrm(x.name) === b); if(!nc) return;
+      window.__src[slot] = ol.slice();
+      if(nc.url !== c.url) playChannel(nc, slot, true);
+    }catch(e){}
+  }
   const opTitle = key => key === "custom" ? "Ordem personalizada" : "Canais " + ((OPS[key] || {}).label || "");
   function opChannels(key){
     const live = channels.filter(c => c.kind === "live"); if(!live.length) return [];
@@ -12752,7 +12768,11 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     for(const c of live){ const k = nrm(c.name); if(!k) continue; const a = idx.get(k) || []; a.push(c); idx.set(k, a); }
     /* áudio em português: só variantes de categorias PT (ou BR, AO, MZ, CV); categorias sem país vêm depois; ES, FR, GB… ficam de fora */
     const lang = c => { let k = ""; try{ k = window.__cty && window.__cty.ctyOfItem ? window.__cty.ctyOfItem(c) : (isPtGroup(c.group) ? "PT" : "??"); }catch(e){} return /^(PT|BR|AO|MZ|CV)$/.test(k) ? 0 : (k === "??" || k === "" || k.slice(0, 2) === "G:") ? 1 : 2; };
-    const q = c => (/\b(fhd|uhd|4k)\b/i.test(c.name) ? 0 : /\bhd\b/i.test(c.name) ? 1 : 2) + lang(c) * 10 + (isPtGroup(c.group) ? 0 : 5);
+    /* v246: botão Ultra HD / HD no Início: escolhe a versão de cada canal (os nomes trazem «ᵁᴴᴰ», por isso NFKD) */
+    const hdMode = opQual() === "hd";
+    const tier = c => { const n = String(c.name || "").normalize("NFKD"); const u = /\b(uhd|4k|8k)\b/i.test(n), f = /\bfhd\b/i.test(n), h = /\bhd\b/i.test(n);
+      return hdMode ? (u ? 3 : (f || h) ? 0 : 1) : (u ? 0 : f ? 1 : h ? 2 : 3); };
+    const q = c => tier(c) + lang(c) * 10 + (isPtGroup(c.group) ? 0 : 5);
     const out = [], seen = new Set();
     for(const ent of opOrder(key)){
       let best = null;
@@ -12761,7 +12781,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     }
     return out;
   }
-  window.__op = {OPS, opKey, opCustom, opChannels, opTitle};
+  window.__op = {OPS, opKey, opCustom, opChannels, opTitle, opQual, opToggle};
   const w = $("ahSet");
   if(w){
     const d = document.createElement("div");
