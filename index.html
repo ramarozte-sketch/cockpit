@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v237";
+const APP_VERSION = "v238";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3569,6 +3569,15 @@ function svdWarm(n){
     while(SVD_POOL.length < n){ const w = new Worker("h264soft.js?v=" + APP_VERSION); w.onmessage = null; w.postMessage({cmd:"warm"}); SVD_POOL.push(w); } }catch(e){}
 }
 /* Annex B (00 00 01 + NAL): {nr: todas as fatias com nal_ref_idc = 0, idr: tem fatia IDR, ref: alguma fatia de referência} */
+/* v238: H.265 — tipo da primeira fatia: não-referência = tipo par abaixo de 16; IDR = 19/20 (CRA 21 e BLA 16–18 são GOP aberto) */
+function __hevcInfo(u){
+  for(let i = 0; i + 4 < u.length && i < 4000; i++){
+    if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const t = (u[i + 3] >> 1) & 0x3f;
+      if(t < 32){ const nr = t < 16 && (t & 1) === 0; return {nr, idr:t === 19 || t === 20, ref:!nr}; }
+      i += 2; }
+  }
+  return {nr:false, idr:false, ref:true};
+}
 function __annexInfo(u){
   let sl = 0, nr = true, idr = false;
   for(let i = 0; i + 3 < u.length; i++){
@@ -3590,7 +3599,7 @@ class SoftVideoDecoder {
   setFast(on){ this.fast = !!on; this.st.rapido = this.fast ? 1 : 0; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:this.fast}); }catch(e){} } }
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
-    this.cfg = cfg; this.close(); this.state = "configured";
+    this.cfg = cfg; this.hevc = !!cfg.hevc; this.close(); this.state = "configured";
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
   }
   _mkWorker(cfg){
@@ -3609,13 +3618,13 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, codec:this.hevc ? "hevc" : "h264", wasm:this.hevc ? new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href : null, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
     return W;
   }
   decode(ch){
     const data = new Uint8Array(ch.data), key = ch.type === "key";
     const annex = data.length > 4 && data[0] === 0 && data[1] === 0 && (data[2] === 1 || (data[2] === 0 && data[3] === 1));
-    const ai = annex ? __annexInfo(data) : null;
+    const ai = annex ? (this.hevc ? __hevcInfo(data) : __annexInfo(data)) : null;
     const c = {data, ts:ch.timestamp, key, nr:!key && (ai ? ai.nr : __avcNonRef(data)), ref:ai ? ai.ref || key : !key ? !__avcNonRef(data) : true, open:key && !!ai && !ai.idr};
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
@@ -4074,7 +4083,7 @@ class TsVidDemux {
     if(!(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80))) return;
     const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
     const data = b.subarray(9 + b[8]); let key = false, sps = -1;
-    for(let i = 0; i + 4 < data.length && i < 2000; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){
+    for(let i = 0, lim = this.type === 0x1b ? 2000 : 8000; i + 4 < data.length && i < lim; i++){ if(data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1){
       if(this.type === 0x1b){ const t = data[i + 3] & 0x1f; if(t === 7){ key = true; if(sps < 0) sps = i + 3; } if(t === 5) key = true; if(t === 1 || t === 5) break; }
       else { const t = (data[i + 3] >> 1) & 0x3f; if(t === 33 && sps < 0) sps = i + 3; if(t >= 16 && t <= 21){ key = true; break; } if(t < 16) break; }
       i += 2; } }
@@ -4105,7 +4114,14 @@ function tsMirFeed(slot, bytes){
   st.segs = (st.segs || 0) + 1; st.tsBytes = (st.tsBytes || 0) + bytes.length;
   for(const x of st.tsd.push(bytes)){
     let data = x.data;
-    if(st.soft){   /* FFmpeg/WASM: só H.264 */
+    if(st.soft){   /* FFmpeg/WASM: H.264 e (v238) H.265 */
+      if(x.type === 0x24){
+        if(!st.tsCfg){ if(!x.key) continue; st.tsCfg = {codec:"hevc", hevc:true, autoShift:true}; try{ st.decoder.configure(st.tsCfg); }catch(e){ st.err = "configure: " + e.message; continue; }
+          /* se em 12 s não saíram imagens suficientes (processador do carro não chega), passa para a versão H.264 do canal */
+          setTimeout(() => { try{ if(MIR[slot] === st && (st.frames || 0) < 250) uhdSwitch(slot, true); }catch(e){} }, 12000); }
+        try{ st.decoder.decode({type:x.key ? "key" : "delta", timestamp:Math.round(x.pts * 100 / 9), data:data.slice ? data.slice() : data}); }catch(e){ st.err = "decode: " + e.message; }
+        continue;
+      }
       if(x.type !== 0x1b) continue;
       if(!st.tsCfg){ if(!x.key || x.sps < 0) continue; const h = v => v.toString(16).padStart(2, "0"); st.tsCfg = {codec:"avc1." + h(data[x.sps + 1]) + h(data[x.sps + 2]) + h(data[x.sps + 3]), autoShift:true}; try{ st.decoder.configure(st.tsCfg); }catch(e){ st.err = "configure: " + e.message; continue; } }
       try{ st.decoder.decode({type:x.key ? "key" : "delta", timestamp:Math.round(x.pts * 100 / 9), data:data.slice ? data.slice() : data}); }catch(e){ st.err = "decode: " + e.message; }
@@ -4741,9 +4757,10 @@ window.__h264Sib = function(c){
   }catch(e){ return null; }
 };
 /* v236: numa página http não há WebCodecs, e o descodificador por software só sabe H.264: os canais UHD (HEVC) ficavam a preto (e sem som) em andamento */
-function uhdSwitch(slot){
+function uhdSwitch(slot, force){
   try{
     const c = lastPlayed[slot];
+    if(!force && LS.get("hevcSoft", "1") !== "0") return false;   /* v238: por omissão o H.265 é descodificado por software; só passa para H.264 se falhar */
     if(WC_NATIVE || !c || c.kind !== "live" || !/UHD|4K/i.test(String(c.name).normalize("NFKD"))) return false;
     const sib = window.__h264Sib(c);
     if(!sib){ toast("Em andamento, " + c.name + " (H.265) só funciona na página https. Não encontrei versão HD deste canal.", true); return false; }
