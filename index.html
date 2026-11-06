@@ -162,7 +162,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .slot canvas.mirb{position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;display:none}
 .slot:not(.mirroring) canvas.mirb{display:none!important}
 .slot.mirroring video{opacity:0;pointer-events:none}
-#btnMirror.on{background:var(--accent);color:var(--accent-ink)}
+#btnMirror.on,#hMirror.on{background:var(--accent);color:var(--accent-ink);opacity:1!important}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
 .slot.active .lbl{background:var(--accent);color:var(--accent-ink)}
@@ -923,7 +923,7 @@ body.layout-atv .rail{display:none}
           <div class="hdests" id="hDests"></div>
         </div>
         <div class="hcard">
-          <div class="row"><h2>A tocar</h2><span class="spacer"></span><button class="btn" id="hOpenPlay">Abrir</button></div>
+          <div class="row"><h2>A tocar</h2><span class="spacer"></span><button class="btn" id="hMirror" aria-pressed="false" aria-label="Imagem em andamento (ligar ou desligar)" title="Imagem em andamento: ligar ou desligar (funciona com o carro em movimento)" style="min-width:44px;padding:0 10px;opacity:.75">🖼</button><button class="btn" id="hOpenPlay">Abrir</button></div>
           <div class="hplay"><span class="aico" id="hPlayIco">🎵</span><div style="min-width:0;flex:1"><b id="hPlayName">Nada a tocar</b><div class="small muted" id="hPlaySub">Escolhe uma rádio ou um canal</div></div></div>
           <div class="row hctl"><button class="btn" id="hPrev" aria-label="Anterior">◀</button><button class="btn primary" id="hStop">■ Parar</button><button class="btn" id="hNext" aria-label="Seguinte">▶</button></div>
           <div class="hchips" id="hRadios"></div>
@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v225";
+const APP_VERSION = "v226";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4741,8 +4741,9 @@ function stopMirror(slot){
 function syncMirror(){
   if(mirrorOn && !WC_NATIVE) setTimeout(() => svdWarm(3), 1500);
   for(const s of [0,1]){ if(mirrorOn && lastPlayed[s]) startMirror(s); else stopMirror(s); }
-  const b = $("btnMirror"); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); }
+  for(const id of ["btnMirror", "hMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } }
 }
+function syncMirrorBtns(){ for(const id of ["btnMirror", "hMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } } }
 function toggleMirror(){
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
   if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não suporta o descodificador — a imagem só aparece parado.", true);
@@ -4750,6 +4751,7 @@ function toggleMirror(){
   else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264 e, se o descodificador do carro o suportar, HEVC/H.265." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
+if($("hMirror")){ $("hMirror").onclick = toggleMirror; try{ syncMirrorBtns(); }catch(e){} }
 const fmtSec = ms => (ms/1000).toFixed(2).replace(".",",")+"s";
 function fmtDelay(){ const b=$("mirDelVal"); if(b) b.textContent=fmtSec(mirDelFor(tvTarget)); }
 function nudgeDelay(d){
