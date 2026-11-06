@@ -114,7 +114,7 @@ function pull(nout){
           const bmp = G.cv.transferToImageBitmap(), e0 = ep; n++;
           postMessage({type: "frame", ts, w: bmp.width, h: bmp.height, bmp, ep: e0}, [bmp]);
           continue;
-        }catch(x){ G = false; gErr = "execução: " + String(x && x.message || x).slice(0, 60); postMessage({type: "error", msg: "gpu desligada: " + gErr}); }
+        }catch(x){ G = false; gErr = "execução: " + String(x && x.message || x).slice(0, 60); postMessage({type: "gpuoff", msg: "gpu desligada: " + gErr}); }
       }
     }
     if(!M._conv(s)) continue;

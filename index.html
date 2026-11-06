@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v224";
+const APP_VERSION = "v225";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3596,6 +3596,7 @@ class SoftVideoDecoder {
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
+      if(d.type === "gpuoff"){ window.__gpuMsg = d.msg; return; }
       if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
@@ -3626,7 +3627,7 @@ class SoftVideoDecoder {
   }
   info(){
     const fps = this.W.map(W => Math.round(W.fps || 0));
-    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000), limiteFila:this.bkLimit()}, this.st);
+    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, gpu:window.__gpuMsg || (LS.get("gpuColor", "0") === "1" ? "ligada, sem resposta do descodificador" : "desligada"), origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000), limiteFila:this.bkLimit()}, this.st);
   }
   /* descodificador antigo (sem "drain" nem paralelo): fica só um Worker, que segue os GOPs um atrás do outro */
   _legacy(){ if(this.legacy) return; this.legacy = true; this.st.antigo = true;
