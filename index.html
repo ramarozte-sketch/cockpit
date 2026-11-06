@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v231";
+const APP_VERSION = "v232";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3051,7 +3051,7 @@ function freeAltQuality(c, tried){
 }
 function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
-  if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); tvLockUi(); return; }
+  if(tvBlocked(c)){ toast("Vídeo só com o carro parado.", true); tvLockUi(); return; }
   /* o leitor (hls.js) ainda está a carregar: espera por ele em vez de falhar com «código 4» */
   if(!window.Hls && !window.__hlsDone && window.__hlsP && !window.ANDROID){
     const tk = playChannel.__wait = (playChannel.__wait || 0) + 1;
@@ -5959,8 +5959,11 @@ document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.r
 let drivingNow = false;
 const tvBlockedRaw = () => !cfg.passenger && (!demo() || !!cfg.tessieOff) && drivingEff();
 /* v228: com o botão «Andamento» ligado a TV não bloqueia em andamento (a imagem passa pelo descodificador da app, não pelo <video> que o carro bloqueia) */
-const tvBlocked = () => tvBlockedRaw() && !(typeof mirrorOn !== "undefined" && mirrorOn);
-function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !tvBlocked(); }
+const isVodKind = k => /^(movie|series|episode|vod)$/.test(k || "");
+/* v232: filmes e séries não seguem o bloqueio dos canais de TV (a TV em direto continua a bloquear em andamento, a não ser com o botão «Andamento» ligado) */
+const tvBlocked = c => tvBlockedRaw() && !(typeof mirrorOn !== "undefined" && mirrorOn) && !(c && isVodKind(c.kind));
+const vodOnly = () => { try{ const it = [lastPlayed[0], lastPlayed[1]].filter(Boolean); return it.length > 0 && it.every(x => isVodKind(x.kind)); }catch(e){ return false; } };
+function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !(tvBlocked() && !vodOnly()); }
 function tvHaltPlayback(){ try{ stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false); }catch(e){} }
 /* Valores fixos: verificação em repouso de 10 em 10 s (mín. de 60 em 60 s com a TV/Jogos/Desktop abertos) e 6 s em P para desbloquear. */
 DRIVE.check = 10; DRIVE.hold = 6000; driveLoop();
@@ -5968,7 +5971,7 @@ driveChip();
 if(cfg.audioMode !== undefined){ delete cfg.audioMode; delete cfg.autoAudio; saveCfg(); }
 /* Em andamento a TV pára e fica bloqueada; em P volta a poder abrir-se. */
 function tvDriveSync(){
-  const blocked = tvBlocked();
+  const blocked = tvBlocked() && !vodOnly();
   if(blocked && !drivingNow){ drivingNow = true; tvHaltPlayback(); }
   else if(!blocked) drivingNow = false;
   tvLockUi();
@@ -12369,7 +12372,7 @@ body.vgOn #stage{touch-action:none}
     if(currentView === "tvinicio") window.__fsFromHome = true;
     if(c.kind === "series") return;                          /* séries: primeiro a lista de episódios */
     if(c.kind === "?" && e.target.closest("#mvGo") && window.__mvSeries) return;
-    try{ if(tvBlocked()) return; }catch(x){}
+    try{ if(tvBlocked(c)) return; }catch(x){}
     const st = $("stage"); if(!st) return;
     if(!st.classList.contains("single")){ if(!/split|pip/.test(st.className)) return; st.classList.add("solo"); }   /* vista dupla / PIP: o ecrã seleccionado ocupa tudo até sair do ecrã total */
     if(window.__ah) window.__ah.pass = Date.now() + 3000;
@@ -13168,7 +13171,7 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
     const c = window.__ah && window.__ah.flat[+b.dataset.k];
     if(!c || /^(movie|series|episode|vod)$/.test(c.kind || "")) return;   /* filmes e séries: como antes (detalhes / ecrã total) */
     e.stopImmediatePropagation(); e.preventDefault();
-    try{ if(tvBlocked()){ toast("Vídeo só com o carro parado.", true); return; } }catch(x){}
+    try{ if(tvBlocked(c)){ toast("Vídeo só com o carro parado.", true); return; } }catch(x){}
     if(window.__ahStageIn && lastPlayed[0] && lastPlayed[0].url === c.url){ goFull(); return; }   /* já está na pré-visualização: ecrã total */
     stayUntil = Date.now() + 20000;
     try{ const sm = document.querySelector('[data-mode="single"]'); if(sm && !st.classList.contains("single")) sm.click(); }catch(x){}
