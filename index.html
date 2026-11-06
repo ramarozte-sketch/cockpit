@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v251";
+const APP_VERSION = "v252";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15024,6 +15024,15 @@ html.half.hbOn #halfBar{display:flex;position:fixed;left:50%;bottom:12px;transfo
 #halfBar button:active{background:#ffffff40}
 #halfBar button.pri{background:var(--accent,#7cc4ff);color:#001}
 html.half.hbOn main{padding-bottom:96px}
+/* Início em meia janela: o destaque não fica preso no topo e os cartões são mais pequenos, para caberem várias filas no ecrã */
+html.half #v-tvinicio #ahStick{position:static;box-shadow:none}
+html.half #v-tvinicio .ahCard{flex-basis:200px!important}
+html.half #v-tvinicio .ahCard.poster{flex-basis:150px!important}
+html.half #v-tvinicio .ahScroll{gap:12px;padding-bottom:14px}
+html.half #v-tvinicio .ahTop{flex-wrap:nowrap!important;gap:10px}
+html.half #v-tvinicio .ahTop .btn{width:60px;min-width:60px;flex:none;overflow:hidden;white-space:nowrap;text-overflow:clip;justify-content:flex-start;padding:0 0 0 18px;font-size:20px;word-spacing:80px}
+html.half #v-tvinicio .ahHero{min-height:0!important;padding-top:12px!important;padding-bottom:12px!important}
+html.half #v-tvinicio .ahHeroArt{max-height:150px}
 /* 5. lista do ecrã total só com logótipos */
 html.half #fsCh{width:84px;padding:6px 6px 24px 8px;background:linear-gradient(90deg,#000d 75%,#0000)}
 html.half #fsCh button{justify-content:center;padding:6px 4px;min-height:52px}
@@ -15069,7 +15078,7 @@ html.half.hdrMini #micBtn{transform:scale(.72);transform-origin:center}
         else if(a === "vd") vol(-0.1); else if(a === "vu") vol(0.1);
       }catch(x){}
     });
-    const hb = () => { try{ const on = de.classList.contains("half") && ["tv", "tvinicio"].includes(currentView) && !!(lastPlayed[0] || lastPlayed[1]) && !document.body.classList.contains("pfull"); de.classList.toggle("hbOn", on); }catch(e){} };
+    const hb = () => { try{ const on = de.classList.contains("half") && currentView === "tv" && !!(lastPlayed[0] || lastPlayed[1]) && !document.body.classList.contains("pfull"); de.classList.toggle("hbOn", on); }catch(e){} };
     setInterval(hb, 700); hb();
 
     /* 4. deslizar na imagem (ecrã total): para a esquerda = canal seguinte, para a direita = anterior */
