@@ -1151,7 +1151,7 @@ body.layout-atv .rail{display:none}
             <div class="cinename" id="chName">Escolhe um canal</div>
             <div class="cineepg" id="chEpg"></div>
             <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
-            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chMute" aria-label="Silenciar ou repor o som">🔊 Som</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🔊 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
+            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chMute" aria-label="Silenciar ou repor o som">🔊 Som</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🎧 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
             <button class="btn" id="chAspect" data-testid="tv-aspect" aria-label="Formato da imagem">▭ Ajustar</button><button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="cinebar" id="cinebar2">
@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v250";
+const APP_VERSION = "v251";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12719,8 +12719,10 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   const ex = document.createElement("button"); ex.id = "vExit"; ex.type = "button"; ex.textContent = "✕ Sair"; document.body.appendChild(ex);
   let hT = 0;
   let lastAt = 0;
-  const peek = () => { lastAt = Date.now(); document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), 5000); };
-  setInterval(() => { if(document.body.classList.contains("ctlOn") && Date.now() - lastAt > 5200) document.body.classList.remove("ctlOn"); }, 500);
+  /* v251: em meia janela no Tesla os controlos ficam 8 s (antes 5 s) */
+  const ctlMs = () => document.documentElement.classList.contains("half") ? 8000 : 5000;
+  const peek = () => { lastAt = Date.now(); document.body.classList.add("ctlOn"); clearTimeout(hT); hT = setTimeout(() => document.body.classList.remove("ctlOn"), ctlMs()); };
+  setInterval(() => { if(document.body.classList.contains("ctlOn") && Date.now() - lastAt > ctlMs() + 200) document.body.classList.remove("ctlOn"); }, 500);
   window.__ctlPeek = peek;
   const sync = () => {
     const on = vt.classList.contains("cinema") && currentView === "tv";
@@ -14990,5 +14992,118 @@ setTimeout(() => { try{
   const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ sel.value = cfg.eac3Mode || "auto"; paint(); }catch(e){} return r; };
 }catch(e){} }, 0);
 </script>
+<style>
+/* ===== v251: Tesla em meia janela (≤ 820 px de largura) — botões grandes, menu de ícones, barra do leitor, texto legível ===== */
+/* 1. menu: só ícones, grandes, do lado do condutor */
+html.half .rail .brand{display:none}
+html.half .rail .nav span{display:none}
+html.half .rail .nav{min-height:56px;padding:0;justify-content:center;align-items:center}
+html.half .rail .nav svg{width:32px;height:32px}
+html.half .rail{gap:6px}
+/* 2. botões com pelo menos 56 px e mais espaço */
+html.half main .btn, html.half main .tab, html.half .ahBtn, html.half .ahTabs button, html.half dialog .btn{min-height:56px;padding-left:18px;padding-right:18px;font-size:17px}
+html.half main .row{gap:12px}
+html.half .tabs{gap:10px}
+/* ecrã total: controlos maiores (52 px, para não taparem o vídeo todo) */
+html.half body.pfull #v-tv.cinema .cinebar .btn, html.half body.pfull #vExit, html.half body.pfull #vFmt, html.half body.pfull #vFsl{min-height:52px!important;height:auto!important;padding:0 16px!important;font-size:16px!important}
+html.half body.pfull #v-tv.cinema .cinebar{gap:10px!important}
+/* barra de cima do ecrã total: só os ícones (o texto fica escondido), para caber em 1–2 filas */
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) .btn{width:58px;min-width:58px!important;flex:none!important;overflow:hidden;text-overflow:clip!important;white-space:nowrap;justify-content:flex-start!important;padding:0 0 0 16px!important;font-size:20px!important;word-spacing:80px}
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2){flex-wrap:wrap!important;justify-content:flex-end}
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) .btn{order:2}
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chPrev.btn{order:1;width:72px;min-width:72px!important;padding-left:26px!important}
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn{order:1;font-size:0!important;word-spacing:0;justify-content:center!important;padding:0!important;width:72px;min-width:72px!important}
+html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn::after{content:"▶";font-size:22px}
+/* cabeçalho: botão do ecrã inteiro do Tesla só com o ícone */
+html.half #teslaFs{font-size:0;padding:0 14px;min-height:48px;display:inline-flex;align-items:center}
+html.half #teslaFs::after{content:"⛶";font-size:24px}
+/* 3. barra fixa do leitor */
+#halfBar{display:none}
+html.half.hbOn #halfBar{display:flex;position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:120;gap:10px;padding:8px 10px;border-radius:20px;background:#0b1422ee;border:1px solid #ffffff26;box-shadow:0 8px 30px #000a;max-width:calc(100vw - 100px)}
+#halfBar button{display:inline-flex;align-items:center;justify-content:center;min-width:60px;min-height:56px;border:0;border-radius:14px;background:#ffffff1a;color:#fff;font:700 22px/1 inherit;cursor:pointer;touch-action:manipulation}
+#halfBar button:active{background:#ffffff40}
+#halfBar button.pri{background:var(--accent,#7cc4ff);color:#001}
+html.half.hbOn main{padding-bottom:96px}
+/* 5. lista do ecrã total só com logótipos */
+html.half #fsCh{width:84px;padding:6px 6px 24px 8px;background:linear-gradient(90deg,#000d 75%,#0000)}
+html.half #fsCh button{justify-content:center;padding:6px 4px;min-height:52px}
+html.half #fsCh b{display:none}
+html.half #fsCh .pi{width:60px;height:40px;font-size:18px}
+/* 6. texto legível e títulos numa linha */
+html.half .ahMeta b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;color:#fff}
+html.half .ahMeta small{font-size:15px;color:#d3dbe6}
+html.half #tvList .t b{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.half #tvList .t span{font-size:15px;color:#d3dbe6}
+html.half main p, html.half main label, html.half main li{font-size:16px}
+html.half .small{font-size:15px}
+/* cabeçalho encolhe ao descer */
+html.half .app{transition:grid-template-rows .2s}
+html.half.hdrMini .app{grid-template-rows:46px 1fr}
+html.half.hdrMini .top .chip:not(#chipDrive){display:none}
+html.half.hdrMini .top .clock{font-size:20px}
+html.half.hdrMini #teslaFs{min-height:40px}
+html.half.hdrMini #micBtn{transform:scale(.72);transform-origin:center}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const de = document.documentElement;
+    /* só no Tesla (o resto dos browsers fica igual) */
+    const upd = () => { const on = !!window.__TESLA && innerWidth <= 820; de.classList.toggle("half", on); if(!on) de.classList.remove("hbOn", "hdrMini"); };
+    upd(); addEventListener("resize", upd);
+
+    /* 3. barra fixa do leitor: canal anterior, pausa, seguinte, ecrã total, volume */
+    const bar = document.createElement("div"); bar.id = "halfBar"; bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Leitor");
+    bar.innerHTML = '<button data-a="prev" aria-label="Canal anterior"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5L8 12l10 7z" fill="currentColor"/><path d="M5 5v14"/></svg></button><button data-a="play" class="pri" aria-label="Pausa ou continuar"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14l7-7z" fill="currentColor"/><path d="M16 6v12M20 6v12"/></svg></button><button data-a="next" aria-label="Canal seguinte"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l10 7-10 7z" fill="currentColor"/><path d="M19 5v14"/></svg></button><button data-a="full" aria-label="Ecrã total"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><button data-a="vd" aria-label="Baixar o som"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 12h5"/></svg></button><button data-a="vu" aria-label="Subir o som"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 12h5M18.5 9.5v5"/></svg></button>';
+    document.body.appendChild(bar);
+    const vidT = () => document.getElementById("vid" + (typeof tvTarget === "number" ? tvTarget : 0));
+    const vol = d => { try{ const G = window.__vg, v = document.getElementById("vid" + (typeof audioSlot === "number" ? audioSlot : 0)); let x = (G && G.v != null ? G.v : (v ? v.volume : 1)) + d; x = Math.max(0, Math.min(1, Math.round(x * 10) / 10)); if(G) G.v = x; if(v){ v.muted = false; v.volume = x; } LS.set("tvVol", x); toast("Som " + Math.round(x * 100) + "%"); }catch(e){} };
+    bar.addEventListener("click", e => {
+      const b = e.target.closest("button"); if(!b) return; e.stopPropagation();
+      const a = b.dataset.a;
+      try{
+        if(a === "prev" || a === "next"){ if(!zap(a === "next" ? 1 : -1)) toast("Não há outro canal nesta lista."); }
+        else if(a === "play"){ const v = vidT(); if(v){ if(v.paused) v.play().catch(() => {}); else v.pause(); } }
+        else if(a === "full"){ window.__fsFromHome = currentView === "tvinicio"; if(window.__ah) window.__ah.pass = Date.now() + 3000; show("tv"); setCinema(true); if(window.__goFull) window.__goFull(); }
+        else if(a === "vd") vol(-0.1); else if(a === "vu") vol(0.1);
+      }catch(x){}
+    });
+    const hb = () => { try{ const on = de.classList.contains("half") && ["tv", "tvinicio"].includes(currentView) && !!(lastPlayed[0] || lastPlayed[1]) && !document.body.classList.contains("pfull"); de.classList.toggle("hbOn", on); }catch(e){} };
+    setInterval(hb, 700); hb();
+
+    /* 4. deslizar na imagem (ecrã total): para a esquerda = canal seguinte, para a direita = anterior */
+    const st = document.getElementById("stage");
+    if(st){
+      let s = null;
+      st.addEventListener("pointerdown", e => {
+        const full = document.body.classList.contains("pfull") || !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if(!full || e.target.closest("button,a,input,select,textarea,.cinebar")) { s = null; return; }
+        s = {id:e.pointerId, x:e.clientX, y:e.clientY, t:Date.now()};
+      }, true);
+      st.addEventListener("pointerup", e => {
+        if(!s || e.pointerId !== s.id) return; const dx = e.clientX - s.x, dy = e.clientY - s.y, dt = Date.now() - s.t; s = null;
+        if(dt > 900 || Math.abs(dx) < Math.max(80, innerWidth * 0.12) || Math.abs(dx) < Math.abs(dy) * 2) return;
+        if(window.__vg && window.__vg.drag) return;   /* era um gesto de brilho/som */
+        try{ if(window.__vg) window.__vg.lastGest = Date.now(); }catch(x){}   /* não conta como toque nem duplo toque */
+        try{ if(zap(dx < 0 ? 1 : -1)){ const c = lastPlayed[tvTarget]; if(c) toast((dx < 0 ? "▶ " : "◀ ") + c.name); if(window.__ctlPeek) window.__ctlPeek(); } }catch(x){}
+      }, true);
+      st.addEventListener("pointercancel", () => { s = null; }, true);
+    }
+
+    /* 6. cabeçalho encolhe quando se desce na página */
+    let mini = false;
+    document.addEventListener("scroll", e => {
+      if(!de.classList.contains("half")) return;
+      const t = e.target; if(!t || t === document || !t.closest || t.closest("#fsCh,dialog,.ahScroll")) return;
+      const y = t.scrollTop || 0;
+      if(!mini && y > 60){ mini = true; de.classList.add("hdrMini"); }
+      else if(mini && y < 12){ mini = false; de.classList.remove("hdrMini"); }
+    }, true);
+    const _show = window.show; if(typeof _show === "function") window.show = function(){ const r = _show.apply(this, arguments); try{ mini = false; de.classList.remove("hdrMini"); hb(); }catch(e){} return r; };
+  }catch(e){ console.log("meia janela", e); }
+})();
+</script>
+
 </body>
 </html>
