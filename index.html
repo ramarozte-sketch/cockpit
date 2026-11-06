@@ -2744,7 +2744,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v235";
+const APP_VERSION = "v236";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4731,11 +4731,33 @@ function wcDestroy(slot){
   try{ if(st.file) st.file.flush(); }catch(e){}
   MIR[slot] = null;
 }
+/* v236: versão H.264 do mesmo canal (ex. «RTP 1 UHD» → «RTP1»): mesmo nome sem UHD/FHD/HD/SD/4K, outro endereço */
+window.__h264Sib = function(c){
+  try{
+    const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    const k0 = c && key(c.name); if(!k0) return null;
+    const l = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === c.kind && key(x.name) === k0 && !/\.ts(\?|$)/i.test(x.url));
+    return l.find(x => !/UHD|4K/i.test(String(x.name).normalize("NFKD"))) || null;
+  }catch(e){ return null; }
+};
+/* v236: numa página http não há WebCodecs, e o descodificador por software só sabe H.264: os canais UHD (HEVC) ficavam a preto (e sem som) em andamento */
+function uhdSwitch(slot){
+  try{
+    const c = lastPlayed[slot];
+    if(WC_NATIVE || !c || c.kind !== "live" || !/UHD|4K/i.test(String(c.name).normalize("NFKD"))) return false;
+    const sib = window.__h264Sib(c);
+    if(!sib){ toast("Em andamento, " + c.name + " (H.265) só funciona na página https. Não encontrei versão HD deste canal.", true); return false; }
+    try{ window.__dbgEv && window.__dbgEv(slot, "andamento: UHD (HEVC) não tem descodificador em http", {de:c.name, para:sib.name}); }catch(e){}
+    toast(c.name + " é H.265: a abrir " + sib.name + " (imagem em andamento).");
+    setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot); }catch(e){} }, 50);
+    return true;
+  }catch(e){ return false; }
+}
 function startMirror(slot){
   if(!mirrorOn) return;
   slotBox(slot).classList.add("mirroring");
   const c = lastPlayed[slot];
-  if(tsInst[slot] && !hlsInst[slot]){ tsMirInit(slot); cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot); return; }
+  if(tsInst[slot] && !hlsInst[slot]){ if(uhdSwitch(slot)) return; tsMirInit(slot); cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot); return; }
   if(c && c.kind!=="live" && !hlsInst[slot] && !/\.m3u8(\?|$)/i.test(c.url)) mp4Init(slot); else wcInit(slot);
   cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot);
 }
@@ -14697,9 +14719,8 @@ window.__sa = {
       if(w.n >= 2) return;                                     /* no máximo 2 reinícios seguidos por canal */
       /* v235: canal (ex. RTP 1 UHD, Eleven Sports 3 UHD) que não entrega NENHUM dado em 15 s: o fornecedor não está a emitir esta versão. Passa para a versão H.264 do mesmo canal, se existir. */
       try{
-        if(!w.alt && v.readyState === 0 && !v.buffered.length){
-          const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
-          const k0 = key(c.name), sib = k0 ? (channels || []).find(x => x && x.url && x.url !== c.url && x.kind === c.kind && key(x.name) === k0) : null;
+        if(!w.alt && !v.buffered.length && !v.videoWidth){
+          const sib = window.__h264Sib(c);
           if(sib){ w.alt = 1; dbg(slot, "sem dados: para a versão H.264", {de:c.name, para:sib.name}); try{ toast("Sem sinal em " + c.name + ": a abrir " + sib.name); }catch(e){} window.playChannel(sib, slot); return; }
         }
       }catch(e){}
