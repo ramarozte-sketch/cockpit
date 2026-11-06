@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v248";
+const APP_VERSION = "v249";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3591,11 +3591,15 @@ window.__hevcMovie = (slot, c) => {
     const b = movBase(c.name); if(!b || b.length < 3) return false;
     const pref = String(c.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]?/i), lg = pref ? pref[1].toLowerCase() : "";
     const tag = n => /\b(4k|uhd|hevc|x265|h\.?265|2160p)\b/i.test(String(n || "").normalize("NFKD"));
+    /* v249: língua: a mesma do filme, depois português, depois inglês; as outras só em último caso (antes abriu a versão finlandesa) */
+    const lgOf = x => { const m = String(x.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]/i); return m ? m[1].toLowerCase() : (/\|pt\||portug/i.test(x.group || "") ? "pt" : ""); };
+    const rank = x => { const l = lgOf(x); return l === lg && lg ? 0 : (l === "pt" || l === "br") ? 1 : l === "en" ? 2 : !l ? 3 : 4; };
     const cand = channels.filter(x => x && x.kind === c.kind && x.url !== c.url && !HEVCM.has(x.url) && movBase(x.name) === b)
-      .sort((x, y) => (tag(x.name) - tag(y.name)) || ((lg && !String(y.name).toLowerCase().startsWith(lg)) - (lg && !String(x.name).toLowerCase().startsWith(lg))));
+      .sort((x, y) => (rank(x) - rank(y)) || (tag(x.name) - tag(y.name)));
     const sib = cand[0];
     try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 em andamento", {outraVersao:sib ? sib.name : null}); }catch(e){}
     if(!sib) return false;
+    if(rank(sib) >= 4){ toast(c.name + " é H.265 (sem imagem em andamento). Só há outra versão noutra língua: " + sib.name + ". Abre-a na lista se quiseres.", true); return true; }
     toast(c.name + " é H.265 (sem imagem em andamento). A abrir outra versão: " + sib.name);
     setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot, true); }catch(e){} }, 60);
     return true;
@@ -4778,7 +4782,10 @@ function mp4Run(slot, st, src){
       try{ st.abort && st.abort.abort(); }catch(e){}
       for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = [];
       try{ decoder.reset(); }catch(e){}
+      /* v249: o relógio da imagem ficava no ponto antigo: depois de saltar para a frente, o leitor achava que já ia 12 s adiantado e parava de ler (imagem a 0 imagens/s; log de 6/11, 2012: Zombie Apocalypse) */
+      st.masterUs = null; st.offUs = null;
       const sk = file.seek(v.currentTime, true); pos = sk.offset; lastTs = sk.time*1e6;
+      try{ window.__dbgEv && window.__dbgEv(slot, "filme: salto na imagem em andamento", {para_s:Math.round(v.currentTime)}); }catch(e){}
     };
     v.addEventListener("seeking", st.onSeek);
     (async () => {
