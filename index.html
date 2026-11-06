@@ -2765,7 +2765,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v244";
+const APP_VERSION = "v245";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5120,11 +5120,16 @@ window.__srcFromRow = (b, flat) => { try{ const c = flat[+b.dataset.k], row = b.
     /* fila de uma categoria (mostra só as primeiras): usa a categoria inteira */
     if(L.length > 3 && L.every(x => x.group === c.group)){ const n = neighbours(c); if(n && n.length > L.length) L = n; }
     window.__srcSet(L, c); }catch(e){} };
+/* v245: a troca automática de versão do mesmo canal (UHD → HD em andamento, canal em manutenção → alternativa) não pode apagar a lista de origem:
+   a outra versão toma o lugar do canal na lista (log de 6/11: RTP 1 UHD → RTP1 tirava o ecrã total da lista do operador). */
+const srcBase = n => String(n || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/^[\s\W_]*(pt|portugal)\b[\s|:\-\/]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ").replace(/\b(fhd|uhd|hd|sd|4k|8k|hevc|h265|raw|plus)\b/g, " ").replace(/[^a-z0-9]+/g, "");
+const srcSwap = (L, c) => { try{ if(!L || !c || !c.url) return null; if(L.some(x => x.url === c.url)) return L; const b = srcBase(c.name); if(!b) return null;
+    const i = L.findIndex(x => x && x.kind === c.kind && srcBase(x.name) === b); if(i < 0) return null; const R = L.slice(); R[i] = c; return R; }catch(e){ return null; } };
 window.__srcPick = (c, slot) => { try{ if(slot == null) slot = tvTarget; const N = window.__srcNext;
     if(N && c && N.url === c.url){ window.__src[slot] = N.list; window.__srcNext = null; }
-    else if(!(window.__src[slot] && c && window.__src[slot].some(x => x.url === c.url))) window.__src[slot] = null;
+    else window.__src[slot] = srcSwap(window.__src[slot], c);
     return window.__src[slot]; }catch(e){ return null; } };
-window.__srcListFor = (c, slot) => { if(slot == null) slot = tvTarget; const L = window.__src[slot]; if(L && c && L.some(x => x.url === c.url)) return L; try{ return neighbours(c); }catch(e){ return c ? [c] : []; } };
+window.__srcListFor = (c, slot) => { if(slot == null) slot = tvTarget; const L = srcSwap(window.__src[slot], c); if(L){ window.__src[slot] = L; return L; } try{ return neighbours(c); }catch(e){ return c ? [c] : []; } };
 function neighbours(c){ return orgChannels(c.intl ? intlChans : c.free ? freeChans : channels.filter(x => x.kind===c.kind && x.group===c.group && x.kind!=="series"), c.intl ? "intl" : c.free ? "free" : c.kind, c.group || "x"); }
 function zap(dir){
   const c = lastPlayed[tvTarget]; if(!c) return false;
