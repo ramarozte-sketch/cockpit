@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v263";
+const APP_VERSION = "v264";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3689,7 +3689,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (cfg.codedWidth || 0) > 1280 ? 1 : 0, codec:this.hevc ? "hevc" : "h264", wasm:this.hevc ? new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href : null, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (window.__mirShift1 || (cfg.codedWidth || 0) > 1280) ? 1 : 0, codec:this.hevc ? "hevc" : "h264", wasm:this.hevc ? new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href : null, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
     return W;
   }
   decode(ch){
@@ -16047,6 +16047,82 @@ html.half #visKar .k1{font-size:19px}
     /* cumprimenta uma vez quando abre a app */
     setTimeout(() => { try{ if(A.on && !sessionStorage.getItem("avHi")){ sessionStorage.setItem("avHi", "1"); const h = new Date().getHours(); speakA((h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite") + ", Rui! Toca em mim para conversarmos."); } }catch(e){} }, 6500);
   }catch(e){ console.log("avatar", e); }
+})();
+</script>
+<style>
+/* ===== v264: vídeo em andamento — estado, imagem bloqueada, resolução adaptativa, slider do A/V, 2.º ecrã só som ===== */
+#mirStat{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:212;display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#000b;color:#fff;font:700 13px/1.2 system-ui,sans-serif;pointer-events:none}
+#mirStat i{width:10px;height:10px;border-radius:50%;background:#3ad16b;flex:none}
+#mirStat.lim i{background:#f0c35a}#mirStat.blk i{background:#ff4d4d}
+body:not(.pfull) #mirStat{bottom:auto;top:70px}
+.mirOv{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#05070df2;color:#dfe8f5;text-align:center;font:700 17px/1.3 system-ui,sans-serif;padding:16px;pointer-events:none}
+.mirOv img{max-width:40%;max-height:35%;object-fit:contain}
+.mirOv small{font-weight:500;font-size:14px;opacity:.8}
+#mirDelRange{width:160px;accent-color:var(--accent,#7cc4ff);vertical-align:middle}
+#mirDelTxt{font:600 13px/1.2 system-ui,sans-serif;opacity:.85;margin-left:6px}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const st = [{}, {}], drv = () => { try{ return typeof drivingEff === "function" && drivingEff(); }catch(e){ return false; } };
+    const box = s => { try{ return slotBox(s); }catch(e){ return null; } };
+    const ov = (s, on, html) => { const b = box(s); if(!b) return; let o = b.querySelector(".mirOv"); if(!on){ if(o) o.remove(); return; } if(!o){ o = document.createElement("div"); o.className = "mirOv"; b.appendChild(o); } if(o.dataset.h !== html){ o.dataset.h = html; o.innerHTML = html; } };
+    const logo = s => { try{ const c = lastPlayed[s]; return c && c.logo ? '<img src="' + String(c.logo).replace(/"/g, "") + '" alt="" onerror="this.remove()">' : ""; }catch(e){ return ""; } };
+    const name = s => { try{ return (lastPlayed[s] || {}).name || ""; }catch(e){ return ""; } };
+    const stat = document.createElement("div"); stat.id = "mirStat"; stat.innerHTML = '<i></i><span></span>'; document.body.appendChild(stat);
+
+    /* ouve as métricas que o leitor já regista */
+    const _ev = window.__dbgEv;
+    window.__dbgEv = function(slot, type, data){
+      try{ if(typeof slot === "number" && st[slot]){ const S = st[slot];
+        if(type === "imagem pela placa gráfica (bitmaprenderer)" && data) S.w = data.w;
+        if(type === "andamento: imagem" && data){
+          S.fps = data.fps; S.dec = data.descodificadas; S.at = Date.now();
+          S.low = data.fps < 18 ? (S.low || 0) + 1 : 0;
+          S.stuck = (data.fps < 1 && data.descodificadas >= 10) ? (S.stuck || 0) + 1 : 0;
+          /* 1. imagem bloqueada: o descodificador produz imagens mas nenhuma chega ao ecrã → só som, com o logótipo */
+          if(S.stuck >= 2){ if(!S.stuckOn){ S.stuckOn = true; toast("Em andamento o carro não está a mostrar a imagem de " + name(slot) + ". Fica só o som."); try{ _ev && _ev.call(this, slot, "andamento: imagem bloqueada, só som", {}); }catch(x){} } ov(slot, true, logo(slot) + '<div>🔊 Só som</div><small>O carro não está a mostrar a imagem em andamento. Volta quando parares ou quando a imagem recuperar.</small>'); }
+          else if(S.stuckOn && data.fps > 5){ S.stuckOn = false; ov(slot, false); }
+          /* 2. resolução adaptativa: abaixo de 18 imagens/s duas vezes, descodifica a metade da resolução */
+          if(S.low >= 2 && !window.__mirShift1 && (S.w || 0) >= 1000 && drv()){ window.__mirShift1 = true; S.low = 0; try{ _ev && _ev.call(this, slot, "andamento: resolução reduzida para fluidez", {fps:data.fps, largura:S.w}); }catch(x){} toast("Imagem em andamento lenta: a reduzir a resolução para ficar mais fluida."); try{ stopMirror(slot); setTimeout(() => { try{ if(mirrorOn) startMirror(slot); }catch(x){} }, 300); }catch(x){} }
+        } } }catch(e){}
+      return _ev ? _ev.apply(this, arguments) : undefined;
+    };
+
+    /* 3. estado do andamento no ecrã + 5. segundo ecrã só som */
+    let paused2 = -1;
+    setInterval(() => { try{
+      const on = drv() && typeof mirrorOn !== "undefined" && mirrorOn && (lastPlayed[0] || lastPlayed[1]);
+      if(!drv() && window.__mirShift1) window.__mirShift1 = false;
+      /* 5. com dois canais, só o do som descodifica a imagem */
+      const both = on && lastPlayed[0] && lastPlayed[1], other = typeof audioSlot === "number" ? (audioSlot ? 0 : 1) : 1;
+      if(both && paused2 !== other){ if(paused2 >= 0){ ov(paused2, false); try{ startMirror(paused2); }catch(e){} } paused2 = other; try{ stopMirror(other); }catch(e){} ov(other, true, logo(other) + '<div>Imagem em pausa</div><small>Em andamento só o ecrã com som mostra imagem, para poupar o processador.</small>'); }
+      else if(!both && paused2 >= 0){ const p = paused2; paused2 = -1; ov(p, false); try{ if(mirrorOn && lastPlayed[p]) startMirror(p); }catch(e){} }
+      if(!on){ stat.style.display = "none"; return; }
+      const s = typeof audioSlot === "number" && lastPlayed[audioSlot] ? audioSlot : (lastPlayed[0] ? 0 : 1), S = st[s], c = lastPlayed[s] || {};
+      let cls = "", txt = "Andamento: a preparar…";
+      if(S.at && Date.now() - S.at < 25000){
+        const uhd = /UHD|4K/i.test(String(c.name || "").normalize("NFKD")), why = uhd ? "H.265" : window.__mirShift1 ? "resolução reduzida" : (S.w || 0) >= 1000 ? "processador" : "rede ou processador";
+        if(S.stuckOn){ cls = "blk"; txt = "Andamento bloqueado · só som"; }
+        else if(S.fps >= 20){ txt = "Andamento disponível · " + Math.round(S.fps) + " img/s"; }
+        else if(S.fps >= 8){ cls = "lim"; txt = "Andamento limitado · " + Math.round(S.fps) + " img/s · " + why; }
+        else { cls = "blk"; txt = "Andamento quase parado · " + Math.round(S.fps) + " img/s · " + why; }
+      }
+      stat.className = cls; stat.querySelector("span").textContent = txt; stat.style.display = "flex";
+    }catch(e){} }, 2000);
+
+    /* 4. slider do desvio imagem/som (−2 s a +2 s), com indicação clara */
+    const plus = document.getElementById("mirDelPlus");
+    if(plus && typeof nudgeDelay === "function"){
+      const r = document.createElement("input"); r.type = "range"; r.id = "mirDelRange"; r.min = "-2000"; r.max = "2000"; r.step = "50"; r.setAttribute("aria-label", "Desvio entre imagem e som");
+      const t = document.createElement("span"); t.id = "mirDelTxt"; plus.after(r, t);
+      const paint = () => { let v = 0; try{ v = mirDelFor(tvTarget); }catch(e){} r.value = String(v); t.textContent = !v ? "imagem e som juntos" : v > 0 ? "imagem atrasada " + Math.abs(v) + " ms" : "imagem adiantada " + Math.abs(v) + " ms"; };
+      let rt = 0; r.addEventListener("input", () => { const want = +r.value; t.textContent = !want ? "imagem e som juntos" : want > 0 ? "imagem atrasada " + want + " ms" : "imagem adiantada " + Math.abs(want) + " ms"; clearTimeout(rt); rt = setTimeout(() => { try{ const cur = mirDelFor(tvTarget); if(want !== cur) nudgeDelay(want - cur); }catch(e){} paint(); }, 250); });
+      const _fd = window.fmtDelay; if(typeof _fd === "function") window.fmtDelay = function(){ const x = _fd.apply(this, arguments); try{ paint(); }catch(e){} return x; };
+      paint(); setInterval(paint, 3000);
+    }
+  }catch(e){ console.log("andamento v264", e); }
 })();
 </script>
 </body>
