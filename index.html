@@ -2402,7 +2402,7 @@ Current car state: ${carSummary()}. Local time: ${new Date().toLocaleString("pt-
   return true;
 }
 function logVoice(t, me){ const d=document.createElement("div"); d.textContent=t; if(me) d.className="me"; const l=$("voiceLog"); l.appendChild(d); l.scrollTop=l.scrollHeight; }
-function speak(t){ if(!cfg.speak || !("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+function speak(t){ if(!cfg.speak) return; try{ if(!("speechSynthesis" in window) || !speechSynthesis.getVoices().length){ if(window.__ttsOnline) window.__ttsOnline(t, 1); return; } }catch(e){} if(!("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
 function renderCmdList(){ $("cmdList").innerHTML = VOICE.map(c=>`<div class="cmd"><b>“${esc(c.d[L()])}”</b></div>`).join(""); }
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v259";
+const APP_VERSION = "v260";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15853,13 +15853,39 @@ html.half #visKar .k1{font-size:19px}
 
     /* --- falar --- */
     let sayT = 0;
+    /* v260: o browser do Tesla não tem vozes instaladas (speechSynthesis fica calado): usa uma voz online, tocada como áudio */
+    const ttsLang = () => cfg.lang === "en" ? "en-GB" : cfg.lang === "fr" ? "fr-FR" : "pt-PT";
+    let ttsQ = [], ttsA = null;
+    const ttsOnline = (txt, rate, onEnd) => {
+      const parts = []; let rest = String(txt).replace(/\s+/g, " ").trim();
+      while(rest.length){ let cut = rest.length <= 190 ? rest.length : Math.max(rest.lastIndexOf(". ", 190), rest.lastIndexOf(", ", 190), rest.lastIndexOf(" ", 190)); if(cut < 40) cut = Math.min(190, rest.length); parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
+      try{ if(ttsA){ ttsA.pause(); } }catch(e){}
+      ttsQ = parts.slice(); const lang = ttsLang();
+      const next = (viaPx) => {
+        const t = ttsQ.shift(); if(!t){ onEnd && onEnd(); return; }
+        const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
+        const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
+        a.onended = () => next(viaPx);
+        a.onerror = () => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { toast("Não consegui obter a voz online."); onEnd && onEnd(); } };
+        a.play().catch(() => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } });
+      };
+      next(LS.get("ttsViaPx", false));
+    };
+    window.__ttsOnline = ttsOnline;
+    const hasVoices = () => { try{ return "speechSynthesis" in window && speechSynthesis.getVoices().length > 0; }catch(e){ return false; } };
+    try{ speechSynthesis && speechSynthesis.getVoices(); }catch(e){}
     const speakA = txt => {
       txt = String(txt || "").trim(); if(!txt) return;
       say.textContent = txt; say.classList.add("on"); clearTimeout(sayT); sayT = setTimeout(() => say.classList.remove("on"), Math.min(14000, 2500 + txt.length * 70));
       P.talk = performance.now() + Math.min(12000, 600 + txt.length * 65);
-      try{ if("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(txt); u.lang = cfg.lang === "en" ? "en-GB" : cfg.lang === "fr" ? "fr-FR" : "pt-PT"; u.pitch = A.pitch; u.rate = A.rate;
-          const vs = speechSynthesis.getVoices(); const v = vs.find(x => x.name === A.voice) || vs.find(x => /pt-PT|pt_PT/i.test(x.lang)) || null; if(v) u.voice = v;
-          u.onend = () => { P.talk = 0; }; speechSynthesis.cancel(); speechSynthesis.speak(u); } }catch(e){}
+      const done = () => { P.talk = 0; };
+      if(A.tts === "online" || !hasVoices()){ ttsOnline(txt, A.rate, done); return; }
+      try{ const u = new SpeechSynthesisUtterance(txt); u.lang = ttsLang(); u.pitch = A.pitch; u.rate = A.rate;
+        const vs = speechSynthesis.getVoices(); const v = vs.find(x => x.name === A.voice) || vs.find(x => /pt-PT|pt_PT/i.test(x.lang)) || null; if(v) u.voice = v;
+        let started = false; u.onstart = () => { started = true; }; u.onend = done; u.onerror = () => { if(!started) ttsOnline(txt, A.rate, done); };
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+        setTimeout(() => { if(!started){ try{ speechSynthesis.cancel(); }catch(e){} ttsOnline(txt, A.rate, done); } }, 1500);   /* não começou a falar: voz online */
+      }catch(e){ ttsOnline(txt, A.rate, done); }
     };
     window.__avatarSay = speakA;
 
@@ -15918,6 +15944,7 @@ html.half #visKar .k1{font-size:19px}
       '<label class="f2">Personalidade<select id="avPers"><option value="simpatico">Simpático</option><option value="divertido">Divertido</option><option value="calmo">Calmo</option><option value="tecnico">Técnico</option></select></label>' +
       '<label class="f2">Tom de voz <input type="range" id="avPitch" min="50" max="200"></label><label class="f2">Velocidade da voz <input type="range" id="avRate" min="70" max="150"></label>' +
       '<label class="f2">Voz<select id="avVoice"><option value="">Automática (português)</option></select></label>' +
+      '<label class="f2">Motor da voz<select id="avTts"><option value="auto">Automático (voz do browser; se não houver, online)</option><option value="online">Voz online (Google)</option></select></label>' +
       '<label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="avWalk"> Passear pela app</label>' +
       '<label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="avTrip"> Conversar em viagem (diz algo de vez em quando)</label>' +
       '<label class="f2">De quantos em quantos minutos<select id="avTripMin"><option>5</option><option>10</option><option>15</option><option>30</option></select></label>' +
@@ -15942,7 +15969,7 @@ html.half #visKar .k1{font-size:19px}
     const paintGrid = () => { const G = $a("avGrid"); if(!G.children.length){ G.innerHTML = CH.map(c => '<button data-c="' + c[0] + '"><canvas width="144" height="172"></canvas><span>' + c[1] + '</span></button>').join(""); }
       G.querySelectorAll("[data-c]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.c === A.ch)); const c = b.querySelector("canvas"); if(window.__visDrawChar) window.__visDrawChar(c, b.dataset.c, {b:0.1, m:0.2, t:0.3, spec:null}); c.style.filter = A.hue ? "hue-rotate(" + A.hue + "deg)" : ""; }); };
     const fill = () => { $a("avNm").value = A.name; $a("avHue").value = A.hue; $a("avSz").value = Math.round(A.size * 100); $a("avPers").value = A.pers; $a("avPitch").value = Math.round(A.pitch * 100); $a("avRate").value = Math.round(A.rate * 100);
-      $a("avWalk").checked = A.walk; $a("avTrip").checked = A.trip; $a("avTripMin").value = String(A.tripMin); $a("avAi").value = A.ai; $a("avHat").value = A.hat || ""; $a("avGl").checked = !!A.glasses; $a("avSc").value = A.scarf || ""; $a("avReact").checked = A.react !== false; $a("avAl").checked = A.alerts !== false; $a("avBat").value = String(A.batLow || 20); $a("avWake").checked = !!A.wake; $a("avKey").value = LS.get("xaiKey", "") ? "••••••••" : ""; $a("avModel").value = LS.get("xaiModel", "");
+      $a("avWalk").checked = A.walk; $a("avTrip").checked = A.trip; $a("avTripMin").value = String(A.tripMin); $a("avAi").value = A.ai; $a("avTts").value = A.tts || "auto"; $a("avHat").value = A.hat || ""; $a("avGl").checked = !!A.glasses; $a("avSc").value = A.scarf || ""; $a("avReact").checked = A.react !== false; $a("avAl").checked = A.alerts !== false; $a("avBat").value = String(A.batLow || 20); $a("avWake").checked = !!A.wake; $a("avKey").value = LS.get("xaiKey", "") ? "••••••••" : ""; $a("avModel").value = LS.get("xaiModel", "");
       try{ const sel = $a("avVoice"), vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang) || v.name === A.voice); if(sel.options.length <= 1) vs.forEach(v => { const o = document.createElement("option"); o.value = v.name; o.textContent = v.name + " (" + v.lang + ")"; sel.appendChild(o); }); sel.value = A.voice || ""; }catch(e){} };
     dlg.addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
       if(b.dataset.t) tab(b.dataset.t); else if(b.dataset.x) dlg.hidden = true;
@@ -15958,6 +15985,7 @@ html.half #visKar .k1{font-size:19px}
     bind("avPitch", t => A.pitch = +t.value / 100); bind("avRate", t => A.rate = +t.value / 100); bind("avVoice", t => A.voice = t.value);
     $a("avWalk").onchange = e => { A.walk = e.target.checked; saveA(); }; $a("avTrip").onchange = e => { A.trip = e.target.checked; saveA(); }; $a("avTripMin").onchange = e => { A.tripMin = +e.target.value; saveA(); };
     $a("avAi").onchange = e => { A.ai = e.target.value; saveA(); };
+    $a("avTts").onchange = e => { A.tts = e.target.value; saveA(); };
     $a("avHat").onchange = e => { A.hat = e.target.value; saveA(); }; $a("avGl").onchange = e => { A.glasses = e.target.checked; saveA(); }; $a("avSc").onchange = e => { A.scarf = e.target.value; saveA(); };
     $a("avReact").onchange = e => { A.react = e.target.checked; saveA(); }; $a("avAl").onchange = e => { A.alerts = e.target.checked; saveA(); }; $a("avBat").onchange = e => { A.batLow = +e.target.value; saveA(); };
     $a("avWake").onchange = e => { A.wake = e.target.checked; saveA(); if(A.wake){ wakeStart(); toast("A ouvir «Olá " + A.name + "». Se o browser pedir, autoriza o microfone."); } else wakeStop(); };
