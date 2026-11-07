@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v257";
+const APP_VERSION = "v258";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15484,6 +15484,8 @@ html.half #visKar .k1{font-size:19px}
     function rr(x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
     const DRAW = {tunel:drawTunel, fogo:drawFogo, aurora:drawAurora, coelho:(L, n) => drawBicho(L, n, "coelho"), polvo:(L, n) => drawBicho(L, n, "polvo"), fantasma:(L, n) => drawBicho(L, n, "fantasma"), gato:(L, n) => drawBicho(L, n, "gato"), pinguim:(L, n) => drawBicho(L, n, "pinguim"), dino:(L, n) => drawBicho(L, n, "dino"), robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
 
+    /* v258: o avatar usa as mesmas personagens (desenhadas no canvas dele) */
+    window.__visDrawChar = (canvas, st, lv, now) => { const c0 = cv, gg = g; try{ cv = canvas; g = canvas.getContext("2d"); g.clearRect(0, 0, canvas.width, canvas.height); (DRAW[st] || drawRobo)(lv, now || performance.now()); }catch(e){} cv = c0; g = gg; };
     /* --- ciclo: só desenha com a página Media à vista e o quadro ligado --- */
     let lastHint = "";
     const frame = now => {
@@ -15759,6 +15761,178 @@ html.half #visKar .k1{font-size:19px}
       else if(m === "hide") w.classList.toggle("mHid");
       save(); try{ w.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(x){} }, true);
   }catch(e){ console.log("organizar media", e); }
+})();
+</script>
+<style>
+/* ===== v258: Avatar — anda pela app, conversa (Grok ou a IA do Cockpit) e tem várias aparências ===== */
+#avBox{position:fixed;left:120px;bottom:10px;z-index:190;width:150px;height:180px;touch-action:none;cursor:pointer;transition:filter .3s}
+#avBox canvas{width:100%;height:100%;display:block;transform:scale(1.6);transform-origin:50% 92%;pointer-events:none}
+#avBox.flip canvas{transform:scale(-1.6,1.6)}
+#avBox.hidden{display:none}
+#avName{position:absolute;left:50%;bottom:0;transform:translateX(-50%);padding:2px 8px;border-radius:8px;background:#0009;color:#fff;font:700 12px/1.2 system-ui,sans-serif;white-space:nowrap;pointer-events:none}
+#avSay{position:fixed;z-index:191;max-width:min(360px,70vw);padding:12px 14px;border-radius:16px;background:#fff;color:#152036;font:600 17px/1.35 system-ui,sans-serif;box-shadow:0 8px 26px #0009;pointer-events:none;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s}
+#avSay.on{opacity:1;transform:none}
+#avDlg{position:fixed;inset:auto 12px 12px auto;z-index:240;width:min(460px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;border-radius:20px;background:#0f1828f5;border:1px solid #ffffff2a;box-shadow:0 14px 50px #000c;color:#e8eef8;padding:14px}
+#avDlg[hidden]{display:none}
+#avDlg .avTabs{display:flex;gap:8px;margin-bottom:10px}
+#avDlg button,#avDlg select,#avDlg input[type=text],#avDlg input[type=password]{min-height:52px;border-radius:12px;border:1px solid #ffffff2a;background:#ffffff14;color:inherit;font:600 16px/1 system-ui,sans-serif;padding:0 12px}
+#avDlg .avTabs button[aria-selected="true"],#avDlg .pri{background:var(--accent,#7cc4ff);color:#001;border-color:transparent}
+#avLog{height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:6px 2px}
+#avLog .m{max-width:85%;padding:9px 12px;border-radius:14px;font:500 16px/1.35 system-ui,sans-serif}
+#avLog .u{align-self:flex-end;background:#2b6cb0}
+#avLog .a{align-self:flex-start;background:#ffffff1c}
+#avDlg .row2{display:flex;gap:8px;margin-top:8px}
+#avDlg .row2 input{flex:1;min-width:0}
+#avDlg label.f2{display:flex;flex-direction:column;gap:6px;margin:10px 0;font:600 14px/1.2 system-ui,sans-serif;color:#b9c6d8}
+#avDlg .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+#avDlg .grid button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;height:auto}
+#avDlg .grid button[aria-pressed="true"]{outline:3px solid var(--accent,#7cc4ff)}
+#avDlg .grid canvas{width:72px;height:86px;transform:scale(1.5);transform-origin:50% 85%}
+#avDlg input[type=range]{width:100%;accent-color:var(--accent,#7cc4ff)}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const CH = [["robo","Robô"],["gato","Gato DJ"],["pinguim","Pinguim"],["dino","Dinossauro"],["coelho","Coelho"],["polvo","Polvo"],["fantasma","Fantasma"]];
+    const PERS = {simpatico:"simpático, caloroso e positivo", divertido:"divertido e brincalhão, com piadas leves", calmo:"calmo e sereno, fala pouco e com suavidade", tecnico:"técnico e direto, adora dados do carro"};
+    const D = {on:true, ch:"robo", name:"Kiko", hue:0, size:1, walk:true, trip:true, tripMin:10, pers:"simpatico", pitch:1.1, rate:1.05, voice:"", ai:"cockpit"};
+    const A = Object.assign({}, D, LS.get("avatar", {}) || {});
+    const saveA = () => LS.set("avatar", A);
+    const box = document.createElement("div"); box.id = "avBox"; box.innerHTML = '<canvas width="300" height="360"></canvas><span id="avName"></span>'; document.body.appendChild(box);
+    const say = document.createElement("div"); say.id = "avSay"; document.body.appendChild(say);
+    const cv = box.querySelector("canvas");
+    const apply = () => { box.classList.toggle("hidden", !A.on); box.style.width = Math.round(150 * A.size) + "px"; box.style.height = Math.round(180 * A.size) + "px"; box.style.filter = A.hue ? "hue-rotate(" + A.hue + "deg)" : ""; document.getElementById("avName").textContent = A.name; };
+    apply();
+
+    /* --- passear pela app: anda na margem de baixo, para, acena; pode ser arrastado --- */
+    const P = {x:+LS.get("avX", 140) || 140, vx:0, until:0, talk:0, drag:null, wave:0};
+    const bounds = () => { const w = box.offsetWidth; const rail = document.querySelector(".rail"); const l = rail ? rail.getBoundingClientRect().right + 6 : 6; return [l, innerWidth - w - 6]; };
+    let last = performance.now();
+    const loop = now => {
+      requestAnimationFrame(loop);
+      if(!A.on || document.hidden) return;
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const [l, r] = bounds();
+      if(!P.drag && A.walk && !document.body.classList.contains("pfull")){
+        if(now > P.until){ if(P.vx){ P.vx = 0; P.until = now + 2500 + Math.random() * 5000; if(Math.random() < 0.3) P.wave = now + 1500; } else { P.vx = (Math.random() < 0.5 ? -1 : 1) * (40 + Math.random() * 40); P.until = now + 1500 + Math.random() * 3500; } }
+        P.x += P.vx * dt; if(P.x < l){ P.x = l; P.vx = Math.abs(P.vx); } if(P.x > r){ P.x = r; P.vx = -Math.abs(P.vx); }
+        if(P.vx) box.classList.toggle("flip", P.vx < 0);
+      } else P.x = Math.max(l, Math.min(r, P.x));
+      box.style.left = Math.round(P.x) + "px";
+      box.style.display = document.body.classList.contains("pfull") ? "none" : "";
+      const talking = now < P.talk, walk = !!P.vx;
+      const lv = {b:talking ? 0.35 + 0.35 * Math.abs(Math.sin(now / 90)) : walk ? 0.25 + 0.2 * Math.abs(Math.sin(now / 160)) : 0.08 + (now < P.wave ? 0.3 : 0), m:talking ? 0.5 + 0.4 * Math.sin(now / 130) : now < P.wave ? 0.9 : walk ? 0.3 : 0.1, t:talking ? 0.8 : 0.3, spec:null};
+      if(window.__visDrawChar) window.__visDrawChar(cv, A.ch, lv, now);
+      if(say.classList.contains("on")){ const rb = box.getBoundingClientRect(); say.style.left = Math.max(8, Math.min(innerWidth - say.offsetWidth - 8, rb.left + rb.width / 2 - say.offsetWidth / 2)) + "px"; say.style.top = Math.max(8, rb.top - say.offsetHeight - 6) + "px"; }
+    };
+    requestAnimationFrame(loop);
+    box.addEventListener("pointerdown", e => { P.drag = {x:e.clientX, x0:P.x, moved:false}; try{ box.setPointerCapture(e.pointerId); }catch(x){} });
+    box.addEventListener("pointermove", e => { if(!P.drag) return; const dx = e.clientX - P.drag.x; if(Math.abs(dx) > 8) P.drag.moved = true; P.x = P.drag.x0 + dx; });
+    box.addEventListener("pointerup", () => { const d = P.drag; P.drag = null; LS.set("avX", Math.round(P.x)); if(d && !d.moved) openDlg("talk"); });
+
+    /* --- falar --- */
+    let sayT = 0;
+    const speakA = txt => {
+      txt = String(txt || "").trim(); if(!txt) return;
+      say.textContent = txt; say.classList.add("on"); clearTimeout(sayT); sayT = setTimeout(() => say.classList.remove("on"), Math.min(14000, 2500 + txt.length * 70));
+      P.talk = performance.now() + Math.min(12000, 600 + txt.length * 65);
+      try{ if("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(txt); u.lang = cfg.lang === "en" ? "en-GB" : cfg.lang === "fr" ? "fr-FR" : "pt-PT"; u.pitch = A.pitch; u.rate = A.rate;
+          const vs = speechSynthesis.getVoices(); const v = vs.find(x => x.name === A.voice) || vs.find(x => /pt-PT|pt_PT/i.test(x.lang)) || null; if(v) u.voice = v;
+          u.onend = () => { P.talk = 0; }; speechSynthesis.cancel(); speechSynthesis.speak(u); } }catch(e){}
+    };
+    window.__avatarSay = speakA;
+
+    /* --- cérebro: Grok (chave xAI neste aparelho) ou a IA do Cockpit (proxy) --- */
+    const hist = [];
+    const ctxTxt = () => { let c = ""; try{ c += "Hora: " + new Date().toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"}) + ". "; }catch(e){} try{ if(typeof carSummary === "function") c += "Carro: " + carSummary() + ". "; }catch(e){} try{ c += "Em andamento: " + ((typeof drivingEff === "function" && drivingEff()) ? "sim" : "não") + ". "; }catch(e){}
+      try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) c += "A tocar: " + W.cur.artist + " — " + W.cur.title + ". "; else if(typeof radioCur !== "undefined" && radioCur) c += "Rádio: " + radioCur.name + ". "; }catch(e){} return c; };
+    const sys = () => "És o " + A.name + ", o companheiro de viagem do Rui no Tesla, dentro da app Cockpit. Personalidade: " + (PERS[A.pers] || PERS.simpatico) + ". Falas português de Portugal, de forma curta (1 a 3 frases), porque a resposta é lida em voz alta durante a condução. Nunca incentivas o condutor a olhar para o ecrã nem a mexer no telemóvel. " + ctxTxt();
+    const brain = async (msgs) => {
+      if(A.ai === "grok" && LS.get("xaiKey", "")){
+        const body = JSON.stringify({model:LS.get("xaiModel", "grok-3-mini"), messages:msgs, max_tokens:220, temperature:0.8});
+        const go = async u => { const r = await fetch(u, {method:"POST", headers:{"Content-Type":"application/json", Authorization:"Bearer " + LS.get("xaiKey", "")}, body}); if(!r.ok) throw new Error("Grok " + r.status); const j = await r.json(); return (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || ""; };
+        try{ return await go("https://api.x.ai/v1/chat/completions"); }catch(e){ if(typeof aiCall !== "function") throw e; }
+      }
+      if(typeof aiCall !== "function" || !cfg.proxy) throw new Error("Para conversar, liga o proxy do Cockpit ou põe a chave do Grok nas definições do avatar.");
+      return await aiCall(msgs, {max_tokens:220});
+    };
+    const ask = async (q, silent) => {
+      if(!silent) addLog("u", q);
+      hist.push({role:"user", content:q}); while(hist.length > 12) hist.shift();
+      try{ const a = (await brain([{role:"system", content:sys()}, ...hist])).replace(/\s+/g, " ").trim(); hist.push({role:"assistant", content:a}); addLog("a", a); speakA(a); return a; }
+      catch(e){ const m = String(e.message || e); addLog("a", "⚠️ " + m); speakA("Hum, não consegui pensar agora."); }
+    };
+    window.__avatarAsk = ask;
+
+    /* --- conversa em viagem: de X em X minutos diz algo curto sobre a viagem --- */
+    let tripAt = Date.now() + 60000;
+    setInterval(() => { try{
+      if(!A.on || !A.trip || !(typeof drivingEff === "function" && drivingEff())) { tripAt = Math.max(tripAt, Date.now() + 60000); return; }
+      if(Date.now() < tripAt) return; tripAt = Date.now() + Math.max(3, +A.tripMin || 10) * 60000;
+      const ideias = ["Comenta a viagem de forma curta e simpática.", "Diz uma curiosidade rápida e interessante.", "Pergunta ao Rui como está a correr a viagem.", "Comenta a música que está a tocar, se houver.", "Dá uma dica curta de condução eficiente para o Tesla."];
+      ask(ideias[Math.floor(Math.random() * ideias.length)], true);
+    }catch(e){} }, 20000);
+
+    /* --- janela: conversar e aparência --- */
+    const dlg = document.createElement("div"); dlg.id = "avDlg"; dlg.hidden = true; document.body.appendChild(dlg);
+    dlg.innerHTML = '<div class="avTabs"><button data-t="talk" aria-selected="true">💬 Conversar</button><button data-t="look" aria-selected="false">🎨 Aparência</button><button data-t="brain" aria-selected="false">🧠 Cérebro</button><span style="flex:1"></span><button data-x="1" aria-label="Fechar">✕</button></div>' +
+      '<div data-p="talk"><div id="avLog"></div><div class="row2"><input type="text" id="avIn" placeholder="Escreve ao avatar…" autocomplete="off"><button id="avMic" aria-label="Falar">🎤</button><button id="avSend" class="pri">Enviar</button></div></div>' +
+      '<div data-p="look" hidden><div class="grid" id="avGrid"></div>' +
+      '<label class="f2">Nome<input type="text" id="avNm" maxlength="16"></label>' +
+      '<label class="f2">Cor <input type="range" id="avHue" min="0" max="359"></label>' +
+      '<label class="f2">Tamanho <input type="range" id="avSz" min="70" max="160"></label>' +
+      '<label class="f2">Personalidade<select id="avPers"><option value="simpatico">Simpático</option><option value="divertido">Divertido</option><option value="calmo">Calmo</option><option value="tecnico">Técnico</option></select></label>' +
+      '<label class="f2">Tom de voz <input type="range" id="avPitch" min="50" max="200"></label><label class="f2">Velocidade da voz <input type="range" id="avRate" min="70" max="150"></label>' +
+      '<label class="f2">Voz<select id="avVoice"><option value="">Automática (português)</option></select></label>' +
+      '<label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="avWalk"> Passear pela app</label>' +
+      '<label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="avTrip"> Conversar em viagem (diz algo de vez em quando)</label>' +
+      '<label class="f2">De quantos em quantos minutos<select id="avTripMin"><option>5</option><option>10</option><option>15</option><option>30</option></select></label>' +
+      '<div class="row2"><button id="avHide">🙈 Esconder o avatar</button><button id="avTest">🔊 Testar a voz</button></div></div>' +
+      '<div data-p="brain" hidden><label class="f2">Inteligência<select id="avAi"><option value="cockpit">IA do Cockpit (Workers AI do teu proxy)</option><option value="grok">Grok (xAI)</option></select></label>' +
+      '<label class="f2">Chave da API do Grok (fica só neste aparelho)<input type="password" id="avKey" placeholder="xai-…" autocomplete="off"></label>' +
+      '<label class="f2">Modelo do Grok<input type="text" id="avModel" placeholder="grok-3-mini"></label>' +
+      '<p class="small" style="color:#b9c6d8">Se o Grok não responder (rede ou chave), o avatar usa a IA do Cockpit.</p></div>';
+    const $a = id => document.getElementById(id);
+    const addLog = (k, t) => { const L = $a("avLog"), d = document.createElement("div"); d.className = "m " + k; d.textContent = t; L.appendChild(d); L.scrollTop = L.scrollHeight; };
+    const tab = t => { dlg.querySelectorAll("[data-t]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.t === t))); dlg.querySelectorAll("[data-p]").forEach(p => p.hidden = p.dataset.p !== t); if(t === "look") paintGrid(); };
+    const openDlg = t => { dlg.hidden = false; fill(); tab(t || "talk"); if(!$a("avLog").children.length) addLog("a", "Olá Rui! Sou o " + A.name + ". Toca no 🎤 ou escreve. Na aparência podes mudar-me."); };
+    window.__avatarOpen = openDlg;
+    const paintGrid = () => { const G = $a("avGrid"); if(!G.children.length){ G.innerHTML = CH.map(c => '<button data-c="' + c[0] + '"><canvas width="144" height="172"></canvas><span>' + c[1] + '</span></button>').join(""); }
+      G.querySelectorAll("[data-c]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.c === A.ch)); const c = b.querySelector("canvas"); if(window.__visDrawChar) window.__visDrawChar(c, b.dataset.c, {b:0.1, m:0.2, t:0.3, spec:null}); c.style.filter = A.hue ? "hue-rotate(" + A.hue + "deg)" : ""; }); };
+    const fill = () => { $a("avNm").value = A.name; $a("avHue").value = A.hue; $a("avSz").value = Math.round(A.size * 100); $a("avPers").value = A.pers; $a("avPitch").value = Math.round(A.pitch * 100); $a("avRate").value = Math.round(A.rate * 100);
+      $a("avWalk").checked = A.walk; $a("avTrip").checked = A.trip; $a("avTripMin").value = String(A.tripMin); $a("avAi").value = A.ai; $a("avKey").value = LS.get("xaiKey", "") ? "••••••••" : ""; $a("avModel").value = LS.get("xaiModel", "");
+      try{ const sel = $a("avVoice"), vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang) || v.name === A.voice); if(sel.options.length <= 1) vs.forEach(v => { const o = document.createElement("option"); o.value = v.name; o.textContent = v.name + " (" + v.lang + ")"; sel.appendChild(o); }); sel.value = A.voice || ""; }catch(e){} };
+    dlg.addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
+      if(b.dataset.t) tab(b.dataset.t); else if(b.dataset.x) dlg.hidden = true;
+      else if(b.dataset.c){ A.ch = b.dataset.c; saveA(); paintGrid(); }
+      else if(b.id === "avSend"){ const q = $a("avIn").value.trim(); if(q){ $a("avIn").value = ""; ask(q); } }
+      else if(b.id === "avHide"){ A.on = false; saveA(); apply(); dlg.hidden = true; toast("Avatar escondido. Volta a mostrá-lo em Definições → Avatar."); }
+      else if(b.id === "avTest") speakA("Olá Rui, eu sou o " + A.name + ". Boa viagem!");
+      else if(b.id === "avMic") listen(); });
+    $a("avIn").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); $a("avSend").click(); } });
+    const bind = (id, fn) => $a(id).addEventListener("input", e => { fn(e.target); saveA(); apply(); });
+    bind("avNm", t => A.name = t.value.trim() || "Kiko"); bind("avHue", t => { A.hue = +t.value; paintGrid(); }); bind("avSz", t => A.size = +t.value / 100); bind("avPers", t => A.pers = t.value);
+    bind("avPitch", t => A.pitch = +t.value / 100); bind("avRate", t => A.rate = +t.value / 100); bind("avVoice", t => A.voice = t.value);
+    $a("avWalk").onchange = e => { A.walk = e.target.checked; saveA(); }; $a("avTrip").onchange = e => { A.trip = e.target.checked; saveA(); }; $a("avTripMin").onchange = e => { A.tripMin = +e.target.value; saveA(); };
+    $a("avAi").onchange = e => { A.ai = e.target.value; saveA(); };
+    $a("avKey").addEventListener("change", e => { const v = e.target.value.trim(); if(v && !/^•+$/.test(v)){ LS.set("xaiKey", v); e.target.value = "••••••••"; toast("Chave do Grok guardada neste aparelho."); } else if(!v) LS.set("xaiKey", ""); });
+    $a("avModel").addEventListener("change", e => LS.set("xaiModel", e.target.value.trim()));
+
+    /* --- ouvir (reconhecimento de voz do browser, se existir) --- */
+    function listen(){
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!SR){ toast("Este browser não reconhece voz aqui: escreve a pergunta (ou usa o botão do microfone do Cockpit)."); $a("avIn").focus(); return; }
+      try{ const r = new SR(); r.lang = cfg.lang === "en" ? "en-GB" : "pt-PT"; r.interimResults = false; r.maxAlternatives = 1; $a("avMic").textContent = "👂";
+        r.onresult = ev => { const q = ev.results[0][0].transcript; if(q) ask(q); }; r.onend = () => { $a("avMic").textContent = "🎤"; }; r.onerror = () => { $a("avMic").textContent = "🎤"; toast("Não percebi. Tenta outra vez."); }; r.start(); }catch(e){ toast("Não consegui ligar o microfone."); }
+    }
+
+    /* --- Definições: cartão para voltar a mostrar e configurar --- */
+    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard"; c.innerHTML = '<h2>Avatar</h2><p class="small muted setsub" style="margin:0">O companheiro que anda pela app e conversa contigo.</p><div class="row" style="gap:10px;margin-top:10px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>'; st.appendChild(c);
+      document.getElementById("avShow").onclick = () => { A.on = true; saveA(); apply(); openDlg("look"); }; }catch(e){} }, 1500);
+    /* cumprimenta uma vez quando abre a app */
+    setTimeout(() => { try{ if(A.on && !sessionStorage.getItem("avHi")){ sessionStorage.setItem("avHi", "1"); const h = new Date().getHours(); speakA((h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite") + ", Rui! Toca em mim para conversarmos."); } }catch(e){} }, 6500);
+  }catch(e){ console.log("avatar", e); }
 })();
 </script>
 </body>
