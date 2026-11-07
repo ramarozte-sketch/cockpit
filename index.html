@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v261";
+const APP_VERSION = "v262";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15517,7 +15517,7 @@ html.half #visKar .k1{font-size:19px}
     setInterval(kick, 800); document.addEventListener("visibilitychange", kick);
 
     /* ecrã total: o quadro passa para o <body> (dentro da página há contentores que prendem o position:fixed) */
-    const setFs = (on, party) => { wrap.classList.toggle("fs", on); wrap.classList.toggle("party", on && party); if(on){ if(wrap.parentNode !== document.body) document.body.appendChild(wrap); } else if(wrap.parentNode !== box) box.appendChild(wrap); $v("visFs").textContent = on ? "✕" : "⛶"; S.pt1 = S.pt2 = null; kick(); };
+    const setFs = (on, party) => { wrap.classList.toggle("fs", on); wrap.classList.toggle("party", on && party); if(on){ if(wrap.parentNode !== document.body) document.body.appendChild(wrap); } else if(wrap.parentNode !== box) box.appendChild(wrap); $v("visFs").textContent = on ? "×" : "⛶"; S.pt1 = S.pt2 = null; kick(); };
     wrap.addEventListener("click", e => { const b = e.target.closest("button"); if(!b || box.contains(wrap)) return; if(b.id === "visFs") setFs(false); else if(b.id === "visParty") setFs(!wrap.classList.contains("party"), true); });
     try{ const _sh = window.show; window.show = function(v){ if(v !== "media" && wrap.classList.contains("fs")) setFs(false); return _sh.apply(this, arguments); }; }catch(e){}
     box.addEventListener("click", async e => {
@@ -15910,7 +15910,7 @@ html.half #visKar .k1{font-size:19px}
       const n = typeof norm === "function" ? norm(q) : q.toLowerCase();
       let m = n.match(/^(?:toca|poe|mete|ouvir|quero ouvir)\s+(.+?)\s+(?:no|na)\s+(?:amp|winamp|youtube music|youtube)$/) || n.match(/^(?:toca|poe a musica|mete a musica)\s+(.+)$/);
       if(m && !/^radio\b|^canal\b/.test(m[1])){ const W = window.__wamp; const f = document.getElementById("wampForm"); if(W && f){ document.getElementById("wampQ").value = m[1]; if(/youtube/.test(n) && cfg.ytKey) document.getElementById("wampSrc").value = "youtube"; f.requestSubmit(); let k = 0; const t = setInterval(() => { if(++k > 30){ clearInterval(t); return; } if(W.list && W.list.length){ clearInterval(t); const b = document.querySelector('#wampPl [data-i="0"]'); if(b) b.click(); } }, 400); return "A procurar " + m[1] + " no Amp."; } }
-      if(typeof VOICE !== "undefined" && VOICE.some(c => c.re.some(r => r.test(n)))){ try{ await handleCommand(q); }catch(e){} return "\u200bFeito!"; }
+      if(typeof VOICE !== "undefined" && VOICE.some(c => c.re.some(r => r.test(n)))){ try{ await (window.__hcOrig || handleCommand)(q); }catch(e){} return "\u200bFeito!"; }
       if(/\b(abre|fecha|liga|desliga|tranca|destranca|aquece|arrefece|temperatura|ventila|carrega|buzina|pisca|descongela)\b/.test(n) && typeof aiOn === "function" && aiOn() && typeof aiCommand === "function"){ try{ if(await aiCommand(q)) return "\u200bTratado."; }catch(e){} }
       return null;
     };
@@ -15937,7 +15937,7 @@ html.half #visKar .k1{font-size:19px}
 
     /* --- janela: conversar e aparência --- */
     const dlg = document.createElement("div"); dlg.id = "avDlg"; dlg.hidden = true; document.body.appendChild(dlg);
-    dlg.innerHTML = '<div class="avTabs"><button data-t="talk" aria-selected="true">💬 Conversar</button><button data-t="look" aria-selected="false">🎨 Aparência</button><button data-t="brain" aria-selected="false">🧠 Cérebro</button><span style="flex:1"></span><button data-x="1" aria-label="Fechar">✕</button></div>' +
+    dlg.innerHTML = '<div class="avTabs"><button data-t="talk" aria-selected="true">💬 Conversar</button><button data-t="look" aria-selected="false">🎨 Aparência</button><button data-t="brain" aria-selected="false">🧠 Cérebro</button><span style="flex:1"></span><button data-x="1" aria-label="Fechar" style="font-size:30px;line-height:1">×</button></div>' +
       '<div data-p="talk"><div id="avLog"></div><div class="row2"><input type="text" id="avIn" placeholder="Escreve ao avatar…" autocomplete="off"><button id="avMic" aria-label="Falar">🎤</button><button id="avSend" class="pri">Enviar</button></div></div>' +
       '<div data-p="look" hidden><div class="grid" id="avGrid"></div>' +
       '<label class="f2">Nome<input type="text" id="avNm" maxlength="16"></label>' +
@@ -15980,7 +15980,7 @@ html.half #visKar .k1{font-size:19px}
       else if(b.id === "avHide"){ A.on = false; saveA(); apply(); dlg.hidden = true; toast("Avatar escondido. Volta a mostrá-lo em Definições → Avatar."); }
       else if(b.id === "avTest") speakA("Olá Rui, eu sou o " + A.name + ". Boa viagem!");
       else if(b.id === "avForget"){ LS.set("avMem", []); LS.set("avHist", []); hist.length = 0; toast("Memória do avatar apagada."); }
-      else if(b.id === "avMic") listen(); });
+      else if(b.id === "avMic"){ const mb = document.getElementById("micBtn"); if(mb){ window.__avRoute = Date.now() + 25000; mb.click(); } else listen(); } });
     $a("avIn").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); $a("avSend").click(); } });
     const bind = (id, fn) => $a(id).addEventListener("input", e => { fn(e.target); saveA(); apply(); });
     bind("avNm", t => A.name = t.value.trim() || "Kiko"); bind("avHue", t => { A.hue = +t.value; paintGrid(); }); bind("avSz", t => A.size = +t.value / 100); bind("avPers", t => A.pers = t.value);
@@ -16034,6 +16034,12 @@ html.half #visKar .k1{font-size:19px}
     };
     const wakeStop = () => { try{ wakeR && wakeR.stop(); }catch(e){} wakeR = null; };
     setTimeout(wakeStart, 4000);
+
+    /* --- v262: o microfone do Cockpit fala com o avatar quando a conversa está aberta (ou depois de tocar no 🎤 do avatar) --- */
+    try{ const _hc = window.handleCommand; if(typeof _hc === "function"){ window.__hcOrig = _hc; window.handleCommand = async function(raw){
+        const toAv = A.on && (!dlg.hidden || (window.__avRoute && Date.now() < window.__avRoute));
+        if(toAv && String(raw || "").trim()){ window.__avRoute = 0; if(dlg.hidden) openDlg("talk"); try{ const h = document.getElementById("heard"); if(h) h.textContent = "“" + raw + "”"; }catch(e){} return ask(String(raw).trim()); }
+        return _hc.apply(this, arguments); }; } }catch(e){}
 
     /* --- Definições: cartão para voltar a mostrar e configurar --- */
     setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard"; c.innerHTML = '<h2>Avatar</h2><p class="small muted setsub" style="margin:0">O companheiro que anda pela app e conversa contigo.</p><div class="row" style="gap:10px;margin-top:10px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>'; st.appendChild(c);
