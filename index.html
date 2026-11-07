@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v252";
+const APP_VERSION = "v253";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12117,6 +12117,11 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
 #v-tvinicio.ah-netflix .ahMeta small{display:none}
 /* animações ao deslizar */
 @keyframes ahUp{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes ahBook{0%{opacity:0;transform:perspective(1100px) rotateY(-105deg)}55%{opacity:1;transform:perspective(1100px) rotateY(14deg)}78%{transform:perspective(1100px) rotateY(-5deg)}100%{opacity:1;transform:perspective(1100px) rotateY(0)}}
+@keyframes ahBookShade{0%{opacity:1}70%{opacity:.35}100%{opacity:0}}
+#v-tvinicio.an-livro .ahCard.rev{transform-origin:left center;backface-visibility:hidden;animation:ahBook .75s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--d,0ms)}
+#v-tvinicio.an-livro .ahCard.rev::after{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;background:linear-gradient(90deg,#000a 0%,#0004 35%,#fff1 70%,#0000 100%);animation:ahBookShade .75s ease-out both;animation-delay:var(--d,0ms)}
+@media (prefers-reduced-motion:reduce){#v-tvinicio.an-livro .ahCard.rev,#v-tvinicio.an-livro .ahCard.rev::after{animation:none}}
 @keyframes ahZoom{from{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.06)}to{opacity:1;transform:none}}
 #v-tvinicio.ahArm .ahCard:not(.in){opacity:0}
 #v-tvinicio.an-suave .ahCard.rev{animation:ahUp .5s cubic-bezier(.2,.8,.2,1) backwards}
@@ -12137,7 +12142,9 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   if(window.ANDROID) return;   /* a app Android tem o seu próprio Início */
   try{
   const TPL = [["equilibrado", "Equilibrado"], ["cinema", "Cinema"], ["compacto", "Compacto"], ["grelha", "Grelha"], ["netflix", "Estilo Netflix"]];
-  const ANS = [["suave", "Suave"], ["cascata", "Cascata"], ["zoom", "Zoom"], ["nenhuma", "Sem animação"]];
+  const ANS = [["livro", "Livro (virar página)"], ["suave", "Suave"], ["cascata", "Cascata"], ["zoom", "Zoom"], ["nenhuma", "Sem animação"]];
+  /* v253: efeito «Livro» passa a ser o escolhido (uma vez); depois fica o que o Rui escolher nas Definições */
+  try{ if(!LS.get("anLivro1", 0)){ LS.set("anLivro1", 1); cfg.tvHomeAnim = "livro"; saveCfg(); } }catch(e){}
   const on = () => cfg.tvHome !== "classic";
   const AH = window.__ah = {flat:[], kind:(LS.get("ahKind", "live") || "live"), lim:{}, pass:0, hh:null, rr:null, n:-1};
   const sx = s => esc(s);
@@ -13803,9 +13810,13 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     d.innerHTML = '<h3 style="margin:14px 0 6px">Carro em movimento ou parado</h3>' +
       '<label class="row small"><input type="checkbox" id="dataSaveOpt"> Poupar dados: no máximo 720p em andamento ou com rede lenta</label>' +
       '<label class="row small"><input type="checkbox" id="chgOpt"> Avisos do carregamento por cima do vídeo (início, cada 10 %, faltam 5 min, concluído)</label>' +
-      '<label class="f">Com o ecrã apagado ou a página escondida, parar o vídeo ao fim de<select id="hideOpt"><option value="0">Nunca</option><option value="1">1 min</option><option value="3">3 min</option><option value="10">10 min</option></select></label>';
+      '<label class="f">Com o ecrã apagado ou a página escondida, parar o vídeo ao fim de<select id="hideOpt"><option value="0">Nunca</option><option value="1">1 min</option><option value="3">3 min</option><option value="10">10 min</option></select></label>' +
+      '<label class="row small"><input type="checkbox" id="resOpenOpt"> Ao abrir o Cockpit, continuar o último canal ou filme (o filme no ponto onde ficou)</label>' +
+      '<label class="f">Interface escura à noite (baixa o brilho dos menus e botões; o vídeo em ecrã total fica igual)<select id="nightOpt"><option value="auto">Automática: do pôr ao nascer do sol</option><option value="on">Sempre</option><option value="off">Desligada</option></select></label>';
     w.appendChild(d);
-    const fill = () => { $("dataSaveOpt").checked = opt("dataSave", true); $("chgOpt").checked = opt("chgNotes", true); $("hideOpt").value = String(opt("hideStop", 3)); };
+    const fill = () => { $("dataSaveOpt").checked = opt("dataSave", true); $("chgOpt").checked = opt("chgNotes", true); $("hideOpt").value = String(opt("hideStop", 3)); $("resOpenOpt").checked = !!cfg.resumeOpen; $("nightOpt").value = cfg.nightUi || "auto"; };
+    $("resOpenOpt").onchange = e => { cfg.resumeOpen = e.target.checked; saveCfg(); };
+    $("nightOpt").onchange = e => { cfg.nightUi = e.target.value; saveCfg(); try{ window.__night && window.__night(); }catch(x){} };
     $("dataSaveOpt").onchange = e => { cfg.dataSave = e.target.checked; saveCfg(); try{ applyCaps(); }catch(x){} };
     $("chgOpt").onchange = e => { cfg.chgNotes = e.target.checked; saveCfg(); };
     $("hideOpt").onchange = e => { cfg.hideStop = +e.target.value; saveCfg(); };
@@ -13850,7 +13861,11 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* buffer de cada faixa (vídeo / som) dentro do hls.js: se não se sobrepõem, o vídeo fica parado sem erro */
   const trackBuf = h => { try{ const bc = (h.coreComponents || []).find(x => x && x.sourceBuffer && typeof x.sourceBuffer === "object"); if(!bc) return null; const o = {}; for(const k of Object.keys(bc.sourceBuffer)){ const sb = bc.sourceBuffer[k]; if(sb && sb.buffered) o[k] = rs(sb.buffered); } return o; }catch(e){ return null; } };
   window.__trackBuf = trackBuf;
-  const ev = (slot, type, data) => { const a = DBG.cur[slot] || DBG.watch[slot]; if(!a) return; if(a.ev.length < (a.res === "em observação" ? 250 : 120)) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {})); };
+  const ev = (slot, type, data) => { const a = DBG.cur[slot] || DBG.watch[slot]; if(!a) return; if(a.ev.length < (a.res === "em observação" ? 250 : 120)) a.ev.push(Object.assign({t:Math.round(performance.now() - a.t0), e:type}, data || {}));
+    /* v253: problemas que valem um registo enviado sozinho (sem esperar que o Rui carregue em «Enviar») */
+    try{ if(/^(reinício automático|filme sem dados|sem dados: para|som por software: erro|imagem por software: ainda sem imagens|página esteve parada|canal sem áudio|canal em manutenção)/.test(type)) autoSend(type);
+      else if(type === "andamento: imagem" && data && data.fps < 6){ a.lowFps = (a.lowFps || 0) + 1; if(a.lowFps === 2) autoSend("imagem lenta em andamento"); }
+      else if(type === "som Dolby: níveis" && data && data.tarde > 100 && !a.lateSent){ a.lateSent = 1; autoSend("som Dolby atrasado"); } }catch(e){} };
 
   /* --- uma tentativa por canal escolhido --- */
   const start = (c, slot) => {
@@ -13874,7 +13889,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     try{ if(window.__tfixLog) a.recuperacoes = window.__tfixLog().slice(-8).map(scrub); }catch(e){}
     DBG.list.push(a); if(DBG.list.length > MAX) DBG.list.splice(0, DBG.list.length - MAX); save();
     if(res === "ok") DBG.watch[slot] = {n:a.n, at:now(), t0:performance.now(), t00:Date.now(), slot, ch:a.ch, ev:[], res:"em observação"};
-    if(res !== "ok" && res !== "substituído por outro canal") autoSend();
+    if(res !== "ok" && res !== "substituído por outro canal") autoSend("falhou: " + res);
   };
   /* resultado: «ok» quando há imagem a andar; «falhou» se ao fim de 25 s não houver */
   setInterval(() => { [0, 1].forEach(slot => {
@@ -14001,9 +14016,17 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       LS.set("dbgSent", Date.now()); return name + extra;
     } finally { sending = false; }
   };
-  const autoSend = () => {
-    if(!cfg.dbgAuto || !LS.get("dbgTok", "")) return;
-    clearTimeout(autoT); autoT = setTimeout(() => { if(Date.now() - lastAuto < 120000) return; lastAuto = Date.now(); upload("canal falhou (automático)").then(n => toast("Registo enviado para o GitHub: " + n)).catch(e => console.log("dbg", e)); }, 20000);
+  /* v253: ligado por omissão; espera 20 s para apanhar o que acontece a seguir; no máximo 1 a cada 2 min e 15 por dia */
+  let autoWhy = "";
+  const autoSend = (why) => {
+    if(cfg.dbgAuto === false || !LS.get("dbgTok", "")) return;
+    if(!autoWhy) autoWhy = why || "falha";
+    clearTimeout(autoT); autoT = setTimeout(() => {
+      const w = autoWhy; autoWhy = "";
+      if(Date.now() - lastAuto < 120000) return;
+      const day = new Date().toISOString().slice(0, 10), cnt = LS.get("dbgAutoDay", {}) || {}; if(cnt.d !== day){ cnt.d = day; cnt.n = 0; } if(cnt.n >= 15) return;
+      cnt.n++; LS.set("dbgAutoDay", cnt); lastAuto = Date.now();
+      upload("automático: " + w).then(n => toast("Problema registado e enviado para o GitHub (" + w + ").")).catch(e => console.log("dbg", e)); }, 20000);
   };
 
   /* --- Definições → Diagnóstico --- */
@@ -14017,12 +14040,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
       '<details style="margin-top:6px"><summary class="small" style="cursor:pointer">GitHub (para enviar o registo)</summary>' +
       '<label class="f">Repositório (privado, recomendado)<input type="text" id="dbgRepo" placeholder="ramarozte-sketch/cockpit-logs" autocomplete="off"></label>' +
       '<label class="f">Token do GitHub (só fica neste aparelho)<input type="password" id="dbgTok" placeholder="github_pat_…" autocomplete="off"></label>' +
-      '<label class="row small"><input type="checkbox" id="dbgAuto"> Enviar sozinho quando um canal falha (no máximo 1 vez a cada 2 min)</label>' +
+      '<label class="row small"><input type="checkbox" id="dbgAuto"> Enviar sozinho quando algo falha: canal ou filme que não abre, imagem lenta, som atrasado (no máximo 1 vez a cada 2 min e 15 por dia)</label>' +
       '<p class="small muted" style="margin:0">Cria em github.com → Settings → Developer settings → Fine-grained tokens: acesso só ao repositório dos registos, permissão «Contents: Read and write».</p></details>' +
       '<pre id="dbgOut" class="mono small" hidden style="white-space:pre-wrap;max-height:46vh;overflow:auto;user-select:text"></pre><p class="small muted" id="dbgMsg" style="margin:4px 0 0"></p>';
     o.parentNode.insertBefore(box, o.nextSibling);
     const msg = (t, bad) => { const m = $("dbgMsg"); m.textContent = t; m.style.color = bad ? "#ff8080" : ""; };
-    const fill = () => { $("dbgOn").checked = on(); $("dbgRepo").value = cfg.dbgRepo || ""; $("dbgTok").value = LS.get("dbgTok", "") ? "••••••••" : ""; $("dbgAuto").checked = !!cfg.dbgAuto;
+    const fill = () => { $("dbgOn").checked = on(); $("dbgRepo").value = cfg.dbgRepo || ""; $("dbgTok").value = LS.get("dbgTok", "") ? "••••••••" : ""; $("dbgAuto").checked = cfg.dbgAuto !== false;
       const s = LS.get("dbgSent", 0); msg(DBG.list.length + " tentativas guardadas" + (s ? " · último envio " + new Date(s).toLocaleString("pt-PT") : "")); };
     $("dbgOn").onchange = e => { cfg.dbgOn = e.target.checked; saveCfg(); };
     $("dbgRepo").onchange = e => { cfg.dbgRepo = e.target.value.trim(); saveCfg(); };
@@ -15114,5 +15137,60 @@ html.half.hdrMini #micBtn{transform:scale(.72);transform-origin:center}
 })();
 </script>
 
+<style>
+/* ===== v253: interface escura à noite ===== */
+#nightDim{position:fixed;inset:0;z-index:150;pointer-events:none;background:#000;opacity:0;transition:opacity 1.2s}
+html.nightUi #nightDim{opacity:.32}
+html.nightUi body.pfull #nightDim{opacity:0}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  /* --- interface escura do pôr ao nascer do sol (casa do Rui nas Definições; sem casa: Portugal continental) --- */
+  try{
+    const dim = document.createElement("div"); dim.id = "nightDim"; document.body.appendChild(dim);
+    const sun = (lat, lon, d) => {   /* nascer e pôr do sol (algoritmo NOAA simplificado), em horas UTC */
+      const rad = Math.PI / 180, N = Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5);
+      const g = 2 * Math.PI / 365 * (N - 1);
+      const eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+      const dec = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+      const ha = Math.acos(Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(dec)) - Math.tan(lat * rad) * Math.tan(dec)) / rad;
+      return {rise:(720 - 4 * (lon + ha) - eq) / 60, set:(720 - 4 * (lon - ha) - eq) / 60};
+    };
+    const night = () => {
+      try{
+        const m = cfg.nightUi || "auto"; let on = false;
+        if(m === "on") on = true;
+        else if(m === "auto"){ const lat = +cfg.homeLat || 38.7, lon = +cfg.homeLon || -9.1, d = new Date(), s = sun(lat, lon, d), h = d.getUTCHours() + d.getUTCMinutes() / 60; on = !(h > s.rise && h < s.set); }
+        document.documentElement.classList.toggle("nightUi", on);
+      }catch(e){}
+    };
+    window.__night = night; night(); setInterval(night, 60000);
+  }catch(e){ console.log("noite", e); }
+
+  /* --- ao abrir o Cockpit, continuar o último canal ou filme --- */
+  try{
+    if(cfg.resumeOpen){
+      const L = LS.get("last0", null);
+      if(L && L.url){
+        let n = 0;
+        const t = setInterval(() => {
+          try{
+            if(++n > 90){ clearInterval(t); return; }
+            if(n < 4 || (lastPlayed[0] || lastPlayed[1])){ if(lastPlayed[0] || lastPlayed[1]) clearInterval(t); return; }
+            const all = [...(channels || []), ...(typeof freeChans !== "undefined" ? freeChans : [])];
+            const c = all.find(x => x && x.url === L.url); if(!c) return;
+            clearInterval(t);
+            if(typeof tvBlocked === "function" && tvBlocked(c)) return;
+            show(c.kind === "live" && typeof cfg.tvHome !== "undefined" && cfg.tvHome === "classic" ? "tv" : (c.kind === "live" ? "tvinicio" : "tv"));
+            toast("A continuar " + c.name + "…");
+            (window.__oneConn || window.playChannel)(c, 0);
+          }catch(e){ clearInterval(t); }
+        }, 1000);
+      }
+    }
+  }catch(e){ console.log("retomar ao abrir", e); }
+})();
+</script>
 </body>
 </html>
