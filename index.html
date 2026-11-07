@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v254";
+const APP_VERSION = "v255";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15043,7 +15043,7 @@ html.half #teslaFs::after{content:"⛶";font-size:24px}
 /* 3. barra fixa do leitor */
 #halfBar{display:none}
 html.half.hbOn #halfBar{display:flex;position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:120;gap:10px;padding:8px 10px;border-radius:20px;background:#0b1422ee;border:1px solid #ffffff26;box-shadow:0 8px 30px #000a;max-width:calc(100vw - 100px)}
-#halfBar button{display:inline-flex;align-items:center;justify-content:center;min-width:60px;min-height:56px;border:0;border-radius:14px;background:#ffffff1a;color:#fff;font:700 22px/1 inherit;cursor:pointer;touch-action:manipulation}
+#halfBar button{display:inline-flex;align-items:center;justify-content:center;min-width:60px;min-height:56px;border:0;border-radius:14px;background:#ffffff1a;color:#fff;font:700 22px/1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
 #halfBar button:active{background:#ffffff40}
 #halfBar button.pri{background:var(--accent,#7cc4ff);color:#001}
 html.half.hbOn main{padding-bottom:96px}
@@ -15197,27 +15197,42 @@ html.nightUi body.pfull #nightDim{opacity:0}
 #visPanel .visTop{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 #visPanel .visTop h2{margin:0}
 #visPanel .visSty,#visPanel .visSrc{display:flex;flex-wrap:wrap;gap:8px}
-#visPanel .visSty button,#visPanel .visSrc button{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line,#ffffff22);background:#ffffff10;color:inherit;font:600 15px/1 inherit;cursor:pointer}
+#visPanel .visSty button,#visPanel .visSrc button{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line,#ffffff22);background:#ffffff10;color:inherit;font:600 15px/1 system-ui,sans-serif;cursor:pointer}
 #visPanel .visSty button[aria-pressed="true"],#visPanel .visSrc button[aria-pressed="true"]{background:var(--accent,#7cc4ff);color:#001;border-color:transparent}
 #visWrap{position:relative;margin-top:12px;border-radius:18px;overflow:hidden;background:radial-gradient(ellipse at 50% 120%,#1b2b4a,#05070d 70%);height:320px}
 #visWrap canvas{display:block;width:100%;height:100%}
-#visWrap .visHint{position:absolute;left:0;right:0;bottom:14px;text-align:center;font:600 15px/1.3 inherit;color:#cfe3ff;opacity:.85;pointer-events:none}
+#visWrap .visHint{position:absolute;left:0;right:0;bottom:14px;text-align:center;font:600 15px/1.3 system-ui,sans-serif;color:#cfe3ff;opacity:.85;pointer-events:none}
 #visWrap .visFs{position:absolute;right:10px;top:10px;min-width:48px;min-height:48px;border:0;border-radius:12px;background:#0008;color:#fff;font-size:22px;cursor:pointer}
-#visWrap.fs{position:fixed;inset:0;z-index:230;height:auto;border-radius:0}
+#visWrap.fs{position:fixed;inset:0;z-index:230;height:auto!important;margin:0;border-radius:0}
 html.half #visWrap{height:260px}
+#visBpm{position:absolute;left:12px;top:12px;padding:6px 10px;border-radius:10px;background:#0007;color:#9ff3ff;font:700 14px/1 "Courier New",monospace;pointer-events:none}
+#visBpm:empty{display:none}
+#visKar{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:min(86%,720px);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
+#visKar.on{opacity:1}
+#visKar .k1{display:inline-block;padding:8px 16px;border-radius:16px;background:#ffffffee;color:#1a1f33;font:800 22px/1.25 system-ui,sans-serif;box-shadow:0 6px 18px #0008}
+#visKar .k1:empty{display:none}
+#visKar .k2{margin-top:8px;color:#d6e6ffcc;font:600 16px/1.2 system-ui,sans-serif;text-shadow:0 2px 6px #000}
+#visKar.pop .k1{animation:karPop .35s ease-out}
+@keyframes karPop{from{transform:scale(.85);opacity:.4}to{transform:none;opacity:1}}
+html.half #visKar .k1{font-size:19px}
+#visBig{display:none;position:absolute;left:50%;top:7%;transform:translateX(-50%);width:92%;text-align:center;pointer-events:none}
+#visWrap.party #visBig{display:block}
+#visBig b{display:block;font:900 clamp(32px,7vw,84px)/1.05 system-ui,sans-serif;color:#fff;text-shadow:0 0 24px hsl(200 100% 60% / .8),0 4px 0 #0006;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#visBig small{display:block;margin-top:8px;font:700 clamp(18px,3vw,32px)/1.1 system-ui,sans-serif;color:#ffd27a}
+#visWrap.party #visKar{top:auto;bottom:60px}
 </style>
 <script>
 (function(){
   if(window.ANDROID) return;
   try{
     const media = document.getElementById("v-media"), rp = document.getElementById("radioPanel"); if(!media || !rp) return;
-    const STY = [["robo","🤖 Robô"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"]];
-    const SRC = [["radio","📻 Rádio"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
+    const STY = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"]];
+    const SRC = [["radio","📻 Rádio / Amp"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
     const box = document.createElement("div"); box.className = "panel"; box.id = "visPanel";
     box.innerHTML = '<div class="visTop"><h2>Animações</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
       '<div class="visSty" role="group" aria-label="Estilo">' + STY.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
       '<div class="visSrc" role="group" aria-label="Som" style="margin-top:8px">' + SRC.map(s => '<button type="button" data-src="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
-      '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button></div>';
+      '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button><button type="button" class="visFs" id="visParty" style="right:66px" aria-label="Modo festa">🎉</button><div id="visBpm"></div><div id="visKar"><div class="k1"></div><div class="k2"></div></div><div id="visBig"><b></b><small></small></div></div>';
     rp.after(box);
     const S = {on:LS.get("visOn", true), sty:LS.get("visSty", "robo"), src:LS.get("visSrc", "radio"), an:null, ctx:null, mic:null, data:null, wave:null, raf:0, t0:performance.now(), avgB:0.2, beat:0, lastBeat:0, parts:[], stars:[], blink:0, hint:"", corsTried:new WeakSet(), corsBad:new Set()};
     const $v = id => document.getElementById(id), cv = $v("visCv"), g = cv.getContext("2d"), wrap = $v("visWrap");
@@ -15264,7 +15279,9 @@ html.half #visWrap{height:260px}
     /* --- níveis: graves, médios, agudos e batida --- */
     const levels = (now) => {
       let an = null;
-      if(S.src === "radio") an = tapRadio(); else if(S.src === "mic") an = S.mic ? S.mic.an : null;
+      const WA = window.__wamp;
+      if(S.src === "radio" && WA && WA.playing && WA.playing()){ an = WA.an; if(an && (!S.data || an.frequencyBinCount !== S.data.length)){ S.data = new Uint8Array(an.frequencyBinCount); S.wave = new Uint8Array(an.fftSize); } if(!an) S.hint = "A música do Amp não deixa ler o som: ritmo simulado."; else S.hint = ""; }
+      else if(S.src === "radio") an = tapRadio(); else if(S.src === "mic") an = S.mic ? S.mic.an : null;
       let b, m, t, spec;
       if(an){ an.getByteFrequencyData(S.data); an.getByteTimeDomainData(S.wave); const d = S.data, n = d.length;
         const avg = (a, z) => { let s = 0; for(let i = a; i < z; i++) s += d[i]; return s / (z - a) / 255; };
@@ -15275,7 +15292,12 @@ html.half #visWrap{height:260px}
         if(!S.wave) S.wave = new Uint8Array(1024); for(let i = 0; i < 1024; i++) S.wave[i] = 128 + 90 * b * Math.sin(i / 1024 * Math.PI * 6 + now / 120) * Math.sin(i / 1024 * Math.PI);
       }
       S.avgB = S.avgB * 0.94 + b * 0.06;
-      if(b > S.avgB * 1.35 && b > 0.18 && now - S.lastBeat > 260){ S.lastBeat = now; S.beat = 1; S.beatN = (S.beatN || 0) + 1; } else S.beat *= 0.9;
+      if(b > S.avgB * 1.35 && b > 0.18 && now - S.lastBeat > 260){
+        const iv = now - S.lastBeat; if(iv > 280 && iv < 1500){ (S.ivs = S.ivs || []).push(iv); if(S.ivs.length > 12) S.ivs.shift(); }
+        S.lastBeat = now; S.beat = 1; S.beatN = (S.beatN || 0) + 1; } else S.beat *= 0.9;
+      /* batidas por minuto: mediana dos últimos intervalos, dobrada/meia para ficar entre 70 e 180 */
+      if(S.ivs && S.ivs.length >= 5 && (!S.bpmAt || now - S.bpmAt > 1000)){ S.bpmAt = now; const so = S.ivs.slice().sort((x, y) => x - y); let bpm = 60000 / so[so.length >> 1]; while(bpm < 70) bpm *= 2; while(bpm > 180) bpm /= 2; S.bpm = Math.round(S.bpm ? S.bpm * 0.6 + bpm * 0.4 : bpm); }
+      if(!an){ S.bpm = 118; }
       return {b, m, t, spec};
     };
 
@@ -15312,7 +15334,7 @@ html.half #visWrap{height:260px}
 
     /* robô fofinho: salta com os graves, abana os braços com os médios, a antena brilha com os agudos, a boca é um equalizador */
     function drawRobo(L, now){
-      const w = W(), h = H(), s = Math.min(w / 480, h / 320) * 1.0, cx = w / 2, gy = h * 0.9, tt = now / 1000, bn = S.beatN || 0;
+      const w = W(), h = H(), s = Math.min(w / 480, h / 320) * 1.0, cx = w / 2, gy = h * 0.9, tt = now / 1000 * ((S.bpm || 118) / 118), bn = S.beatN || 0;
       const jump = L.b * 26 * s + S.beat * 10 * s, sq = 1 + S.beat * 0.08, lean = Math.sin(tt * 2.2) * 0.12 + (bn % 2 ? 0.08 : -0.08) * S.beat;
       /* chão com sombra e luzes */
       g.fillStyle = "#0008"; g.beginPath(); g.ellipse(cx, gy, 90 * s * (1 - L.b * 0.25), 14 * s, 0, 0, Math.PI * 2); g.fill();
@@ -15357,8 +15379,64 @@ html.half #visWrap{height:260px}
       if(S.beat > 0.95 && Math.random() < 0.8) S.parts.push({x:cx + (Math.random() - 0.5) * 120 * s, y:gy - 220 * s, vx:(Math.random() - 0.5) * 2, vy:-2 - Math.random() * 2, l:1, h:hue(now), note:Math.random() < 0.5 ? "♪" : "♫"});
       S.parts = S.parts.filter(p => (p.l -= 0.012) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; g.fillStyle = "hsla(" + p.h + ",90%,70%," + p.l + ")"; g.font = (22 * s) + "px sans-serif"; g.fillText(p.note || "•", p.x, p.y); }
     }
+    /* outros dançarinos: gato DJ, pinguim e dinossauro (mesmo ritmo do robô; a velocidade da dança segue as batidas por minuto) */
+    function drawBicho(L, now, kind){
+      const w = W(), h = H(), s = Math.min(w / 480, h / 320), cx = w / 2, gy = h * 0.9, sp = (S.bpm || 118) / 118, tt = now / 1000 * sp, bn = S.beatN || 0;
+      const jump = L.b * 22 * s + S.beat * 8 * s, sw = Math.sin(tt * Math.PI * 2 * (118 / 60) / 2) * 0.16;
+      g.fillStyle = "#0008"; g.beginPath(); g.ellipse(cx, gy, 80 * s, 12 * s, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(cx, gy - jump); g.rotate(sw); const sq = 1 + S.beat * 0.07; g.scale(1 / sq, sq);
+      const eye = (x, y, r, happy) => { if(happy){ g.strokeStyle = "#222"; g.lineWidth = 4 * s; g.beginPath(); g.arc(x, y + 2 * s, r, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } else { g.fillStyle = "#1a1a2a"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.fillStyle = "#fff"; g.beginPath(); g.arc(x + r * 0.35, y - r * 0.35, r * 0.35, 0, Math.PI * 2); g.fill(); } };
+      if(now > S.blink){ S.blink = now + 2500 + Math.random() * 3000; S.blinkUntil = now + 140; }
+      const hap = S.beat > 0.8 || now < (S.blinkUntil || 0), armA = 0.4 + L.m * 1.6;
+      if(kind === "gato"){
+        const fur = "#f2a65a", dk = "#c9773a";
+        g.fillStyle = fur; g.beginPath(); g.ellipse(0, -60 * s, 46 * s, 58 * s, 0, 0, Math.PI * 2); g.fill();   /* corpo */
+        g.strokeStyle = fur; g.lineWidth = 10 * s; g.lineCap = "round"; g.beginPath(); g.moveTo(40 * s, -30 * s); g.quadraticCurveTo(90 * s, -40 * s + Math.sin(tt * 6) * 20 * s, 70 * s, -100 * s); g.stroke();   /* cauda */
+        g.save(); g.translate(0, -130 * s); g.rotate(Math.sin(tt * 4) * 0.15);
+        g.fillStyle = fur; g.beginPath(); g.arc(0, 0, 44 * s, 0, Math.PI * 2); g.fill();
+        [[-1], [1]].forEach(([k]) => { g.beginPath(); g.moveTo(k * 40 * s, -14 * s); g.lineTo(k * 30 * s, -58 * s + (k > 0 ? S.beat * 6 * s : 0)); g.lineTo(k * 10 * s, -38 * s); g.fill(); });
+        g.fillStyle = "#222"; g.fillRect(-46 * s, -10 * s, 92 * s, 6 * s); g.beginPath(); g.arc(-46 * s, 0, 14 * s, 0, Math.PI * 2); g.arc(46 * s, 0, 14 * s, 0, Math.PI * 2); g.fill();   /* auscultadores */
+        g.fillStyle = "hsl(" + hue(now) + ",90%,60%)"; g.beginPath(); g.arc(-46 * s, 0, 8 * s, 0, Math.PI * 2); g.arc(46 * s, 0, 8 * s, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#111"; g.fillRect(-30 * s, -12 * s, 26 * s, 12 * s); g.fillRect(4 * s, -12 * s, 26 * s, 12 * s); g.fillRect(-4 * s, -9 * s, 8 * s, 3 * s);   /* óculos de sol */
+        g.fillStyle = "#ff8fa3"; g.beginPath(); g.moveTo(-5 * s, 8 * s); g.lineTo(5 * s, 8 * s); g.lineTo(0, 14 * s); g.fill();
+        g.strokeStyle = "#7a4a22"; g.lineWidth = 2 * s; [[-1], [1]].forEach(([k]) => { g.beginPath(); g.moveTo(k * 12 * s, 14 * s); g.lineTo(k * 38 * s, 10 * s); g.stroke(); });
+        g.restore();
+        /* mesa de DJ com disco a rodar e pata a fazer scratch */
+        g.fillStyle = "#2b2f3d"; rr(-70 * s, -48 * s, 140 * s, 34 * s, 8 * s); g.fill();
+        g.save(); g.translate(-28 * s, -52 * s); g.scale(1, 0.35); g.rotate(tt * 6); g.fillStyle = "#111"; g.beginPath(); g.arc(0, 0, 26 * s, 0, Math.PI * 2); g.fill(); g.fillStyle = "hsl(" + hue(now) + ",80%,55%)"; g.beginPath(); g.arc(0, 0, 8 * s, 0, Math.PI * 2); g.fill(); g.fillStyle = "#fff"; g.fillRect(0, -2 * s, 20 * s, 4 * s); g.restore();
+        g.fillStyle = dk; g.beginPath(); g.arc(-28 * s + Math.sin(tt * 9) * 10 * s * (0.4 + L.b), -60 * s, 11 * s, 0, Math.PI * 2); g.fill();
+        g.save(); g.translate(40 * s, -80 * s); g.rotate(-armA); g.strokeStyle = fur; g.lineWidth = 12 * s; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -42 * s); g.stroke(); g.fillStyle = dk; g.beginPath(); g.arc(0, -46 * s, 10 * s, 0, Math.PI * 2); g.fill(); g.restore();
+      } else if(kind === "pinguim"){
+        const bk = "#1d2333", wh = "#f4f6fb", or = "#ffa22b";
+        g.fillStyle = or; g.beginPath(); g.ellipse(-22 * s + Math.sin(tt * 8) * 3 * s, 0, 18 * s, 8 * s, 0, 0, Math.PI * 2); g.ellipse(22 * s - Math.sin(tt * 8) * 3 * s, 0, 18 * s, 8 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = bk; g.beginPath(); g.ellipse(0, -80 * s, 56 * s, 80 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = wh; g.beginPath(); g.ellipse(0, -66 * s, 40 * s, 62 * s, 0, 0, Math.PI * 2); g.fill();
+        [[-1, armA * 1.2], [1, armA * (bn % 2 ? 1.4 : 0.6)]].forEach(([k, an]) => { g.save(); g.translate(k * 50 * s, -100 * s); g.rotate(k * (0.3 + an)); g.fillStyle = bk; g.beginPath(); g.ellipse(0, 30 * s, 12 * s, 36 * s, 0, 0, Math.PI * 2); g.fill(); g.restore(); });
+        eye(-18 * s, -120 * s, 9 * s, hap); eye(18 * s, -120 * s, 9 * s, hap);
+        g.fillStyle = or; g.beginPath(); g.moveTo(-10 * s, -104 * s); g.lineTo(10 * s, -104 * s); g.lineTo(0, -92 * s + S.beat * 4 * s); g.fill();
+        g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(-32 * s, -100 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.ellipse(32 * s, -100 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "hsl(" + hue(now) + ",90%,55%)"; g.beginPath(); g.moveTo(0, -60 * s); g.lineTo(-18 * s, -70 * s); g.lineTo(-18 * s, -50 * s); g.moveTo(0, -60 * s); g.lineTo(18 * s, -70 * s); g.lineTo(18 * s, -50 * s); g.fill();   /* laço */
+      } else {
+        const gr = "#6ccf6a", dk = "#3f9a45";
+        g.strokeStyle = gr; g.lineWidth = 22 * s; g.lineCap = "round"; g.beginPath(); g.moveTo(-30 * s, -40 * s); g.quadraticCurveTo(-90 * s, -20 * s, -120 * s + Math.sin(tt * 5) * 14 * s, -30 * s); g.stroke();   /* cauda */
+        g.lineWidth = 16 * s; g.beginPath(); g.moveTo(-18 * s, -30 * s); g.lineTo(-22 * s, 0); g.moveTo(18 * s, -30 * s); g.lineTo(22 * s - Math.sin(tt * 8) * 6 * s, 0); g.stroke();
+        g.fillStyle = gr; g.beginPath(); g.ellipse(0, -70 * s, 48 * s, 56 * s, -0.15, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#cfeec0"; g.beginPath(); g.ellipse(8 * s, -62 * s, 28 * s, 40 * s, -0.15, 0, Math.PI * 2); g.fill();
+        g.fillStyle = dk; for(let i = 0; i < 5; i++){ g.beginPath(); g.moveTo(-40 * s + i * 4 * s, -110 * s + i * 18 * s); g.lineTo(-58 * s + i * 4 * s, -104 * s + i * 18 * s); g.lineTo(-44 * s + i * 4 * s, -96 * s + i * 18 * s); g.fill(); }
+        g.save(); g.translate(30 * s, -96 * s); g.rotate(-armA * 0.6); g.strokeStyle = gr; g.lineWidth = 8 * s; g.beginPath(); g.moveTo(0, 0); g.lineTo(18 * s, -14 * s); g.stroke(); g.restore();
+        g.save(); g.translate(14 * s, -140 * s); g.rotate(Math.sin(tt * 4) * 0.18 - S.beat * 0.1);
+        g.fillStyle = gr; g.beginPath(); g.ellipse(10 * s, 0, 46 * s, 34 * s, 0, 0, Math.PI * 2); g.fill();
+        eye(10 * s, -12 * s, 8 * s, hap); eye(34 * s, -10 * s, 7 * s, hap);
+        g.strokeStyle = "#1e4d22"; g.lineWidth = 4 * s; g.beginPath(); g.arc(30 * s, 8 * s, 14 * s + L.b * 6 * s, 0.1, Math.PI - 0.4); g.stroke();
+        g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(0, 6 * s, 7 * s, 4 * s, 0, 0, Math.PI * 2); g.fill();
+        g.restore();
+      }
+      g.restore();
+      if(S.beat > 0.95 && Math.random() < 0.8) S.parts.push({x:cx + (Math.random() - 0.5) * 140 * s, y:gy - 220 * s, vx:(Math.random() - 0.5) * 2, vy:-2 - Math.random() * 2, l:1, h:hue(now), note:Math.random() < 0.5 ? "♪" : "♫"});
+      S.parts = S.parts.filter(p => (p.l -= 0.012) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; g.fillStyle = "hsla(" + p.h + ",90%,70%," + p.l + ")"; g.font = (22 * s) + "px sans-serif"; g.fillText(p.note || "•", p.x, p.y); }
+    }
     function rr(x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-    const DRAW = {robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
+    const DRAW = {gato:(L, n) => drawBicho(L, n, "gato"), pinguim:(L, n) => drawBicho(L, n, "pinguim"), dino:(L, n) => drawBicho(L, n, "dino"), robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
 
     /* --- ciclo: só desenha com a página Media à vista e o quadro ligado --- */
     let lastHint = "";
@@ -15369,25 +15447,178 @@ html.half #visWrap{height:260px}
       if(cw && (cv.width !== cw || cv.height !== ch)){ cv.width = cw; cv.height = ch; }
       const L = levels(now);
       g.fillStyle = S.sty === "estrelas" || S.sty === "robo" ? "rgba(5,7,13,.35)" : "rgba(5,7,13,.28)"; g.fillRect(0, 0, cv.width, cv.height);
-      if(S.sty === "robo"){ g.clearRect(0, 0, cv.width, cv.height); }
+      if(["robo", "gato", "pinguim", "dino"].includes(S.sty)){ g.clearRect(0, 0, cv.width, cv.height); }
       try{ (DRAW[S.sty] || drawRobo)(L, now); }catch(e){}
       const hn = S.hint || (S.src === "auto" ? "Ritmo simulado (sem ouvir o som)." : ""); if(hn !== lastHint){ lastHint = hn; $v("visHint").textContent = hn; }
+      try{ const bt = S.bpm ? "♩ " + S.bpm + " BPM" : ""; if(bt !== S.bpmTxt){ S.bpmTxt = bt; $v("visBpm").textContent = bt; } }catch(e){}
+      try{ const WA = window.__wamp, ly = WA && WA.lyricNow ? WA.lyricNow() : null, k1 = ly ? ly.cur : "", k2 = ly ? ly.next : "";
+        if(k1 !== S.k1 || k2 !== S.k2){ S.k1 = k1; S.k2 = k2; const K = $v("visKar"); K.querySelector(".k1").textContent = k1; K.querySelector(".k2").textContent = k2; K.classList.toggle("on", !!(k1 || k2)); K.classList.remove("pop"); void K.offsetWidth; if(k1) K.classList.add("pop"); } }catch(e){}
+      if(wrap.classList.contains("party")){ try{ const WA = window.__wamp; let t1 = "", t2 = "";
+          if(WA && WA.playing && WA.playing() && WA.cur){ t1 = WA.cur.title; t2 = WA.cur.artist; } else if(typeof radioCur !== "undefined" && radioCur){ t1 = radioCur.name; t2 = "Rádio"; } else { t1 = "Modo festa"; t2 = "liga uma rádio ou uma música"; }
+          if(t1 !== S.pt1 || t2 !== S.pt2){ S.pt1 = t1; S.pt2 = t2; const B = $v("visBig"); B.querySelector("b").textContent = t1; B.querySelector("small").textContent = t2; }
+          $v("visBig").style.transform = "translate(-50%,0) scale(" + (1 + S.beat * 0.06).toFixed(3) + ")"; }catch(e){} }
       S.raf = requestAnimationFrame(frame);
     };
     const kick = () => { if(!S.raf && S.on && currentView === "media") S.raf = requestAnimationFrame(frame); };
     setInterval(kick, 800); document.addEventListener("visibilitychange", kick);
 
+    /* ecrã total: o quadro passa para o <body> (dentro da página há contentores que prendem o position:fixed) */
+    const setFs = (on, party) => { wrap.classList.toggle("fs", on); wrap.classList.toggle("party", on && party); if(on){ if(wrap.parentNode !== document.body) document.body.appendChild(wrap); } else if(wrap.parentNode !== box) box.appendChild(wrap); $v("visFs").textContent = on ? "✕" : "⛶"; S.pt1 = S.pt2 = null; kick(); };
+    wrap.addEventListener("click", e => { const b = e.target.closest("button"); if(!b || box.contains(wrap)) return; if(b.id === "visFs") setFs(false); else if(b.id === "visParty") setFs(!wrap.classList.contains("party"), true); });
+    try{ const _sh = window.show; window.show = function(v){ if(v !== "media" && wrap.classList.contains("fs")) setFs(false); return _sh.apply(this, arguments); }; }catch(e){}
     box.addEventListener("click", async e => {
       const b = e.target.closest("button"); if(!b) return;
       if(b.dataset.s){ S.sty = b.dataset.s; LS.set("visSty", S.sty); S.parts = []; paintBtns(); }
       else if(b.dataset.src){ S.src = b.dataset.src; LS.set("visSrc", S.src); if(S.src === "mic") await tapMic(); else stopMic(); S.hint = ""; paintBtns(); }
-      else if(b.id === "visFs"){ wrap.classList.toggle("fs"); b.textContent = wrap.classList.contains("fs") ? "✕" : "⛶"; }
+      else if(b.id === "visFs"){ setFs(!wrap.classList.contains("fs"), false); }
+      else if(b.id === "visParty"){ setFs(!wrap.classList.contains("party"), true); }
       kick();
     });
-    $v("visOn").onchange = e => { S.on = e.target.checked; LS.set("visOn", S.on); if(!S.on){ stopMic(); wrap.classList.remove("fs"); } else if(S.src === "mic") tapMic(); paintBtns(); kick(); };
+    $v("visOn").onchange = e => { S.on = e.target.checked; LS.set("visOn", S.on); if(!S.on){ stopMic(); setFs(false); } else if(S.src === "mic") tapMic(); paintBtns(); kick(); };
     if(S.on && S.src === "mic"){ const once = () => { document.removeEventListener("pointerdown", once, true); if(S.src === "mic") tapMic(); }; document.addEventListener("pointerdown", once, true); }
     kick();
   }catch(e){ console.log("animações media", e); }
+})();
+</script>
+<style>
+/* ===== v255: «Winamp» — pesquisar e ouvir música (Audius: músicas completas; iTunes: amostras de 30 s) ===== */
+#wampPanel{background:linear-gradient(#3a3d4a,#23252e);border:2px solid #555a6b;border-radius:14px;padding:12px;color:#dfe3ea;box-shadow:inset 0 1px 0 #ffffff22}
+#wampPanel .wTitle{display:flex;align-items:center;gap:10px;font:800 13px/1 system-ui,sans-serif;letter-spacing:.25em;color:#c9cfdb;background:repeating-linear-gradient(90deg,#d8a93a 0 2px,#0000 2px 5px);background-clip:text;-webkit-background-clip:text}
+#wampPanel .wTitle b{color:#f0c35a;-webkit-text-fill-color:#f0c35a;letter-spacing:.25em}
+#wampPanel .wMain{display:grid;grid-template-columns:auto 1fr;gap:10px;margin-top:10px}
+#wampLcd{background:#000;border:2px inset #444;border-radius:6px;padding:8px 10px;min-width:150px;font-family:"Courier New",monospace;color:#3cff5a;text-shadow:0 0 6px #3cff5a88}
+#wampTime{font:700 34px/1 "Courier New",monospace;letter-spacing:2px}
+#wampKbps{font-size:12px;color:#6aff80;opacity:.8;margin-top:4px}
+#wampSpec{display:block;width:150px;height:38px;margin-top:6px}
+#wampInfo{background:#000;border:2px inset #444;border-radius:6px;padding:8px 10px;overflow:hidden;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+#wampMarq{white-space:nowrap;font:700 18px/1.2 "Courier New",monospace;color:#3cff5a;text-shadow:0 0 6px #3cff5a88;overflow:hidden}
+#wampMarq span{display:inline-block;padding-left:100%;animation:wMq 14s linear infinite}
+@keyframes wMq{to{transform:translateX(-100%)}}
+#wampSeek,#wampVol{width:100%;accent-color:#f0c35a;height:26px}
+#wampPanel .wCtl{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+#wampPanel .wCtl button{min-width:56px;min-height:52px;border-radius:8px;border:1px solid #6b7083;background:linear-gradient(#5a5f70,#3b3f4c);color:#fff;font:700 20px/1 system-ui,sans-serif;cursor:pointer;box-shadow:inset 0 1px 0 #ffffff33}
+#wampPanel .wCtl button:active,#wampPanel .wCtl button[aria-pressed="true"]{background:linear-gradient(#3b3f4c,#2b2e38);color:#f0c35a}
+#wampPanel .wCtl .wVolBox{display:flex;align-items:center;gap:6px;flex:1;min-width:150px}
+#wampPanel form{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#wampPanel form input{flex:1 1 100%;min-width:0;width:100%;min-height:52px;background:#000;color:#3cff5a;border:2px inset #444;border-radius:8px;padding:0 12px;font:600 17px/1 "Courier New",monospace}
+#wampPanel form select{flex:1 1 auto}
+#wampPanel form select,#wampPanel form button{min-height:52px;border-radius:8px;border:1px solid #6b7083;background:linear-gradient(#5a5f70,#3b3f4c);color:#fff;font:700 15px/1 system-ui,sans-serif;padding:0 12px}
+#wampPl{margin-top:10px;background:#000;border:2px inset #444;border-radius:6px;max-height:340px;overflow-y:auto;font-family:"Courier New",monospace}
+#wampPl button{display:flex;gap:10px;align-items:center;width:100%;min-height:52px;padding:6px 10px;border:0;border-bottom:1px solid #0f2a14;background:transparent;color:#3cff5a;text-align:left;font:600 16px/1.2 "Courier New",monospace;cursor:pointer}
+#wampPl button.on{background:#0a3a12;color:#fff}
+#wampPl button img{width:40px;height:40px;border-radius:4px;flex:none;object-fit:cover;background:#111}
+#wampPl button .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#wampPl button .d{color:#6aff80;opacity:.8}
+#wampPl button .q{font-size:12px;color:#f0c35a;border:1px solid #f0c35a66;border-radius:4px;padding:1px 4px}
+#wampPl .e{padding:14px;color:#6aff80}
+</style>
+<audio id="wampAud" preload="none" hidden></audio>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const rp = document.getElementById("radioPanel"); if(!rp) return;
+    const P = document.createElement("div"); P.className = "panel"; P.id = "wampPanel";
+    P.innerHTML = '<div class="wTitle"><b>COCKPIT AMP</b><span style="flex:1;height:8px"></span><span id="wampSrcTag" class="small">Audius · iTunes</span></div>' +
+      '<div class="wMain"><div id="wampLcd"><div id="wampTime">00:00</div><div id="wampKbps">— parado —</div><canvas id="wampSpec" width="150" height="38"></canvas></div>' +
+      '<div id="wampInfo"><div id="wampMarq"><span>*** Procura um artista ou uma música em baixo ***</span></div><input type="range" id="wampSeek" min="0" max="1000" value="0" aria-label="Posição"></div></div>' +
+      '<div class="wCtl"><button data-w="prev" aria-label="Anterior">⏮</button><button data-w="play" aria-label="Tocar ou pausa">⏯</button><button data-w="stop" aria-label="Parar">⏹</button><button data-w="next" aria-label="Seguinte">⏭</button>' +
+      '<button data-w="shuf" aria-pressed="false" aria-label="Aleatório">🔀</button><button data-w="rep" aria-pressed="false" aria-label="Repetir">🔁</button>' +
+      '<span class="wVolBox"><span>🔈</span><input type="range" id="wampVol" min="0" max="100" value="80" aria-label="Volume"><span>🔊</span></span></div>' +
+      '<form id="wampForm"><input type="search" id="wampQ" placeholder="Artista ou música…" autocomplete="off"><select id="wampSrc" aria-label="Fonte"><option value="audius">Audius (completas)</option><option value="itunes">iTunes (30 s)</option></select><button>Procurar</button></form>' +
+      '<div id="wampPl"><div class="e">A playlist aparece aqui. Audius tem músicas completas de artistas independentes; o iTunes tem amostras de 30 s de quase tudo.</div></div>';
+    rp.before(P);
+    const $w = id => document.getElementById(id), a = $w("wampAud");
+    const W = window.__wamp = {list:[], i:-1, shuf:false, rep:false, an:null, ctx:null, lyr:null, cur:null};
+    const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
+    const esc2 = t => String(t || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    try{ a.volume = (+LS.get("wampVol", 80)) / 100; $w("wampVol").value = LS.get("wampVol", 80); }catch(e){}
+
+    /* --- pesquisa --- */
+    const getJ = async u => { try{ const r = await fetch(u); if(r.ok) return await r.json(); throw new Error(r.status); }catch(e){ if(typeof px === "function"){ const r2 = await fetch(px(u)); if(r2.ok) return await r2.json(); } throw e; } };
+    let audHost = "";
+    const audius = async q => {
+      if(!audHost){ try{ const j = await getJ("https://api.audius.co"); audHost = (j.data || [])[0] || "https://discoveryprovider.audius.co"; }catch(e){ audHost = "https://discoveryprovider.audius.co"; } }
+      const j = await getJ(audHost + "/v1/tracks/search?app_name=CockpitTesla&query=" + encodeURIComponent(q));
+      return (j.data || []).filter(t => t && t.id && t.is_streamable !== false).slice(0, 60).map(t => ({src:"audius", title:t.title, artist:(t.user && t.user.name) || "", art:(t.artwork && (t.artwork["150x150"] || t.artwork["480x480"])) || "", dur:t.duration || 0, url:audHost + "/v1/tracks/" + t.id + "/stream?app_name=CockpitTesla", full:true}));
+    };
+    const itunes = async q => {
+      const j = await getJ("https://itunes.apple.com/search?media=music&entity=song&limit=60&country=PT&term=" + encodeURIComponent(q));
+      return (j.results || []).filter(t => t.previewUrl).map(t => ({src:"itunes", title:t.trackName, artist:t.artistName, art:t.artworkUrl100 || "", dur:(t.trackTimeMillis || 0) / 1000, url:t.previewUrl, full:false}));
+    };
+    const renderPl = () => {
+      const pl = $w("wampPl");
+      if(!W.list.length){ pl.innerHTML = '<div class="e">Nada encontrado. Experimenta outro nome ou a outra fonte.</div>'; return; }
+      pl.innerHTML = W.list.map((t, i) => '<button data-i="' + i + '" class="' + (i === W.i ? "on" : "") + '">' + (t.art ? '<img src="' + esc2(t.art) + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<img alt="">') +
+        '<span class="n">' + (i + 1) + '. ' + esc2(t.artist) + ' — ' + esc2(t.title) + '</span>' + (t.full ? "" : '<span class="q">30 s</span>') + '<span class="d">' + fmt(t.dur) + '</span></button>').join("");
+    };
+    $w("wampForm").addEventListener("submit", async e => {
+      e.preventDefault(); const q = $w("wampQ").value.trim(); if(!q) return;
+      const src = $w("wampSrc").value; LS.set("wampSrc", src); $w("wampPl").innerHTML = '<div class="e">A procurar «' + esc2(q) + '»…</div>';
+      try{ W.list = src === "itunes" ? await itunes(q) : await audius(q); W.i = -1; renderPl(); }
+      catch(err){ $w("wampPl").innerHTML = '<div class="e">Não consegui ligar a ' + (src === "itunes" ? "iTunes" : "Audius") + '. Experimenta a outra fonte.</div>'; }
+    });
+    try{ $w("wampSrc").value = LS.get("wampSrc", "audius"); }catch(e){}
+    $w("wampPl").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if(b) play(+b.dataset.i); });
+
+    /* --- tocar --- */
+    const tapAn = () => {   /* espectro: só se o servidor deixar ler o som (CORS); senão toca na mesma, sem espectro */
+      if(W.an || !a.crossOrigin) return;
+      try{ const AC = window.AudioContext || window.webkitAudioContext; W.ctx = W.ctx || new AC(); const s = W.ctx.createMediaElementSource(a); W.an = W.ctx.createAnalyser(); W.an.fftSize = 1024; W.an.smoothingTimeConstant = 0.78; s.connect(W.an); W.an.connect(W.ctx.destination); a._noAmp = true; }catch(e){}
+    };
+    const play = i => {
+      const t = W.list[i]; if(!t) return; W.i = i; W.cur = t; renderPl();
+      try{ if(typeof radioStop === "function" && typeof radioCur !== "undefined" && radioCur) radioStop(); }catch(e){}
+      const go = cors => { if(cors) a.crossOrigin = "anonymous"; else a.removeAttribute("crossorigin"); a.src = t.url; a.play().catch(() => {}); };
+      a.onerror = () => { if(a.crossOrigin && !W.an){ a.onerror = () => { toast("Não consegui tocar esta música. A passar à seguinte."); next(1); }; go(false); } else { toast("Não consegui tocar esta música. A passar à seguinte."); next(1); } };
+      go(!W.an || !!a.crossOrigin);
+      if(W.ctx) W.ctx.resume().catch(() => {});
+      $w("wampMarq").innerHTML = "<span>*** " + esc2(t.artist) + " — " + esc2(t.title) + (t.full ? "" : " (amostra de 30 s)") + " ***</span>";
+      $w("wampKbps").textContent = (t.src === "audius" ? "AUDIUS" : "iTUNES") + " · " + fmt(t.dur);
+      W.lyr = null; loadLyrics(t);
+      try{ if(navigator.mediaSession){ navigator.mediaSession.metadata = new MediaMetadata({title:t.title, artist:t.artist, artwork:t.art ? [{src:t.art, sizes:"150x150"}] : []}); } }catch(e){}
+      keepAwake && keepAwake(true);
+    };
+    const next = d => { if(!W.list.length) return; let i = W.shuf ? Math.floor(Math.random() * W.list.length) : W.i + d; if(i >= W.list.length){ if(!W.rep) return; i = 0; } if(i < 0) i = W.list.length - 1; play(i); };
+    a.addEventListener("playing", () => { tapAn(); if(W.ctx) W.ctx.resume().catch(() => {}); });
+    a.addEventListener("ended", () => next(1));
+    a.addEventListener("timeupdate", () => { $w("wampTime").textContent = fmt(a.currentTime); if(a.duration && !W.drag) $w("wampSeek").value = Math.round(a.currentTime / a.duration * 1000); });
+    $w("wampSeek").addEventListener("input", () => { W.drag = true; }); $w("wampSeek").addEventListener("change", () => { W.drag = false; if(a.duration) a.currentTime = $w("wampSeek").value / 1000 * a.duration; });
+    $w("wampVol").addEventListener("input", e => { a.volume = e.target.value / 100; LS.set("wampVol", +e.target.value); });
+    P.querySelector(".wCtl").addEventListener("click", e => { const b = e.target.closest("[data-w]"); if(!b) return; const k = b.dataset.w;
+      if(k === "play"){ if(W.i < 0 && W.list.length) play(0); else if(a.paused) a.play().catch(() => {}); else a.pause(); }
+      else if(k === "stop"){ a.pause(); try{ a.currentTime = 0; }catch(x){} }
+      else if(k === "next") next(1); else if(k === "prev") next(-1);
+      else if(k === "shuf"){ W.shuf = !W.shuf; b.setAttribute("aria-pressed", String(W.shuf)); }
+      else if(k === "rep"){ W.rep = !W.rep; b.setAttribute("aria-pressed", String(W.rep)); } });
+    /* a rádio e o Winamp não tocam ao mesmo tempo */
+    try{ const _pr = window.playRadio; if(typeof _pr === "function") window.playRadio = function(){ try{ a.pause(); }catch(e){} return _pr.apply(this, arguments); }; }catch(e){}
+    W.playing = () => !a.paused && !a.ended && a.currentTime > 0;
+    W.audio = a;
+
+    /* --- mini espectro no visor --- */
+    const sc = $w("wampSpec"), sg = sc.getContext("2d"); let fd = null;
+    const spec = () => { requestAnimationFrame(spec); if(currentView !== "media" || document.hidden) return; sg.clearRect(0, 0, 150, 38);
+      if(W.an && W.playing()){ fd = fd || new Uint8Array(W.an.frequencyBinCount); W.an.getByteFrequencyData(fd); for(let i = 0; i < 19; i++){ const v = fd[Math.floor(Math.pow(i / 19, 1.5) * 300) + 1] / 255, h = Math.max(1, v * 36); for(let y = 0; y < h; y += 3){ sg.fillStyle = y > 26 ? "#ff3c3c" : y > 18 ? "#f0c35a" : "#3cff5a"; sg.fillRect(i * 8, 37 - y, 6, 2); } } }
+      else if(W.playing()){ const t = performance.now() / 160; for(let i = 0; i < 19; i++){ const h = 6 + 12 * Math.abs(Math.sin(t + i * 0.7)); for(let y = 0; y < h; y += 3){ sg.fillStyle = "#3cff5a"; sg.fillRect(i * 8, 37 - y, 6, 2); } } } };
+    requestAnimationFrame(spec);
+
+    /* --- letras (karaoke): lrclib.net, sincronizadas quando existem --- */
+    async function loadLyrics(t){
+      const id = t;
+      try{
+        let j = null;
+        try{ j = await getJ("https://lrclib.net/api/get?artist_name=" + encodeURIComponent(t.artist) + "&track_name=" + encodeURIComponent(t.title) + (t.dur ? "&duration=" + Math.round(t.dur) : "")); }catch(e){}
+        if(!j || !(j.syncedLyrics || j.plainLyrics)){ const r = await getJ("https://lrclib.net/api/search?q=" + encodeURIComponent(t.artist + " " + t.title)); j = (r || []).find(x => x.syncedLyrics) || (r || [])[0]; }
+        if(W.cur !== id || !j) return;
+        if(j.syncedLyrics){ const L = []; String(j.syncedLyrics).split(/\r?\n/).forEach(l => { const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/); if(m) L.push({t:+m[1] * 60 + +m[2], x:m[3]}); }); W.lyr = {sync:true, lines:L}; }
+        else if(j.plainLyrics) W.lyr = {sync:false, lines:String(j.plainLyrics).split(/\r?\n/).filter(Boolean).map(x => ({t:0, x}))};
+      }catch(e){}
+    }
+    /* linha atual e seguinte, para o robô cantar */
+    W.lyricNow = () => { const L = W.lyr; if(!L || !L.lines.length || !W.playing()) return null; if(!L.sync) return null;
+      const t = a.currentTime + 0.25; let k = -1; for(let i = 0; i < L.lines.length; i++){ if(L.lines[i].t <= t) k = i; else break; } return {cur:k >= 0 ? L.lines[k].x : "", next:L.lines[k + 1] ? L.lines[k + 1].x : ""}; };
+  }catch(e){ console.log("winamp", e); }
 })();
 </script>
 </body>
