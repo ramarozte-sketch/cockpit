@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v260";
+const APP_VERSION = "v261";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15859,7 +15859,7 @@ html.half #visKar .k1{font-size:19px}
     const ttsOnline = (txt, rate, onEnd) => {
       const parts = []; let rest = String(txt).replace(/\s+/g, " ").trim();
       while(rest.length){ let cut = rest.length <= 190 ? rest.length : Math.max(rest.lastIndexOf(". ", 190), rest.lastIndexOf(", ", 190), rest.lastIndexOf(" ", 190)); if(cut < 40) cut = Math.min(190, rest.length); parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
-      try{ if(ttsA){ ttsA.pause(); } }catch(e){}
+      try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){}
       ttsQ = parts.slice(); const lang = ttsLang();
       const next = (viaPx) => {
         const t = ttsQ.shift(); if(!t){ onEnd && onEnd(); return; }
@@ -15882,9 +15882,11 @@ html.half #visKar .k1{font-size:19px}
       if(A.tts === "online" || !hasVoices()){ ttsOnline(txt, A.rate, done); return; }
       try{ const u = new SpeechSynthesisUtterance(txt); u.lang = ttsLang(); u.pitch = A.pitch; u.rate = A.rate;
         const vs = speechSynthesis.getVoices(); const v = vs.find(x => x.name === A.voice) || vs.find(x => /pt-PT|pt_PT/i.test(x.lang)) || null; if(v) u.voice = v;
-        let started = false; u.onstart = () => { started = true; }; u.onend = done; u.onerror = () => { if(!started) ttsOnline(txt, A.rate, done); };
+        /* v261: só passa à voz online se o browser falhar de verdade (antes, um arranque lento dava as duas vozes ao mesmo tempo) */
+        let started = false, fell = false; const fall = () => { if(started || fell) return; fell = true; try{ speechSynthesis.cancel(); }catch(e){} ttsOnline(txt, A.rate, done); };
+        u.onstart = () => { started = true; if(fell){ try{ speechSynthesis.cancel(); }catch(e){} } }; u.onend = done; u.onerror = fall;
         speechSynthesis.cancel(); speechSynthesis.speak(u);
-        setTimeout(() => { if(!started){ try{ speechSynthesis.cancel(); }catch(e){} ttsOnline(txt, A.rate, done); } }, 1500);   /* não começou a falar: voz online */
+        setTimeout(() => { try{ if(!started && !speechSynthesis.speaking && !speechSynthesis.pending) fall(); }catch(e){} }, 4000);
       }catch(e){ ttsOnline(txt, A.rate, done); }
     };
     window.__avatarSay = speakA;
@@ -15908,15 +15910,15 @@ html.half #visKar .k1{font-size:19px}
       const n = typeof norm === "function" ? norm(q) : q.toLowerCase();
       let m = n.match(/^(?:toca|poe|mete|ouvir|quero ouvir)\s+(.+?)\s+(?:no|na)\s+(?:amp|winamp|youtube music|youtube)$/) || n.match(/^(?:toca|poe a musica|mete a musica)\s+(.+)$/);
       if(m && !/^radio\b|^canal\b/.test(m[1])){ const W = window.__wamp; const f = document.getElementById("wampForm"); if(W && f){ document.getElementById("wampQ").value = m[1]; if(/youtube/.test(n) && cfg.ytKey) document.getElementById("wampSrc").value = "youtube"; f.requestSubmit(); let k = 0; const t = setInterval(() => { if(++k > 30){ clearInterval(t); return; } if(W.list && W.list.length){ clearInterval(t); const b = document.querySelector('#wampPl [data-i="0"]'); if(b) b.click(); } }, 400); return "A procurar " + m[1] + " no Amp."; } }
-      if(typeof VOICE !== "undefined" && VOICE.some(c => c.re.some(r => r.test(n)))){ try{ await handleCommand(q); }catch(e){} return "Feito!"; }
-      if(/\b(abre|fecha|liga|desliga|tranca|destranca|aquece|arrefece|temperatura|ventila|carrega|buzina|pisca|descongela)\b/.test(n) && typeof aiOn === "function" && aiOn() && typeof aiCommand === "function"){ try{ if(await aiCommand(q)) return "Tratado."; }catch(e){} }
+      if(typeof VOICE !== "undefined" && VOICE.some(c => c.re.some(r => r.test(n)))){ try{ await handleCommand(q); }catch(e){} return "\u200bFeito!"; }
+      if(/\b(abre|fecha|liga|desliga|tranca|destranca|aquece|arrefece|temperatura|ventila|carrega|buzina|pisca|descongela)\b/.test(n) && typeof aiOn === "function" && aiOn() && typeof aiCommand === "function"){ try{ if(await aiCommand(q)) return "\u200bTratado."; }catch(e){} }
       return null;
     };
     /* --- memória: «lembra-te que…» fica guardado e entra em todas as conversas --- */
     const MEM = () => LS.get("avMem", []) || [];
     const ask = async (q, silent) => {
       if(!silent){ const mm = String(q).match(/^\s*(?:lembra[- ]te(?: de| que)?|memoriza|não te esqueças(?: de| que)?)\s+(.+)/i); if(mm){ const L = MEM(); L.push(mm[1].trim()); while(L.length > 30) L.shift(); LS.set("avMem", L); addLog("u", q); const a = "Combinado, vou lembrar-me."; addLog("a", a); speakA(a); return a; }
-        const c = await tryCmd(q); if(c){ addLog("u", q); addLog("a", c); speakA(c); return c; } }
+        const c = await tryCmd(q); if(c){ addLog("u", q); const quiet = c.charAt(0) === "\u200b", txt = c.replace(/^\u200b/, ""); addLog("a", txt); if(quiet){ say.textContent = txt; say.classList.add("on"); clearTimeout(sayT); sayT = setTimeout(() => say.classList.remove("on"), 3000); } else speakA(txt); return txt; } }   /* os comandos do Cockpit já respondem em voz: o avatar não repete */
       if(!silent) addLog("u", q);
       hist.push({role:"user", content:q}); while(hist.length > 12) hist.shift();
       try{ const a = (await brain([{role:"system", content:sys()}, ...hist])).replace(/\s+/g, " ").trim(); hist.push({role:"assistant", content:a}); LS.set("avHist", hist.slice(-12)); addLog("a", a); speakA(a); return a; }
