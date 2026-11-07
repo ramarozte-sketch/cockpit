@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v256";
+const APP_VERSION = "v257";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15226,7 +15226,7 @@ html.half #visKar .k1{font-size:19px}
   if(window.ANDROID) return;
   try{
     const media = document.getElementById("v-media"), rp = document.getElementById("radioPanel"); if(!media || !rp) return;
-    const STY = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"]];
+    const STY = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"],["tunel","🌀 Túnel"],["fogo","🎆 Fogo de artifício"],["aurora","🌌 Aurora"],["coelho","🐰 Coelho"],["polvo","🐙 Polvo"],["fantasma","👻 Fantasma"]];
     const SRC = [["radio","📻 Rádio / Amp"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
     const box = document.createElement("div"); box.className = "panel"; box.id = "visPanel";
     box.innerHTML = '<div class="visTop"><h2>Animações</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
@@ -15235,7 +15235,8 @@ html.half #visKar .k1{font-size:19px}
       '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button><button type="button" class="visFs" id="visParty" style="right:66px" aria-label="Modo festa">🎉</button><div id="visBpm"></div><div id="visKar"><div class="k1"></div><div class="k2"></div></div><div id="visBig"><b></b><small></small></div></div>';
     rp.after(box);
     const S = {on:LS.get("visOn", true), sty:LS.get("visSty", "robo"), src:LS.get("visSrc", "radio"), an:null, ctx:null, mic:null, data:null, wave:null, raf:0, t0:performance.now(), avgB:0.2, beat:0, lastBeat:0, parts:[], stars:[], blink:0, hint:"", corsTried:new WeakSet(), corsBad:new Set()};
-    const $v = id => document.getElementById(id), cv = $v("visCv"), g = cv.getContext("2d"), wrap = $v("visWrap");
+    const $v = id => document.getElementById(id), cv0 = $v("visCv"), g0 = cv0.getContext("2d"), wrap = $v("visWrap");
+    let cv = cv0, g = g0;   /* trocados por momentos para desenhar também no quadro do vídeo do YouTube Music */
     const paintBtns = () => { box.querySelectorAll("[data-s]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === S.sty))); box.querySelectorAll("[data-src]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.src === S.src))); $v("visOn").checked = !!S.on; wrap.hidden = !S.on; };
     paintBtns();
 
@@ -15416,6 +15417,38 @@ html.half #visKar .k1{font-size:19px}
         g.fillStyle = or; g.beginPath(); g.moveTo(-10 * s, -104 * s); g.lineTo(10 * s, -104 * s); g.lineTo(0, -92 * s + S.beat * 4 * s); g.fill();
         g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(-32 * s, -100 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.ellipse(32 * s, -100 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.fill();
         g.fillStyle = "hsl(" + hue(now) + ",90%,55%)"; g.beginPath(); g.moveTo(0, -60 * s); g.lineTo(-18 * s, -70 * s); g.lineTo(-18 * s, -50 * s); g.moveTo(0, -60 * s); g.lineTo(18 * s, -70 * s); g.lineTo(18 * s, -50 * s); g.fill();   /* laço */
+      } else if(kind === "coelho"){
+        const wh = "#f5f1ff", pk = "#ffb3cf";
+        g.fillStyle = wh; g.beginPath(); g.ellipse(-20 * s, 0, 18 * s, 9 * s, 0, 0, Math.PI * 2); g.ellipse(20 * s, 0, 18 * s, 9 * s, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.ellipse(0, -55 * s, 42 * s, 52 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#fff"; g.beginPath(); g.arc(-38 * s, -30 * s, 12 * s, 0, Math.PI * 2); g.fill();
+        [[-1], [1]].forEach(([k]) => { g.save(); g.translate(k * 40 * s, -80 * s); g.rotate(k * (0.4 + armA)); g.fillStyle = wh; g.beginPath(); g.ellipse(0, 22 * s, 10 * s, 24 * s, 0, 0, Math.PI * 2); g.fill(); g.restore(); });
+        g.save(); g.translate(0, -125 * s); g.rotate(Math.sin(tt * 4) * 0.14);
+        [[-1, 0.25 + S.beat * 0.3], [1, -0.15 - L.t * 0.6]].forEach(([k, r]) => { g.save(); g.translate(k * 16 * s, -30 * s); g.rotate(k * 0.15 + r); g.fillStyle = wh; g.beginPath(); g.ellipse(0, -36 * s, 12 * s, 40 * s, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = pk; g.beginPath(); g.ellipse(0, -36 * s, 6 * s, 30 * s, 0, 0, Math.PI * 2); g.fill(); g.restore(); });
+        g.fillStyle = wh; g.beginPath(); g.arc(0, 0, 38 * s, 0, Math.PI * 2); g.fill();
+        eye(-14 * s, -6 * s, 7 * s, hap); eye(14 * s, -6 * s, 7 * s, hap);
+        g.fillStyle = pk; g.beginPath(); g.arc(0, 8 * s, 4 * s, 0, Math.PI * 2); g.fill(); g.beginPath(); g.ellipse(-24 * s, 10 * s, 7 * s, 4 * s, 0, 0, Math.PI * 2); g.ellipse(24 * s, 10 * s, 7 * s, 4 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#fff"; g.fillRect(-4 * s, 14 * s, 8 * s, 6 * s + L.b * 3 * s); g.restore();
+      } else if(kind === "polvo"){
+        const pu = "#b27bff", dk = "#8a55e0";
+        for(let i = 0; i < 6; i++){ const x0 = (-50 + i * 20) * s; g.strokeStyle = i % 2 ? pu : dk; g.lineWidth = 12 * s; g.lineCap = "round"; g.beginPath(); g.moveTo(x0, -50 * s);
+          for(let k = 1; k <= 6; k++){ const yy = -50 * s + k * 9 * s, xx = x0 + Math.sin(tt * 4 + i + k * 0.7) * (6 + L.m * 18) * s * (k / 6) + (i - 2.5) * k * 2 * s; g.lineTo(xx, yy); } g.stroke(); }
+        g.fillStyle = pu; g.beginPath(); g.ellipse(0, -100 * s, 58 * s, 62 * s * (1 + S.beat * 0.05), 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#ffffff33"; g.beginPath(); g.ellipse(-22 * s, -130 * s, 14 * s, 9 * s, -0.4, 0, Math.PI * 2); g.fill();
+        eye(-20 * s, -100 * s, 10 * s, hap); eye(20 * s, -100 * s, 10 * s, hap);
+        g.strokeStyle = "#4a2a80"; g.lineWidth = 4 * s; g.beginPath(); g.arc(0, -82 * s, 10 * s + L.b * 4 * s, 0.2, Math.PI - 0.2); g.stroke();
+        g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(-36 * s, -86 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.ellipse(36 * s, -86 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.fill();
+        for(let i = 0; i < 3; i++){ const by = ((now / 1000 * 30 + i * 40) % 120); g.strokeStyle = "rgba(180,220,255," + (1 - by / 120) + ")"; g.lineWidth = 2; g.beginPath(); g.arc(50 * s + i * 8 * s, -170 * s - by * s, 5 * s, 0, Math.PI * 2); g.stroke(); }
+      } else if(kind === "fantasma"){
+        const wh = "rgba(240,245,255," + (0.82 + L.t * 0.18) + ")", fl = Math.sin(tt * 3) * 10 * s;
+        g.translate(0, -fl - 20 * s);
+        g.shadowColor = "hsl(" + hue(now) + ",90%,70%)"; g.shadowBlur = 20 + L.b * 30;
+        g.fillStyle = wh; g.beginPath(); g.moveTo(-50 * s, -40 * s); g.arc(0, -100 * s, 50 * s, Math.PI, 0); g.lineTo(50 * s, -10 * s);
+        for(let k = 0; k < 5; k++){ const x = 50 * s - (k + 1) * 20 * s, y = -10 * s + (k % 2 ? -12 : 4) * s + Math.sin(tt * 6 + k) * 5 * s; g.lineTo(x, y); } g.closePath(); g.fill(); g.shadowBlur = 0;
+        [[-1, armA], [1, armA * (bn % 2 ? 1.4 : 0.6)]].forEach(([k, an]) => { g.save(); g.translate(k * 46 * s, -70 * s); g.rotate(k * (0.6 + an)); g.fillStyle = wh; g.beginPath(); g.ellipse(0, 18 * s, 9 * s, 20 * s, 0, 0, Math.PI * 2); g.fill(); g.restore(); });
+        eye(-17 * s, -104 * s, 9 * s, hap); eye(17 * s, -104 * s, 9 * s, hap);
+        g.fillStyle = "#2a2f45"; g.beginPath(); g.ellipse(0, -80 * s, 7 * s, 5 * s + L.b * 9 * s, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(-30 * s, -88 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.ellipse(30 * s, -88 * s, 8 * s, 5 * s, 0, 0, Math.PI * 2); g.fill();
       } else {
         const gr = "#6ccf6a", dk = "#3f9a45";
         g.strokeStyle = gr; g.lineWidth = 22 * s; g.lineCap = "round"; g.beginPath(); g.moveTo(-30 * s, -40 * s); g.quadraticCurveTo(-90 * s, -20 * s, -120 * s + Math.sin(tt * 5) * 14 * s, -30 * s); g.stroke();   /* cauda */
@@ -15435,20 +15468,38 @@ html.half #visKar .k1{font-size:19px}
       if(S.beat > 0.95 && Math.random() < 0.8) S.parts.push({x:cx + (Math.random() - 0.5) * 140 * s, y:gy - 220 * s, vx:(Math.random() - 0.5) * 2, vy:-2 - Math.random() * 2, l:1, h:hue(now), note:Math.random() < 0.5 ? "♪" : "♫"});
       S.parts = S.parts.filter(p => (p.l -= 0.012) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; g.fillStyle = "hsla(" + p.h + ",90%,70%," + p.l + ")"; g.font = (22 * s) + "px sans-serif"; g.fillText(p.note || "•", p.x, p.y); }
     }
+    function drawTunel(L, now){ const w = W(), h = H(), cx = w / 2 + Math.sin(now / 1300) * w * 0.08, cy = h / 2 + Math.cos(now / 1700) * h * 0.08, n = 18, z0 = (now / 1000 * (0.6 + L.b * 2)) % 1;
+      for(let i = n; i > 0; i--){ const z = (i - z0) / n, r = Math.pow(1 - z, 2.2) * Math.max(w, h) * 0.9 + 6, v = L.spec ? L.spec[Math.floor(i / n * 120)] / 255 : 0.4;
+        g.strokeStyle = "hsla(" + ((hue(now) + i * 20) % 360) + ",90%," + (40 + v * 35) + "%," + (0.25 + (1 - z) * 0.75) + ")"; g.lineWidth = 2 + (1 - z) * 10 * (0.5 + L.b);
+        g.save(); g.translate(cx, cy); g.rotate(now / 3000 + i * 0.12); g.beginPath(); for(let k = 0; k <= 6; k++){ const a = k / 6 * Math.PI * 2; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.stroke(); g.restore(); } }
+    function drawFogo(L, now){ const w = W(), h = H();
+      if(S.beat > 0.95 || (!S.fw || now - S.fw > 1400)){ S.fw = now; const x = w * (0.15 + Math.random() * 0.7), y = h * (0.15 + Math.random() * 0.4), hh = Math.random() * 360, n = 50 + Math.round(L.b * 60);
+        for(let i = 0; i < n; i++){ const a = Math.random() * Math.PI * 2, v = 1.5 + Math.random() * 4.5 * (0.6 + L.m); S.parts.push({x, y, vx:Math.cos(a) * v, vy:Math.sin(a) * v, l:1, h:hh + Math.random() * 30, fw:1}); } }
+      S.parts = S.parts.filter(p => (p.l -= 0.013) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; p.vx *= 0.985; p.vy = p.vy * 0.985 + 0.05; g.fillStyle = "hsla(" + p.h + ",100%," + (55 + p.l * 20) + "%," + p.l + ")"; g.beginPath(); g.arc(p.x, p.y, 1.5 + p.l * 2.5, 0, Math.PI * 2); g.fill(); } }
+    function drawAurora(L, now){ const w = W(), h = H();
+      for(let k = 0; k < 4; k++){ const hh = (hue(now) + k * 50) % 360, amp = h * (0.08 + L.m * 0.18), base = h * (0.3 + k * 0.12);
+        const gr = g.createLinearGradient(0, base - amp, 0, h); gr.addColorStop(0, "hsla(" + hh + ",90%,60%," + (0.18 + L.b * 0.3) + ")"); gr.addColorStop(1, "hsla(" + hh + ",90%,40%,0)");
+        g.fillStyle = gr; g.beginPath(); g.moveTo(0, h); for(let x = 0; x <= w; x += 12){ const y = base + Math.sin(x / w * Math.PI * (2 + k) + now / (900 + k * 300)) * amp + Math.sin(x / 70 + now / 400) * amp * 0.25; g.lineTo(x, y); } g.lineTo(w, h); g.fill(); }
+      for(let i = 0; i < 40; i++){ const x = (i * 97 % 100) / 100 * w, y = (i * 53 % 100) / 100 * h * 0.5; g.fillStyle = "rgba(255,255,255," + (0.3 + 0.7 * Math.abs(Math.sin(now / 600 + i)) * L.t) + ")"; g.fillRect(x, y, 2, 2); } }
     function rr(x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-    const DRAW = {gato:(L, n) => drawBicho(L, n, "gato"), pinguim:(L, n) => drawBicho(L, n, "pinguim"), dino:(L, n) => drawBicho(L, n, "dino"), robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
+    const DRAW = {tunel:drawTunel, fogo:drawFogo, aurora:drawAurora, coelho:(L, n) => drawBicho(L, n, "coelho"), polvo:(L, n) => drawBicho(L, n, "polvo"), fantasma:(L, n) => drawBicho(L, n, "fantasma"), gato:(L, n) => drawBicho(L, n, "gato"), pinguim:(L, n) => drawBicho(L, n, "pinguim"), dino:(L, n) => drawBicho(L, n, "dino"), robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
 
     /* --- ciclo: só desenha com a página Media à vista e o quadro ligado --- */
     let lastHint = "";
     const frame = now => {
       S.raf = 0;
-      if(!S.on || currentView !== "media" || document.hidden){ return; }
+      if((!S.on && !ytNeed()) || currentView !== "media" || document.hidden){ return; }
       const r = wrap.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1), cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
-      if(cw && (cv.width !== cw || cv.height !== ch)){ cv.width = cw; cv.height = ch; }
+      if(cw && (cv0.width !== cw || cv0.height !== ch)){ cv0.width = cw; cv0.height = ch; }
       const L = levels(now);
       g.fillStyle = S.sty === "estrelas" || S.sty === "robo" ? "rgba(5,7,13,.35)" : "rgba(5,7,13,.28)"; g.fillRect(0, 0, cv.width, cv.height);
-      if(["robo", "gato", "pinguim", "dino"].includes(S.sty)){ g.clearRect(0, 0, cv.width, cv.height); }
-      try{ (DRAW[S.sty] || drawRobo)(L, now); }catch(e){}
+      const chars = ["robo", "gato", "pinguim", "dino", "coelho", "polvo", "fantasma"];
+      if(S.on){ if(chars.includes(S.sty)){ g.clearRect(0, 0, cv.width, cv.height); } try{ (DRAW[S.sty] || drawRobo)(L, now); }catch(e){} }
+      /* YouTube Music em andamento: o Tesla tapa o vídeo; a animação aparece nesse quadro */
+      try{ const yc = $v("wampYtCv"); if(yc){ const need = ytNeed(); yc.hidden = !need;
+          if(need){ const r2 = yc.getBoundingClientRect(), d2 = Math.min(2, window.devicePixelRatio || 1); if(r2.width && (yc.width !== Math.round(r2.width * d2) || yc.height !== Math.round(r2.height * d2))){ yc.width = Math.round(r2.width * d2); yc.height = Math.round(r2.height * d2); }
+            const yg = yc.getContext("2d"), st = S.on ? S.sty : "robo"; cv = yc; g = yg; g.fillStyle = "#05070d"; g.fillRect(0, 0, yc.width, yc.height);
+            try{ (DRAW[st] || drawRobo)(L, now); }catch(e){} cv = cv0; g = g0; } } }catch(e){ cv = cv0; g = g0; }
       const hn = S.hint || (S.src === "auto" ? "Ritmo simulado (sem ouvir o som)." : ""); if(hn !== lastHint){ lastHint = hn; $v("visHint").textContent = hn; }
       try{ const bt = S.bpm ? "♩ " + S.bpm + " BPM" : ""; if(bt !== S.bpmTxt){ S.bpmTxt = bt; $v("visBpm").textContent = bt; } }catch(e){}
       try{ const WA = window.__wamp, ly = WA && WA.lyricNow ? WA.lyricNow() : null, k1 = ly ? ly.cur : "", k2 = ly ? ly.next : "";
@@ -15459,7 +15510,8 @@ html.half #visKar .k1{font-size:19px}
           $v("visBig").style.transform = "translate(-50%,0) scale(" + (1 + S.beat * 0.06).toFixed(3) + ")"; }catch(e){} }
       S.raf = requestAnimationFrame(frame);
     };
-    const kick = () => { if(!S.raf && S.on && currentView === "media") S.raf = requestAnimationFrame(frame); };
+    const ytNeed = () => { try{ const WA = window.__wamp; return !!(WA && WA.cur && WA.cur.yt && WA.playing && WA.playing() && typeof drivingEff === "function" && drivingEff()); }catch(e){ return false; } };
+    const kick = () => { if(!S.raf && (S.on || ytNeed()) && currentView === "media") S.raf = requestAnimationFrame(frame); };
     setInterval(kick, 800); document.addEventListener("visibilitychange", kick);
 
     /* ecrã total: o quadro passa para o <body> (dentro da página há contentores que prendem o position:fixed) */
@@ -15511,7 +15563,8 @@ html.half #visKar .k1{font-size:19px}
 #wampPl button .d{color:#6aff80;opacity:.8}
 #wampPl button .q{font-size:12px;color:#f0c35a;border:1px solid #f0c35a66;border-radius:4px;padding:1px 4px}
 #wampPl .e{padding:14px;color:#6aff80}
-#wampYtBox{width:150px;height:84px;margin-top:6px;border-radius:4px;overflow:hidden;background:#111}
+#wampYtBox{position:relative;width:150px;height:84px;margin-top:6px;border-radius:4px;overflow:hidden;background:#111}
+#wampYtCv{position:absolute;inset:0;width:100%;height:100%;z-index:2}
 #wampYtBox iframe{width:150px;height:84px;display:block;border:0}
 #wampPl button .q.yt{color:#ff5a5a;border-color:#ff5a5a66}
 </style>
@@ -15523,7 +15576,7 @@ html.half #visKar .k1{font-size:19px}
     const rp = document.getElementById("radioPanel"); if(!rp) return;
     const P = document.createElement("div"); P.className = "panel"; P.id = "wampPanel";
     P.innerHTML = '<div class="wTitle"><b>COCKPIT AMP</b><span style="flex:1;height:8px"></span><span id="wampSrcTag" class="small">Audius · iTunes · YouTube Music</span></div>' +
-      '<div class="wMain"><div id="wampLcd"><div id="wampTime">00:00</div><div id="wampKbps">— parado —</div><canvas id="wampSpec" width="150" height="38"></canvas><div id="wampYtBox" hidden><div id="wampYt"></div></div></div>' +
+      '<div class="wMain"><div id="wampLcd"><div id="wampTime">00:00</div><div id="wampKbps">— parado —</div><canvas id="wampSpec" width="150" height="38"></canvas><div id="wampYtBox" hidden><div id="wampYt"></div><canvas id="wampYtCv" hidden></canvas></div></div>' +
       '<div id="wampInfo"><div id="wampMarq"><span>*** Procura um artista ou uma música em baixo ***</span></div><input type="range" id="wampSeek" min="0" max="1000" value="0" aria-label="Posição"></div></div>' +
       '<div class="wCtl"><button data-w="prev" aria-label="Anterior">⏮</button><button data-w="play" aria-label="Tocar ou pausa">⏯</button><button data-w="stop" aria-label="Parar">⏹</button><button data-w="next" aria-label="Seguinte">⏭</button>' +
       '<button data-w="shuf" aria-pressed="false" aria-label="Aleatório">🔀</button><button data-w="rep" aria-pressed="false" aria-label="Repetir">🔁</button>' +
@@ -15664,6 +15717,48 @@ html.half #visKar .k1{font-size:19px}
     W.lyricNow = () => { const L = W.lyr; if(!L || !L.lines.length || !W.playing()) return null; if(!L.sync) return null;
       const t = E.t() + 0.25; let k = -1; for(let i = 0; i < L.lines.length; i++){ if(L.lines[i].t <= t) k = i; else break; } return {cur:k >= 0 ? L.lines[k].x : "", next:L.lines[k + 1] ? L.lines[k + 1].x : ""}; };
   }catch(e){ console.log("winamp", e); }
+})();
+</script>
+<style>
+/* ===== v257: Media — organizar as janelas (ordem e mostrar/esconder) ===== */
+#mediaOrgBtn{min-height:52px;padding:0 16px;border-radius:12px;border:1px solid var(--line,#ffffff22);background:#ffffff12;color:inherit;font:700 16px/1 system-ui,sans-serif;cursor:pointer}
+#mediaOrgBtn[aria-pressed="true"]{background:var(--accent,#7cc4ff);color:#001}
+#v-media .mHid{display:none!important}
+#v-media.org .mHid{display:block!important;opacity:.4}
+#v-media.org .grid2.mHid{display:grid!important}
+#v-media .mWin{position:relative}
+#v-media .mBar{display:none}
+#v-media.org .mWin{outline:2px dashed #7cc4ff88;outline-offset:4px}
+#v-media.org .mBar{display:flex;gap:8px;position:absolute;right:10px;top:10px;z-index:20}
+#v-media .mBar button{min-width:52px;min-height:52px;border-radius:12px;border:0;background:#0b1422ee;color:#fff;font:700 20px/1 system-ui,sans-serif;box-shadow:0 4px 14px #0008;cursor:pointer}
+#v-media .mBar .nm{align-self:center;padding:6px 10px;border-radius:10px;background:#0b1422ee;color:#cfe3ff;font:700 14px/1 system-ui,sans-serif}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const V = document.getElementById("v-media"); if(!V) return;
+    const h1 = V.querySelector("h1"); const NAMES = {wampPanel:"Cockpit Amp", radioPanel:"Rádio", visPanel:"Animações", mediaLinks:"YouTube e links", ytPanel:"YouTube na app", lockSndPanel:"Sons de trancar"};
+    const wins = () => [...V.children].filter(e => e.classList.contains("panel") || e.classList.contains("grid2"));
+    wins().forEach(e => { if(!e.id){ e.id = e.classList.contains("grid2") ? "mediaLinks" : (/Lock|trancar/i.test(e.textContent.slice(0, 80)) ? "lockSndPanel" : "mWin" + Math.random().toString(36).slice(2, 7)); } e.classList.add("mWin");
+      const bar = document.createElement("div"); bar.className = "mBar"; bar.innerHTML = '<span class="nm">' + (NAMES[e.id] || "Janela") + '</span><button data-m="up" aria-label="Subir">▲</button><button data-m="down" aria-label="Descer">▼</button><button data-m="hide" aria-label="Mostrar ou esconder">👁</button>'; e.appendChild(bar); });
+    const save = () => { LS.set("mediaOrder", wins().map(e => e.id)); LS.set("mediaHidden", wins().filter(e => e.classList.contains("mHid")).map(e => e.id)); };
+    const apply = () => { const ord = LS.get("mediaOrder", []) || [], hid = LS.get("mediaHidden", []) || [];
+      const all = wins(), anchor = all[0] && all[0].previousElementSibling;
+      const sorted = all.slice().sort((a, b) => { const ia = ord.indexOf(a.id), ib = ord.indexOf(b.id); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); });
+      let ref = anchor; sorted.forEach(e => { if(ref) ref.after(e); else V.appendChild(e); ref = e; e.classList.toggle("mHid", hid.includes(e.id)); }); };
+    apply();
+    const btn = document.createElement("button"); btn.id = "mediaOrgBtn"; btn.type = "button"; btn.textContent = "🧩 Organizar"; btn.setAttribute("aria-pressed", "false");
+    const row = document.createElement("div"); row.style.cssText = "display:flex;align-items:center;gap:12px;flex-wrap:wrap"; h1.before(row); row.appendChild(h1); h1.style.margin = "0"; const sp = document.createElement("span"); sp.style.flex = "1"; row.appendChild(sp); row.appendChild(btn);
+    const reset = document.createElement("button"); reset.id = "mediaOrgReset"; reset.type = "button"; reset.className = "btn"; reset.textContent = "Repor"; reset.hidden = true; row.appendChild(reset);
+    btn.onclick = () => { const on = !V.classList.contains("org"); V.classList.toggle("org", on); btn.setAttribute("aria-pressed", String(on)); btn.textContent = on ? "✓ Concluído" : "🧩 Organizar"; reset.hidden = !on; };
+    reset.onclick = () => { LS.set("mediaOrder", []); LS.set("mediaHidden", []); location.reload(); };
+    V.addEventListener("click", e => { const b = e.target.closest(".mBar [data-m]"); if(!b) return; e.stopPropagation(); const w = b.closest(".mWin"), m = b.dataset.m;
+      if(m === "up"){ const p = w.previousElementSibling; if(p && p.classList.contains("mWin")) p.before(w); }
+      else if(m === "down"){ const n = w.nextElementSibling; if(n && n.classList.contains("mWin")) n.after(w); }
+      else if(m === "hide") w.classList.toggle("mHid");
+      save(); try{ w.scrollIntoView({block:"nearest", behavior:"smooth"}); }catch(x){} }, true);
+  }catch(e){ console.log("organizar media", e); }
 })();
 </script>
 </body>
