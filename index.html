@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v253";
+const APP_VERSION = "v254";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15190,6 +15190,204 @@ html.nightUi body.pfull #nightDim{opacity:0}
       }
     }
   }catch(e){ console.log("retomar ao abrir", e); }
+})();
+</script>
+<style>
+/* ===== v254: Media — quadro de animações ao ritmo da música (rádio online ou microfone/colunas do carro) + robô dançarino ===== */
+#visPanel .visTop{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+#visPanel .visTop h2{margin:0}
+#visPanel .visSty,#visPanel .visSrc{display:flex;flex-wrap:wrap;gap:8px}
+#visPanel .visSty button,#visPanel .visSrc button{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line,#ffffff22);background:#ffffff10;color:inherit;font:600 15px/1 inherit;cursor:pointer}
+#visPanel .visSty button[aria-pressed="true"],#visPanel .visSrc button[aria-pressed="true"]{background:var(--accent,#7cc4ff);color:#001;border-color:transparent}
+#visWrap{position:relative;margin-top:12px;border-radius:18px;overflow:hidden;background:radial-gradient(ellipse at 50% 120%,#1b2b4a,#05070d 70%);height:320px}
+#visWrap canvas{display:block;width:100%;height:100%}
+#visWrap .visHint{position:absolute;left:0;right:0;bottom:14px;text-align:center;font:600 15px/1.3 inherit;color:#cfe3ff;opacity:.85;pointer-events:none}
+#visWrap .visFs{position:absolute;right:10px;top:10px;min-width:48px;min-height:48px;border:0;border-radius:12px;background:#0008;color:#fff;font-size:22px;cursor:pointer}
+#visWrap.fs{position:fixed;inset:0;z-index:230;height:auto;border-radius:0}
+html.half #visWrap{height:260px}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  try{
+    const media = document.getElementById("v-media"), rp = document.getElementById("radioPanel"); if(!media || !rp) return;
+    const STY = [["robo","🤖 Robô"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"]];
+    const SRC = [["radio","📻 Rádio"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
+    const box = document.createElement("div"); box.className = "panel"; box.id = "visPanel";
+    box.innerHTML = '<div class="visTop"><h2>Animações</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
+      '<div class="visSty" role="group" aria-label="Estilo">' + STY.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
+      '<div class="visSrc" role="group" aria-label="Som" style="margin-top:8px">' + SRC.map(s => '<button type="button" data-src="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
+      '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button></div>';
+    rp.after(box);
+    const S = {on:LS.get("visOn", true), sty:LS.get("visSty", "robo"), src:LS.get("visSrc", "radio"), an:null, ctx:null, mic:null, data:null, wave:null, raf:0, t0:performance.now(), avgB:0.2, beat:0, lastBeat:0, parts:[], stars:[], blink:0, hint:"", corsTried:new WeakSet(), corsBad:new Set()};
+    const $v = id => document.getElementById(id), cv = $v("visCv"), g = cv.getContext("2d"), wrap = $v("visWrap");
+    const paintBtns = () => { box.querySelectorAll("[data-s]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === S.sty))); box.querySelectorAll("[data-src]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.src === S.src))); $v("visOn").checked = !!S.on; wrap.hidden = !S.on; };
+    paintBtns();
+
+    /* --- som: analisador ligado à rádio (sem estragar o som) ou ao microfone --- */
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const mkAn = c => { const a = c.createAnalyser(); a.fftSize = 1024; a.smoothingTimeConstant = 0.78; S.data = new Uint8Array(a.frequencyBinCount); S.wave = new Uint8Array(a.fftSize); return a; };
+    const radioEl = () => $v("radioAud");
+    const safeSrc = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin || el.crossOrigin === "anonymous"; }catch(e){ return false; } };
+    const tapRadio = () => {
+      const el = radioEl(); if(!el || el.paused || !(el.currentSrc || el.src)) { S.hint = "Liga uma rádio em cima (ou escolhe «Colunas do carro»)."; return null; }
+      try{
+        const A = window.__amp;
+        if(el._amp && el._amp.g && A && A.ctx){ if(!el._visAn){ el._visAn = mkAn(A.ctx); el._amp.g.connect(el._visAn); } S.hint = ""; return el._visAn; }
+        if(el._visAn){ S.hint = ""; return el._visAn; }
+        if(!safeSrc(el)){
+          /* rádio de outro site: só se pode ouvir o som se o servidor autorizar (CORS); tenta uma vez, sem cortar a rádio se falhar */
+          const u = el.currentSrc || el.src;
+          if(!S.corsBad.has(u) && !S.corsTried.has(el)){ S.corsTried.add(el); const t = el.currentTime;
+            el.crossOrigin = "anonymous"; const back = () => { el.removeEventListener("error", back); S.corsBad.add(u); el.removeAttribute("crossorigin"); el.src = u; el.play().catch(() => {}); };
+            el.addEventListener("error", back, {once:true}); el.src = u; el.play().catch(() => {}); try{ if(t) el.currentTime = t; }catch(e){} }
+          S.hint = S.corsBad.has(u) ? "Esta rádio não deixa ler o som: uso o ritmo simulado (ou escolhe «Colunas do carro»)." : ""; return null;
+        }
+        const c = (A && A.ctx && A.ctx.state !== "closed") ? A.ctx : (S.ctx || (S.ctx = new AC({latencyHint:"playback"})));
+        if(A && !A.ctx) A.ctx = c;
+        c.resume().catch(() => {});
+        const src = c.createMediaElementSource(el), gn = c.createGain(); src.connect(gn); gn.connect(c.destination); el._amp = {g:gn}; el._visAn = mkAn(c); gn.connect(el._visAn);
+        S.hint = ""; return el._visAn;
+      }catch(e){ S.hint = "Não consegui ler o som desta rádio: uso o ritmo simulado."; return null; }
+    };
+    const tapMic = async () => {
+      if(S.mic) return S.mic.an;
+      try{
+        const st = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:true}});
+        const c = S.ctx || (S.ctx = new AC()); c.resume().catch(() => {});
+        const an = mkAn(c); an.smoothingTimeConstant = 0.7; c.createMediaStreamSource(st).connect(an);
+        S.mic = {st, an}; S.hint = ""; return an;
+      }catch(e){ S.hint = "Sem acesso ao microfone. Autoriza o microfone no browser do carro."; S.src = "auto"; paintBtns(); return null; }
+    };
+    const stopMic = () => { try{ if(S.mic){ S.mic.st.getTracks().forEach(t => t.stop()); S.mic = null; } }catch(e){} };
+
+    /* --- níveis: graves, médios, agudos e batida --- */
+    const levels = (now) => {
+      let an = null;
+      if(S.src === "radio") an = tapRadio(); else if(S.src === "mic") an = S.mic ? S.mic.an : null;
+      let b, m, t, spec;
+      if(an){ an.getByteFrequencyData(S.data); an.getByteTimeDomainData(S.wave); const d = S.data, n = d.length;
+        const avg = (a, z) => { let s = 0; for(let i = a; i < z; i++) s += d[i]; return s / (z - a) / 255; };
+        b = avg(1, 8); m = avg(8, 60); t = avg(60, 200); spec = d;
+      } else {   /* ritmo simulado: 118 batidas por minuto, para nunca ficar parado */
+        const ph = (now / 1000) * (118 / 60), k = ph % 1; b = Math.max(0, 1 - k * 2.6) * 0.85 + 0.12; m = 0.35 + 0.25 * Math.sin(ph * Math.PI); t = 0.25 + 0.2 * Math.sin(ph * 4.1);
+        spec = null; if(!S.fake) S.fake = new Uint8Array(512); for(let i = 0; i < 512; i++){ const f = i / 512; S.fake[i] = 255 * Math.max(0, (b * (1 - f) * 0.9 + m * Math.sin(f * 9 + ph) * 0.3 + t * f * 0.4) * (0.75 + 0.25 * Math.sin(i * 0.7 + now / 300))); } spec = S.fake;
+        if(!S.wave) S.wave = new Uint8Array(1024); for(let i = 0; i < 1024; i++) S.wave[i] = 128 + 90 * b * Math.sin(i / 1024 * Math.PI * 6 + now / 120) * Math.sin(i / 1024 * Math.PI);
+      }
+      S.avgB = S.avgB * 0.94 + b * 0.06;
+      if(b > S.avgB * 1.35 && b > 0.18 && now - S.lastBeat > 260){ S.lastBeat = now; S.beat = 1; S.beatN = (S.beatN || 0) + 1; } else S.beat *= 0.9;
+      return {b, m, t, spec};
+    };
+
+    /* --- desenhos --- */
+    const W = () => cv.width, H = () => cv.height;
+    const hue = now => (now / 40) % 360;
+    function drawBarras(L, now){ const w = W(), h = H(), n = 48, d = L.spec, bw = w / n;
+      for(let i = 0; i < n; i++){ const v = d ? d[Math.floor(Math.pow(i / n, 1.6) * d.length * 0.7)] / 255 : 0; const bh = Math.max(4, v * h * 0.85);
+        g.fillStyle = "hsl(" + ((hue(now) + i * 6) % 360) + ",90%," + (45 + v * 25) + "%)"; const x = i * bw + 2; g.beginPath(); g.roundRect ? g.roundRect(x, h - bh, bw - 4, bh, 6) : g.rect(x, h - bh, bw - 4, bh); g.fill();
+        g.fillStyle = "#ffffff22"; g.fillRect(x, h - bh - 8, bw - 4, 3); } }
+    function drawOndas(L, now){ const w = W(), h = H(), d = S.wave; for(let k = 0; k < 3; k++){ g.beginPath(); g.lineWidth = 4 - k; g.strokeStyle = "hsla(" + ((hue(now) + k * 50) % 360) + ",90%,65%," + (0.9 - k * 0.25) + ")";
+        for(let i = 0; i < d.length; i += 4){ const x = i / d.length * w, y = h / 2 + ((d[i] - 128) / 128) * h * 0.42 * (1 + k * 0.25) * (k % 2 ? -1 : 1); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } }
+    function drawCirculo(L, now){ const w = W(), h = H(), cx = w / 2, cy = h / 2, r0 = Math.min(w, h) * 0.18 * (1 + L.b * 0.35), d = L.spec, n = 90;
+      g.save(); g.translate(cx, cy); g.rotate(now / 4000);
+      for(let i = 0; i < n; i++){ const v = d ? d[Math.floor(i / n * d.length * 0.6)] / 255 : 0, a = i / n * Math.PI * 2, len = 10 + v * Math.min(w, h) * 0.3;
+        g.strokeStyle = "hsl(" + ((hue(now) + i * 4) % 360) + ",95%,62%)"; g.lineWidth = 4; g.beginPath(); g.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); g.lineTo(Math.cos(a) * (r0 + len), Math.sin(a) * (r0 + len)); g.stroke(); }
+      g.restore(); g.fillStyle = "hsla(" + hue(now) + ",90%,60%," + (0.25 + S.beat * 0.5) + ")"; g.beginPath(); g.arc(cx, cy, r0 * 0.8, 0, Math.PI * 2); g.fill(); }
+    function drawEstrelas(L, now){ const w = W(), h = H();
+      if(S.stars.length < 160) for(let i = 0; i < 160; i++) S.stars.push({x:Math.random() - 0.5, y:Math.random() - 0.5, z:Math.random()});
+      const sp = 0.004 + L.b * 0.03 + S.beat * 0.02;
+      for(const s of S.stars){ s.z -= sp; if(s.z <= 0.02){ s.x = Math.random() - 0.5; s.y = Math.random() - 0.5; s.z = 1; }
+        const x = w / 2 + s.x / s.z * w * 0.6, y = h / 2 + s.y / s.z * h * 0.6, r = (1 - s.z) * 3.5 + L.t * 2;
+        g.fillStyle = "hsla(" + ((hue(now) + s.z * 200) % 360) + ",80%,80%," + (1 - s.z) + ")"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+      if(S.beat > 0.95) for(let i = 0; i < 18; i++) S.parts.push({x:w / 2, y:h / 2, vx:(Math.random() - 0.5) * 9, vy:(Math.random() - 0.5) * 9, l:1, h:hue(now) + Math.random() * 80});
+      drawParts(); }
+    function drawParts(){ S.parts = S.parts.filter(p => (p.l -= 0.02) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; p.vy += 0.08; g.fillStyle = "hsla(" + p.h + ",90%,65%," + p.l + ")"; g.beginPath(); g.arc(p.x, p.y, 3 + p.l * 3, 0, Math.PI * 2); g.fill(); } }
+    function drawLuzes(L, now){ const w = W(), h = H();
+      for(let k = 0; k < 6; k++){ const a = now / (900 + k * 170) + k, x = w / 2 + Math.sin(a) * w * 0.4, hh = (hue(now) + k * 60) % 360;
+        const gr = g.createLinearGradient(w / 2, -20, x, h); gr.addColorStop(0, "hsla(" + hh + ",100%,70%," + (0.15 + L.b * 0.5) + ")"); gr.addColorStop(1, "hsla(" + hh + ",100%,60%,0)");
+        g.fillStyle = gr; g.beginPath(); g.moveTo(w / 2 - 10, -20); g.lineTo(x - 60 - L.m * 60, h); g.lineTo(x + 60 + L.m * 60, h); g.lineTo(w / 2 + 10, -20); g.fill(); }
+      const r = Math.min(w, h) * 0.12; g.save(); g.translate(w / 2, h * 0.22); g.rotate(now / 1500);
+      for(let i = 0; i < 40; i++){ const a = i / 40 * Math.PI * 2; g.fillStyle = "hsla(" + ((hue(now) + i * 9) % 360) + ",60%," + (55 + 30 * Math.sin(now / 200 + i)) + "%,.9)"; g.fillRect(Math.cos(a) * r * 0.8 - 5, Math.sin(a) * r * 0.8 - 5, 10, 10); }
+      g.restore(); g.fillStyle = "#cfd8e8"; g.beginPath(); g.arc(w / 2, h * 0.22, r * 0.55, 0, Math.PI * 2); g.fill(); }
+
+    /* robô fofinho: salta com os graves, abana os braços com os médios, a antena brilha com os agudos, a boca é um equalizador */
+    function drawRobo(L, now){
+      const w = W(), h = H(), s = Math.min(w / 480, h / 320) * 1.0, cx = w / 2, gy = h * 0.9, tt = now / 1000, bn = S.beatN || 0;
+      const jump = L.b * 26 * s + S.beat * 10 * s, sq = 1 + S.beat * 0.08, lean = Math.sin(tt * 2.2) * 0.12 + (bn % 2 ? 0.08 : -0.08) * S.beat;
+      /* chão com sombra e luzes */
+      g.fillStyle = "#0008"; g.beginPath(); g.ellipse(cx, gy, 90 * s * (1 - L.b * 0.25), 14 * s, 0, 0, Math.PI * 2); g.fill();
+      for(let i = 0; i < 9; i++){ g.fillStyle = "hsla(" + ((hue(now) + i * 40) % 360) + ",90%,60%," + (0.25 + (bn + i) % 3 * 0.25 * S.beat + 0.15) + ")"; g.fillRect(cx - 220 * s + i * 50 * s, gy + 14 * s, 40 * s, 6 * s); }
+      g.save(); g.translate(cx, gy - jump); g.rotate(lean); g.scale(1 / sq, sq);
+      const body = "#8fd3ff", dark = "#2a3b55", acc = "hsl(" + hue(now) + ",90%,62%)";
+      /* pernas */
+      const legK = Math.sin(tt * 6) * 10 * s * (0.3 + L.b);
+      g.strokeStyle = dark; g.lineWidth = 14 * s; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-26 * s, -40 * s); g.lineTo(-30 * s - legK * 0.3, -14 * s + Math.max(0, legK)); g.lineTo(-34 * s, 0); g.stroke();
+      g.beginPath(); g.moveTo(26 * s, -40 * s); g.lineTo(30 * s + legK * 0.3, -14 * s + Math.max(0, -legK)); g.lineTo(34 * s, 0); g.stroke();
+      g.fillStyle = dark; g.beginPath(); g.ellipse(-36 * s, 2 * s, 18 * s, 8 * s, 0, 0, Math.PI * 2); g.ellipse(36 * s, 2 * s, 18 * s, 8 * s, 0, 0, Math.PI * 2); g.fill();
+      /* braços */
+      /* braços para fora e para cima com os médios; alternam o braço mais alto em cada batida */
+      const wave = L.m * 1.8 + 0.25, up = bn % 2 ? 1 : 0;
+      const aL = 0.35 + wave * (up ? 1.5 : 0.6) + Math.sin(tt * 5) * 0.25, aR = 0.35 + wave * (up ? 0.6 : 1.5) + Math.sin(tt * 5 + 1.3) * 0.25;
+      const arm = (x, a) => { g.save(); g.translate(x, -122 * s); g.rotate(a); g.strokeStyle = body; g.lineWidth = 13 * s; g.lineCap = "round"; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 46 * s); g.stroke(); g.fillStyle = acc; g.beginPath(); g.arc(0, 52 * s, 10 * s, 0, Math.PI * 2); g.fill(); g.restore(); };
+      /* corpo */
+      g.fillStyle = body; rr(-52 * s, -140 * s, 104 * s, 104 * s, 26 * s); g.fill();
+      arm(-50 * s, aL); arm(50 * s, -aR);
+      g.fillStyle = "#ffffff55"; rr(-40 * s, -132 * s, 30 * s, 10 * s, 5 * s); g.fill();
+      /* coração no peito a bater */
+      const hb = 1 + S.beat * 0.35; g.save(); g.translate(0, -88 * s); g.scale(hb * s, hb * s); g.fillStyle = "#ff6b9a"; g.beginPath(); g.moveTo(0, 8); g.bezierCurveTo(-16, -6, -8, -18, 0, -8); g.bezierCurveTo(8, -18, 16, -6, 0, 8); g.fill(); g.restore();
+      /* cabeça */
+      g.save(); g.translate(0, -150 * s); g.rotate(Math.sin(tt * 3.1) * 0.12 + S.beat * 0.06 * (bn % 2 ? 1 : -1));
+      g.fillStyle = body; rr(-62 * s, -92 * s, 124 * s, 92 * s, 30 * s); g.fill();
+      g.fillStyle = "#13203a"; rr(-50 * s, -80 * s, 100 * s, 66 * s, 22 * s); g.fill();
+      /* olhos (piscam e fecham de alegria na batida forte) */
+      if(now > S.blink){ S.blink = now + 2500 + Math.random() * 3000; S.blinkUntil = now + 140; }
+      const happy = S.beat > 0.8, closed = now < (S.blinkUntil || 0);
+      g.strokeStyle = g.fillStyle = "#9ff3ff"; g.lineWidth = 5 * s;
+      [-22, 22].forEach(ex => { if(happy || closed){ g.beginPath(); g.arc(ex * s, -48 * s, 10 * s, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+        else { g.beginPath(); g.ellipse(ex * s, -50 * s, 10 * s, 13 * s, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = "#fff"; g.beginPath(); g.arc(ex * s + 3 * s, -55 * s, 3.5 * s, 0, Math.PI * 2); g.fill(); g.fillStyle = "#9ff3ff"; } });
+      g.fillStyle = "#ff8fb366"; g.beginPath(); g.ellipse(-36 * s, -30 * s, 9 * s, 5 * s, 0, 0, Math.PI * 2); g.ellipse(36 * s, -30 * s, 9 * s, 5 * s, 0, 0, Math.PI * 2); g.fill();
+      /* boca = equalizador */
+      const d = L.spec; for(let i = 0; i < 7; i++){ const v = d ? d[2 + i * 9] / 255 : 0.2; const bh = 3 * s + v * 14 * s; g.fillStyle = "hsl(" + ((hue(now) + i * 25) % 360) + ",95%,65%)"; g.fillRect(-21 * s + i * 6.5 * s, -24 * s - bh / 2, 4.5 * s, bh); }
+      /* antena */
+      g.strokeStyle = dark; g.lineWidth = 4 * s; g.beginPath(); g.moveTo(0, -92 * s); g.quadraticCurveTo(Math.sin(tt * 7) * 12 * s, -112 * s, Math.sin(tt * 6) * 8 * s, -124 * s); g.stroke();
+      g.fillStyle = "hsl(" + ((hue(now) + 180) % 360) + ",100%," + (55 + L.t * 40) + "%)"; g.shadowColor = g.fillStyle; g.shadowBlur = 10 + L.t * 30; g.beginPath(); g.arc(Math.sin(tt * 6) * 8 * s, -126 * s, (7 + L.t * 5) * s, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+      g.restore(); g.restore();
+      /* notas musicais a voar na batida */
+      if(S.beat > 0.95 && Math.random() < 0.8) S.parts.push({x:cx + (Math.random() - 0.5) * 120 * s, y:gy - 220 * s, vx:(Math.random() - 0.5) * 2, vy:-2 - Math.random() * 2, l:1, h:hue(now), note:Math.random() < 0.5 ? "♪" : "♫"});
+      S.parts = S.parts.filter(p => (p.l -= 0.012) > 0); for(const p of S.parts){ p.x += p.vx; p.y += p.vy; g.fillStyle = "hsla(" + p.h + ",90%,70%," + p.l + ")"; g.font = (22 * s) + "px sans-serif"; g.fillText(p.note || "•", p.x, p.y); }
+    }
+    function rr(x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+    const DRAW = {robo:drawRobo, barras:drawBarras, ondas:drawOndas, circulo:drawCirculo, estrelas:drawEstrelas, luzes:drawLuzes};
+
+    /* --- ciclo: só desenha com a página Media à vista e o quadro ligado --- */
+    let lastHint = "";
+    const frame = now => {
+      S.raf = 0;
+      if(!S.on || currentView !== "media" || document.hidden){ return; }
+      const r = wrap.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1), cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
+      if(cw && (cv.width !== cw || cv.height !== ch)){ cv.width = cw; cv.height = ch; }
+      const L = levels(now);
+      g.fillStyle = S.sty === "estrelas" || S.sty === "robo" ? "rgba(5,7,13,.35)" : "rgba(5,7,13,.28)"; g.fillRect(0, 0, cv.width, cv.height);
+      if(S.sty === "robo"){ g.clearRect(0, 0, cv.width, cv.height); }
+      try{ (DRAW[S.sty] || drawRobo)(L, now); }catch(e){}
+      const hn = S.hint || (S.src === "auto" ? "Ritmo simulado (sem ouvir o som)." : ""); if(hn !== lastHint){ lastHint = hn; $v("visHint").textContent = hn; }
+      S.raf = requestAnimationFrame(frame);
+    };
+    const kick = () => { if(!S.raf && S.on && currentView === "media") S.raf = requestAnimationFrame(frame); };
+    setInterval(kick, 800); document.addEventListener("visibilitychange", kick);
+
+    box.addEventListener("click", async e => {
+      const b = e.target.closest("button"); if(!b) return;
+      if(b.dataset.s){ S.sty = b.dataset.s; LS.set("visSty", S.sty); S.parts = []; paintBtns(); }
+      else if(b.dataset.src){ S.src = b.dataset.src; LS.set("visSrc", S.src); if(S.src === "mic") await tapMic(); else stopMic(); S.hint = ""; paintBtns(); }
+      else if(b.id === "visFs"){ wrap.classList.toggle("fs"); b.textContent = wrap.classList.contains("fs") ? "✕" : "⛶"; }
+      kick();
+    });
+    $v("visOn").onchange = e => { S.on = e.target.checked; LS.set("visOn", S.on); if(!S.on){ stopMic(); wrap.classList.remove("fs"); } else if(S.src === "mic") tapMic(); paintBtns(); kick(); };
+    if(S.on && S.src === "mic"){ const once = () => { document.removeEventListener("pointerdown", once, true); if(S.src === "mic") tapMic(); }; document.addEventListener("pointerdown", once, true); }
+    kick();
+  }catch(e){ console.log("animações media", e); }
 })();
 </script>
 </body>
