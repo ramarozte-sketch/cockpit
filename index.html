@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v265";
+const APP_VERSION = "v266";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16266,6 +16266,151 @@ html.nightUi #ambient{filter:brightness(.75)}
     }, true);
     window.__wheelAct = act;
   }catch(e){ console.log("botões do volante", e); }
+})();
+</script>
+<style>
+/* ===== v266: comando no telemóvel do passageiro (WebRTC, ligado pelo /sync do Worker) ===== */
+#rmModal{position:fixed;inset:0;z-index:270;display:none;align-items:center;justify-content:center;background:#000c}
+#rmModal.on{display:flex}
+#rmModal .b{background:#fff;color:#111;border-radius:22px;padding:20px;max-width:min(560px,94vw);text-align:center;font-family:system-ui,sans-serif}
+#rmModal .code{font:800 44px/1 ui-monospace,monospace;letter-spacing:6px;margin:10px 0}
+#rmModal .st{font:600 16px/1.3 system-ui,sans-serif;color:#246}
+#rmModal button{min-height:52px;padding:0 18px;border-radius:12px;border:0;background:#1d4ed8;color:#fff;font:700 16px/1 system-ui,sans-serif;margin:6px}
+#rmQr{display:flex;justify-content:center;margin:8px 0}
+#rmUI{position:fixed;inset:0;z-index:99999;overflow:auto;background:#0b1220;color:#e8eef8;font-family:system-ui,sans-serif;padding:14px 14px 40px}
+#rmUI h1{font:800 22px/1.2 system-ui,sans-serif;margin:4px 0 10px}
+#rmUI .st{font:600 14px/1.3 system-ui,sans-serif;color:#9fb3cc;margin-bottom:10px}
+#rmUI .now{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#rmUI .slot{border-radius:16px;background:#ffffff10;border:2px solid transparent;padding:10px;min-height:96px}
+#rmUI .slot.on{border-color:#7cc4ff}
+#rmUI .slot img{max-width:70px;max-height:40px;object-fit:contain;display:block;margin-bottom:6px}
+#rmUI .slot b{display:block;font-size:16px}
+#rmUI .slot small{display:block;color:#b8c7da;margin-top:4px;font-size:13px}
+#rmUI .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+#rmUI button{min-height:60px;border-radius:16px;border:0;background:#1f2a40;color:#fff;font:700 19px/1.1 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+#rmUI button:active{background:#33456a}
+#rmUI button.pri{background:#7cc4ff;color:#001}
+#rmUI .row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+#rmUI .row>*{flex:1}
+#rmUI input{min-height:56px;border-radius:14px;border:1px solid #ffffff30;background:#0003;color:#fff;font:600 17px/1 system-ui,sans-serif;padding:0 14px;width:100%;box-sizing:border-box}
+#rmUI select{min-height:56px;border-radius:14px;background:#1f2a40;color:#fff;border:0;font:600 16px/1 system-ui,sans-serif;padding:0 10px}
+#rmRes button{display:flex;align-items:center;gap:10px;width:100%;min-height:58px;margin:6px 0;padding:6px 12px;text-align:left;font-size:16px;font-weight:600}
+#rmRes img{width:48px;height:32px;object-fit:contain;flex:none}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  const qs = new URLSearchParams(location.search);
+  const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+  const waitIce = pc => new Promise(res => { if(pc.iceGatheringState === "complete") return res(); const t = setTimeout(res, 4500); pc.addEventListener("icegatheringstatechange", () => { if(pc.iceGatheringState === "complete"){ clearTimeout(t); res(); } }); });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /* ====================== TELEMÓVEL: ?remote=CODIGO&b=…&k=… ====================== */
+  if(qs.get("remote")){
+    try{
+      const code = qs.get("remote"), base = qs.get("b") || (typeof cfg !== "undefined" ? cfg.proxy : ""), key = qs.get("k") || (typeof cfg !== "undefined" ? cfg.pkey : "");
+      const ui = document.createElement("div"); ui.id = "rmUI";
+      ui.innerHTML = '<h1>📱 Comando do Cockpit</h1><div class="st" id="rmSt">A ligar ao carro…</div>' +
+        '<div class="now"><div class="slot" id="rmS0" data-slot="0"><b>Ecrã 1</b><small>—</small></div><div class="slot" id="rmS1" data-slot="1"><b>Ecrã 2</b><small>—</small></div></div>' +
+        '<div class="pad"><button data-c="prev">◀ Canal</button><button data-c="play" class="pri">⏯</button><button data-c="next">Canal ▶</button><button data-c="vd">🔉 −</button><button data-c="mute">🔇</button><button data-c="vu">🔊 +</button><button data-c="mirror">🖼 Andamento</button><button data-c="full">⛶ Ecrã total</button><button data-c="home">🏠 Início TV</button></div>' +
+        '<div class="row"><button data-v="tv">📺 TV</button><button data-v="media">📻 Media</button><button data-v="car">🚗 Carro</button></div>' +
+        '<div class="row" style="margin-top:14px"><select id="rmKind"><option value="live">Canais</option><option value="movie">Filmes</option><option value="series">Séries</option><option value="radio">Rádio</option><option value="amp">Música (Amp)</option></select></div>' +
+        '<div class="row"><input id="rmQ" type="search" placeholder="Pesquisar…" autocomplete="off"><button id="rmGo" class="pri" style="flex:0 0 110px">Procurar</button></div><div id="rmRes"></div>';
+      document.body.appendChild(ui); document.title = "Comando Cockpit";
+      const $r = id => document.getElementById(id); let dc = null;
+      const send = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); else $r("rmSt").textContent = "Ainda não estou ligado ao carro…"; }catch(e){} };
+      const esc3 = t => String(t || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+      ui.addEventListener("click", e => { const b = e.target.closest("button,[data-slot]"); if(!b) return;
+        if(b.dataset.c) send({t:"cmd", c:b.dataset.c}); else if(b.dataset.v) send({t:"view", v:b.dataset.v}); else if(b.dataset.slot) send({t:"slot", s:+b.dataset.slot});
+        else if(b.dataset.u) send({t:"open", u:b.dataset.u, k:b.dataset.k}); else if(b.id === "rmGo"){ const q = $r("rmQ").value.trim(); if(q){ $r("rmRes").innerHTML = '<div class="st">A procurar…</div>'; send({t:"search", q, kind:$r("rmKind").value}); } } });
+      $r("rmQ").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); $r("rmGo").click(); } });
+      const onMsg = m => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
+        if(o.t === "state"){ [0, 1].forEach(i => { const S = o.slots[i] || {}, el = $r("rmS" + i); el.classList.toggle("on", o.target === i); el.innerHTML = (S.logo ? '<img src="' + esc3(S.logo) + '" alt="" onerror="this.remove()">' : "") + "<b>" + (i ? "Ecrã 2" : "Ecrã 1") + (o.audio === i ? " 🔊" : "") + "</b><small>" + esc3(S.name || "—") + (S.now ? " · " + esc3(S.now) : "") + "</small>"; });
+          $r("rmSt").textContent = "✅ Ligado ao carro" + (o.other ? " · " + o.other : "") + (o.mirror ? " · imagem em andamento ligada" : ""); }
+        else if(o.t === "results"){ $r("rmRes").innerHTML = o.list.length ? o.list.map(x => '<button data-u="' + esc3(x.u) + '" data-k="' + esc3(x.k) + '">' + (x.logo ? '<img src="' + esc3(x.logo) + '" alt="" onerror="this.remove()">' : "") + '<span>' + esc3(x.n) + '</span></button>').join("") : '<div class="st">Nada encontrado.</div>'; }
+        else if(o.t === "toast"){ $r("rmSt").textContent = o.m; } };
+      (async () => {
+        if(!base){ $r("rmSt").textContent = "Falta o endereço do proxy no link. Lê de novo o código no ecrã do carro."; return; }
+        let offer = null; for(let i = 0; i < 20 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, "rm" + code)); if(r.ok) offer = await r.json(); }catch(e){} if(!offer) await sleep(1500); }
+        if(!offer){ $r("rmSt").textContent = "Não encontrei o carro. Confirma o código no ecrã do carro."; return; }
+        const pc = new RTCPeerConnection(await rtcConfig(base, key));
+        pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
+        await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
+        await fetch(syncUrl(base, key, "rm" + code + "a"), {method:"POST", body:JSON.stringify(pc.localDescription)});
+        $r("rmSt").textContent = "A estabelecer a ligação…";
+      })().catch(e => { $r("rmSt").textContent = "Erro: " + (e.message || e); });
+    }catch(e){ console.log("comando telemóvel", e); }
+    return;
+  }
+
+  /* ====================== CARRO: mostra o código e recebe os comandos ====================== */
+  try{
+    const M = document.createElement("div"); M.id = "rmModal";
+    M.innerHTML = '<div class="b"><h2 style="margin:0">📱 Comando no telemóvel</h2><p style="margin:8px 0 0">No telemóvel do passageiro, aponta a câmara para o código.</p><div id="rmQr"></div><div class="code" id="rmCode">······</div><div class="st" id="rmSt2">A preparar…</div><div style="margin-top:10px"><button id="rmCopy">Copiar link</button><button id="rmClose" style="background:#555">Fechar</button></div></div>';
+    document.body.appendChild(M);
+    const $c = id => document.getElementById(id);
+    let pc = null, dc = null, link = "", stT = 0;
+    const st2 = t => { const e = $c("rmSt2"); if(e) e.textContent = t; };
+    const vidT = () => document.getElementById("vid" + (typeof tvTarget === "number" ? tvTarget : 0));
+    const state = () => { const slots = [0, 1].map(i => { const c = lastPlayed[i]; if(!c) return {}; let now = ""; try{ const nn = nowNext(c); if(nn && nn.now) now = nn.now.title; }catch(e){} return {name:c.name, logo:c.logo || "", now}; });
+      let other = ""; try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) other = "🎵 " + W.cur.artist + " — " + W.cur.title; else if(typeof radioCur !== "undefined" && radioCur) other = "📻 " + radioCur.name; }catch(e){}
+      return {t:"state", slots, target:tvTarget, audio:audioSlot, mirror:typeof mirrorOn !== "undefined" && mirrorOn, view:currentView, other}; };
+    const tx = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); }catch(e){} };
+    const vol = d => { try{ const G = window.__vg, v = document.getElementById("vid" + audioSlot); let x = (G && G.v != null ? G.v : v.volume) + d; x = Math.max(0, Math.min(1, Math.round(x * 10) / 10)); if(G) G.v = x; v.muted = false; v.volume = x; LS.set("tvVol", x); tx({t:"toast", m:"Som " + Math.round(x * 100) + "%"}); }catch(e){} };
+    const onCmd = async m => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
+      try{
+        if(o.t === "hello"){ tx(state()); toast("📱 Telemóvel do passageiro ligado."); }
+        else if(o.t === "cmd"){ const c = o.c;
+          if(c === "next" || c === "prev"){ if(window.__wheelAct) window.__wheelAct(c); else zap(c === "next" ? 1 : -1); }
+          else if(c === "play"){ if(window.__wheelAct) window.__wheelAct("toggle"); else { const v = vidT(); v.paused ? v.play().catch(() => {}) : v.pause(); } }
+          else if(c === "vu") vol(0.1); else if(c === "vd") vol(-0.1);
+          else if(c === "mute"){ const v = document.getElementById("vid" + audioSlot); v.muted = !v.muted; tx({t:"toast", m:v.muted ? "Sem som" : "Com som"}); }
+          else if(c === "mirror"){ if(typeof toggleMirror === "function") toggleMirror(); }
+          else if(c === "full"){ if(window.__ah) window.__ah.pass = Date.now() + 3000; show("tv"); setCinema(true); window.__goFull && window.__goFull(); }
+          else if(c === "home"){ setCinema(false); show("tvinicio"); } }
+        else if(o.t === "view"){ setCinema(false); show(o.v === "tv" ? "tvinicio" : o.v); }
+        else if(o.t === "slot"){ if(typeof setTarget === "function") setTarget(o.s); }
+        else if(o.t === "search"){ const q = (typeof norm === "function" ? norm(o.q) : o.q.toLowerCase()); let list = [];
+          if(o.kind === "radio"){ playRadioByName(o.q).then(ok => tx({t:"toast", m:ok ? "📻 A tocar" : "Rádio não encontrada"})); list = []; }
+          else if(o.kind === "amp"){ const f = document.getElementById("wampForm"); if(f){ document.getElementById("wampQ").value = o.q; f.requestSubmit(); let k = 0; const t = setInterval(() => { const W = window.__wamp; if(++k > 30 || (W && W.list && W.list.length)){ clearInterval(t); tx({t:"results", list:((W && W.list) || []).slice(0, 30).map((x, i) => ({n:x.artist + " — " + x.title, u:"amp:" + i, k:"amp", logo:x.art}))}); } }, 400); } return; }
+          else { const pool = [...(channels || []), ...(typeof freeChans !== "undefined" ? freeChans : [])].filter(c => c.kind === o.kind || (o.kind === "series" && c.kind === "series"));
+            list = pool.filter(c => (typeof norm === "function" ? norm(c.name) : c.name.toLowerCase()).includes(q)).slice(0, 40).map(c => ({n:c.name, u:c.url, k:c.kind, logo:c.logo || ""})); }
+          tx({t:"results", list}); }
+        else if(o.t === "open"){
+          if(String(o.u).startsWith("amp:")){ const b = document.querySelector('#wampPl [data-i="' + o.u.slice(4) + '"]'); if(b) b.click(); show("media"); return; }
+          const c = [...(channels || []), ...(typeof freeChans !== "undefined" ? freeChans : [])].find(x => x.url === o.u); if(!c) return;
+          if(c.kind === "series" && window.openSeries){ show("tv"); window.openSeries(c); return; }
+          if(typeof tvBlocked === "function" && tvBlocked(c)){ tx({t:"toast", m:"Bloqueado em andamento"}); return; }
+          if(c.kind === "live") show("tvinicio"); else show("tv"); (window.__oneConn || window.playChannel)(c, typeof tvTarget === "number" ? tvTarget : 0); }
+        setTimeout(() => tx(state()), 700);
+      }catch(e){ tx({t:"toast", m:"Erro: " + (e.message || e)}); }
+    };
+    const start = async () => {
+      if(!cfg.proxy){ st2("Configura primeiro o proxy do Cockpit (Definições)."); return; }
+      try{ if(pc) pc.close(); }catch(e){}
+      const code = String(Math.floor(100000 + Math.random() * 900000)); $c("rmCode").textContent = code;
+      link = location.origin + location.pathname + "?remote=" + code + "&b=" + encodeURIComponent(cfg.proxy) + (cfg.pkey ? "&k=" + encodeURIComponent(cfg.pkey) : "");
+      $c("rmQr").innerHTML = ""; if(await loadQr()){ try{ new QRCode($c("rmQr"), {text:link, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); }catch(e){} }
+      st2("A preparar a ligação…");
+      pc = new RTCPeerConnection(await rtcConfig(cfg.proxy, cfg.pkey)); dc = pc.createDataChannel("ctl", {ordered:true});
+      dc.onopen = () => { st2("✅ Telemóvel ligado. Podes fechar esta janela."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
+      dc.onmessage = onCmd; dc.onclose = () => { clearInterval(stT); toast("📱 O telemóvel do passageiro desligou-se."); };
+      await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
+      const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, "rm" + code), {method:"POST", body:JSON.stringify(pc.localDescription)});
+      if(r.status === 501){ st2("Falta o KV SYNC no teu Worker."); return; }
+      st2("À espera do telemóvel…");
+      for(let i = 0; i < 150 && pc && M.classList.contains("on") && !(dc && dc.readyState === "open"); i++){ await sleep(2000);
+        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, "rm" + code + "a")); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); } } }catch(e){} }
+    };
+    window.__remoteStart = () => { M.classList.add("on"); start().catch(e => st2("Erro: " + (e.message || e))); };
+    $c("rmClose").onclick = () => M.classList.remove("on");
+    $c("rmCopy").onclick = () => { try{ navigator.clipboard.writeText(link).then(() => toast("Link copiado"), () => toast("Não consegui copiar.", true)); }catch(e){} };
+    /* botões: Definições (cartão do passageiro) e cabeçalho */
+    const qrBtn = document.getElementById("btnShowQr");
+    if(qrBtn){ const b = document.createElement("button"); b.className = "btn primary"; b.id = "btnRemote"; b.textContent = "📱 Comando no telemóvel"; qrBtn.parentNode.insertBefore(b, qrBtn); b.onclick = () => window.__remoteStart(); }
+    const top = document.querySelector("header.top"), mic = document.getElementById("micBtn");
+    if(top && mic){ const b = document.createElement("button"); b.id = "hRemote"; b.className = "chip"; b.style.cssText = "cursor:pointer;min-height:40px;border:0"; b.textContent = "📱"; b.title = "Comando no telemóvel do passageiro"; b.setAttribute("aria-label", "Comando no telemóvel do passageiro"); top.insertBefore(b, mic); b.onclick = () => window.__remoteStart(); }
+  }catch(e){ console.log("comando carro", e); }
 })();
 </script>
 </body>
