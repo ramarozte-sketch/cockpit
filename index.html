@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v264";
+const APP_VERSION = "v265";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16123,6 +16123,149 @@ body:not(.pfull) #mirStat{bottom:auto;top:70px}
       paint(); setInterval(paint, 3000);
     }
   }catch(e){ console.log("andamento v264", e); }
+})();
+</script>
+<style>
+/* ===== v265: modo ambiente, rádios PT principais, importar favoritos, botões do volante ===== */
+#ambient{position:fixed;inset:0;z-index:260;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 30%,#13213a,#03050a 75%);color:#eaf1fb;font-family:system-ui,sans-serif;cursor:pointer;user-select:none}
+#ambient.on{display:flex}
+#ambClock{font:200 clamp(80px,20vw,190px)/1 system-ui,sans-serif;letter-spacing:2px}
+#ambDate{font:500 clamp(18px,3vw,28px)/1.2 system-ui,sans-serif;opacity:.8}
+#ambDate::first-letter{text-transform:uppercase}
+#ambRow{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;max-width:92vw}
+#ambRow .c{min-width:150px;padding:12px 18px;border-radius:18px;background:#ffffff10;border:1px solid #ffffff1c;text-align:center}
+#ambRow .c b{display:block;font:700 clamp(22px,4vw,34px)/1.1 system-ui,sans-serif}
+#ambRow .c small{display:block;margin-top:4px;opacity:.75;font-size:14px}
+#ambPlay{display:none;align-items:center;gap:12px;padding:10px 14px;border-radius:999px;background:#ffffff14}
+#ambPlay.on{display:flex}
+#ambPlay button{min-width:56px;min-height:56px;border-radius:50%;border:0;background:var(--accent,#7cc4ff);color:#001;font:700 22px/1 system-ui,sans-serif;cursor:pointer}
+#ambPlay span{max-width:52vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 18px/1.2 system-ui,sans-serif}
+#ambHint{position:absolute;bottom:14px;opacity:.5;font-size:14px}
+html.nightUi #ambient{filter:brightness(.75)}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  /* ---------- 3. Modo ambiente: parado e sem mexer no ecrã há X minutos ---------- */
+  try{
+    const amb = document.createElement("div"); amb.id = "ambient";
+    amb.innerHTML = '<div id="ambClock">--:--</div><div id="ambDate"></div><div id="ambRow"></div><div id="ambPlay"><button id="ambPP" aria-label="Pausa ou continuar">⏯</button><span id="ambNow"></span></div><div id="ambHint">Toca no ecrã para voltar</div>';
+    document.body.appendChild(amb);
+    const $m = id => document.getElementById(id);
+    let lastAct = Date.now();
+    ["pointerdown", "keydown", "wheel", "touchstart"].forEach(ev => document.addEventListener(ev, e => { lastAct = Date.now(); if(amb.classList.contains("on") && !(e.target && e.target.closest && e.target.closest("#ambPP"))){ e.preventDefault(); e.stopPropagation(); close(); } }, true));
+    const mins = () => { const v = (typeof cfg !== "undefined" && cfg.ambientMin != null) ? +cfg.ambientMin : 5; return v; };
+    const playing = () => { try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) return {k:"amp", t:"🎵 " + W.cur.artist + " — " + W.cur.title};
+      const ra = document.getElementById("radioAud"); if(typeof radioCur !== "undefined" && radioCur) return {k:"radio", t:"📻 " + radioCur.name, paused:ra && ra.paused};
+      const c = lastPlayed && (lastPlayed[0] || lastPlayed[1]); if(c) return {k:"tv", t:"📺 " + c.name}; }catch(e){} return null; };
+    const card = (v, l) => '<div class="c"><b>' + v + '</b><small>' + l + '</small></div>';
+    const paint = () => {
+      const d = new Date(); $m("ambClock").textContent = d.toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"});
+      $m("ambDate").textContent = d.toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"});
+      let h = "";
+      try{ const c = typeof car !== "undefined" ? car : null, cs = c && c.charge_state || {}, cl = c && c.climate_state || {}, ds = c && c.drive_state || {}, MIk = typeof MI !== "undefined" ? MI : 1.609;
+        if(cl.outside_temp != null) h += card(Number(cl.outside_temp).toFixed(1) + " °C", "lá fora");
+        if(cl.inside_temp != null) h += card(Number(cl.inside_temp).toFixed(1) + " °C", "no carro");
+        if(cs.battery_level != null) h += card(Math.round(cs.battery_level) + " %", cs.battery_range != null ? Math.round(cs.battery_range * MIk) + " km de autonomia" : "bateria");
+        if(cs.charging_state === "Charging") h += card(cs.minutes_to_full_charge != null ? Math.floor(cs.minutes_to_full_charge / 60) + "h" + String(cs.minutes_to_full_charge % 60).padStart(2, "0") : "⚡", "até ao fim da carga" + (cs.charger_power ? " · " + cs.charger_power + " kW" : ""));
+        else if(cs.charging_state === "Complete") h += card("✓", "carga concluída");
+        if(ds.active_route_destination){ const m = ds.active_route_minutes_to_arrival; h += card(m != null ? Math.round(m) + " min" : "—", "até " + String(ds.active_route_destination).slice(0, 28) + (ds.active_route_traffic_minutes_delay ? " · +" + Math.round(ds.active_route_traffic_minutes_delay) + " min de trânsito" : "")); }
+      }catch(e){}
+      $m("ambRow").innerHTML = h;
+      const p = playing(); $m("ambPlay").classList.toggle("on", !!p); if(p) $m("ambNow").textContent = p.t;
+    };
+    const open = () => { if(amb.classList.contains("on")) return; paint(); amb.classList.add("on"); };
+    const close = () => { amb.classList.remove("on"); lastAct = Date.now(); };
+    window.__ambient = {open, close};
+    $m("ambPP").addEventListener("click", e => { e.stopPropagation(); try{ const p = playing(); if(!p) return;
+      if(p.k === "amp"){ const W = window.__wamp; if(W.E){ W.E.paused() ? W.E.play() : W.E.pause(); } }
+      else if(p.k === "radio"){ const a = document.getElementById("radioAud"); a.paused ? a.play().catch(() => {}) : a.pause(); }
+      else { const v = document.getElementById("vid" + (lastPlayed[0] ? 0 : 1)); v.paused ? v.play().catch(() => {}) : v.pause(); } paint(); }catch(x){} });
+    setInterval(() => { try{
+      if(amb.classList.contains("on")){ paint(); if(typeof drivingEff === "function" && drivingEff()) close(); return; }
+      const m = mins(); if(!m) return;
+      const moving = typeof drivingEff === "function" && drivingEff();
+      if(!moving && !document.body.classList.contains("pfull") && Date.now() - lastAct > m * 60000) open();
+    }catch(e){} }, 5000);
+    /* opção nas Definições (junto das opções da TV) */
+    setTimeout(() => { try{ const w = document.getElementById("drvSet"); if(!w) return; const l = document.createElement("label"); l.className = "f";
+      l.innerHTML = 'Modo ambiente (relógio, temperatura, bateria, carga e destino) com o carro parado e sem tocar no ecrã há<select id="ambOpt"><option value="0">Desligado</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option></select>';
+      w.appendChild(l); const sel = document.getElementById("ambOpt"); sel.value = String(mins()); sel.onchange = () => { cfg.ambientMin = +sel.value; saveCfg(); }; }catch(e){} }, 2000);
+  }catch(e){ console.log("modo ambiente", e); }
+
+  /* ---------- 10a. Rádios portuguesas principais (lista curada, procurada no radio-browser) ---------- */
+  try{
+    const PT = ["Rádio Comercial", "RFM", "Antena 1", "Antena 2", "Antena 3", "TSF", "M80", "Cidade FM", "Renascença", "Mega Hits", "Smooth FM", "Rádio Observador", "Kiss FM", "Vodafone FM", "Rádio Amália", "Rádio Nova Era", "Batida FM", "Rádio Clube Português"];
+    const tabs = document.querySelector('#radioPanel [role="tablist"]');
+    if(tabs && typeof rbGet === "function" && typeof rSlim === "function"){
+      const b = document.createElement("button"); b.className = "tab"; b.dataset.rt = "ptc"; b.setAttribute("aria-selected", "false"); b.textContent = "⭐ Principais PT"; tabs.insertBefore(b, tabs.firstChild);
+      let cache = LS.get("radioPtc", null);
+      b.onclick = async () => {
+        document.querySelectorAll("[data-rt]").forEach(x => x.setAttribute("aria-selected", String(x === b))); try{ radioTab = "ptc"; }catch(e){}
+        if(cache && cache.list && Date.now() - cache.at < 7 * 864e5){ renderRadios(cache.list, ""); return; }
+        document.getElementById("radioGrid").innerHTML = '<p class="muted small" style="margin:0">A procurar as rádios principais…</p>';
+        const out = [];
+        await Promise.all(PT.map(async (n, i) => { try{ const j = await rbGet("/json/stations/search?" + new URLSearchParams({name:n, countrycode:"PT", order:"votes", reverse:"true", hidebroken:"true", limit:"3"}));
+          const st = (j || []).map(rSlim).find(x => x.url); if(st) out[i] = st; }catch(e){} }));
+        const list = out.filter(Boolean); cache = {at:Date.now(), list}; if(list.length) LS.set("radioPtc", cache);
+        renderRadios(list, "Não consegui obter a lista agora. Experimenta «Portuguesas».");
+      };
+    }
+  }catch(e){ console.log("rádios PT", e); }
+
+  /* ---------- 10b. Importar favoritos de outras apps IPTV (M3U, lista de nomes ou JSON) ---------- */
+  try{
+    setTimeout(() => { try{
+      const w = document.getElementById("drvSet") || document.getElementById("ahSet"); if(!w) return;
+      const d = document.createElement("div"); d.innerHTML = '<h3 style="margin:14px 0 6px">Importar favoritos de outra app</h3><p class="small muted" style="margin:0 0 8px">Ficheiro .m3u / .txt / .json exportado de outra app IPTV (Televizo, TiviMate, IPTV Smarters…), ou cola os nomes dos canais, um por linha.</p>' +
+        '<div class="row" style="gap:10px;flex-wrap:wrap"><input type="file" id="favImpF" accept=".m3u,.m3u8,.txt,.json,text/plain,application/json"><button class="btn" id="favImpGo">Importar</button></div><textarea id="favImpT" rows="4" placeholder="RTP 1&#10;SIC&#10;Sport TV 1" style="width:100%;margin-top:8px"></textarea><p class="small" id="favImpR" style="margin:6px 0 0"></p>';
+      w.appendChild(d);
+      const key = n => String(n || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/^[\s\W_]*(pt|portugal)\b[\s|:\-\/]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ").replace(/\b(fhd|uhd|hd|sd|4k|hevc|h265)\b/g, " ").replace(/[^a-z0-9]+/g, "");
+      const names = txt => { txt = String(txt || ""); try{ const j = JSON.parse(txt); const arr = Array.isArray(j) ? j : (j.favorites || j.favourites || j.channels || j.items || []); return arr.map(x => typeof x === "string" ? x : (x.name || x.title || x.channel || "")).filter(Boolean); }catch(e){}
+        if(/#EXTINF/i.test(txt)) return txt.split(/\r?\n/).filter(l => /^#EXTINF/i.test(l)).map(l => { const m = l.match(/tvg-name="([^"]+)"/i); const c = l.lastIndexOf(","); return (c > -1 ? l.slice(c + 1) : "").trim() || (m ? m[1] : ""); }).filter(Boolean);
+        return txt.split(/\r?\n/).map(x => x.trim()).filter(x => x && !/^#/.test(x)); };
+      document.getElementById("favImpGo").onclick = async () => {
+        let txt = document.getElementById("favImpT").value; const f = document.getElementById("favImpF").files[0]; if(f) txt += "\n" + await f.text();
+        const ns = names(txt); if(!ns.length){ document.getElementById("favImpR").textContent = "Não encontrei nomes de canais."; return; }
+        const idx = new Map(); (channels || []).filter(c => c.kind === "live").forEach(c => { const k = key(c.name); if(k && !idx.has(k)) idx.set(k, c); });
+        let ok = 0, miss = [];
+        ns.forEach(n => { const c = idx.get(key(n)); if(c){ if(!favs.has(c.url)){ favs.add(c.url); ok++; } } else miss.push(n); });
+        LS.set("tvfavs", [...favs]); try{ renderTV && renderTV(); }catch(e){}
+        document.getElementById("favImpR").textContent = ok + " canais adicionados aos favoritos" + (miss.length ? " · não encontrei " + miss.length + " (ex.: " + miss.slice(0, 4).join(", ") + ")" : "") + ".";
+      };
+    }catch(e){} }, 2200);
+  }catch(e){ console.log("importar favoritos", e); }
+
+  /* ---------- 8. Botões do volante / teclas multimédia ---------- */
+  try{
+    const act = a => {
+      try{ if(window.__ambient && document.getElementById("ambient").classList.contains("on")) window.__ambient.close(); }catch(e){}
+      const W = window.__wamp, ampOn = W && W.cur && W.playing && (W.playing() || (W.E && !W.E.paused()));
+      const ra = document.getElementById("radioAud"), radioOn = typeof radioCur !== "undefined" && radioCur;
+      const tvOn = lastPlayed && (lastPlayed[0] || lastPlayed[1]);
+      if(a === "next" || a === "prev"){ const d = a === "next" ? 1 : -1;
+        if(ampOn){ const b = document.querySelector('#wampPanel [data-w="' + (d > 0 ? "next" : "prev") + '"]'); if(b) b.click(); }
+        else if(tvOn){ try{ if(zap(d)){ const c = lastPlayed[tvTarget]; if(c) toast((d > 0 ? "▶ " : "◀ ") + c.name); } }catch(e){} }
+        else if(radioOn){ try{ const L = (typeof radioTab !== "undefined" && radioTab === "fav") ? radioFavs : radioList; const i = L.findIndex(x => x.id === radioCur.id); const n = L[(i + d + L.length) % L.length]; if(n) playRadio(n); }catch(e){} }
+      } else if(a === "play" || a === "pause" || a === "toggle"){
+        if(ampOn || (W && W.cur)){ if(W.E){ W.E.paused() ? W.E.play() : W.E.pause(); } }
+        else if(radioOn){ ra.paused ? ra.play().catch(() => {}) : ra.pause(); }
+        else if(tvOn){ const v = document.getElementById("vid" + (typeof tvTarget === "number" ? tvTarget : 0)); if(v) v.paused ? v.play().catch(() => {}) : v.pause(); }
+      }
+      try{ window.__dbgEv && window.__dbgEv(0, "botão do volante/teclado", {acao:a}); }catch(e){}
+    };
+    if("mediaSession" in navigator){ const ms = navigator.mediaSession;
+      [["nexttrack", "next"], ["previoustrack", "prev"], ["play", "toggle"], ["pause", "toggle"], ["seekforward", "next"], ["seekbackward", "prev"]].forEach(([k, a]) => { try{ ms.setActionHandler(k, () => act(a)); }catch(e){} });
+      setInterval(() => { try{ if(!ms.metadata){ const c = lastPlayed && (lastPlayed[0] || lastPlayed[1]); const t = (typeof radioCur !== "undefined" && radioCur) ? radioCur.name : c ? c.name : ""; if(t) ms.metadata = new MediaMetadata({title:t, artist:"Cockpit"}); } }catch(e){} }, 5000); }
+    document.addEventListener("keydown", e => {
+      if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      const k = e.key;
+      if(k === "MediaTrackNext" || k === "AudioTrackNext"){ e.preventDefault(); act("next"); }
+      else if(k === "MediaTrackPrevious" || k === "AudioTrackPrevious"){ e.preventDefault(); act("prev"); }
+      else if(k === "MediaPlayPause" || k === "MediaPlay" || k === "MediaPause"){ e.preventDefault(); act("toggle"); }
+    }, true);
+    window.__wheelAct = act;
+  }catch(e){ console.log("botões do volante", e); }
 })();
 </script>
 </body>
