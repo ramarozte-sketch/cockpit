@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v273";
+const APP_VERSION = "v274";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2795,9 +2795,16 @@ const FREE_REF = [[/\bsic\b/i,"https://sic.pt/"],[/\brtp\b/i,"https://www.rtp.pt
 const refFor = c => { if(!c || !c.free) return ""; const m = FREE_REF.find(([r]) => r.test(c.name||"")); return m ? m[1] : ""; };
 /* fetch pelo 1.º proxy; se falhar (sem ligação, bloqueio ou erro do servidor), repete pelo 2.º proxy quando existir. */
 async function fetchPx(url, opts){
+  /* v274: proxy 1 (Cloudflare) → proxy 2 (Deno) → ligação direta do carro. Alguns fornecedores bloqueiam a Cloudflare (HTTP 520) e o Deno;
+     numa página http o carro pode pedir diretamente ao servidor (os servidores Xtream costumam aceitar pedidos do browser). */
+  const canDirect = /^https?:/i.test(url) && !(location.protocol === "https:" && /^http:/i.test(url));
+  const direct = async () => { const r3 = await fetch(url, opts); try{ window.__dbgEv && window.__dbgEv(0, "lista: pedido direto ao servidor", {ok:r3.ok, http:r3.status}); }catch(e){} return r3; };
+  if(cfg.directMode && canDirect){ try{ const r0 = await direct(); if(r0.ok) return r0; }catch(e){} }
   let r, err;
-  try{ r = await fetch(px(url), opts); if(r.ok || !cfg.proxy2 || r.status < 400 || r.status === 404) return r; }catch(e){ err = e; if(!cfg.proxy2) throw e; }
-  try{ return await fetch(px2(url), opts); }catch(e2){ if(r) return r; throw err || e2; }
+  try{ r = await fetch(px(url), opts); if(r.ok || r.status < 400 || r.status === 404) return r; }catch(e){ err = e; }
+  if(cfg.proxy2){ try{ const r2 = await fetch(px2(url), opts); if(r2.ok || r2.status < 400 || r2.status === 404) return r2; if(!r) r = r2; }catch(e2){ err = err || e2; } }
+  if(canDirect && !cfg.directMode){ try{ const r3 = await direct(); if(r3.ok) return r3; }catch(e3){} }
+  if(r) return r; throw err || new Error("sem ligação");
 }
 function fetchErrorHelp(url, e){
   if(window.top !== window || location.protocol==="file:") return "Estás a abrir a app dentro da pré-visualização do Claude, que bloqueia todas as ligações externas (incluindo o proxy). Abre a app pelo teu link do GitHub Pages.";
