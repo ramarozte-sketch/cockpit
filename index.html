@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v274";
+const APP_VERSION = "v275";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2842,10 +2842,18 @@ async function loadXtream(){
   (Array.isArray(ss)?ss:[]).forEach(s=>out.push({name:s.name, logo:s.cover||"", group:scm[s.category_id]||"Sem categoria", id:"", url:`series:${s.series_id}`, sid:s.series_id, kind:"series"}));
   return out;
 }
+/* v275: os canais, filmes e séries do Xtream seguem sempre o servidor configurado (útil quando o fornecedor muda de endereço) */
+function rehostChannels(){
+  try{ if(!(cfg.xs && cfg.xu && cfg.xp)) return 0; const nb = new URL(xBase()); let n = 0;
+    for(const c of (channels || [])){ if(!c || !c.url || !/\/(live|movie|series)\//.test(c.url)) continue; let u; try{ u = new URL(c.url); }catch(e){ continue; }
+      if(u.host !== nb.host || u.protocol !== nb.protocol){ c.url = nb.protocol + "//" + nb.host + u.pathname + u.search; n++; } }
+    if(n){ try{ IDB.set("channels", channels); }catch(e){} try{ window.__dbgEv && window.__dbgEv(0, "canais mudados para o servidor novo", {servidor:nb.host, canais:n}); }catch(e){} }
+    return n; }catch(e){ return 0; }
+}
 async function loadIptv(force){
   if(!force){ const cached = await IDB.get("channels"); if(cached && cached.length && !window.__badCatTried && cfg.xs && cfg.xu && cfg.xp){
       const mv = cached.filter(c => c.kind === "movie"); if(mv.length > 50 && mv.filter(c => c.group === "Sem categoria").length > mv.length * 0.5){ window.__badCatTried = true; return loadIptv(true); } }
-    if(cached && cached.length){ channels=cached; afterIptv("Lista em cache: "+channels.length+" entradas."); loadEpg(); return; } }
+    if(cached && cached.length){ channels=cached; rehostChannels(); afterIptv("Lista em cache: "+channels.length+" entradas."); loadEpg(); return; } }
   const isX = cfg.xs && cfg.xu && cfg.xp;
   if(!isX && !cfg.m3u){ afterIptv(""); return; }
   $("iptvStatus").textContent = isX ? "A ligar ao servidor Xtream…" : "A descarregar lista…";
@@ -2869,6 +2877,9 @@ async function loadIptv(force){
     loadEpg();
   }catch(e){
     const msg = /errados|conta |vazia|HTTP/.test(e.message) ? "Erro: "+e.message+"." : fetchErrorHelp(target, e);
+    try{ window.__listErr = {quando:new Date().toISOString(), servidor:(()=>{ try{ return new URL(target).host; }catch(x){ return ""; } })(), erro:String(e.message || e).slice(0, 200)}; }catch(x){}
+    /* v275: a lista nova não veio, mas os canais da lista guardada passam a usar o servidor novo (mesmo fornecedor, outro endereço) */
+    try{ if(isX && (!channels || !channels.length)){ const cached = await IDB.get("channels"); if(cached && cached.length) channels = cached; } rehostChannels(); }catch(x){}
     afterIptv("Não consegui carregar a lista. "+msg);
     toast("IPTV: "+msg, true);
   }
@@ -13969,7 +13980,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- relatório --- */
   const report = async () => {
     let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, mbps:n.downlink, rtt:n.rtt}; }catch(e){}
-    const env = {versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
+    const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
       opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
