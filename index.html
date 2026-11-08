@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v270";
+const APP_VERSION = "v271";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3553,11 +3553,11 @@ const lastPlayed = [null, null];
 /* Cada ecrã roda à parte (0/90/180/270°), por exemplo para quem está no banco de trás. */
 const rotation = LS.get("rotation", [0, 0]);
 function applyRotation(slot){
-  const v = $("vid"+slot), box = v.parentElement, deg = rotation[slot] || 0;
+  const v = $("vid"+slot); if(!v || !v.parentElement) return; const box = v.parentElement, deg = rotation[slot] || 0;
   const w = box.clientWidth || 1, h = box.clientHeight || 1;
   const s = (deg % 180) ? Math.min(w/h, h/w) : 1;
   v.style.transform = deg ? `rotate(${deg}deg) scale(${s.toFixed(4)})` : "";
-  box.querySelector(".rot span").textContent = deg + "°";
+  const rs = box.querySelector(".rot span"); if(rs) rs.textContent = deg + "°";
 }
 document.querySelectorAll(".rot").forEach(b => b.onclick = e => {
   e.stopPropagation(); const s = +b.dataset.rot;
@@ -16312,7 +16312,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       const ui = document.createElement("div"); ui.id = "rmUI";
       ui.innerHTML = '<h1>📱 Comando do Cockpit</h1><div class="st" id="rmSt">A ligar ao carro…</div>' +
         '<div class="now"><div class="slot" id="rmS0" data-slot="0"><b>Ecrã 1</b><small>—</small></div><div class="slot" id="rmS1" data-slot="1"><b>Ecrã 2</b><small>—</small></div></div>' +
-        '<div class="pad"><button data-c="prev">◀ Canal</button><button data-c="play" class="pri">⏯</button><button data-c="next">Canal ▶</button><button data-c="vd">🔉 −</button><button data-c="mute">🔇</button><button data-c="vu">🔊 +</button><button data-c="mirror">🖼 Andamento</button><button data-c="full">⛶ Ecrã total</button><button data-c="home">🏠 Início TV</button></div>' +
+        '<div class="pad"><button data-c="prev">◀ Canal</button><button data-c="play" class="pri">⏯</button><button data-c="next">Canal ▶</button><button data-c="vd">🔉 −</button><button data-c="mute">🔇</button><button data-c="vu">🔊 +</button><button data-c="mirror">🖼 Andamento</button><button data-c="full">⛶ Ecrã total</button><button data-c="home">🏠 Início TV</button><button data-c="stop" style="grid-column:span 3">⏹ Parar o canal</button></div>' +
         '<div class="row"><button data-v="tv">📺 TV</button><button data-v="media">📻 Media</button><button data-v="car">🚗 Carro</button></div>' +
         '<div class="row" style="margin-top:14px"><select id="rmKind"><option value="live">Canais</option><option value="movie">Filmes</option><option value="series">Séries</option><option value="radio">Rádio</option><option value="amp">Música (Amp)</option></select></div>' +
         '<div class="row"><input id="rmQ" type="search" placeholder="Pesquisar…" autocomplete="off"><button id="rmGo" class="pri" style="flex:0 0 110px">Procurar</button></div><div id="rmRes"></div>';
@@ -16367,7 +16367,8 @@ html.nightUi #ambient{filter:brightness(.75)}
           else if(c === "mute"){ const v = document.getElementById("vid" + audioSlot); v.muted = !v.muted; tx({t:"toast", m:v.muted ? "Sem som" : "Com som"}); }
           else if(c === "mirror"){ if(typeof toggleMirror === "function") toggleMirror(); }
           else if(c === "full"){ if(window.__ah) window.__ah.pass = Date.now() + 3000; show("tv"); setCinema(true); window.__goFull && window.__goFull(); }
-          else if(c === "home"){ setCinema(false); show("tvinicio"); } }
+          else if(c === "home"){ setCinema(false); show("tvinicio"); }
+          else if(c === "stop"){ window.__tvStop && window.__tvStop(); } }
         else if(o.t === "view"){ setCinema(false); show(o.v === "tv" ? "tvinicio" : o.v); }
         else if(o.t === "slot"){ if(typeof setTarget === "function") setTarget(o.s); }
         else if(o.t === "search"){ const q = (typeof norm === "function" ? norm(o.q) : o.q.toLowerCase()); let list = [];
@@ -16577,6 +16578,65 @@ html.nightUi #ambient{filter:brightness(.75)}
       c.innerHTML = '<h2>Comando de jogos</h2><p class="small muted setsub" style="margin:0">Liga um comando por USB ou Bluetooth e carrega num botão. Nos jogos do Cockpit: direções = setas, A = espaço, B/Start = Enter, X = X. Nos emuladores o comando funciona diretamente. Fora dos jogos: direções mudam a seleção, A carrega, B volta, LB/RB mudam de canal.</p><p class="small" id="gpWho" style="margin:8px 0 0">Nenhum comando detetado (carrega num botão do comando).</p><div id="gpTest">' + NAMES.map(n => "<span>" + n + "</span>").join("") + '</div>';
       st.appendChild(c); setInterval(() => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); const w = document.getElementById("gpWho"); if(w) w.textContent = pads.length ? pads.map((p, i) => (i + 1) + ". " + p.id + (p.mapping === "standard" ? "" : " (mapa não padrão)")).join(" · ") : "Nenhum comando detetado (carrega num botão do comando)."; }, 1000); }catch(e){} }, 1600);
   }catch(e){ console.log("comando de jogos", e); }
+})();
+</script>
+<style>
+/* ===== v271: aviso «servidor IPTV em baixo» e botão Parar nos canais ===== */
+#srvDown{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:205;display:none;align-items:center;gap:10px;max-width:min(680px,94vw);padding:10px 14px;border-radius:14px;background:#5a1414f2;border:1px solid #ff6b6b88;color:#fff;font:600 15px/1.3 system-ui,sans-serif;box-shadow:0 8px 24px #0009}
+#srvDown.on{display:flex}
+#srvDown button{min-height:44px;min-width:44px;border-radius:10px;border:0;background:#ffffff26;color:#fff;font:700 15px/1 system-ui,sans-serif;padding:0 12px;cursor:pointer}
+</style>
+<script>
+(function(){
+  if(window.ANDROID) return;
+  /* ---------- servidor IPTV: verifica a conta quando um canal falha (e de 5 em 5 min enquanto estiver em baixo) ---------- */
+  try{
+    const bar = document.createElement("div"); bar.id = "srvDown"; bar.innerHTML = '<span id="srvTxt"></span><button id="srvRe">Testar de novo</button><button id="srvX" aria-label="Fechar">×</button>'; document.body.appendChild(bar);
+    const host = () => { try{ return new URL(xBase()).host; }catch(e){ return "servidor IPTV"; } };
+    let down = false, checking = false, lastCheck = 0, hidden = 0;
+    const probe = async (why) => {
+      if(checking || !(cfg.xs && cfg.xu && cfg.xp)) return null; checking = true; lastCheck = Date.now();
+      let ok = false, reason = "";
+      try{ const ac = new AbortController(), to = setTimeout(() => ac.abort(), 12000);
+        const r = await fetchPx(xBase() + "/player_api.php?" + xQ(), {signal:ac.signal}); clearTimeout(to);
+        if(r.ok){ const j = await r.json().catch(() => null); const ui = j && j.user_info; if(ui && (ui.auth === 1 || ui.auth === "1") && !/expired|disabled|banned/i.test(ui.status || "")) ok = true; else reason = ui ? "a conta responde «" + (ui.status || "sem acesso") + "»" : "o servidor respondeu sem dados da conta"; }
+        else reason = "o servidor respondeu com erro " + r.status;
+      }catch(e){ reason = e.name === "AbortError" ? "o servidor não respondeu em 12 s" : "não foi possível ligar ao servidor"; }
+      checking = false;
+      try{ window.__dbgEv && window.__dbgEv(0, "verificação do servidor IPTV", {ok, servidor:host(), motivo:reason || "", porque:why || ""}); }catch(e){}
+      set(!ok, reason); return ok;
+    };
+    const set = (isDown, reason) => {
+      const was = down; down = isDown;
+      if(isDown){ document.getElementById("srvTxt").textContent = "⚠️ O servidor IPTV (" + host() + ") não está a funcionar: " + reason + ". Não é um problema do Cockpit nem do carro."; if(Date.now() > hidden) bar.classList.add("on"); if(!was){ toast("O servidor IPTV não está a funcionar.", true); try{ window.__avatarSay && window.__avatarSay("Rui, o servidor da televisão não está a responder. Não é do carro."); }catch(e){} } }
+      else { bar.classList.remove("on"); if(was) toast("✅ O servidor IPTV voltou a funcionar."); }
+    };
+    window.__srvProbe = probe;
+    document.getElementById("srvRe").onclick = () => { document.getElementById("srvTxt").textContent = "A testar o servidor…"; probe("manual"); };
+    document.getElementById("srvX").onclick = () => { bar.classList.remove("on"); hidden = Date.now() + 10 * 60000; };
+    /* quando uma tentativa falha (registo do leitor), testa a conta — no máximo de 1 em 1 min */
+    const _ev = window.__dbgEv;
+    window.__dbgEv = function(slot, type, data){
+      try{ if(/^(erro HLS|erro \.ts|sem dados|filme sem dados|reinício automático)/.test(type) && Date.now() - lastCheck > 60000){ const c = lastPlayed && lastPlayed[slot]; if(c && !c.free && /\/(live|movie|series)\//.test(c.url || "")) setTimeout(() => probe(type), 1500); } }catch(e){}
+      return _ev ? _ev.apply(this, arguments) : undefined;
+    };
+    setInterval(() => { if(down && Date.now() - lastCheck > 5 * 60000) probe("repetição"); }, 30000);
+    setTimeout(() => probe("arranque"), 9000);
+  }catch(e){ console.log("servidor em baixo", e); }
+
+  /* ---------- botão Parar nos canais ---------- */
+  try{
+    const stopTv = () => { try{ const s = typeof tvTarget === "number" ? tvTarget : 0; stopSlot(s); lastPlayed[s] = null; LS.set("last" + s, null); updateCinemaBar(); if(!lastPlayed[0] && !lastPlayed[1]){ keepAwake(false); if(document.body.classList.contains("pfull") && window.__fsLeave) window.__fsLeave(); } toast("⏹ Canal parado."); }catch(e){} };
+    window.__tvStop = stopTv;
+    const prevB = document.getElementById("chPrev");
+    if(prevB){ const b = document.createElement("button"); b.className = "btn"; b.id = "chStop"; b.setAttribute("aria-label", "Parar o canal"); b.textContent = "⏹ Parar"; prevB.parentNode.insertBefore(b, prevB); b.onclick = e => { e.stopPropagation(); stopTv(); }; }
+    const hb = document.getElementById("halfBar");
+    if(hb){ const b = document.createElement("button"); b.dataset.a = "stop"; b.setAttribute("aria-label", "Parar"); b.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>'; hb.insertBefore(b, hb.children[1]); b.addEventListener("click", e => { e.stopPropagation(); stopTv(); }, true); }
+    /* Início: botão Parar no destaque quando há um canal a dar */
+    setInterval(() => { try{ const h = document.querySelector("#ahHero .ahHeroBt"); if(!h) return; let b = h.querySelector(".ahStop"); const on = !!(lastPlayed[0] || lastPlayed[1]);
+      if(on && !b){ b = document.createElement("button"); b.className = "ahBtn ahStop"; b.textContent = "⏹ Parar"; b.onclick = e => { e.stopPropagation(); e.preventDefault(); stopTv(); try{ window.__ah && window.__ah.render && window.__ah.render(true); }catch(x){} }; h.appendChild(b); }
+      else if(!on && b) b.remove(); }catch(e){} }, 1000);
+  }catch(e){ console.log("parar canal", e); }
 })();
 </script>
 </body>
