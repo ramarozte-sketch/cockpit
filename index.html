@@ -1762,7 +1762,7 @@ body.layout-atv .rail{display:none}
 <div class="epgdlg" id="gdDlg" hidden><div class="panel gdbox" role="dialog" aria-label="Guia de programação">
   <div class="row"><h2 style="margin:0">📅 Guia de programação</h2><span class="spacer"></span><button class="btn" id="gdClose">Fechar</button></div>
   <div class="gdgrid">
-    <div class="gdside"><select id="gdGroup" aria-label="Categoria"></select><input type="search" id="gdSearch" placeholder="Procurar canal" aria-label="Procurar canal"><div class="gdlist" id="gdList"></div></div>
+    <div class="gdside"><select id="gdGroup" aria-label="Categoria"></select><input type="search" id="gdSearch" placeholder="🔎 Procurar programa (ex.: futebol, telejornal)" aria-label="Procurar programa"><div class="gdlist" id="gdList"></div></div>
     <div class="gdmain">
       <div class="row gdhead" style="flex-wrap:nowrap"><button class="btn" id="gdPrev" aria-label="Canal anterior">◀</button><b class="gdname" id="gdName">Escolhe um canal</b><button class="btn" id="gdNext" aria-label="Canal seguinte">▶</button><button class="btn primary" id="gdPlay">▶ Ver canal</button></div>
       <div class="row" style="flex-wrap:nowrap"><input type="search" id="gdProgQ" placeholder="Procurar programa em todos os canais (ex.: futebol, telejornal)" aria-label="Procurar programa" style="flex:1;min-width:0"><button class="btn primary" id="gdProgGo">🔎 Procurar</button></div>
@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v275";
+const APP_VERSION = "v276";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3427,7 +3427,7 @@ function gdFillGroups(){
   if(groups.includes(keep)) $("gdGroup").value = keep;
 }
 function gdFiltered(){
-  const q = norm($("gdSearch").value || ""), g = $("gdGroup").value;
+  const q = "", g = $("gdGroup").value;   /* v276: a caixa do guia procura programas, não filtra canais */
   let l = gdChannels(); if(g) l = l.filter(c => c.group === g); if(q) l = l.filter(c => norm(c.name).includes(q));
   return l.slice(0, 200);
 }
@@ -3514,7 +3514,11 @@ function openGuide(){
 $("btnGuide").onclick = openGuide; $("chGuide").onclick = openGuide;
 $("gdClose").onclick = () => { $("gdDlg").hidden = true; };
 $("gdDlg").onclick = e => { if(e.target === $("gdDlg")) $("gdDlg").hidden = true; };
-$("gdGroup").onchange = gdRenderList; $("gdSearch").oninput = gdRenderList;
+$("gdGroup").onchange = gdRenderList;
+/* v276: a pesquisa do guia é de PROGRAMAS (como na app Android): o texto vai para a pesquisa de programas, com pausa de 600 ms */
+let __gdST = 0;
+$("gdSearch").oninput = () => { clearTimeout(__gdST); const v = $("gdSearch").value.trim(); $("gdProgQ").value = v; if(v.length < 2){ try{ gdSearchClear(); }catch(e){} return; } __gdST = setTimeout(() => { try{ gdSearchProgs(); }catch(e){} }, 600); };
+$("gdSearch").addEventListener("keydown", e => { if(e.key === "Enter"){ clearTimeout(__gdST); $("gdProgQ").value = $("gdSearch").value.trim(); gdSearchProgs(); } });
 $("gdPrev").onclick = () => gdStep(-1); $("gdNext").onclick = () => gdStep(1);
 $("gdPlay").onclick = () => { if(GD.sel){ $("gdDlg").hidden = true; playChannel(GD.sel); } };
 setInterval(() => { if(!$("gdDlg").hidden && GD.prog.length) gdRenderProg(false); }, 60000);
