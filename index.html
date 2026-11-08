@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v268";
+const APP_VERSION = "v269";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16454,12 +16454,16 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(/dropbox\.com/.test(u)) return u.replace(/[?&]dl=0/, "").replace(/\?.*$/, m2 => m2) + (/[?&]dl=1/.test(u) ? "" : (u.includes("?") ? "&dl=1" : "?dl=1"));
       return u; };
     const sysOf = u => { const e = (String(u).split("?")[0].match(/\.([a-z0-9]+)$/i) || [])[1]; return e && EXT[e.toLowerCase()] || ""; };
-    const playRom = gm => {
+    /* v269: o emulador e os núcleos ficam no próprio site do Cockpit (pasta emu/); se faltar algum, usa o CDN do EmulatorJS */
+    let emuData = "https://cdn.emulatorjs.org/stable/data/";
+    const CORE = {nes:"fceumm", snes:"snes9x", gb:"gambatte", gba:"mgba", segaMD:"genesis_plus_gx", sms:"genesis_plus_gx", gg:"genesis_plus_gx", pce:"mednafen_pce", atari2600:"stella"};
+    const localOk = async s => { try{ const base = new URL("emu/data/", location.href).href; const r1 = await fetch(base + "loader.js", {method:"HEAD", cache:"no-store"}); if(!r1.ok) return false; const c = CORE[s]; if(!c) return false; const r2 = await fetch(base + "cores/" + c + "-wasm.data", {method:"HEAD", cache:"no-store"}); return r2.ok ? base : false; }catch(e){ return false; } };
+    const playRom = async gm => { const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
       const viaPx = gm.px && typeof px === "function" && cfg.proxy, url = viaPx ? px(gm.u) : gm.u;
       const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}#game{width:100%;height:100%}</style></head><body><div id="game"></div><script>' +
-        'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata="https://cdn.emulatorjs.org/stable/data/";window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
-        'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="https://cdn.emulatorjs.org/stable/data/loader.js"><\/script></body></html>';
-      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s); win.classList.add("on");
+        'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata=' + JSON.stringify(emuData) + ';window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
+        'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="' + emuData + 'loader.js"><\/script></body></html>';
+      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
     };
     window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
     const addGame = () => {

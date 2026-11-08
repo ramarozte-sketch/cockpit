@@ -1,0 +1,33 @@
+# Descarrega os núcleos (cores) do EmulatorJS para emu/data/cores, para os jogos correrem a partir do próprio site do Cockpit.
+name: Emuladores — descarregar núcleos
+on:
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/emu-cores.yml"]
+permissions:
+  contents: write
+jobs:
+  cores:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descarregar do CDN do EmulatorJS
+        run: |
+          set -e
+          B=https://cdn.emulatorjs.org/stable/data
+          cd emu/data
+          mkdir -p cores/reports
+          curl -fsSL -o emulator.min.js  $B/emulator.min.js  || true
+          curl -fsSL -o emulator.min.css $B/emulator.min.css || true
+          for c in fceumm snes9x gambatte mgba genesis_plus_gx mednafen_pce stella; do
+            for v in "" "-legacy"; do curl -fsSL -o cores/$c$v-wasm.data $B/cores/$c$v-wasm.data || rm -f cores/$c$v-wasm.data; done
+            curl -fsSL -o cores/reports/$c.json $B/cores/reports/$c.json || rm -f cores/reports/$c.json
+          done
+          ls -la cores
+      - name: Guardar no repositório
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add emu/data
+          git diff --cached --quiet || git commit -m "Emuladores: núcleos do EmulatorJS (automático)"
+          git push
