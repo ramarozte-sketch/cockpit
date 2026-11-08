@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v267";
+const APP_VERSION = "v268";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16444,12 +16444,40 @@ html.nightUi #ambient{filter:brightness(.75)}
     ];
     const extra = () => LS.get("emuExtra", []) || [];
     const box = document.createElement("div"); box.className = "panel"; box.id = "emuPanel";
-    const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), L.find(x => x.add)];
+    /* v268: jogos (ROMs tuas) abertos a partir de um endereço, no EmulatorJS dentro do Cockpit */
+    const games = () => LS.get("emuGames", []) || [];
+    const SYS = {nes:"NES", snes:"Super Nintendo", gb:"Game Boy", gba:"Game Boy Advance", segaMD:"Mega Drive", sms:"Master System", gg:"Game Gear", n64:"Nintendo 64", psx:"PlayStation", nds:"Nintendo DS", atari2600:"Atari 2600", pce:"PC Engine"};
+    const EXT = {nes:"nes", sfc:"snes", smc:"snes", gb:"gb", gbc:"gb", gba:"gba", md:"segaMD", gen:"segaMD", smd:"segaMD", bin:"segaMD", sms:"sms", gg:"gg", n64:"n64", z64:"n64", v64:"n64", cue:"psx", pbp:"psx", chd:"psx", nds:"nds", a26:"atari2600", pce:"pce"};
+    const fixUrl = u => { u = String(u || "").trim();
+      let m = u.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/(.+)$/); if(m) return "https://raw.githubusercontent.com/" + m[1] + "/" + m[2] + "/" + m[3];
+      m = u.match(/drive\.google\.com\/file\/d\/([^\/?]+)/); if(m) return "https://drive.google.com/uc?export=download&id=" + m[1];
+      if(/dropbox\.com/.test(u)) return u.replace(/[?&]dl=0/, "").replace(/\?.*$/, m2 => m2) + (/[?&]dl=1/.test(u) ? "" : (u.includes("?") ? "&dl=1" : "?dl=1"));
+      return u; };
+    const sysOf = u => { const e = (String(u).split("?")[0].match(/\.([a-z0-9]+)$/i) || [])[1]; return e && EXT[e.toLowerCase()] || ""; };
+    const playRom = gm => {
+      const viaPx = gm.px && typeof px === "function" && cfg.proxy, url = viaPx ? px(gm.u) : gm.u;
+      const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}#game{width:100%;height:100%}</style></head><body><div id="game"></div><script>' +
+        'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata="https://cdn.emulatorjs.org/stable/data/";window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
+        'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="https://cdn.emulatorjs.org/stable/data/loader.js"><\/script></body></html>';
+      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s); win.classList.add("on");
+    };
+    window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
+    const addGame = () => {
+      const u0 = prompt("Endereço direto da ROM (GitHub, Dropbox, Google Drive ou outro site)"); if(!u0 || !/^https?:\/\//i.test(u0.trim())) return;
+      const u = fixUrl(u0); let sy = sysOf(u);
+      if(!sy){ const k = Object.keys(SYS); const r = prompt("Sistema do jogo? Escreve o número:\n" + k.map((x, i) => (i + 1) + " " + SYS[x]).join("\n"), "1"); const ix = (+r || 0) - 1; if(!k[ix]) return; sy = k[ix]; }
+      const n = prompt("Nome do jogo", (String(u).split("?")[0].split("/").pop() || "Jogo").replace(/\.[a-z0-9]+$/i, "").replace(/[_%20]+/g, " ")) || "Jogo";
+      const viaPx = /drive\.google\.com/.test(u) ? true : confirm("Abrir pelo proxy do Cockpit? (escolhe OK se o link direto não funcionar, por exemplo Google Drive)");
+      const g = games(); g.push({n, u, s:sy, px:viaPx}); LS.set("emuGames", g); paint(); toast("«" + n + "» guardado. Toca para jogar.");
+    };
+    const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), ...games().map((g, gi) => ({i:"🎮", n:g.n, d:(SYS[g.s] || g.s) + (g.px ? " · pelo proxy" : ""), rom:g, gi})), {i:"➕", n:"Jogo por endereço", d:"Junta uma ROM tua a partir de um link (GitHub, Dropbox, Drive…)", addRom:true}, L.find(x => x.add)];
       box.innerHTML = '<div class="row"><h2 style="margin:0">🕹️ Emuladores e jogos web</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="emuIn"> Abrir dentro do Cockpit</label></div>' +
         '<p class="small muted" style="margin:6px 0 0">Os emuladores não trazem jogos: usa só ROMs tuas, de jogos que tenhas, ou jogos homebrew livres.</p><div class="eg">' +
         all.map((x, k) => '<button class="et" data-k="' + k + '"><i>' + x.i + '</i><b>' + x.n + '</b><small>' + x.d + '</small></button>').join("") + '</div>';
       box.querySelector("#emuIn").checked = LS.get("emuIn", true) !== false;
       box.querySelectorAll(".et").forEach(b => b.onclick = () => { const x = all[+b.dataset.k];
+        if(x.addRom){ addGame(); return; }
+        if(x.rom){ playRom(x.rom); return; }
         if(x.add){ const u = prompt("Endereço do emulador ou jogo (https://…)"); if(!u || !/^https?:\/\//i.test(u)) return; const n = prompt("Nome", "Jogo") || "Jogo"; const e = extra(); e.push({i:"⭐", n, d:u.replace(/^https?:\/\//, "").slice(0, 40), u}); LS.set("emuExtra", e); paint(); return; }
         open(x); }); };
     const win = document.createElement("div"); win.id = "emuWin"; win.innerHTML = '<div class="bar"><button id="emuBack">◀ Voltar</button><b id="emuT"></b><button id="emuRe" aria-label="Recarregar">⟳</button><button id="emuOut">Abrir fora</button></div><iframe id="emuF" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen referrerpolicy="no-referrer"></iframe>';
@@ -16457,13 +16485,14 @@ html.nightUi #ambient{filter:brightness(.75)}
     let cur = null;
     const out = u => { try{ const fs = typeof fsWrap === "function" ? fsWrap(u) : u; window.open(fs, "_blank"); }catch(e){ window.open(u, "_blank"); } };
     const open = x => { cur = x; if(LS.get("emuIn", true) === false){ out(x.u); return; }
-      document.getElementById("emuT").textContent = x.n; document.getElementById("emuF").src = x.u; win.classList.add("on");
+      document.getElementById("emuT").textContent = x.n; const f0 = document.getElementById("emuF"); f0.removeAttribute("srcdoc"); f0.src = x.u; win.classList.add("on");
       setTimeout(() => { if(cur === x && win.classList.contains("on")) toast("Se ficar em branco, o site não deixa abrir dentro: toca em «Abrir fora»."); }, 5000); };
     win.addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
-      if(b.id === "emuBack"){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; }
-      else if(b.id === "emuRe" && cur) document.getElementById("emuF").src = cur.u;
+      if(b.id === "emuBack"){ win.classList.remove("on"); const f = document.getElementById("emuF"); f.removeAttribute("srcdoc"); f.src = "about:blank"; }
+      else if(b.id === "emuRe" && cur){ const f = document.getElementById("emuF"); if(f.srcdoc){ const sd = f.srcdoc; f.srcdoc = ""; setTimeout(() => f.srcdoc = sd, 50); } else f.src = cur.u; }
       else if(b.id === "emuOut" && cur){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; out(cur.u); } });
     box.addEventListener("change", e => { if(e.target.id === "emuIn") LS.set("emuIn", e.target.checked); });
+    box.addEventListener("contextmenu", e => { const b = e.target.closest(".et"); if(!b) return; e.preventDefault(); const t = b.querySelector("b").textContent; const g = games(); const i = g.findIndex(x => x.n === t); if(i >= 0 && confirm("Apagar «" + t + "» da lista?")){ g.splice(i, 1); LS.set("emuGames", g); paint(); } });
     paint();
     if(hub) hub.before(box); else V.appendChild(box);
     try{ const _sh = window.show; window.show = function(v){ if(v !== "games" && win.classList.contains("on")){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; } return _sh.apply(this, arguments); }; }catch(e){}
