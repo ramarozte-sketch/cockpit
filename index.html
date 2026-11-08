@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v271";
+const APP_VERSION = "v272";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15866,7 +15866,7 @@ html.half #visKar .k1{font-size:19px}
         const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
         const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
         a.onended = () => next(viaPx);
-        a.onerror = () => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { toast("Não consegui obter a voz online."); onEnd && onEnd(); } };
+        a.onerror = () => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
         a.play().catch(() => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } });
       };
       next(LS.get("ttsViaPx", false));
