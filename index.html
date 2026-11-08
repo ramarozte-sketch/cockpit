@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v272";
+const APP_VERSION = "v273";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16428,6 +16428,8 @@ html.nightUi #ambient{filter:brightness(.75)}
 #emuWin .bar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font:700 16px/1 system-ui,sans-serif}
 #emuWin .bar button{min-width:52px;min-height:48px;border-radius:12px;border:0;background:#24324d;color:#fff;font:700 16px/1 system-ui,sans-serif;padding:0 12px;cursor:pointer}
 #emuWin iframe{flex:1;width:100%;border:0;background:#000}
+#emuWin .zw{flex:1;position:relative;overflow:hidden;background:#000}
+#emuWin .zw iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0}
 </style>
 <script>
 (function(){
@@ -16464,7 +16466,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}#game{width:100%;height:100%}</style></head><body><div id="game"></div><script>' +
         'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata=' + JSON.stringify(emuData) + ';window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
         'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="' + emuData + 'loader.js"><\/script></body></html>';
-      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
+      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply(); document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
     };
     window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
     const addGame = () => {
@@ -16485,15 +16487,21 @@ html.nightUi #ambient{filter:brightness(.75)}
         if(x.rom){ playRom(x.rom); return; }
         if(x.add){ const u = prompt("Endereço do emulador ou jogo (https://…)"); if(!u || !/^https?:\/\//i.test(u)) return; const n = prompt("Nome", "Jogo") || "Jogo"; const e = extra(); e.push({i:"⭐", n, d:u.replace(/^https?:\/\//, "").slice(0, 40), u}); LS.set("emuExtra", e); paint(); return; }
         open(x); }); };
-    const win = document.createElement("div"); win.id = "emuWin"; win.innerHTML = '<div class="bar"><button id="emuBack">◀ Voltar</button><b id="emuT"></b><button id="emuRe" aria-label="Recarregar">⟳</button><button id="emuOut">Abrir fora</button></div><iframe id="emuF" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen referrerpolicy="no-referrer"></iframe>';
+    const win = document.createElement("div"); win.id = "emuWin"; win.innerHTML = '<div class="bar"><button id="emuBack">◀ Voltar</button><b id="emuT"></b><button id="emuZo" aria-label="Diminuir">−</button><button id="emuZv" aria-label="Repor o tamanho" style="min-width:64px">100%</button><button id="emuZi" aria-label="Aumentar">+</button><button id="emuRe" aria-label="Recarregar">⟳</button><button id="emuOut">Abrir fora</button></div><div class="zw" id="emuZw"><iframe id="emuF" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen referrerpolicy="no-referrer"></iframe></div>';
     document.body.appendChild(win);
     let cur = null;
+    /* v273: zoom da página do jogo (50 % a 200 %), guardado por jogo */
+    const zKey = () => "emuZ:" + ((cur && (cur.u || cur.n)) || "");
+    const zApply = () => { const z = Math.max(0.5, Math.min(2, +LS.get(zKey(), 1) || 1)), f = document.getElementById("emuF");
+      f.style.width = (100 / z) + "%"; f.style.height = (100 / z) + "%"; f.style.transform = z === 1 ? "" : "scale(" + z + ")"; document.getElementById("emuZv").textContent = Math.round(z * 100) + "%"; };
+    const zSet = d => { let z = +LS.get(zKey(), 1) || 1; z = d === 0 ? 1 : Math.max(0.5, Math.min(2, Math.round((z + d) * 10) / 10)); LS.set(zKey(), z); zApply(); };
     const out = u => { try{ const fs = typeof fsWrap === "function" ? fsWrap(u) : u; window.open(fs, "_blank"); }catch(e){ window.open(u, "_blank"); } };
     const open = x => { cur = x; if(LS.get("emuIn", true) === false){ out(x.u); return; }
-      document.getElementById("emuT").textContent = x.n; const f0 = document.getElementById("emuF"); f0.removeAttribute("srcdoc"); f0.src = x.u; win.classList.add("on");
+      document.getElementById("emuT").textContent = x.n; const f0 = document.getElementById("emuF"); f0.removeAttribute("srcdoc"); f0.src = x.u; zApply(); win.classList.add("on");
       setTimeout(() => { if(cur === x && win.classList.contains("on")) toast("Se ficar em branco, o site não deixa abrir dentro: toca em «Abrir fora»."); }, 5000); };
     win.addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
       if(b.id === "emuBack"){ win.classList.remove("on"); const f = document.getElementById("emuF"); f.removeAttribute("srcdoc"); f.src = "about:blank"; }
+      else if(b.id === "emuZi") zSet(0.1); else if(b.id === "emuZo") zSet(-0.1); else if(b.id === "emuZv") zSet(0);
       else if(b.id === "emuRe" && cur){ const f = document.getElementById("emuF"); if(f.srcdoc){ const sd = f.srcdoc; f.srcdoc = ""; setTimeout(() => f.srcdoc = sd, 50); } else f.src = cur.u; }
       else if(b.id === "emuOut" && cur){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; out(cur.u); } });
     box.addEventListener("change", e => { if(e.target.id === "emuIn") LS.set("emuIn", e.target.checked); });
