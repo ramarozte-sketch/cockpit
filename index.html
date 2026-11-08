@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v269";
+const APP_VERSION = "v270";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16501,6 +16501,82 @@ html.nightUi #ambient{filter:brightness(.75)}
     if(hub) hub.before(box); else V.appendChild(box);
     try{ const _sh = window.show; window.show = function(v){ if(v !== "games" && win.classList.contains("on")){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; } return _sh.apply(this, arguments); }; }catch(e){}
   }catch(e){ console.log("emuladores", e); }
+})();
+</script>
+<style>
+/* ===== v270: comando de jogos (USB ou Bluetooth) — jogos do Cockpit, emuladores e navegação ===== */
+#gpTag{position:fixed;right:12px;top:72px;z-index:200;padding:6px 12px;border-radius:999px;background:#0b1422ee;color:#9ff3a0;font:700 13px/1.2 system-ui,sans-serif;pointer-events:none;display:none}
+.gpFocus{outline:4px solid #7cc4ff!important;outline-offset:3px!important;border-radius:12px}
+#gpTest{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:8px}
+#gpTest span{padding:8px 4px;border-radius:10px;background:#ffffff12;text-align:center;font:700 13px/1.2 system-ui,sans-serif}
+#gpTest span.on{background:#7cc4ff;color:#001}
+</style>
+<script>
+(function(){
+  if(window.ANDROID || !navigator.getGamepads) return;
+  try{
+    const tag = document.createElement("div"); tag.id = "gpTag"; document.body.appendChild(tag);
+    /* botões do comando normal (Xbox / PlayStation / 8BitDo) → teclas que os jogos do Cockpit já usam */
+    const P1 = {12:["ArrowUp","ArrowUp"], 13:["ArrowDown","ArrowDown"], 14:["ArrowLeft","ArrowLeft"], 15:["ArrowRight","ArrowRight"], 0:[" ","Space"], 1:["Enter","Enter"], 2:["x","KeyX"], 3:["z","KeyZ"], 4:["q","KeyQ"], 5:["e","KeyE"], 8:["r","KeyR"], 9:["Enter","Enter"], 16:["Escape","Escape"]};
+    const P2 = {12:["w","KeyW"], 13:["s","KeyS"], 14:["a","KeyA"], 15:["d","KeyD"], 0:["f","KeyF"], 1:["g","KeyG"], 2:["c","KeyC"], 3:["v","KeyV"], 9:["Enter","Enter"]};
+    const NAMES = ["A","B","X","Y","LB","RB","LT","RT","Select","Start","L3","R3","↑","↓","←","→","Home"];
+    const prev = {};
+    const key = (type, k, code) => { try{ const ev = new KeyboardEvent(type, {key:k, code, bubbles:true, cancelable:true}); (document.activeElement && document.activeElement !== document.body ? document.activeElement : document).dispatchEvent(ev); }catch(e){} };
+    const inGame = () => { try{ return currentView === "games" && (typeof gmCurId !== "undefined" ? !!gmCurId : false); }catch(e){ return false; } };
+    const inEmu = () => { const w = document.getElementById("emuWin"); return !!(w && w.classList.contains("on")); };
+
+    /* navegação pela app com o comando: direções movem o foco, A carrega, B volta */
+    const focusables = () => [...document.querySelectorAll("button, a[href], input, select, [tabindex]:not([tabindex='-1']), .ahCard, .rcard, .et")].filter(el => { const r = el.getBoundingClientRect(); if(!r.width || !r.height) return false; if(r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return false; const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none" && !el.disabled; });
+    let cur = null;
+    const setFocus = el => { if(cur) cur.classList.remove("gpFocus"); cur = el; if(!el) return; el.classList.add("gpFocus"); try{ el.focus({preventScroll:true}); }catch(e){} try{ el.scrollIntoView({block:"nearest", inline:"nearest", behavior:"smooth"}); }catch(e){} };
+    const nav = dir => {
+      const all = focusables(); if(!all.length) return;
+      if(!cur || !document.contains(cur) || !all.includes(cur)){ setFocus(all[0]); return; }
+      const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2; let best = null, bd = 1e9;
+      for(const el of all){ if(el === cur) continue; const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, dx = x - ax, dy = y - ay;
+        const ok = dir === "r" ? dx > 8 : dir === "l" ? dx < -8 : dir === "d" ? dy > 8 : dy < -8; if(!ok) continue;
+        const main = dir === "r" || dir === "l" ? Math.abs(dx) : Math.abs(dy), side = dir === "r" || dir === "l" ? Math.abs(dy) : Math.abs(dx), d = main + side * 2.2; if(d < bd){ bd = d; best = el; } }
+      if(best) setFocus(best); else { const m = document.querySelector("main"); if(m && (dir === "d" || dir === "u")) m.scrollBy({top:dir === "d" ? 260 : -260, behavior:"smooth"}); }
+    };
+    const back = () => { const closeBtn = document.querySelector("#avDlg:not([hidden]) [data-x], #emuWin.on #emuBack, #rmModal.on #rmClose, .modal:not([hidden]) [id$=Close]"); if(closeBtn){ closeBtn.click(); return; }
+      if(document.body.classList.contains("pfull") && window.__fsLeave){ window.__fsLeave(); return; } key("keydown", "Escape", "Escape"); };
+
+    const rep = {};   /* repetição das direções na navegação */
+    const loop = () => {
+      requestAnimationFrame(loop);
+      const pads = [...(navigator.getGamepads() || [])].filter(Boolean);
+      let any = false;
+      pads.forEach((gp, pi) => {
+        const map = pi === 0 ? P1 : P2, st = prev[gp.index] = prev[gp.index] || {};
+        const btn = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
+        const ax = gp.axes || [], dirs = {12:btn(12) || ax[1] < -0.55, 13:btn(13) || ax[1] > 0.55, 14:btn(14) || ax[0] < -0.55, 15:btn(15) || ax[0] > 0.55};
+        const state = i => i in dirs ? dirs[i] : btn(i);
+        for(const i of Object.keys(map).map(Number).concat([12, 13, 14, 15].filter(x => !(x in map)))){
+          const on = state(i), was = !!st[i]; if(on) any = true; if(on === was) { if(on && !inGame() && !inEmu() && pi === 0 && i >= 12 && i <= 15 && performance.now() > (rep[i] || 0)){ rep[i] = performance.now() + 140; nav({12:"u", 13:"d", 14:"l", 15:"r"}[i]); } continue; }
+          st[i] = on;
+          if(inEmu()) continue;   /* o EmulatorJS lê o comando diretamente */
+          if(inGame()){ const m = map[i]; if(m) key(on ? "keydown" : "keyup", m[0], m[1]); continue; }
+          if(!on || pi !== 0) continue;
+          if(i >= 12 && i <= 15){ rep[i] = performance.now() + 380; nav({12:"u", 13:"d", 14:"l", 15:"r"}[i]); }
+          else if(i === 0){ if(cur && document.contains(cur)) cur.click(); else nav("d"); }
+          else if(i === 1 || i === 16) back();
+          else if(i === 9){ if(window.__wheelAct) window.__wheelAct("toggle"); }
+          else if(i === 4 || i === 5){ if(window.__wheelAct) window.__wheelAct(i === 5 ? "next" : "prev"); }
+        }
+        const T = document.getElementById("gpTest"); if(T && pi === 0) T.querySelectorAll("span").forEach((sp, k) => sp.classList.toggle("on", k <= 11 ? btn(k) : !!dirs[k] || btn(k)));
+      });
+      if(any && cur && (inGame() || inEmu())){ cur.classList.remove("gpFocus"); cur = null; }
+    };
+    requestAnimationFrame(loop);
+    const showTag = () => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); tag.style.display = pads.length ? "block" : "none"; tag.textContent = "🎮 " + pads.length + (pads.length > 1 ? " comandos" : " comando"); };
+    addEventListener("gamepadconnected", e => { showTag(); toast("🎮 Comando ligado: " + String(e.gamepad.id).replace(/\(.*?\)/g, "").trim().slice(0, 40)); setTimeout(() => tag.style.display = "none", 6000); try{ window.__dbgEv && window.__dbgEv(0, "comando de jogos ligado", {id:e.gamepad.id, mapa:e.gamepad.mapping}); }catch(x){} });
+    addEventListener("gamepaddisconnected", () => { showTag(); toast("🎮 Comando desligado."); });
+
+    /* Definições: teste do comando */
+    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard";
+      c.innerHTML = '<h2>Comando de jogos</h2><p class="small muted setsub" style="margin:0">Liga um comando por USB ou Bluetooth e carrega num botão. Nos jogos do Cockpit: direções = setas, A = espaço, B/Start = Enter, X = X. Nos emuladores o comando funciona diretamente. Fora dos jogos: direções mudam a seleção, A carrega, B volta, LB/RB mudam de canal.</p><p class="small" id="gpWho" style="margin:8px 0 0">Nenhum comando detetado (carrega num botão do comando).</p><div id="gpTest">' + NAMES.map(n => "<span>" + n + "</span>").join("") + '</div>';
+      st.appendChild(c); setInterval(() => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); const w = document.getElementById("gpWho"); if(w) w.textContent = pads.length ? pads.map((p, i) => (i + 1) + ". " + p.id + (p.mapping === "standard" ? "" : " (mapa não padrão)")).join(" · ") : "Nenhum comando detetado (carrega num botão do comando)."; }, 1000); }catch(e){} }, 1600);
+  }catch(e){ console.log("comando de jogos", e); }
 })();
 </script>
 </body>
