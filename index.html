@@ -1596,40 +1596,66 @@ body.layout-atv .rail{display:none}
           <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
         </div>
       </div>
-      <h3 class="setgrp">TV e vídeo</h3>
+      <h3 class="setgrp">Aspeto e layout</h3>
       <div class="setcards">
       <div class="panel setcard">
-          <h2>TV e IPTV</h2>
-          <p class="small muted setsub" style="margin:0">A tua lista M3U ou Xtream Codes e o guia de programas.</p>
+          <h2>Aspeto e layout</h2>
+          <p class="small muted setsub" style="margin:0">Texto, botões, meia janela, animações, noite, cartões do Início, avatar e indicador de fps.</p>
+          <h3 class="setsubh">Tamanho do texto e dos botões</h3>
+          <p class="small muted" style="margin:0">Aumenta ou reduz a letra e os botões em toda a interface (exceto o vídeo).</p>
+          <label class="f">Escala da interface<select id="setUiScale"><option value="90">Pequena (90 %)</option><option value="100">Normal (100 %)</option><option value="110">Grande (110 %)</option><option value="125">Muito grande (125 %)</option></select></label>
+          <h3 class="setsubh">Modo meia janela</h3>
+          <p class="small muted" style="margin:0">No Tesla, com a janela estreita (≤ 820 px), o menu fica só com ícones e os botões maiores. Podes forçar ou desligar.</p>
+          <label class="f">Meia janela<select id="setHalfMode"><option value="auto">Automática (largura ≤ 820 px no Tesla)</option><option value="on">Sempre</option><option value="off">Desligada</option></select></label>
+          <h3 class="setsubh">Animação dos cartões</h3>
+          <p class="small muted" style="margin:0">Como os cartões do Início da TV se movem ao deslizar (Livro, Suave, Cascata, Zoom).</p>
+          <label class="f">Animação ao deslizar<select id="setCardAnim"><option value="livro">Livro (virar página)</option><option value="suave">Suave</option><option value="cascata">Cascata</option><option value="zoom">Zoom</option><option value="nenhuma">Sem animação</option></select></label>
+          <h3 class="setsubh">Modo noite</h3>
+          <p class="small muted" style="margin:0">Baixa o brilho dos menus e botões; o vídeo em ecrã total fica igual.</p>
+          <label class="f">Interface escura à noite<select id="setNightUi"><option value="auto">Automática: do pôr ao nascer do sol</option><option value="on">Sempre</option><option value="off">Desligada</option></select></label>
+          <h3 class="setsubh">Cartões do Início</h3>
+          <p class="small muted" style="margin:0">Modelo e estilo do ecrã inicial da TV (filas de cartões).</p>
+          <label class="f">Ao abrir a TV mostrar<select id="setTvHome"><option value="android">Início estilo Android TV (destaque e filas)</option><option value="classic">Lista clássica de canais</option></select></label>
+          <label class="f">Modelo do Início<select id="setTvHomeTpl"><option value="equilibrado">Equilibrado</option><option value="cinema">Cinema</option><option value="compacto">Compacto</option><option value="grelha">Grelha</option><option value="netflix">Estilo Netflix</option></select></label>
+          <h3 class="setsubh">Avatar</h3>
+          <p class="small muted" style="margin:0">Companheiro que anda pela app e conversa contigo.</p>
+          <div class="row" style="gap:10px;margin-top:6px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>
+          <h3 class="setsubh">Indicador de fps</h3>
+          <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
+          <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
+        </div>
+      </div>
+      <h3 class="setgrp">Conta IPTV</h3>
+      <div class="setcards">
+      <div class="panel setcard">
+          <h2>Conta IPTV</h2>
+          <p class="small muted setsub" style="margin:0">Servidor, credenciais, lista M3U, guia EPG e proxies. Sem opções de layout nem de reprodução.</p>
           <label class="f">Link M3U<input type="url" id="setM3u" placeholder="https://…/lista.m3u"></label>
           <p class="small muted" style="margin:0">ou Xtream Codes:</p>
           <label class="f">Servidor<input type="url" id="setXs" placeholder="https://servidor:porta"></label>
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Utilizador<input type="text" id="setXu" autocomplete="off"></label><label class="f" style="flex:1">Palavra-passe<input type="password" id="setXp" autocomplete="off"></label></div>
           <label class="f">Guia EPG XMLTV (opcional, não comprimido)<input type="url" id="setEpg" placeholder="https://…/epg.xml"></label>
-          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
-          <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
-          <div class="row"><button class="btn primary" id="btnLoadIptv">Guardar e carregar lista</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
-          <p class="small muted" id="iptvStatus" style="margin:0"></p>
-        </div>
-      <div class="panel setcard">
-          <h2>Ecrã total e reprodução</h2>
-          <p class="small muted setsub" style="margin:0">Como se comporta o vídeo em ecrã total.</p>
-          <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada (a lista de onde abriste o canal)</option><option value="off">Desligada</option></select></label>
-          <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
-        </div>
-      <div class="panel setcard">
-          <h2>Proxy</h2>
-          <p class="small muted setsub" style="margin:0">Necessário para IPTV, Tessie e vídeo no browser do carro. Com o 2.º proxy (Deno) configurado, o vídeo e as listas passam sempre por ele; o Worker da Cloudflare fica para voz, IA, transferir definições e como reserva.</p>
-          <p class="small muted" style="margin:0">Necessário para a maioria dos servidores Xtream (http:// e sem CORS). Usa o teu Cloudflare Worker; também serve para a Tessie e para o vídeo.</p>
           <label class="f">Endereço do proxy<input type="url" id="setProxy" placeholder="https://cockpit-proxy.<conta>.workers.dev"></label>
           <label class="f">Chave do proxy<input type="password" id="setPkey" autocomplete="off"></label>
-          <p class="small muted" style="margin:6px 0 0">Proxy Deno (recomendado para canais que recusam a Cloudflare): se estiver configurado, o vídeo passa sempre por ele. Ver proxy-deno-limpo.js.</p>
+          <p class="small muted" style="margin:6px 0 0">Proxy Deno (recomendado para canais que recusam a Cloudflare): se estiver configurado, o vídeo passa sempre por ele.</p>
           <label class="f">Endereço do 2.º proxy<input type="url" id="setProxy2" placeholder="https://o-teu-projeto.deno.dev"></label>
           <label class="f">Chave do 2.º proxy<input type="password" id="setPkey2" autocomplete="off"></label>
           <label class="f" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" id="setDirect"> Ligação direta (sem proxy) para o vídeo</label>
           <p class="small muted" style="margin:0">O Tesla liga-se ao fornecedor sozinho (usa o IP do telemóvel). Só funciona se o fornecedor aceitar esse IP e permitir CORS.</p>
-          <div class="row"><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button></div>
+          <div class="row"><button class="btn primary" id="btnLoadIptv">Carregar lista</button><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
           <div class="small muted" id="directTestOut" style="margin-top:6px;white-space:pre-wrap"></div>
+          <p class="small muted" id="iptvStatus" style="margin:0"></p>
+        </div>
+      </div>
+      <h3 class="setgrp">TV e vídeo</h3>
+      <div class="setcards">
+      <div class="panel setcard">
+          <h2>Reprodução</h2>
+          <p class="small muted setsub" style="margin:0">Qualidade, ecrã total e comportamento do vídeo.</p>
+          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
+          <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
+          <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada (a lista de onde abriste o canal)</option><option value="off">Desligada</option></select></label>
+          <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
         </div>
       </div>
       <h3 class="setgrp">Serviços e contas</h3>
@@ -1879,6 +1905,7 @@ function offerHttpDirect(why){
   history.replaceState(null, "", location.pathname + location.search);
   location.reload();
 }catch(e){} })();
+/* v282: FPS opcional, amp sampleRate, Aspeto e layout, Conta IPTV isolada */
 /* v281: com «ligação direta» ligada numa página https e servidor http, oferece logo a versão http (é a única forma de não usar proxy) */
 setTimeout(() => { try{ if(cfg.directMode) offerHttpDirect("ligação direta"); }catch(e){} }, 2500);
 const $ = id => document.getElementById(id);
@@ -2797,7 +2824,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v281";
+const APP_VERSION = "v282";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3295,6 +3322,12 @@ function playChannel(c, slot=tvTarget, auto=false){
       h.on(Hls.Events.MANIFEST_PARSED, (ev, data)=>{
         // Tira as qualidades acima do limite escolhido e as de HEVC que o browser não descodifica (mantém sempre pelo menos uma).
         try{
+          /* v282: manifesto declara mp4a.40.5 (HE-AAC) mas o som é LC a 44,1 kHz — força mp4a.40.2 no MediaSource */
+          try{
+            const forceLc = (cod) => String(cod||"").replace(/mp4a\.40\.5/gi, "mp4a.40.2");
+            (h.levels||[]).forEach(l => { if(l && l.audioCodec) l.audioCodec = forceLc(l.audioCodec); });
+            (h.audioTracks||[]).forEach(t => { if(t && t.audioCodec) t.audioCodec = forceLc(t.audioCodec); });
+          }catch(e){}
           const okC = l => (!/^(hvc1|hev1)/i.test(l.videoCodec||"") || (window.MediaSource && MediaSource.isTypeSupported(`video/mp4; codecs="${l.videoCodec}"`))) && audioOk(l.audioCodec);
           for(let i = h.levels.length - 1; i >= 0 && h.levels.length > 1; i--){ const l = h.levels[i]; if((l.height && l.height > resCap()) || !okC(l)) h.removeLevel(i); }
         }catch(e){}
@@ -12453,21 +12486,23 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   $("ahSrRes").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if(!b) return; const c = found[+b.dataset.i]; srch.hidden = true; watch(c); });
 
   /* Definições → TV e IPTV */
-  const card0 = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV");
-  if(card0){
-    const w = document.createElement("div"); w.id = "ahSet";
-    w.innerHTML = '<h3 style="margin:14px 0 6px">Ecrã inicial da TV</h3>' +
-      '<label class="f">Ao abrir a TV mostrar<select id="ahSetOn"><option value="android">Início estilo Android TV (destaque e filas)</option><option value="classic">Lista clássica de canais</option></select></label>' +
-      '<label class="f">Modelo do Início<select id="ahSetTpl">' + TPL.map(t => '<option value="' + t[0] + '">' + t[1] + '</option>').join("") + '</select></label>' +
-      '<label class="f">Animação ao deslizar<select id="ahSetAn">' + ANS.map(t => '<option value="' + t[0] + '">' + t[1] + '</option>').join("") + '</select></label>';
-    const sub = card0.querySelector(".setsub"); card0.insertBefore(w, sub ? sub.nextSibling : card0.children[1] || null);
-    const fill = () => { $("ahSetOn").value = on() ? "android" : "classic"; $("ahSetTpl").value = cfg.tvHomeTpl || "equilibrado"; $("ahSetAn").value = cfg.tvHomeAnim || "suave"; syncBack(); };
-    $("ahSetOn").onchange = () => { cfg.tvHome = $("ahSetOn").value; saveCfg(); syncBack(); toast($("ahSetOn").value === "classic" ? "A TV abre na lista clássica." : "A TV abre no Início estilo Android TV ✓"); };
-    $("ahSetTpl").onchange = () => { cfg.tvHomeTpl = $("ahSetTpl").value; saveCfg(); };
-    $("ahSetAn").onchange = () => { cfg.tvHomeAnim = $("ahSetAn").value; saveCfg(); };
-    fill();
-    const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fill(); }catch(e){} return r; };
-  }
+  /* v282: controlos do Início estão em Aspeto e layout (ids estáticos); mantém aliases ahSet* se existirem */
+  const fillAh = () => {
+    const vOn = on() ? "android" : "classic", vTpl = cfg.tvHomeTpl || "equilibrado", vAn = cfg.tvHomeAnim || "suave";
+    [["ahSetOn","setTvHome"],["ahSetTpl","setTvHomeTpl"],["ahSetAn","setCardAnim"]].forEach(([a,b]) => {
+      const el = $(a) || $(b); if(el) el.value = a.includes("On") || b.includes("Home") && !b.includes("Tpl") ? vOn : a.includes("Tpl") || b.includes("Tpl") ? vTpl : vAn;
+    });
+    try{ syncBack(); }catch(e){}
+  };
+  const bindAh = (id, key, after) => { const el = $(id); if(!el || el._ahBound) return; el._ahBound = 1; el.onchange = () => { cfg[key] = el.value; saveCfg(); try{ after && after(); }catch(e){} fillAh(); }; };
+  bindAh("setTvHome", "tvHome", () => { try{ syncBack(); toast($("setTvHome").value === "classic" ? "A TV abre na lista clássica." : "A TV abre no Início estilo Android TV ✓"); }catch(e){} });
+  bindAh("setTvHomeTpl", "tvHomeTpl");
+  bindAh("setCardAnim", "tvHomeAnim");
+  bindAh("ahSetOn", "tvHome", () => { try{ syncBack(); }catch(e){} });
+  bindAh("ahSetTpl", "tvHomeTpl");
+  bindAh("ahSetAn", "tvHomeAnim");
+  fillAh();
+  const _fsAh = window.fillSettings; if(typeof _fsAh === "function") window.fillSettings = function(){ const r = _fsAh.apply(this, arguments); try{ fillAh(); }catch(e){} return r; };
   syncBack();
   /* se a app abriu já na TV (última vista), passa para o Início */
   setTimeout(() => { try{
@@ -13226,7 +13261,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     if(w){ const l = document.createElement("label"); l.className = "row small"; l.style.marginTop = "6px";
       l.innerHTML = '<input type="checkbox" id="ahSetDet"> Ao tocar num filme ou série, mostrar primeiro os detalhes (sinopse, nota, trailer)';
       w.appendChild(l); const cb = $("ahSetDet"); cb.checked = detOn(); cb.onchange = () => { cfg.tvDetails = cb.checked; saveCfg(); }; }
-    const tvc = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV");
+    const tvc = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim())));
     if(tvc && C && P){
       const card = document.createElement("div"); card.className = "panel setcard"; card.id = "ctyCard";
       card.innerHTML = '<h2>Países e controlo parental</h2><p class="small muted setsub" style="margin:0">Ordena e esconde as categorias por país; protege os conteúdos para adultos com um PIN.</p>' +
@@ -13915,7 +13950,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     w.appendChild(d);
     const fill = () => { $("dataSaveOpt").checked = opt("dataSave", true); $("chgOpt").checked = opt("chgNotes", true); $("hideOpt").value = String(opt("hideStop", 3)); $("resOpenOpt").checked = !!cfg.resumeOpen; $("nightOpt").value = cfg.nightUi || "auto"; };
     $("resOpenOpt").onchange = e => { cfg.resumeOpen = e.target.checked; saveCfg(); };
-    $("nightOpt").onchange = e => { cfg.nightUi = e.target.value; saveCfg(); try{ window.__night && window.__night(); }catch(x){} };
+    $("nightOpt").onchange = e => { cfg.nightUi = e.target.value; saveCfg(); try{ const n=$("setNightUi"); if(n) n.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} };
+    try{ const n=$("setNightUi"); if(n && !n._bound){ n._bound=1; n.value=cfg.nightUi||"auto"; n.onchange=e=>{ cfg.nightUi=e.target.value; saveCfg(); const o=$("nightOpt"); if(o) o.value=cfg.nightUi; try{ window.__night && window.__night(); }catch(x){} }; } }catch(e){}
     $("dataSaveOpt").onchange = e => { cfg.dataSave = e.target.checked; saveCfg(); try{ applyCaps(); }catch(x){} };
     $("chgOpt").onchange = e => { cfg.chgNotes = e.target.checked; saveCfg(); };
     $("hideOpt").onchange = e => { cfg.hideStop = +e.target.value; saveCfg(); };
@@ -14012,6 +14048,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
                   for(let i = 0; i < u.length - 4 && hits < 40; i++){ if(u[i] === 0xFF && (u[i + 1] & 0xF6) === 0xF0){ const si = (u[i + 2] >> 2) & 15, ch = ((u[i + 2] & 1) << 2) | (u[i + 3] >> 6), pr = u[i + 2] >> 6; if(si < 13 && ch > 0 && ch < 8){ const k = R[si] + "|" + ch + "|" + pr; cnt[k] = (cnt[k] || 0) + 1; hits++; } } }
                   const best = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
                   if(best){ const [hz, ch, pr] = best[0].split("|"); const A = window.__amp, vv = document.getElementById("vid" + slot);
+                    try{ window.__chanSr = window.__chanSr || [null,null]; window.__chanSr[slot] = +hz; if(vv) vv._chanSr = +hz; if(A) A.chanSr = +hz; }catch(e){}
                     ev(slot, "som do canal", {Hz:+hz, canais:+ch, perfil:["Main","LC","SSR","LTP"][+pr], amplificacao:!!(vv && vv._amp), ctxAmplificacao_Hz:A && A.ctx ? A.ctx.sampleRate : null, ctxEstado:A && A.ctx ? A.ctx.state : null}); } }catch(e){} } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
@@ -14642,7 +14679,7 @@ probeHardwareEac3();
 try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = probeHardwareEac3; }catch(e){}
   setTimeout(() => { try{
     if(!window.__TESLA) return;
-    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim()))); if(!card) return;
     const l = document.createElement("label"); l.className = "f";
     l.innerHTML = 'Canais em 1080i no Tesla (Sport TV, Eurosport…): desentrelaçar<select id="setDeint"><option value="bob">Bob — mais fluido (50 imagens/s; em andamento passa a Linear)</option><option value="linear">Linear — mistura as linhas (25 imagens/s, gasta menos)</option><option value="off">Desligado (imagem tal como vem)</option></select>';
     const l2 = document.createElement("label"); l2.className = "f";
@@ -14869,6 +14906,41 @@ window.__sa = {
 })();
 </script>
 <script>
+
+/* v282: Aspeto e layout — escala, meia janela, fps, noite (ids estáticos; chaves localStorage mantidas) */
+(() => { try{
+  const applyScale = () => {
+    const n = +(typeof cfg === "object" && cfg.uiScale) || 100;
+    const v = Math.max(90, Math.min(125, n)) / 100;
+    try{ document.documentElement.style.setProperty("--ui-scale", String(v)); document.documentElement.style.fontSize = (v * 100) + "%"; }catch(e){}
+  };
+  const fillAspect = () => {
+    try{
+      const sc = $("setUiScale"); if(sc) sc.value = String(cfg.uiScale || 100);
+      const hf = $("setHalfMode"); if(hf) hf.value = cfg.halfMode || "auto";
+      const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
+      const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
+      const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
+      const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
+      const tp = $("setTvHomeTpl"); if(tp) tp.value = cfg.tvHomeTpl || "equilibrado";
+    }catch(e){}
+  };
+  const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
+  bind("setUiScale", e => { cfg.uiScale = +e.target.value || 100; saveCfg(); applyScale(); });
+  bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
+  bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
+  bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
+  bind("setCardAnim", e => { cfg.tvHomeAnim = e.target.value; saveCfg(); });
+  bind("setTvHome", e => { cfg.tvHome = e.target.value; saveCfg(); });
+  bind("setTvHomeTpl", e => { cfg.tvHomeTpl = e.target.value; saveCfg(); });
+  applyScale(); fillAspect();
+  const _fs = window.fillSettings;
+  if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ fillAspect(); applyScale(); }catch(e){} return r; };
+  else window.fillSettings = function(){ try{ fillAspect(); applyScale(); }catch(e){} };
+  addEventListener("DOMContentLoaded", () => { try{ fillAspect(); applyScale(); }catch(e){} });
+  setTimeout(() => { try{ fillAspect(); applyScale(); }catch(e){} }, 600);
+}catch(e){ console.log("aspeto v282", e); } })();
+
 /* ===== Amplificação do som do browser + voz Dolby (Definições → TV e IPTV) =====
    Com a amplificação acima de 100 %, o som dos <video>/<audio> passa por um ganho (Web Audio) e um limitador, e o som Dolby
    por software também sobe. O browser só deixa isto nas fontes do próprio site ou em blob: (HLS/MPEG-TS pelo hls.js e mpegts.js);
@@ -14880,7 +14952,27 @@ window.__sa = {
   const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
   const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
   const safe = el => same(el);
-  const ctx = () => { if(A.ctx && A.ctx.state !== "closed") return A.ctx; const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; try{ A.ctx = new AC({latencyHint:"playback"}); }catch(e){ A.ctx = null; } return A.ctx; };
+  /* v282: sampleRate do contexto = taxa do canal (evita som lento/grave em canais a 44,1 kHz no Tesla) */
+  const chanSrOf = el => { try{ if(el && el._chanSr) return +el._chanSr; const id = el && el.id; const slot = id === "vid1" ? 1 : id === "vid0" ? 0 : -1; if(slot >= 0 && window.__chanSr && window.__chanSr[slot]) return +window.__chanSr[slot]; if(A.chanSr) return +A.chanSr; }catch(e){} return 0; };
+  const ctx = (wantSr) => {
+    const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null;
+    const sr = wantSr && wantSr > 0 ? wantSr : 0;
+    if(A.ctx && A.ctx.state !== "closed"){
+      if(sr && Math.abs(A.ctx.sampleRate - sr) > 50){
+        /* contexto existente a outra taxa: não reutilizar (o browser não permite mudar sampleRate) */
+        try{ A.ctx.close(); }catch(e){}
+        A.ctx = null;
+      } else return A.ctx;
+    }
+    try{
+      const opts = {latencyHint:"playback"};
+      if(sr) opts.sampleRate = sr;
+      A.ctx = new AC(opts);
+    }catch(e){
+      try{ A.ctx = new AC({latencyHint:"playback"}); }catch(e2){ A.ctx = null; }
+    }
+    return A.ctx;
+  };
   const level = (g, c) => { try{ g.gain.setTargetAtTime(pct() / 100, c.currentTime, 0.05); }catch(e){ g.gain.value = pct() / 100; } };
   const dbg = (el, t, d) => { try{ window.__dbgEv && window.__dbgEv(el && el.id === "vid1" ? 1 : 0, t, d); }catch(e){} };
   const apply = el => {
@@ -14892,13 +14984,21 @@ window.__sa = {
         /* ficheiro direto de outro site: o browser não deixa amplificar sem estragar o som; fica como está */
         if(!el._ampNote && !el.paused){ el._ampNote = 1; dbg(el, "amplificação: ficheiro direto, não aplicada", {}); }
         return; }
-      const c = ctx(); if(!c) return; el._ampBusy = true;
+      const wantSr = chanSrOf(el);
+      const c = ctx(wantSr); if(!c) return;
+      /* se o contexto ficou a taxa diferente da do canal, não amplificar (ganho 1 / ignorar) */
+      if(wantSr && Math.abs(c.sampleRate - wantSr) > 50){
+        if(!el._ampSkip){ el._ampSkip = 1; dbg(el, "amplificação ignorada: canal a " + wantSr + " Hz", {ctxHz:c.sampleRate}); }
+        return;
+      }
+      el._ampBusy = true;
       c.resume().catch(() => {}).then(() => { el._ampBusy = false;
         if(c.state !== "running" || el._amp || pct() <= 100 || !safe(el)) return;
+        if(wantSr && Math.abs(c.sampleRate - wantSr) > 50){ dbg(el, "amplificação ignorada: canal a " + wantSr + " Hz", {ctxHz:c.sampleRate}); return; }
         const src = c.createMediaElementSource(el), g = c.createGain(), cp = c.createDynamicsCompressor();
         cp.threshold.value = -6; cp.knee.value = 4; cp.ratio.value = 12; cp.attack.value = 0.003; cp.release.value = 0.15;
         src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; level(g, c);
-        dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors"}); });
+        dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors", taxaCtx:c.sampleRate, taxaCanal:wantSr || null}); });
     }catch(e){ el._ampBusy = false; }
   };
   const all = () => document.querySelectorAll("video,audio");
@@ -14906,7 +15006,7 @@ window.__sa = {
   ["playing", "loadeddata"].forEach(ev => document.addEventListener(ev, e => apply(e.target), true));
   document.addEventListener("pointerdown", () => { if(pct() > 100){ const c = ctx(); if(c && c.state === "suspended") c.resume().catch(() => {}); } }, true);
   setTimeout(() => { try{
-    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim()))); if(!card) return;
     const l1 = document.createElement("label"); l1.className = "f";
     l1.innerHTML = 'Voz nos filmes e canais Dolby (AC-3)<select id="setDolbyVoice"><option value="0">Normal (mistura-padrão)</option><option value="1">Realçada (recomendado)</option><option value="2">Máxima (diálogos muito baixos)</option></select>';
     const l2 = document.createElement("label"); l2.className = "f";
@@ -14967,7 +15067,7 @@ window.__sa = {
     window.__keepAlive = KA;
   }
   setTimeout(() => { try{
-    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "TV e IPTV"); if(!card) return;
+    const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim()))); if(!card) return;
     const l = document.createElement("label"); l.className = "row small"; l.innerHTML = '<input type="checkbox" id="setKeepAudio"> Tesla: manter o som ativo entre canais (evita que o rádio do carro ligue)';
     card.appendChild(l); const c = document.getElementById("setKeepAudio"); c.checked = cfg.keepAudio !== false; c.onchange = () => { cfg.keepAudio = c.checked; saveCfg(); toast(c.checked ? "Som sempre ativo ligado" : "Som sempre ativo desligado"); };
   }catch(e){} }, 0);
@@ -15096,7 +15196,7 @@ window.__sa = {
 </script>
 <script>
 setTimeout(() => { try{
-  const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2")||{}).textContent||"").trim() === "TV e IPTV");
+  const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2")||{}).textContent||"").trim())));
   if(!card) return;
   const l = document.createElement("label"); l.className = "f";
   l.innerHTML = 'Som Dolby (AC-3 / E-AC-3)<select id="setEac3"><option value="auto">Automático (hardware quando existir, senão software)</option><option value="hw">Sempre por hardware (se falhar, fica só imagem)</option><option value="sw">Sempre por software (libav — compatível com tudo)</option></select>';
@@ -15181,8 +15281,14 @@ html.half.hdrMini #micBtn{transform:scale(.72);transform-origin:center}
   try{
     const de = document.documentElement;
     /* só no Tesla (o resto dos browsers fica igual) */
-    const upd = () => { const on = !!window.__TESLA && innerWidth <= 820; de.classList.toggle("half", on); if(!on) de.classList.remove("hbOn", "hdrMini"); };
-    upd(); addEventListener("resize", upd);
+    const halfWanted = () => {
+      const m = (typeof cfg === "object" && cfg.halfMode) || "auto";
+      if(m === "on") return true;
+      if(m === "off") return false;
+      return !!window.__TESLA && innerWidth <= 820;
+    };
+    const upd = () => { const on = halfWanted(); de.classList.toggle("half", on); if(!on) de.classList.remove("hbOn", "hdrMini"); };
+    upd(); addEventListener("resize", upd); window.__halfUpd = upd;
 
     /* 3. barra fixa do leitor: canal anterior, pausa, seguinte, ecrã total, volume */
     const bar = document.createElement("div"); bar.id = "halfBar"; bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Leitor");
@@ -16141,8 +16247,10 @@ html.half #visKar .k1{font-size:19px}
         return _hc.apply(this, arguments); }; } }catch(e){}
 
     /* --- Definições: cartão para voltar a mostrar e configurar --- */
-    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard"; c.innerHTML = '<h2>Avatar</h2><p class="small muted setsub" style="margin:0">O companheiro que anda pela app e conversa contigo.</p><div class="row" style="gap:10px;margin-top:10px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>'; st.appendChild(c);
-      document.getElementById("avShow").onclick = () => { A.on = true; saveA(); apply(); openDlg("look"); }; }catch(e){} }, 1500);
+    setTimeout(() => { try{
+      const bindAv = () => { const b = document.getElementById("avShow"); if(!b || b._avBound) return; b._avBound = 1; b.onclick = () => { A.on = true; saveA(); apply(); openDlg("look"); }; };
+      bindAv(); setTimeout(bindAv, 800);
+    }catch(e){} }, 400);
     /* cumprimenta uma vez quando abre a app */
     setTimeout(() => { try{ if(A.on && !sessionStorage.getItem("avHi")){ sessionStorage.setItem("avHi", "1"); const h = new Date().getHours(); speakA((h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite") + ", Rui! Toca em mim para conversarmos."); } }catch(e){} }, 6500);
   }catch(e){ console.log("avatar", e); }
@@ -16199,6 +16307,8 @@ body:not(.pfull) #mirStat{bottom:auto;top:70px}
       if(both && paused2 !== other){ if(paused2 >= 0){ ov(paused2, false); try{ startMirror(paused2); }catch(e){} } paused2 = other; try{ stopMirror(other); }catch(e){} ov(other, true, logo(other) + '<div>Imagem em pausa</div><small>Em andamento só o ecrã com som mostra imagem, para poupar o processador.</small>'); }
       else if(!both && paused2 >= 0){ const p = paused2; paused2 = -1; ov(p, false); try{ if(mirrorOn && lastPlayed[p]) startMirror(p); }catch(e){} }
       if(!on){ stat.style.display = "none"; return; }
+      /* v282: indicador de fps só no ecrã se a definição estiver ligada (o log continua a registar) */
+      if(!(typeof cfg === "object" && cfg.showFps)){ stat.style.display = "none"; return; }
       const s = typeof audioSlot === "number" && lastPlayed[audioSlot] ? audioSlot : (lastPlayed[0] ? 0 : 1), S = st[s], c = lastPlayed[s] || {};
       let cls = "", txt = "Andamento: a preparar…";
       if(S.at && Date.now() - S.at < 25000){
