@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v277";
+const APP_VERSION = "v278";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -10448,6 +10448,8 @@ $("btnVaultDel").onclick = async () => {
 const SYNC_ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", SYNC_SKIP = ["pinHash","pinSalt","passenger","layout","srBroken","pvState","__proto__","constructor","prototype"];
 const b64e = u => { let s = ""; for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); };
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+/* v278: o /sync do Worker só aceita 6 letras/algarismos [A-Z2-9]; «rm123456» era recusado (400) e o comando telemóvel nunca encontrava o carro */
+function __rmId(code, ans){ const al = ans ? "LMNPQRSTUV" : "ABCDEFGHJK"; return String(code).replace(/\D/g, "").slice(-6).padStart(6, "0").split("").map(d => al[+d]).join(""); }
 function syncUrl(base, key, id){ return String(base).replace(/\/+$/,"") + "/sync?" + (key ? "k="+encodeURIComponent(key)+"&" : "") + "id=" + id; }
 async function syncKey(secret, salt){
   const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]);
@@ -11101,10 +11103,42 @@ function trkAudioList(slot){
   if(mk && mk.seq === playSeq[slot] && mk.list.length > 1) return {kind:"mka", items:mk.list.map((t, i) => ({i, n:t.n, name:trkName({name:t.nome, lang:t.lang}, i) + " · " + t.codec.replace(/^A_/, ""), on:mk.cur === t.n}))};
   return {kind:"none", items:[]};
 }
+/* v278: ficheiros .mkv (fora do Tesla também): lê o cabeçalho do ficheiro para listar as faixas de som; a escolhida toca por software */
+const MKP = {};
+async function mkvProbeTracks(slot){
+  const c = lastPlayed[slot], v = $("vid" + slot), seq = playSeq[slot];
+  if(!c || !/\.mkv(\?|$)/i.test(c.url || "")) return false;
+  const mk0 = window.__mkaTracks && window.__mkaTracks[slot]; if(mk0 && mk0.seq === seq) return false;
+  const key = seq + "|" + slot; if(MKP[key]) return false; MKP[key] = 1;
+  const src = v.currentSrc || v.src; if(!src) return false;
+  try{
+    const get = async (a, n) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}}); if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status); const b = new Uint8Array(await r.arrayBuffer()); try{ if(r.status === 200 && b.length > n) return b.subarray(0, n); }catch(e){} return b; };
+    const hb = await get(0, 1 << 18); const list = [];
+    const e0 = mkvHead(hb, 0); if(!e0 || e0.id !== 0x1A45DFA3) throw new Error("não é Matroska");
+    const p0 = e0.hl + e0.size, sg = mkvHead(hb, p0); if(!sg) throw new Error("sem Segment"); const seg = p0 + sg.hl; let tracksAt = -1;
+    const rd = (b, a, z) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
+        if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
+        else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); });
+      if(t.type === 2) list.push({n:t.num, tipo:"som", codec:t.codec || "", lang:t.lang || "", nome:t.nome || ""}); });
+    mkvKids(hb, seg, hb.length, (id, d, n, at) => {
+      if(id === MKV.CLUSTER) return false;
+      if(d + n > hb.length){ if(id === MKV.TRACKS) tracksAt = at; return false; }
+      if(id === MKV.SEEKHEAD) mkvKids(hb, d, d + n, (i2, d2, n2) => { if(i2 !== MKV.SEEK) return; let sid = 0, sp = -1; mkvKids(hb, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.SEEKID) sid = mkvUint(hb, d3, n3); if(i3 === MKV.SEEKPOS) sp = mkvUint(hb, d3, n3); }); if(sid === MKV.TRACKS && sp >= 0 && tracksAt < 0) tracksAt = seg + sp; });
+      else if(id === MKV.TRACKS){ rd(hb, d, d + n); tracksAt = -2; }
+    });
+    if(!list.length && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17), th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) rd(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
+    if(playSeq[slot] !== seq) return false;
+    window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas de som (lidas para o botão Áudio)", {faixas:list.slice(0, 12)});
+    const ok = list.filter(x => /^A_(E?AC3|AAC)/.test(x.codec));
+    window.__mkaTracks = window.__mkaTracks || [null, null];
+    window.__mkaTracks[slot] = {seq, list:ok, cur:ok.length ? ok[0].n : null, nativa:true};
+    return ok.length > 1;
+  }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "faixas mkv: não consegui ler", {erro:String(e.message || e)}); }catch(x){} return false; }
+}
 function trkSetAudio(slot, kind, i){
   /* filmes e episódios: trocar a faixa não pode mexer na posição (se o leitor recuar, repõe-na) */
   const v = $("vid"+slot), c = lastPlayed[slot], keep = c && c.kind !== "live" && v && isFinite(v.currentTime) ? v.currentTime : -1, seq = playSeq[slot];
-  if(kind === "mka"){ const mk = window.__mkaTracks[slot], t = mk && mk.list[i]; if(t){ mk.cur = t.n; try{ window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], /^A_AAC/.test(t.codec), /^A_AAC/.test(t.codec), t.n); }catch(e){} } return; }
+  if(kind === "mka"){ const mk = window.__mkaTracks[slot], t = mk && mk.list[i]; if(t){ if(mk.cur === t.n && !(window.__mka && window.__mka[slot])) return; mk.cur = t.n; mk.nativa = false; try{ window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], /^A_AAC/.test(t.codec), /^A_AAC/.test(t.codec), t.n); }catch(e){} } return; }
   if(kind === "hls") hlsInst[slot].audioTrack = i;
   else if(kind === "native") [...$("vid"+slot).audioTracks].forEach((t,k) => { t.enabled = k === i; });
   if(keep > 3){
@@ -11173,6 +11207,8 @@ function trkOpen(mode){
   $("trkSecA").hidden = mode === "s"; $("trkSecS").hidden = mode === "a";
   $("trkTitle").textContent = mode === "a" ? "Áudio" : mode === "s" ? "Legendas" : "Áudio e legendas";
   trkRender(); osFill(); SUBST.render(); $("trkDlg").hidden = false;
+  if(mode !== "s"){ const sl = tvTarget; if(trkAudioList(sl).kind === "none"){ const n0 = $("trkAudio"); if(n0 && lastPlayed[sl] && /\.mkv(\?|$)/i.test(lastPlayed[sl].url || "")) n0.innerHTML = '<span class="small muted">A ler as faixas de som do ficheiro…</span>';
+      mkvProbeTracks(sl).then(() => { if(!$("trkDlg").hidden) trkRender(); }); } }
 }
 $("chTracks").onclick = () => trkOpen("a");
 $("chSubs").onclick = () => trkOpen("s");
@@ -16361,12 +16397,12 @@ html.nightUi #ambient{filter:brightness(.75)}
         else if(o.t === "toast"){ $r("rmSt").textContent = o.m; } };
       (async () => {
         if(!base){ $r("rmSt").textContent = "Falta o endereço do proxy no link. Lê de novo o código no ecrã do carro."; return; }
-        let offer = null; for(let i = 0; i < 20 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, "rm" + code)); if(r.ok) offer = await r.json(); }catch(e){} if(!offer) await sleep(1500); }
+        let offer = null; for(let i = 0; i < 20 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, __rmId(code, 0))); if(r.ok) offer = await r.json(); }catch(e){} if(!offer) await sleep(1500); }
         if(!offer){ $r("rmSt").textContent = "Não encontrei o carro. Confirma o código no ecrã do carro."; return; }
         const pc = new RTCPeerConnection(await rtcConfig(base, key));
         pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
         await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
-        await fetch(syncUrl(base, key, "rm" + code + "a"), {method:"POST", body:JSON.stringify(pc.localDescription)});
+        await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify(pc.localDescription)});
         $r("rmSt").textContent = "A estabelecer a ligação…";
       })().catch(e => { $r("rmSt").textContent = "Erro: " + (e.message || e); });
     }catch(e){ console.log("comando telemóvel", e); }
@@ -16427,11 +16463,11 @@ html.nightUi #ambient{filter:brightness(.75)}
       dc.onopen = () => { st2("✅ Telemóvel ligado. Podes fechar esta janela."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
       dc.onmessage = onCmd; dc.onclose = () => { clearInterval(stT); toast("📱 O telemóvel do passageiro desligou-se."); };
       await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
-      const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, "rm" + code), {method:"POST", body:JSON.stringify(pc.localDescription)});
+      const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify(pc.localDescription)});
       if(r.status === 501){ st2("Falta o KV SYNC no teu Worker."); return; }
       st2("À espera do telemóvel…");
       for(let i = 0; i < 150 && pc && M.classList.contains("on") && !(dc && dc.readyState === "open"); i++){ await sleep(2000);
-        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, "rm" + code + "a")); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); } } }catch(e){} }
+        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 1))); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); } } }catch(e){} }
     };
     window.__remoteStart = () => { M.classList.add("on"); start().catch(e => st2("Erro: " + (e.message || e))); };
     $c("rmClose").onclick = () => M.classList.remove("on");
