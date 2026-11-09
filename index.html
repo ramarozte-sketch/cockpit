@@ -1850,6 +1850,35 @@ const IDB = {
 };
 const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:"", stt:"auto", srBroken:false, ai:"auto", ui:"", ytKey:"", gClient:"", msClient:"", gwToken:"", gwPlant:"", gwUnit:"W", houseW:"", tarIn:"0.21", tarOut:"0.05", tarSc:"", phases:"1"}, LS.get("cfg", {}));
 const saveCfg = () => LS.set("cfg", cfg);
+/* v280: «sem proxy» — a página https não pode pedir a um servidor http (o browser bloqueia); a versão http do Cockpit (InfinityFree) pode.
+   As definições passam no endereço (#ckimp=…), só entre as duas páginas, sem passar por nenhum servidor intermédio. */
+const HTTP_MIRROR = "http://cockpit.page.gd/";
+function goHttpDirect(){
+  try{
+    cfg.directMode = true; saveCfg();
+    const o = {}; let tot = 0;
+    for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(!/^ck_/.test(k)) continue; const v = localStorage.getItem(k); if(v == null || v.length > 400000 || tot + v.length > 1500000) continue; o[k] = v; tot += v.length; }
+    location.href = HTTP_MIRROR + "#ckimp=" + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(o)))));
+  }catch(e){ location.href = HTTP_MIRROR; }
+}
+function offerHttpDirect(why){
+  try{
+    if(location.protocol !== "https:" || !/^http:/i.test(cfg.xs || cfg.m3u || "") || document.getElementById("httpDirBar")) return;
+    const b = document.createElement("div"); b.id = "httpDirBar";
+    b.style.cssText = "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99999;background:#1b2436;color:#fff;border:1px solid #7cc4ff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;max-width:92vw;font:600 15px/1.3 system-ui,sans-serif;box-shadow:0 8px 30px #0008";
+    b.innerHTML = '<span>O servidor IPTV ' + (why ? "(" + esc(why) + ") " : "") + 'só funciona sem proxy na versão <b>http</b> do Cockpit. Abrir lá, com as tuas definições?</span><button class="btn primary" id="httpDirGo">Abrir sem proxy</button><button class="btn" id="httpDirNo">✕</button>';
+    document.body.appendChild(b);
+    document.getElementById("httpDirGo").onclick = goHttpDirect;
+    document.getElementById("httpDirNo").onclick = () => b.remove();
+  }catch(e){}
+}
+(() => { try{
+  const m = /[#&]ckimp=([^&]+)/.exec(location.hash || ""); if(!m) return;
+  const o = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+  Object.keys(o).forEach(k => { if(/^ck_/.test(k)) localStorage.setItem(k, o[k]); });
+  history.replaceState(null, "", location.pathname + location.search);
+  location.reload();
+}catch(e){} })();
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -2766,7 +2795,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v279";
+const APP_VERSION = "v280";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2877,6 +2906,7 @@ async function loadIptv(force){
     loadEpg();
   }catch(e){
     const msg = /errados|conta |vazia|HTTP/.test(e.message) ? "Erro: "+e.message+"." : fetchErrorHelp(target, e);
+    try{ offerHttpDirect(String(e.message || e).slice(0, 40)); }catch(x){}
     try{ window.__listErr = {quando:new Date().toISOString(), servidor:(()=>{ try{ return new URL(target).host; }catch(x){ return ""; } })(), erro:String(e.message || e).slice(0, 200)}; }catch(x){}
     /* v275: a lista nova não veio, mas os canais da lista guardada passam a usar o servidor novo (mesmo fornecedor, outro endereço) */
     try{ if(isX && (!channels || !channels.length)){ const cached = await IDB.get("channels"); if(cached && cached.length) channels = cached; } rehostChannels(); }catch(x){}
