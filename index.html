@@ -1879,6 +1879,8 @@ function offerHttpDirect(why){
   history.replaceState(null, "", location.pathname + location.search);
   location.reload();
 }catch(e){} })();
+/* v281: com «ligação direta» ligada numa página https e servidor http, oferece logo a versão http (é a única forma de não usar proxy) */
+setTimeout(() => { try{ if(cfg.directMode) offerHttpDirect("ligação direta"); }catch(e){} }, 2500);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -2795,7 +2797,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v280";
+const APP_VERSION = "v281";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3191,6 +3193,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       const k = c.url, t0 = (window.__fullRetry || (window.__fullRetry = {}))[k] || 0;
       if(Date.now() - t0 > 60000){ window.__fullRetry[k] = Date.now(); toast("O servidor ainda conta a ligação anterior. A tentar de novo dentro de 5 s…"); setTimeout(() => { if(playId === playSeq[slot]) playChannel(c, slot, true); }, 5000); return; }
     }
+    try{ offerHttpDirect("vídeo bloqueado nesta página"); }catch(x){}
     toast(`Não foi possível reproduzir ${c.name}. ${d.why}${extra ? " [" + stage + ": " + extra + "]" : ""}`, true);
     $("epgBox").innerHTML = `<b>${slot?"USER 2":"USER 1"}: ${esc(c.name)}</b>`
       + `<div class="small" style="margin-top:4px">${esc(d.why)}</div>`
