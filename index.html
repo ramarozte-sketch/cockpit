@@ -2766,7 +2766,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v278";
+const APP_VERSION = "v279";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16397,13 +16397,15 @@ html.nightUi #ambient{filter:brightness(.75)}
         else if(o.t === "toast"){ $r("rmSt").textContent = o.m; } };
       (async () => {
         if(!base){ $r("rmSt").textContent = "Falta o endereço do proxy no link. Lê de novo o código no ecrã do carro."; return; }
-        let offer = null; for(let i = 0; i < 20 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, __rmId(code, 0))); if(r.ok) offer = await r.json(); }catch(e){} if(!offer) await sleep(1500); }
-        if(!offer){ $r("rmSt").textContent = "Não encontrei o carro. Confirma o código no ecrã do carro."; return; }
+        let offer = null, lastE = ""; for(let i = 0; i < 40 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, __rmId(code, 0)), {cache:"no-store"}); if(r.ok) offer = await r.json(); else lastE = "HTTP " + r.status + " " + (await r.text()).slice(0, 60); }catch(e){ lastE = String(e.message || e); } if(!offer){ $r("rmSt").textContent = "À procura do carro… (" + (i + 1) + "/40" + (lastE && !/404/.test(lastE) ? " · " + lastE : "") + ")"; await sleep(1500); } }
+        if(!offer){ $r("rmSt").textContent = "Não encontrei o carro (" + (lastE || "sem resposta") + "). Gera um código novo no carro e lê-o logo."; return; }
         const pc = new RTCPeerConnection(await rtcConfig(base, key));
         pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
         await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
-        await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify(pc.localDescription)});
+        const pr = await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify(pc.localDescription)});
+        if(!pr.ok){ $r("rmSt").textContent = "O Worker recusou a resposta (HTTP " + pr.status + "). Gera um código novo no carro."; return; }
         $r("rmSt").textContent = "A estabelecer a ligação…";
+        setTimeout(() => { if(!(dc && dc.readyState === "open")) $r("rmSt").textContent = "A ligação direta não abriu (estado: " + pc.iceConnectionState + "). Tenta com o telemóvel no mesmo Wi-Fi/hotspot do carro, ou ativa o TURN da Cloudflare no Worker."; }, 25000);
       })().catch(e => { $r("rmSt").textContent = "Erro: " + (e.message || e); });
     }catch(e){ console.log("comando telemóvel", e); }
     return;
@@ -16465,9 +16467,10 @@ html.nightUi #ambient{filter:brightness(.75)}
       await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
       const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify(pc.localDescription)});
       if(r.status === 501){ st2("Falta o KV SYNC no teu Worker."); return; }
+      if(!r.ok){ st2("O Worker recusou o código (HTTP " + r.status + " " + (await r.text().catch(() => "")).slice(0, 60) + "). Toca para gerar outro."); try{ window.__dbgEv && window.__dbgEv(0, "comando telemóvel: erro no /sync", {status:r.status}); }catch(e){} return; }
       st2("À espera do telemóvel…");
       for(let i = 0; i < 150 && pc && M.classList.contains("on") && !(dc && dc.readyState === "open"); i++){ await sleep(2000);
-        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 1))); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); } } }catch(e){} }
+        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 1))); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); const pc0 = pc; setTimeout(() => { if(pc === pc0 && !(dc && dc.readyState === "open")){ st2("O telemóvel respondeu mas a ligação direta não abriu (" + pc0.iceConnectionState + "). Põe o telemóvel no mesmo Wi-Fi/hotspot do carro ou ativa o TURN da Cloudflare."); try{ window.__dbgEv && window.__dbgEv(0, "comando telemóvel: WebRTC não abriu", {ice:pc0.iceConnectionState, turn:typeof rtcTurnMode !== "undefined" ? rtcTurnMode : "?"}); }catch(e){} } }, 25000); } } }catch(e){} }
     };
     window.__remoteStart = () => { M.classList.add("on"); start().catch(e => st2("Erro: " + (e.message || e))); };
     $c("rmClose").onclick = () => M.classList.remove("on");
