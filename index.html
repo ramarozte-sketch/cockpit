@@ -1645,6 +1645,7 @@ body.layout-atv .rail{display:none}
           <div class="row"><button class="btn primary" id="btnLoadIptv">Carregar lista</button><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
           <div class="small muted" id="directTestOut" style="margin-top:6px;white-space:pre-wrap"></div>
           <p class="small muted" id="iptvStatus" style="margin:0"></p>
+          <div id="updWrap" hidden style="margin-top:6px"><div class="small muted" id="updLbl"></div><progress id="updBar" max="100" value="0" style="width:100%;height:10px"></progress></div>
         </div>
       </div>
       <h3 class="setgrp">TV e vídeo</h3>
@@ -2884,8 +2885,11 @@ async function loadXtream(){
   if(auth?.user_info?.status && auth.user_info.status!=="Active") throw new Error("conta "+auth.user_info.status);
   /* pedidos em 3 vagas e com repetição: muitos fornecedores recusam pedidos em paralelo, e sem as categorias todos os filmes ficavam em «Sem categoria» */
   const xApiR = async (action, tries = 4) => { let last; for(let i = 0; i < tries; i++){ try{ return await xApi(action); }catch(e){ last = e; await new Promise(r => setTimeout(r, 800 * (i + 1))); } } throw last; };
+  updSet(0, "A pedir canais ao servidor (1 de 3)…");
   const [lc, ls] = await Promise.all([xApiR("get_live_categories"), xApiR("get_live_streams")]);
+  updSet(33, "A pedir filmes ao servidor (2 de 3)…");
   let [vc, vs] = await Promise.all([xApiR("get_vod_categories").catch(()=>[]), xApiR("get_vod_streams").catch(()=>[])]);
+  updSet(66, "A pedir séries ao servidor (3 de 3)…");
   let [sc, ss] = await Promise.all([xApiR("get_series_categories").catch(()=>[]), xApiR("get_series").catch(()=>[])]);
   if(Array.isArray(vs) && vs.length && !(Array.isArray(vc) && vc.length)) vc = await xApiR("get_vod_categories", 6).catch(()=>[]);
   if(Array.isArray(ss) && ss.length && !(Array.isArray(sc) && sc.length)) sc = await xApiR("get_series_categories", 6).catch(()=>[]);
@@ -2908,6 +2912,19 @@ function rehostChannels(){
     if(n){ try{ IDB.set("channels", channels); }catch(e){} try{ window.__dbgEv && window.__dbgEv(0, "canais mudados para o servidor novo", {servidor:nb.host, canais:n}); }catch(e){} }
     return n; }catch(e){ return 0; }
 }
+/* v358: barra de progresso das atualizações (só nas Definições) */
+function updShow(on){ const w=$("updWrap"); if(w) w.hidden=!on; }
+function updSet(pct, label){ updShow(true); const b=$("updBar"), l=$("updLbl"); if(b){ if(pct==null) b.removeAttribute("value"); else b.value=Math.max(0,Math.min(100,pct)); } if(l) l.textContent=label||""; }
+async function readBody(r, label){
+  const total = +(r.headers.get("content-length")||0);
+  if(!r.body || !window.ReadableStream){ updSet(null, label); return await r.text(); }
+  const reader = r.body.getReader(); const parts=[]; let got=0;
+  for(;;){ const {done, value} = await reader.read(); if(done) break; parts.push(value); got += value.length;
+    const kb = Math.round(got/1024), tk = Math.round(total/1024);
+    updSet(total ? got*100/total : null, label + (total ? " · " + kb + " / " + tk + " KB" : " · " + kb + " KB")); }
+  const all = new Uint8Array(got); let o=0; for(const p of parts){ all.set(p, o); o += p.length; }
+  return new TextDecoder().decode(all);
+}
 async function loadIptv(force){
   if(!force){ const cached = await IDB.get("channels"); if(cached && cached.length && !window.__badCatTried && cfg.xs && cfg.xu && cfg.xp){
       const mv = cached.filter(c => c.kind === "movie"); if(mv.length > 50 && mv.filter(c => c.group === "Sem categoria").length > mv.length * 0.5){ window.__badCatTried = true; return loadIptv(true); } }
@@ -2922,16 +2939,17 @@ async function loadIptv(force){
       catch(e){
         if(/errados|conta /.test(e.message)) throw e;
         const r = await fetchPx(`${xBase()}/get.php?${xQ()}&type=m3u_plus&output=m3u8`); if(!r.ok) throw new Error("HTTP "+r.status);
-        channels = parseM3U(await r.text());
+        channels = parseM3U(await readBody(r, "A descarregar a lista"));
       }
     } else {
       const r = await fetchPx(cfg.m3u); if(!r.ok) throw new Error("HTTP "+r.status);
-      channels = parseM3U(await r.text());
+      channels = parseM3U(await readBody(r, "A descarregar a lista"));
     }
     if(!channels.length) throw new Error("a lista veio vazia");
     await IDB.set("channels", channels);
     const n = k => channels.filter(c=>c.kind===k).length;
     afterIptv(`Lista carregada: ${n("live")} canais, ${n("movie")} filmes, ${n("series")} séries.`);
+    updSet(100, "Lista carregada."); setTimeout(()=>updShow(false), 2500);
     loadEpg();
   }catch(e){
     const msg = /errados|conta |vazia|HTTP/.test(e.message) ? "Erro: "+e.message+"." : fetchErrorHelp(target, e);
@@ -2940,6 +2958,7 @@ async function loadIptv(force){
     /* v275: a lista nova não veio, mas os canais da lista guardada passam a usar o servidor novo (mesmo fornecedor, outro endereço) */
     try{ if(isX && (!channels || !channels.length)){ const cached = await IDB.get("channels"); if(cached && cached.length) channels = cached; } rehostChannels(); }catch(x){}
     afterIptv("Não consegui carregar a lista. "+msg);
+    updSet(null, "Erro na atualização."); setTimeout(()=>updShow(false), 4000);
     toast("IPTV: "+msg, true);
   }
 }
@@ -2963,11 +2982,13 @@ async function loadEpg(){
   if(!cfg.epg) return;
   try{
     const r = await fetchPx(cfg.epg); if(!r.ok) return;
-    const xml = new DOMParser().parseFromString(await r.text(), "text/xml");
+    updSet(0, "A descarregar o guia (EPG)…");
+    const xml = new DOMParser().parseFromString(await readBody(r, "A descarregar o guia (EPG)"), "text/xml");
     const now = Date.now(), horizon = now + 48*3600e3, day0 = new Date().setHours(0,0,0,0); const map={};
     const pt = s => { const m=s.match(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{4})?/); if(!m) return 0; const iso=`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]?m[7].slice(0,3)+":"+m[7].slice(3):"Z"}`; return Date.parse(iso); };
     xml.querySelectorAll("programme").forEach(p => { const st=pt(p.getAttribute("start")), sp=pt(p.getAttribute("stop")); if(sp<day0 || st>horizon) return; const ch=p.getAttribute("channel"); (map[ch]=map[ch]||[]).push({start:st, stop:sp, title:p.querySelector("title")?.textContent||"", desc:p.querySelector("desc")?.textContent||""}); });
     Object.values(map).forEach(a=>a.sort((x,y)=>x.start-y.start)); epg=map;
+    updSet(100, "Guia atualizado."); setTimeout(()=>updShow(false), 2500);
   }catch(e){}
 }
 function pickNow(a){ if(!a || !a.length) return null; const now=Date.now(); const i=a.findIndex(p=>p.start<=now && p.stop>now); return i<0?null:{now:a[i], next:a[i+1]}; }
