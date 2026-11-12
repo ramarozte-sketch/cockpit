@@ -14968,7 +14968,7 @@ window.__sa = {
    ligações diretas de outro site (sem CORS) ficam como estão. */
 (() => { try{
   const pct = () => { const p = +cfg.ampPct; return p >= 100 && p <= 500 ? p : 100; };
-  const A = window.__amp = {pct, ctx:null, warned:0};
+  const A = window.__amp = {pct, ctx:null, warned:0, used:0};
   const proxBase = () => [window.PHONE_PROXY && window.PHONE_PROXY.base, cfg.proxy2, cfg.proxy].filter(Boolean).map(x => String(x).replace(/\/+$/, ""));
   const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
   const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
@@ -14980,7 +14980,9 @@ window.__sa = {
     const sr = wantSr && wantSr > 0 ? wantSr : 0;
     if(A.ctx && A.ctx.state !== "closed"){
       if(sr && Math.abs(A.ctx.sampleRate - sr) > 50){
-        /* contexto existente a outra taxa: não reutilizar (o browser não permite mudar sampleRate) */
+        /* v284: um <video> já ligado a este contexto não pode ser ligado a outro; fechá-lo calava o som (ou dava o som em câmara lenta/grave).
+           Enquanto houver elementos ligados, o canal novo fica sem amplificação (som natural) em vez de fechar o contexto. */
+        if(A.used > 0) return null;
         try{ A.ctx.close(); }catch(e){}
         A.ctx = null;
       } else return A.ctx;
@@ -15020,7 +15022,7 @@ window.__sa = {
         /* v284: com 200 % o som do canal já passa de -11 dBFS; o compressor antigo (limiar -6 dB, 12:1, ataque 3 ms) comprimia cada pico de graves e dava um som grave «bombeado» e enlameado.
            Agora é só um limitador de segurança: actua apenas perto de 0 dBFS (limiar -1 dB, 20:1, joelho zero), por isso a dinâmica dos graves fica intacta. */
         cp.threshold.value = -1; cp.knee.value = 0; cp.ratio.value = 20; cp.attack.value = 0.002; cp.release.value = 0.12;
-        src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; level(g, c);
+        src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; A.used++; level(g, c);
         dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors", taxaCtx:c.sampleRate, taxaCanal:wantSr || null}); });
     }catch(e){ el._ampBusy = false; }
   };
