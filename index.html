@@ -15017,7 +15017,9 @@ window.__sa = {
         if(c.state !== "running" || el._amp || pct() <= 100 || !safe(el)) return;
         if(wantSr && Math.abs(c.sampleRate - wantSr) > 50){ dbg(el, "amplificação ignorada: canal a " + wantSr + " Hz", {ctxHz:c.sampleRate}); return; }
         const src = c.createMediaElementSource(el), g = c.createGain(), cp = c.createDynamicsCompressor();
-        cp.threshold.value = -6; cp.knee.value = 4; cp.ratio.value = 12; cp.attack.value = 0.003; cp.release.value = 0.15;
+        /* v284: com 200 % o som do canal já passa de -11 dBFS; o compressor antigo (limiar -6 dB, 12:1, ataque 3 ms) comprimia cada pico de graves e dava um som grave «bombeado» e enlameado.
+           Agora é só um limitador de segurança: actua apenas perto de 0 dBFS (limiar -1 dB, 20:1, joelho zero), por isso a dinâmica dos graves fica intacta. */
+        cp.threshold.value = -1; cp.knee.value = 0; cp.ratio.value = 20; cp.attack.value = 0.002; cp.release.value = 0.12;
         src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; level(g, c);
         dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors", taxaCtx:c.sampleRate, taxaCanal:wantSr || null}); });
     }catch(e){ el._ampBusy = false; }
