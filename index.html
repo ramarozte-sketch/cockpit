@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v283";
+const APP_VERSION = "v285";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4950,7 +4950,8 @@ window.__i1080 = slot => {
     const k0 = key(c.name); if(!k0) return;
     const now = Date.now(); window.__i1080T = window.__i1080T || {}; if(now - (window.__i1080T[k0] || 0) < 120000) return;   /* uma troca por canal a cada 2 min: sem voltas */
     const tag = n => /UHD|4K/i.test(String(n).normalize("NFKD"));
-    const sib = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !I1080.has(x.url) && key(x.name) === k0 && !(window.__parHide && window.__parHide(x)))
+    const ctryOf = n => { const m = String(n || "").normalize("NFKD").match(/\|([A-Za-z]{2})\|/); return m ? m[1].toUpperCase() : ""; };   /* v285: só versões do mesmo país (antes um canal |PT| trocava para |AR|, que dava 403) */
+    const sib = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !I1080.has(x.url) && key(x.name) === k0 && ctryOf(x.name) === ctryOf(c.name) && !(window.__parHide && window.__parHide(x)))
       .sort((a, b) => tag(a.name) - tag(b.name))[0];
     try{ window.__dbgEv && window.__dbgEv(slot, "andamento: 1080i", {outraVersao:sib ? sib.name : null}); }catch(e){}
     if(!sib || tag(sib.name)) return;
@@ -4963,7 +4964,8 @@ window.__h264Sib = function(c){
   try{
     const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
     const k0 = c && key(c.name); if(!k0) return null;
-    const l = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === c.kind && key(x.name) === k0 && !/\.ts(\?|$)/i.test(x.url));
+    const ctryOf = n => { const m = String(n || "").normalize("NFKD").match(/\|([A-Za-z]{2})\|/); return m ? m[1].toUpperCase() : ""; };   /* v285: mesmo país */
+    const l = (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === c.kind && key(x.name) === k0 && ctryOf(x.name) === ctryOf(c.name) && !/\.ts(\?|$)/i.test(x.url));
     return l.find(x => !/UHD|4K/i.test(String(x.name).normalize("NFKD"))) || null;
   }catch(e){ return null; }
 };
