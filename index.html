@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v290";
+const APP_VERSION = "v291";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16560,21 +16560,67 @@ html.nightUi #ambient{filter:brightness(.75)}
       ui.innerHTML = '<h1>📱 Comando do Cockpit</h1><div class="st" id="rmSt">A ligar ao carro…</div>' +
         '<div class="now"><div class="slot" id="rmS0" data-slot="0"><b>Ecrã 1</b><small>—</small></div><div class="slot" id="rmS1" data-slot="1"><b>Ecrã 2</b><small>—</small></div></div>' +
         '<div class="pad"><button data-c="prev">◀ Canal</button><button data-c="play" class="pri">⏯</button><button data-c="next">Canal ▶</button><button data-c="vd">🔉 −</button><button data-c="mute">🔇</button><button data-c="vu">🔊 +</button><button data-c="mirror">🖼 Andamento</button><button data-c="full">⛶ Ecrã total</button><button data-c="home">🏠 Início TV</button><button data-c="stop" style="grid-column:span 3">⏹ Parar o canal</button></div>' +
-        '<div class="row"><button data-v="tv">📺 TV</button><button data-v="media">📻 Media</button><button data-v="car">🚗 Carro</button></div>' +
+        '<div class="row"><button data-v="tv">📺 TV</button><button data-v="media">📻 Media</button><button data-v="car">🚗 Carro</button><button id="rmPadBtn" class="pri">🎮 Joystick</button></div>' +
         '<div class="row" style="margin-top:14px"><select id="rmKind"><option value="live">Canais</option><option value="movie">Filmes</option><option value="series">Séries</option><option value="radio">Rádio</option><option value="amp">Música (Amp)</option></select></div>' +
         '<div class="row"><input id="rmQ" type="search" placeholder="Pesquisar…" autocomplete="off"><button id="rmGo" class="pri" style="flex:0 0 110px">Procurar</button></div><div id="rmRes"></div>';
       document.body.appendChild(ui); document.title = "Comando Cockpit";
       const $r = id => document.getElementById(id); let dc = null;
       const send = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); else $r("rmSt").textContent = "Ainda não estou ligado ao carro…"; }catch(e){} };
+      /* v291: ecrã de comando de jogos (cruzeta ou joystick, A/B/X/Y, LB/RB, Select/Start, jogador 1 ou 2) */
+      let myPlayer = 0;
+      const openPad = () => {
+        let P = document.getElementById("rmPad");
+        try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); }catch(e){}
+        if(P){ P.style.display = "flex"; return; }
+        const css = document.createElement("style");
+        css.textContent = "#rmPad{position:fixed;inset:0;z-index:100000;background:#0b1220;color:#fff;display:flex;flex-direction:column;font-family:system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none}" +
+          "#rmPad .top{display:flex;gap:10px;align-items:center;padding:8px 14px}#rmPad .top button{min-height:44px;padding:0 16px;border-radius:12px;border:0;background:#1f2a40;color:#fff;font:700 16px system-ui}#rmPad .top span{flex:1;text-align:right;color:#9fb3cc;font:600 13px system-ui}" +
+          "#rmPad .ctl{flex:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 3vw 3vh;gap:2vw}" +
+          "#rmPad .l,#rmPad .r{display:flex;flex-direction:column;align-items:center;gap:2vh}#rmPad .sh{display:flex;gap:3vw}" +
+          "#rmPad .sh button{width:22vmin;height:9vmin;border-radius:14px}" +
+          "#rmPad button{border:0;background:#1f2a40;color:#fff;font:800 20px system-ui;touch-action:none;box-shadow:inset 0 -3px 0 #0006}#rmPad button.on{background:#7cc4ff;color:#001}" +
+          "#rpDpad{display:grid;grid-template:repeat(3,22vmin)/repeat(3,22vmin);gap:2px}#rpDpad button{border-radius:14px;font-size:26px}#rpDpad .c{background:#14203a;border-radius:14px}" +
+          "#rpStick{width:52vmin;height:52vmin;border-radius:50%;background:radial-gradient(#1f2a40,#111a2e);border:3px solid #33456a;position:relative;touch-action:none;display:none}#rpStick i{position:absolute;left:50%;top:50%;width:22vmin;height:22vmin;margin:-11vmin 0 0 -11vmin;border-radius:50%;background:#7cc4ff;opacity:.9}" +
+          "#rmPad .mid{display:flex;flex-direction:column;gap:3vh;align-items:center}#rmPad .mid button{width:24vmin;height:10vmin;border-radius:14px;font-size:16px}" +
+          "#rpAbxy{display:grid;grid-template:repeat(3,19vmin)/repeat(3,19vmin);gap:1px}#rpAbxy button{border-radius:50%;font-size:24px}";
+        document.head.appendChild(css);
+        P = document.createElement("div"); P.id = "rmPad";
+        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
+          '<div class="ctl"><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
+          '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
+          '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
+        document.body.appendChild(P);
+        const held = new Set();
+        const press = (b, on) => { b = +b; if(on === held.has(b)) return; on ? held.add(b) : held.delete(b); send({t:"pad", p:myPlayer, b, on}); const el = P.querySelector('[data-b="' + b + '"]'); if(el) el.classList.toggle("on", on); if(on){ try{ navigator.vibrate && navigator.vibrate(12); }catch(e){} } };
+        const releaseAll = () => { [...held].forEach(b => press(b, false)); };
+        P.querySelectorAll("button[data-b]").forEach(el => {
+          el.addEventListener("pointerdown", e => { e.preventDefault(); try{ el.setPointerCapture(e.pointerId); }catch(x){} press(el.dataset.b, true); });
+          ["pointerup", "pointercancel", "lostpointercapture"].forEach(t => el.addEventListener(t, () => press(el.dataset.b, false)));
+          el.addEventListener("contextmenu", e => e.preventDefault());
+        });
+        /* joystick analógico → 4 direções digitais (zona morta de 35 %) */
+        const S = document.getElementById("rpStick"), K = S.querySelector("i"); let sid = null;
+        const stick = e => { const r = S.getBoundingClientRect(), R = r.width / 2, dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R), d = Math.hypot(dx, dy) || 1, m = Math.min(d, R * 0.6), kx = dx / d * m, ky = dy / d * m;
+          K.style.transform = "translate(" + kx + "px," + ky + "px)"; const t = R * 0.35;
+          press(14, dx < -t); press(15, dx > t); press(12, dy < -t); press(13, dy > t); };
+        S.addEventListener("pointerdown", e => { e.preventDefault(); sid = e.pointerId; try{ S.setPointerCapture(sid); }catch(x){} stick(e); });
+        S.addEventListener("pointermove", e => { if(e.pointerId === sid) stick(e); });
+        ["pointerup", "pointercancel"].forEach(t => S.addEventListener(t, e => { if(e.pointerId !== sid) return; sid = null; K.style.transform = ""; [12, 13, 14, 15].forEach(b => press(b, false)); }));
+        let mode = 0; document.getElementById("rpMode").onclick = () => { releaseAll(); mode = 1 - mode; document.getElementById("rpMode").textContent = mode ? "Joystick" : "Cruzeta"; document.getElementById("rpDpad").style.display = mode ? "none" : "grid"; S.style.display = mode ? "block" : "none"; };
+        document.getElementById("rpPl").onclick = () => { releaseAll(); myPlayer = 1 - myPlayer; document.getElementById("rpPl").textContent = "J" + (myPlayer + 1); };
+        document.getElementById("rpClose").onclick = () => { releaseAll(); P.style.display = "none"; try{ document.exitFullscreen && document.fullscreenElement && document.exitFullscreen(); screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); }catch(e){} };
+        document.addEventListener("visibilitychange", () => { if(document.hidden) releaseAll(); });
+      };
       const esc3 = t => String(t || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
       ui.addEventListener("click", e => { const b = e.target.closest("button,[data-slot]"); if(!b) return;
         if(b.dataset.c) send({t:"cmd", c:b.dataset.c}); else if(b.dataset.v) send({t:"view", v:b.dataset.v}); else if(b.dataset.slot) send({t:"slot", s:+b.dataset.slot});
-        else if(b.dataset.u) send({t:"open", u:b.dataset.u, k:b.dataset.k}); else if(b.id === "rmGo"){ const q = $r("rmQ").value.trim(); if(q){ $r("rmRes").innerHTML = '<div class="st">A procurar…</div>'; send({t:"search", q, kind:$r("rmKind").value}); } } });
+        else if(b.id === "rmPadBtn") openPad(); else if(b.dataset.u) send({t:"open", u:b.dataset.u, k:b.dataset.k}); else if(b.id === "rmGo"){ const q = $r("rmQ").value.trim(); if(q){ $r("rmRes").innerHTML = '<div class="st">A procurar…</div>'; send({t:"search", q, kind:$r("rmKind").value}); } } });
       $r("rmQ").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); $r("rmGo").click(); } });
       const onMsg = m => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
         if(o.t === "state"){ [0, 1].forEach(i => { const S = o.slots[i] || {}, el = $r("rmS" + i); el.classList.toggle("on", o.target === i); el.innerHTML = (S.logo ? '<img src="' + esc3(S.logo) + '" alt="" onerror="this.remove()">' : "") + "<b>" + (i ? "Ecrã 2" : "Ecrã 1") + (o.audio === i ? " 🔊" : "") + "</b><small>" + esc3(S.name || "—") + (S.now ? " · " + esc3(S.now) : "") + "</small>"; });
           $r("rmSt").textContent = "✅ Ligado ao carro" + (o.other ? " · " + o.other : "") + (o.mirror ? " · imagem em andamento ligada" : ""); }
         else if(o.t === "results"){ $r("rmRes").innerHTML = o.list.length ? o.list.map(x => '<button data-u="' + esc3(x.u) + '" data-k="' + esc3(x.k) + '">' + (x.logo ? '<img src="' + esc3(x.logo) + '" alt="" onerror="this.remove()">' : "") + '<span>' + esc3(x.n) + '</span></button>').join("") : '<div class="st">Nada encontrado.</div>'; }
+        else if(o.t === "player"){ myPlayer = o.n === 1 ? 1 : 0; const pb = document.getElementById("rpPl"); if(pb) pb.textContent = "J" + (myPlayer + 1); }
         else if(o.t === "toast"){ $r("rmSt").textContent = o.m; } };
       (async () => {
         if(!base){ $r("rmSt").textContent = "Falta o endereço do proxy no link. Lê de novo o código no ecrã do carro."; return; }
@@ -16598,17 +16644,19 @@ html.nightUi #ambient{filter:brightness(.75)}
     M.innerHTML = '<div class="b"><h2 style="margin:0">📱 Comando no telemóvel</h2><p style="margin:8px 0 0">No telemóvel do passageiro, aponta a câmara para o código.</p><div id="rmQr"></div><div class="code" id="rmCode">······</div><div class="st" id="rmSt2">A preparar…</div><div style="margin-top:10px"><button id="rmCopy">Copiar link</button><button id="rmClose" style="background:#555">Fechar</button></div></div>';
     document.body.appendChild(M);
     const $c = id => document.getElementById(id);
-    let pc = null, dc = null, link = "", stT = 0;
+    let pc = null, dc = null, link = "", stT = 0; const conns = [];   /* v291: vários telemóveis ligados (1.º = jogador 1, 2.º = jogador 2) */
     const st2 = t => { const e = $c("rmSt2"); if(e) e.textContent = t; };
     const vidT = () => document.getElementById("vid" + (typeof tvTarget === "number" ? tvTarget : 0));
     const state = () => { const slots = [0, 1].map(i => { const c = lastPlayed[i]; if(!c) return {}; let now = ""; try{ const nn = nowNext(c); if(nn && nn.now) now = nn.now.title; }catch(e){} return {name:c.name, logo:c.logo || "", now}; });
       let other = ""; try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) other = "🎵 " + W.cur.artist + " — " + W.cur.title; else if(typeof radioCur !== "undefined" && radioCur) other = "📻 " + radioCur.name; }catch(e){}
       return {t:"state", slots, target:tvTarget, audio:audioSlot, mirror:typeof mirrorOn !== "undefined" && mirrorOn, view:currentView, other}; };
-    const tx = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); }catch(e){} };
+    const tx = o => { try{ const t = JSON.stringify(o); conns.forEach(d => { try{ if(d.readyState === "open") d.send(t); }catch(e){} }); }catch(e){} };
+    const txTo = (d, o) => { try{ if(d && d.readyState === "open") d.send(JSON.stringify(o)); }catch(e){} };
     const vol = d => { try{ const G = window.__vg, v = document.getElementById("vid" + audioSlot); let x = (G && G.v != null ? G.v : v.volume) + d; x = Math.max(0, Math.min(1, Math.round(x * 10) / 10)); if(G) G.v = x; v.muted = false; v.volume = x; LS.set("tvVol", x); tx({t:"toast", m:"Som " + Math.round(x * 100) + "%"}); }catch(e){} };
-    const onCmd = async m => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
+    const onCmd = async (m, from) => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
       try{
-        if(o.t === "hello"){ tx(state()); toast("📱 Telemóvel do passageiro ligado."); }
+        if(o.t === "pad"){ if(window.__padPress) window.__padPress(o.p === 1 ? 1 : 0, o.b | 0, !!o.on); return; }
+        if(o.t === "hello"){ const n = Math.max(0, conns.indexOf(from)); txTo(from, {t:"player", n:n > 0 ? 1 : 0}); tx(state()); toast("📱 Telemóvel ligado (jogador " + (n > 0 ? 2 : 1) + ")."); }
         else if(o.t === "cmd"){ const c = o.c;
           if(c === "next" || c === "prev"){ if(window.__wheelAct) window.__wheelAct(c); else zap(c === "next" ? 1 : -1); }
           else if(c === "play"){ if(window.__wheelAct) window.__wheelAct("toggle"); else { const v = vidT(); v.paused ? v.play().catch(() => {}) : v.pause(); } }
@@ -16637,14 +16685,16 @@ html.nightUi #ambient{filter:brightness(.75)}
     };
     const start = async () => {
       if(!cfg.proxy){ st2("Configura primeiro o proxy do Cockpit (Definições)."); return; }
-      try{ if(pc) pc.close(); }catch(e){}
+      try{ if(pc && !(dc && dc.readyState === "open")) pc.close(); }catch(e){}
       const code = String(Math.floor(100000 + Math.random() * 900000)); $c("rmCode").textContent = code;
       link = location.origin + location.pathname + "?remote=" + code + "&b=" + encodeURIComponent(cfg.proxy) + (cfg.pkey ? "&k=" + encodeURIComponent(cfg.pkey) : "");
       $c("rmQr").innerHTML = ""; if(await loadQr()){ try{ new QRCode($c("rmQr"), {text:link, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); }catch(e){} }
       st2("A preparar a ligação…");
       pc = new RTCPeerConnection(await rtcConfig(cfg.proxy, cfg.pkey)); dc = pc.createDataChannel("ctl", {ordered:true});
-      dc.onopen = () => { st2("✅ Telemóvel ligado. Podes fechar esta janela."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
-      dc.onmessage = onCmd; dc.onclose = () => { clearInterval(stT); toast("📱 O telemóvel do passageiro desligou-se."); };
+      (window.__rmKeep = window.__rmKeep || []).push(pc);
+      const d0 = dc;
+      d0.onopen = () => { if(!conns.includes(d0)) conns.push(d0); st2("✅ Telemóvel ligado. Podes fechar esta janela. Para o 2.º jogador, abre este código outra vez noutro telemóvel."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
+      d0.onmessage = m => onCmd(m, d0); d0.onclose = () => { const i = conns.indexOf(d0); if(i >= 0) conns.splice(i, 1); if(!conns.length) clearInterval(stT); toast("📱 Um telemóvel desligou-se."); };
       await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
       const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify(pc.localDescription)});
       if(r.status === 501){ st2("Falta o KV SYNC no teu Worker."); return; }
@@ -16828,6 +16878,22 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(any && cur && (inGame() || inEmu())){ cur.classList.remove("gpFocus"); cur = null; }
     };
     requestAnimationFrame(loop);
+    /* v291: botões vindos do comando no telemóvel (joystick). Jogo do Cockpit → teclas dos jogos; emulador → teclas do EmulatorJS (dentro da janela); fora disso → navegação */
+    const EMUK = {0:["z","KeyZ",90], 1:["x","KeyX",88], 2:["a","KeyA",65], 3:["s","KeyS",83], 4:["q","KeyQ",81], 5:["e","KeyE",69], 8:["Shift","ShiftLeft",16], 9:["Enter","Enter",13], 12:["ArrowUp","ArrowUp",38], 13:["ArrowDown","ArrowDown",40], 14:["ArrowLeft","ArrowLeft",37], 15:["ArrowRight","ArrowRight",39]};
+    const emuKey = (type, m) => { try{ const f = document.querySelector("#emuWin iframe"), d = f && f.contentDocument; if(!d) return; const ev = new f.contentWindow.KeyboardEvent(type, {key:m[0], code:m[1], keyCode:m[2], which:m[2], bubbles:true, cancelable:true}); (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(ev); }catch(e){} };
+    window.__padPress = (pi, i, on) => {
+      try{
+        if(inEmu()){ const m = EMUK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); return; }
+        const map = pi === 1 ? P2 : P1;
+        if(inGame()){ const m = map[i]; if(m) key(on ? "keydown" : "keyup", m[0], m[1]); return; }
+        if(!on || pi !== 0) return;
+        if(i >= 12 && i <= 15) nav({12:"u", 13:"d", 14:"l", 15:"r"}[i]);
+        else if(i === 0){ if(cur && document.contains(cur)) cur.click(); else nav("d"); }
+        else if(i === 1 || i === 8) back();
+        else if(i === 9){ if(window.__wheelAct) window.__wheelAct("toggle"); }
+        else if(i === 4 || i === 5){ if(window.__wheelAct) window.__wheelAct(i === 5 ? "next" : "prev"); }
+      }catch(e){}
+    };
     const showTag = () => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); tag.style.display = pads.length ? "block" : "none"; tag.textContent = "🎮 " + pads.length + (pads.length > 1 ? " comandos" : " comando"); };
     addEventListener("gamepadconnected", e => { showTag(); toast("🎮 Comando ligado: " + String(e.gamepad.id).replace(/\(.*?\)/g, "").trim().slice(0, 40)); setTimeout(() => tag.style.display = "none", 6000); try{ window.__dbgEv && window.__dbgEv(0, "comando de jogos ligado", {id:e.gamepad.id, mapa:e.gamepad.mapping}); }catch(x){} });
     addEventListener("gamepaddisconnected", () => { showTag(); toast("🎮 Comando desligado."); });
