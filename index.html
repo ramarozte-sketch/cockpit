@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v292";
+const APP_VERSION = "v293";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15520,7 +15520,7 @@ html.half #visKar .k1{font-size:19px}
       try{
         const st = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:true}});
         const c = S.ctx || (S.ctx = new AC()); c.resume().catch(() => {});
-        const an = mkAn(c); an.smoothingTimeConstant = 0.7; c.createMediaStreamSource(st).connect(an);
+        const an = mkAn(c); an.smoothingTimeConstant = 0.7; an.minDecibels = -105; an.maxDecibels = -35; c.createMediaStreamSource(st).connect(an);
         S.mic = {st, an}; S.hint = ""; return an;
       }catch(e){ S.hint = "Sem acesso ao microfone. Autoriza o microfone no browser do carro."; S.src = "auto"; paintBtns(); return null; }
     };
@@ -15536,9 +15536,17 @@ html.half #visKar .k1{font-size:19px}
         if(!an && S.corsBad.size){ if(S.mic) an = S.mic.an; else if(!S.autoMicTried){ S.autoMicTried = true; try{ navigator.permissions && navigator.permissions.query({name:"microphone"}).then(r => { if(r.state === "granted") tapMic(); }).catch(() => {}); }catch(e){} } } }
       else if(S.src === "mic") an = S.mic ? S.mic.an : null;
       let b, m, t, spec;
-      if(an){ an.getByteFrequencyData(S.data); an.getByteTimeDomainData(S.wave); const d = S.data, n = d.length;
+      if(an){ an.getByteFrequencyData(S.data); an.getByteTimeDomainData(S.wave);
+        /* v293: analisador «mudo» (o servidor da música não deixa ler o som: tudo zero) → depois de 2 s passa ao microfone ou ao ritmo simulado, em vez de ficar parado */
+        { let mx = 0; const dd = S.data; for(let i = 0; i < dd.length; i += 3) if(dd[i] > mx) mx = dd[i];
+          if(mx === 0 && an !== (S.mic && S.mic.an)){ S.zero = (S.zero || 0) + 1; if(S.zero > 120){ S.deadHint = true; if(S.mic){ an = S.mic.an; an.getByteFrequencyData(S.data); an.getByteTimeDomainData(S.wave); } else { if(!S.autoMicTried){ S.autoMicTried = true; try{ navigator.permissions && navigator.permissions.query({name:"microphone"}).then(r => { if(r.state === "granted") tapMic(); }).catch(() => {}); }catch(e){} } an = null; } } }
+          else if(mx > 0) S.zero = 0; }
+      }
+      if(an){ const d = S.data, n = d.length;
         const avg = (a, z) => { let s = 0; for(let i = a; i < z; i++) s += d[i]; return s / (z - a) / 255; };
         b = avg(1, 8); m = avg(8, 60); t = avg(60, 200); spec = d;
+        /* v293: o microfone apanha as colunas baixinho (e o carro tira-lhe o som que ele próprio toca): ganho automático para a batida ser detetada na mesma */
+        if(S.mic && an === S.mic.an){ S.pk = Math.max((S.pk || 0.05) * 0.997, b, m, t); const k = Math.min(6, 0.45 / Math.max(S.pk, 0.04)); b = Math.min(1, b * k); m = Math.min(1, m * k); t = Math.min(1, t * k); }
       } else {   /* ritmo simulado: 118 batidas por minuto, para nunca ficar parado */
         const ph = (now / 1000) * (118 / 60), k = ph % 1; b = Math.max(0, 1 - k * 2.6) * 0.85 + 0.12; m = 0.35 + 0.25 * Math.sin(ph * Math.PI); t = 0.25 + 0.2 * Math.sin(ph * 4.1);
         spec = null; if(!S.fake) S.fake = new Uint8Array(512); for(let i = 0; i < 512; i++){ const f = i / 512; S.fake[i] = 255 * Math.max(0, (b * (1 - f) * 0.9 + m * Math.sin(f * 9 + ph) * 0.3 + t * f * 0.4) * (0.75 + 0.25 * Math.sin(i * 0.7 + now / 300))); } spec = S.fake;
@@ -15808,6 +15816,8 @@ html.half #visKar .k1{font-size:19px}
 #wampPanel form{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #wampPanel form input{flex:1 1 100%;min-width:0;width:100%;min-height:52px;background:#000;color:#3cff5a;border:2px inset #444;border-radius:8px;padding:0 12px;font:600 17px/1 "Courier New",monospace}
 #wampPanel form select{flex:1 1 auto}
+/* v293: as opções das listas (fonte da música, etc.) ficavam com letra branca sobre fundo claro: invisíveis */
+select option,select optgroup{background:#fff;color:#111}
 #wampPanel form select,#wampPanel form button{min-height:52px;border-radius:8px;border:1px solid #6b7083;background:linear-gradient(#5a5f70,#3b3f4c);color:#fff;font:700 15px/1 system-ui,sans-serif;padding:0 12px}
 #wampPl{margin-top:10px;background:#000;border:2px inset #444;border-radius:6px;max-height:340px;overflow-y:auto;font-family:"Courier New",monospace}
 #wampPl button{display:flex;gap:10px;align-items:center;width:100%;min-height:52px;padding:6px 10px;border:0;border-bottom:1px solid #0f2a14;background:transparent;color:#3cff5a;text-align:left;font:600 16px/1.2 "Courier New",monospace;cursor:pointer}
