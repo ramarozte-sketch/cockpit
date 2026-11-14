@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v285";
+const APP_VERSION = "v286";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3301,6 +3301,8 @@ function playChannel(c, slot=tvTarget, auto=false){
     const mk = () => {
       const h = new Hls({
         fLoader: makeCapLoader(slot),
+        /* v286: no direto, as atualizações da lista voltam a pedir-se ao endereço original (o hls.js passava a usar o IP do redirecionamento e esses pedidos falhavam ao fim de ~30 s: status 0 e depois 509) */
+        ...(live && !viaProxy ? {pLoader: class extends Hls.DefaultConfig.loader { load(context, config, callbacks){ try{ const o = window.__plOrig && window.__plOrig[slot]; if(o && context && (context.type === "level" || context.type === "manifest") && /^https?:\/\/\d{1,3}(\.\d{1,3}){3}(:\d+)?\//i.test(context.url) && /^https?:\/\/[^\/\d]/i.test(o)){ try{ window.__dbgEv && !window.__plOrigLog && (window.__plOrigLog = 1, window.__dbgEv(slot, "lista: pedido ao endereço original", {de:String(context.url).replace(/\/live\/[^\/]+\/[^\/]+\//, "/live/•••/•••/")})); }catch(e){} context.url = o; } }catch(e){} super.load(context, config, callbacks); } }} : {}),
         enableWorker:true, lowLatencyMode:false, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true,
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
         ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
@@ -3329,7 +3331,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       /* v209: no Tesla, em direto, o fornecedor recusa a ligação nova se a do canal anterior ainda está aberta (erros de rede e arranques de 12 s logo a seguir a trocar de canal): espera até 600 ms desde o último fecho */
       try{ if(window.__TESLA && !Hls.__killMark){ Hls.__killMark = true; const od = Hls.prototype.destroy; Hls.prototype.destroy = function(){ window.__hlsKillAt = Date.now(); return od.apply(this, arguments); }; } }catch(e){}
       const gap = window.__TESLA && live ? 600 - (Date.now() - (window.__hlsKillAt || 0)) : 0;
-      const go = () => { h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); };
+      const go = () => { try{ window.__plOrig = window.__plOrig || {}; window.__plOrig[slot] = direct || (cfg.directMode ? directUrl(c.url) : c.url); window.__plOrigLog = 0; }catch(e){} h.loadSource(direct || (cfg.directMode ? directUrl(c.url) : via2 && cfg.proxy2 ? px2(c.url, ref, c.free) : viaProxy ? px(c.url, ref, c.free) : c.url)); h.attachMedia(v); };
       if(gap > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gap)}); }catch(e){} setTimeout(() => { if(playId !== playSeq[slot] || hlsInst[slot] !== h) return; try{ go(); }catch(e){} }, gap); } else go();
       hlsInst[slot]=h; return h;
     };
