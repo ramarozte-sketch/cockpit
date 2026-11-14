@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v293";
+const APP_VERSION = "v294";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -11260,6 +11260,7 @@ function trkSetSub(slot, it){
 /* Quando o vídeo traz legendas em português (e o áudio não é português), liga-as sozinho, uma vez por vídeo. */
 function trkAuto(slot){
   if(cfg.subAuto === false || TRK.autoDone[slot]) return;
+  if(typeof lastPlayed !== "undefined" && isPtTitle(lastPlayed[slot])){ TRK.autoDone[slot] = true; return; }
   const h = hlsInst[slot]; if(!h || !h.subtitleTracks || !h.subtitleTracks.length) return;
   const idx = h.subtitleTracks.findIndex(t => trkIsPt(t.lang) || trkIsPt(t.name));
   if(idx < 0) return;
@@ -11406,6 +11407,7 @@ async function osApply(r, slot, silent){
   const left = j.remaining != null ? ` Restam ${j.remaining} downloads hoje.` : "";
   toast("Legendas em português ativadas ✓" + (silent ? "" : left)); if(!$("trkDlg").hidden){ trkRender(); $("osNote").textContent = "Legendas ativadas." + left; }
 }
+const isPtTitle = c => !!c && /(^|[^A-Za-z0-9])PT(?![A-Za-z0-9]|[-_ ]?BR)|portug/i.test((c.name || "") + " " + (c.group || ""));
 function osHasPt(slot){ const h = hlsInst[slot]; return !!TRK.ext[slot] || !!(h && h.subtitleTracks && h.subtitleTracks.some(t => trkIsPt(t.lang) || trkIsPt(t.name))); }
 async function osAutoFor(slot, c, silent){
   if(!c) return toast("Escolhe primeiro um filme ou episódio.", true);
@@ -11429,6 +11431,8 @@ $("osAuto").onclick = async () => { $("osNote").textContent = "A procurar a melh
 /* Filmes e episódios sem legendas em português: procura sozinho, uma vez por título. */
 function osAutoPlay(slot, c){
   if(!cfg.osAuto || !cfg.osKey || !c || c.kind === "live" || OS.tried.has(c.url)) return;
+  /* v294: filme/série em português (título ou grupo com PT / Portugal): sem legendas automáticas */
+  if(isPtTitle(c)) return;
   setTimeout(async () => {
     if(lastPlayed[slot] !== c || osHasPt(slot)) return; OS.tried.add(c.url);
     try{ await osAutoFor(slot, c, true); }catch(x){ toast("Legendas automáticas: " + x.message, true); }
