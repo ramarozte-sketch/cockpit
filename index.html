@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v289";
+const APP_VERSION = "v290";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16773,11 +16773,7 @@ html.nightUi #ambient{filter:brightness(.75)}
 <script>
 (function(){
   if(window.ANDROID) return;
-  if(!navigator.getGamepads){   /* v287: o browser só dá a API dos comandos em páginas https; em http (cockpit.page.gd) não há comandos */
-    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard"; c.innerHTML = '<h2>Comando de jogos</h2><p class="small muted setsub" style="margin:0">Este browser não deixa a página ler comandos de jogos' + (location.protocol === "http:" ? ' porque está aberta por <b>http</b> (os browsers só dão acesso a comandos em páginas https). Abre o Cockpit por <b>https://ramarozte-sketch.github.io/cockpit/</b> para usar o comando; nesse endereço a TV pode precisar do proxy.' : '.') + '</p>'; st.appendChild(c); }catch(e){} }, 0);
-    try{ window.__dbgEv && window.__dbgEv(0, "comandos de jogos indisponíveis", {protocolo:location.protocol, seguro:window.isSecureContext}); }catch(e){}
-    return;
-  }
+  if(!navigator.getGamepads) return;
   try{
     const tag = document.createElement("div"); tag.id = "gpTag"; document.body.appendChild(tag);
     /* botões do comando normal (Xbox / PlayStation / 8BitDo) → teclas que os jogos do Cockpit já usam */
@@ -16832,52 +16828,9 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(any && cur && (inGame() || inEmu())){ cur.classList.remove("gpFocus"); cur = null; }
     };
     requestAnimationFrame(loop);
-    /* v288: regista no log se o comando aparece (mesmo sem o evento «gamepadconnected») e se chega como teclado */
-    try{ let seen = 0; setInterval(() => { try{ const n = [...(navigator.getGamepads() || [])].filter(Boolean).length; if(n && !seen){ seen = 1; window.__gpSeen = "visto em " + new Date().toISOString().slice(11, 19); window.__dbgEv && window.__dbgEv(0, "comando visto por polling", {n}); } if(!n) seen = 0; }catch(e){} }, 1000);
-      let nk = 0; addEventListener("keydown", e => { try{ if(nk++ < 12 && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || "")) window.__dbgEv && window.__dbgEv(0, "tecla", {key:e.key, code:e.code}); }catch(x){} }, true); }catch(e){}
     const showTag = () => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); tag.style.display = pads.length ? "block" : "none"; tag.textContent = "🎮 " + pads.length + (pads.length > 1 ? " comandos" : " comando"); };
     addEventListener("gamepadconnected", e => { showTag(); toast("🎮 Comando ligado: " + String(e.gamepad.id).replace(/\(.*?\)/g, "").trim().slice(0, 40)); setTimeout(() => tag.style.display = "none", 6000); try{ window.__dbgEv && window.__dbgEv(0, "comando de jogos ligado", {id:e.gamepad.id, mapa:e.gamepad.mapping}); }catch(x){} });
     addEventListener("gamepaddisconnected", () => { showTag(); toast("🎮 Comando desligado."); });
-
-    /* v289: o Tesla não dá o comando à API normal; tenta ligar por WebHID / WebUSB (botão nas Definições) e regista no log o que o carro mostra */
-    setTimeout(() => { try{
-      const st = document.getElementById("v-settings"); if(!st || document.getElementById("gpHid")) return;
-      const c = document.createElement("div"); c.className = "panel setcard"; c.id = "gpHid";
-      c.innerHTML = '<h2>Comando por cabo (USB)</h2><p class="small muted setsub" style="margin:0">Se o comando não aparece em cima, tenta ligá-lo diretamente: carrega num botão, escolhe o comando na lista e carrega nos botões dele.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn" id="gpHidBtn">🎮 Ligar comando (HID)</button><button class="btn" id="gpUsbBtn">🔌 Ver dispositivos USB</button></div><pre id="gpHidOut" class="small" style="white-space:pre-wrap;margin:8px 0 0;max-height:180px;overflow:auto"></pre>';
-      st.appendChild(c);
-      const out = t => { const o = document.getElementById("gpHidOut"); if(o){ o.textContent = (t + "\n" + o.textContent).slice(0, 2500); } };
-      const dbg = (e, o) => { try{ window.__dbgEv && window.__dbgEv(0, e, o); }catch(x){} };
-      const hex = u8 => [...u8].map(b => b.toString(16).padStart(2, "0")).join(" ");
-      const hold = {};
-      const attach = async d => {
-        try{ if(!d.opened) await d.open(); }catch(e){ out("Erro ao abrir: " + e.message); dbg("HID erro ao abrir", {erro:String(e.message || e)}); return; }
-        const info = {nome:d.productName, vid:d.vendorId, pid:d.productId, colecoes:(d.collections || []).map(k => ({pagina:k.usagePage, uso:k.usage, entradas:(k.inputReports || []).length}))};
-        out("Ligado: " + d.productName + " (" + d.vendorId.toString(16) + ":" + d.productId.toString(16) + ")"); dbg("HID ligado", info);
-        let n = 0, prevB = null;
-        d.addEventListener("inputreport", ev => { try{ const u8 = new Uint8Array(ev.data.buffer, ev.data.byteOffset, ev.data.byteLength), id = ev.reportId;
-          if(n++ < 25){ dbg("HID relatório", {id, bytes:hex(u8.slice(0, 20))}); }
-          const key = id + ":" + hex(u8); if(key !== prevB){ prevB = key; out("rel " + id + ": " + hex(u8.slice(0, 14))); } }catch(e){} });
-      };
-      document.getElementById("gpHidBtn").onclick = async () => {
-        if(!navigator.hid){ out("Este browser não tem WebHID."); dbg("HID indisponível", {}); return; }
-        try{ const have = await navigator.hid.getDevices(); dbg("HID já autorizados", {n:have.length, lista:have.map(d => d.productName)});
-          const sel = await navigator.hid.requestDevice({filters:[{usagePage:1, usage:5}, {usagePage:1, usage:4}, {usagePage:1, usage:6}]});
-          dbg("HID escolhidos", {n:sel.length, lista:sel.map(d => d.productName + " " + d.vendorId.toString(16) + ":" + d.productId.toString(16))});
-          if(!sel.length) out("Nenhum comando HID escolhido (a lista pode estar vazia: o carro não o mostra por HID)."); for(const d of sel) await attach(d);
-        }catch(e){ out("Erro: " + (e.name || "") + " " + (e.message || e)); dbg("HID erro", {erro:String(e.name || "") + " " + String(e.message || e)}); } };
-      document.getElementById("gpUsbBtn").onclick = async () => {
-        if(!navigator.usb){ out("Este browser não tem WebUSB."); dbg("USB indisponível", {}); return; }
-        try{ const have = await navigator.usb.getDevices(); dbg("USB já autorizados", {n:have.length, lista:have.map(d => d.productName)});
-          const d = await navigator.usb.requestDevice({filters:[]});
-          const info = {nome:d.productName, fabricante:d.manufacturerName, vid:d.vendorId, pid:d.productId, classe:d.deviceClass, interfaces:(((d.configurations || [])[0] || {}).interfaces || []).map(i => (i.alternates || []).map(a => a.interfaceClass + "/" + a.interfaceSubclass + "/" + a.interfaceProtocol).join(","))};
-          out("USB: " + JSON.stringify(info)); dbg("USB escolhido", info);
-        }catch(e){ out("Erro: " + (e.name || "") + " " + (e.message || e)); dbg("USB erro", {erro:String(e.name || "") + " " + String(e.message || e)}); } };
-    }catch(e){ console.log("comando HID", e); } }, 200);
-
-    /* Definições: teste do comando */
-    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard";
-      c.innerHTML = '<h2>Comando de jogos</h2><p class="small muted setsub" style="margin:0">Liga um comando por USB ou Bluetooth e carrega num botão. Nos jogos do Cockpit: direções = setas, A = espaço, B/Start = Enter, X = X. Nos emuladores o comando funciona diretamente. Fora dos jogos: direções mudam a seleção, A carrega, B volta, LB/RB mudam de canal.</p><p class="small" id="gpWho" style="margin:8px 0 0">Nenhum comando detetado (carrega num botão do comando).</p><div id="gpTest">' + NAMES.map(n => "<span>" + n + "</span>").join("") + '</div>';
-      st.appendChild(c); setInterval(() => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); const w = document.getElementById("gpWho"); if(w) w.textContent = pads.length ? pads.map((p, i) => (i + 1) + ". " + p.id + (p.mapping === "standard" ? "" : " (mapa não padrão)")).join(" · ") : "Nenhum comando detetado (carrega num botão do comando)."; }, 1000); }catch(e){} }, 1600);
   }catch(e){ console.log("comando de jogos", e); }
 })();
 </script>
