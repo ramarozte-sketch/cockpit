@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v287";
+const APP_VERSION = "v288";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14124,7 +14124,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const report = async () => {
     let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, mbps:n.downlink, rtt:n.rtt}; }catch(e){}
     const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
-      ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
+      ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
       opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
       conta:await account(), bw:+LS.get("bwEst", 0) || 0};
@@ -16832,6 +16832,9 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(any && cur && (inGame() || inEmu())){ cur.classList.remove("gpFocus"); cur = null; }
     };
     requestAnimationFrame(loop);
+    /* v288: regista no log se o comando aparece (mesmo sem o evento «gamepadconnected») e se chega como teclado */
+    try{ let seen = 0; setInterval(() => { try{ const n = [...(navigator.getGamepads() || [])].filter(Boolean).length; if(n && !seen){ seen = 1; window.__gpSeen = "visto em " + new Date().toISOString().slice(11, 19); window.__dbgEv && window.__dbgEv(0, "comando visto por polling", {n}); } if(!n) seen = 0; }catch(e){} }, 1000);
+      let nk = 0; addEventListener("keydown", e => { try{ if(nk++ < 12 && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || "")) window.__dbgEv && window.__dbgEv(0, "tecla", {key:e.key, code:e.code}); }catch(x){} }, true); }catch(e){}
     const showTag = () => { const pads = [...(navigator.getGamepads() || [])].filter(Boolean); tag.style.display = pads.length ? "block" : "none"; tag.textContent = "🎮 " + pads.length + (pads.length > 1 ? " comandos" : " comando"); };
     addEventListener("gamepadconnected", e => { showTag(); toast("🎮 Comando ligado: " + String(e.gamepad.id).replace(/\(.*?\)/g, "").trim().slice(0, 40)); setTimeout(() => tag.style.display = "none", 6000); try{ window.__dbgEv && window.__dbgEv(0, "comando de jogos ligado", {id:e.gamepad.id, mapa:e.gamepad.mapping}); }catch(x){} });
     addEventListener("gamepaddisconnected", () => { showTag(); toast("🎮 Comando desligado."); });
