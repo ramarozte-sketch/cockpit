@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v286";
+const APP_VERSION = "v287";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15085,13 +15085,22 @@ window.__sa = {
       const a = new Audio(URL.createObjectURL(new Blob([b], {type:"audio/wav"}))); a.loop = true; a._noAmp = true; a.preload = "auto"; a.setAttribute("data-keepalive", "1"); return a; };
     const on = () => (typeof cfg === "undefined" || cfg.keepAudio !== false);
     const others = () => media().some(e => !e.paused && !e.ended && e.readyState >= 2);
-    const start = () => { if(!on()) return; if(!KA.el) KA.el = mk(); KA.last = Date.now(); if(KA.el.paused) KA.el.play().then(() => { try{ if(navigator.mediaSession){ navigator.mediaSession.playbackState = "playing"; } }catch(x){} }).catch(() => {}); };
+    const vis = () => document.visibilityState !== "hidden";
+    const start = () => { if(!on()) return; if(!KA.el){ KA.el = mk();
+        /* v287: se o carro/sistema pausar o som de manutenção com o Cockpit à vista, volta a ligá-lo logo (senão o carro volta ao rádio) */
+        KA.el.addEventListener("pause", () => { setTimeout(() => { try{ if(on() && vis() && KA.el.paused && !KA.off) start(); }catch(x){} }, 250); }); }
+      KA.last = Date.now(); KA.off = false;
+      if(KA.el.paused) KA.el.play().then(() => { try{ if(navigator.mediaSession){ navigator.mediaSession.playbackState = "playing"; if(!navigator.mediaSession.metadata && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({title:"Cockpit", artist:"Cockpit"}); } }catch(x){} }).catch(() => {}); };
     document.addEventListener("playing", e => { if(e.target instanceof HTMLMediaElement && !e.target._noAmp) start(); }, true);
+    /* v287: o Cockpit passa a ser a fonte de som logo ao primeiro toque, sem esperar por um vídeo (antes o rádio podia ligar enquanto se navegava nos menus) */
+    ["pointerdown", "touchstart", "keydown", "click"].forEach(t => document.addEventListener(t, () => { if(!KA.el || KA.el.paused) start(); }, {capture:true, passive:true}));
+    document.addEventListener("visibilitychange", () => { if(vis()) start(); });
     setInterval(() => {
-      if(!KA.el || KA.el.paused) return;
-      if(!on()){ KA.el.pause(); return; }
+      if(!on()){ if(KA.el && !KA.el.paused){ KA.off = true; KA.el.pause(); } return; }
+      if(!KA.el) return;
+      if(KA.el.paused){ if(vis() && !KA.off && KA.el.readyState >= 0) start(); return; }
       if(others()) KA.last = Date.now();
-      else if(Date.now() - KA.last > 30000){ KA.el.pause(); }   /* 30 s sem nada a tocar: larga o som e o carro pode voltar ao rádio */
+      else if(!vis() && Date.now() - KA.last > 30000){ KA.off = true; KA.el.pause(); }   /* só larga o som se o Cockpit estiver escondido há mais de 30 s; com o Cockpit à vista mantém-no sempre */
     }, 2000);
     window.__keepAlive = KA;
   }
@@ -16763,7 +16772,12 @@ html.nightUi #ambient{filter:brightness(.75)}
 </style>
 <script>
 (function(){
-  if(window.ANDROID || !navigator.getGamepads) return;
+  if(window.ANDROID) return;
+  if(!navigator.getGamepads){   /* v287: o browser só dá a API dos comandos em páginas https; em http (cockpit.page.gd) não há comandos */
+    setTimeout(() => { try{ const st = document.getElementById("v-settings"); if(!st) return; const c = document.createElement("div"); c.className = "panel setcard"; c.innerHTML = '<h2>Comando de jogos</h2><p class="small muted setsub" style="margin:0">Este browser não deixa a página ler comandos de jogos' + (location.protocol === "http:" ? ' porque está aberta por <b>http</b> (os browsers só dão acesso a comandos em páginas https). Abre o Cockpit por <b>https://ramarozte-sketch.github.io/cockpit/</b> para usar o comando; nesse endereço a TV pode precisar do proxy.' : '.') + '</p>'; st.appendChild(c); }catch(e){} }, 0);
+    try{ window.__dbgEv && window.__dbgEv(0, "comandos de jogos indisponíveis", {protocolo:location.protocol, seguro:window.isSecureContext}); }catch(e){}
+    return;
+  }
   try{
     const tag = document.createElement("div"); tag.id = "gpTag"; document.body.appendChild(tag);
     /* botões do comando normal (Xbox / PlayStation / 8BitDo) → teclas que os jogos do Cockpit já usam */
