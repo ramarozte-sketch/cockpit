@@ -2859,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v311";
+const APP_VERSION = "v312";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3821,7 +3821,9 @@ class SoftVideoDecoder {
   _mkWorker(cfg){
     const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:SVD_EP += 1000, fps:0, fr:0, ms:0};
     /* ?v= obriga o browser/alojamento a ir buscar o descodificador desta versão (um h264soft.js antigo em cache não sabe trabalhar em paralelo) */
-    W.w = SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION);
+    /* v312: com o motor WebCodecs (Definições) usa wcdec.js; por defeito mantém-se o h264soft.js e a reserva como antes */
+    W.wc = !this.hevc && !!(window.__wcOn && window.__wcOn());
+    W.w = W.wc ? new Worker("wcdec.js?v=" + APP_VERSION) : (SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION));
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
@@ -3956,7 +3958,7 @@ class SoftVideoDecoder {
     this.state = "closed"; this.pending = []; this.owner = null;
     /* o Worker volta para a reserva (até 3) já com o FFmpeg carregado; os restantes terminam */
     for(const W of this.W){ try{ W.w.onmessage = null; W.w.onerror = null;
-        if(!this.legacy && SVD_POOL.length < 3){ W.w.postMessage({cmd:"flush", ep:++SVD_EP}); SVD_POOL.push(W.w); } else W.w.terminate(); }catch(e){} }
+        if(!W.wc && !this.legacy && SVD_POOL.length < 3){ W.w.postMessage({cmd:"flush", ep:++SVD_EP}); SVD_POOL.push(W.w); } else W.w.terminate(); }catch(e){} }
     this.W = [];
   }
 }
@@ -15027,6 +15029,7 @@ window.__sa = {
     }catch(e){}
   };
   const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
+  window.__wcOn = () => !!(window.VideoDecoder && cfg && cfg.decodeMode === "webcodecs");
   bind("setUiScale", e => { cfg.uiScale = +e.target.value || 100; saveCfg(); applyScale(); });
   bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
   bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
