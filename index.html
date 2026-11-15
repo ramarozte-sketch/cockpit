@@ -1008,6 +1008,10 @@ body.layout-atv .rail{display:none}
     <!-- ENERGIA -->
     <section class="view" id="v-energy" hidden>
       <div class="row"><h1>Energia</h1><span class="spacer"></span><button class="btn" id="enStats">📊 Estatísticas</button><button class="btn" id="enRefresh">Atualizar</button></div>
+      <div class="panel" id="maintPanel">
+        <h2>🔧 Manutenção</h2>
+        <div id="maintBody" class="small muted"></div>
+      </div>
       <div class="panel" id="tsHead">
         <div class="row"><h2 id="tsName" style="margin:0">Tesla</h2><span class="spacer"></span><span class="small muted" id="tsUpd"></span></div>
         <div class="banner" id="tsAlert" hidden></div>
@@ -1056,7 +1060,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Ajuste único: define os amperes de carga para o excedente de agora. Se a app SolarCharge estiver a correr, ela continua a ajustar sozinha e vai sobrepor-se.</p>
         </div>
       </div>
-      <div class="panel">
+      <div class="panel solarPanel">
         <div class="row"><h2>Previsão solar</h2><span class="spacer"></span><span class="small muted">Open-Meteo</span></div>
         <div class="banner" id="fcSetup" hidden>Para a previsão, põe a potência instalada (kWp) e a localização da casa em Definições › Energia.</div>
         <div id="fcBody" hidden>
@@ -1562,6 +1566,15 @@ body.layout-atv .rail{display:none}
         <div class="row" id="donateAmts"><button class="btn" data-amt="2">2 €</button><button class="btn" data-amt="5">5 €</button><button class="btn primary" data-amt="10">10 €</button><button class="btn" data-amt="20">20 €</button></div>
         <div class="row" id="donateOther"><input type="text" id="donOther" inputmode="decimal" placeholder="Outro valor (€)" autocomplete="off" style="flex:2;min-height:48px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn primary" id="donOtherGo" style="flex:1">Doar</button></div>
       </div>
+      <div class="panel setcard">
+          <h2>Manutenção</h2>
+          <p class="small muted setsub" style="margin:0">Os avisos aparecem no separador Energia quando a revisão ou os pneus estiverem perto do prazo.</p>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Última revisão (data)<input type="date" id="setSvDate"></label><label class="f" style="flex:1">Km na última revisão<input type="text" id="setSvKm" inputmode="numeric" placeholder="ex.: 45000"></label></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Revisão de X em X km<input type="text" id="setSvEvery" inputmode="numeric" placeholder="25000"></label><label class="f" style="flex:1">Ou de X em X meses<input type="text" id="setSvMonths" inputmode="numeric" placeholder="12"></label></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Pneus montados (data)<input type="date" id="setTyDate"></label><label class="f" style="flex:1">Km na montagem<input type="text" id="setTyKm" inputmode="numeric" placeholder="ex.: 30000"></label></div>
+          <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Trocar os pneus ao fim de X km<input type="text" id="setTyEvery" inputmode="numeric" placeholder="50000"></label><label class="f" style="flex:1">Ou ao fim de X meses<input type="text" id="setTyMonths" inputmode="numeric" placeholder="48"></label></div>
+          <div class="row"><button class="btn primary" id="btnSaveMaint">Guardar manutenção</button></div>
+        </div>
       <h3 class="setgrp">Aparência</h3>
       <div class="setcards">
       <div class="panel setcard">
@@ -2832,7 +2845,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v305";
+const APP_VERSION = "v306";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5806,6 +5819,7 @@ function renderTeslaHead(){
   D("tsTyres", tp.length ? tp.map(x => x.toFixed(1)).join(" · ") : "--");
   const od = num(vs.odometer, NaN); D("enOdo", isFinite(od) ? Math.round(od*MI).toLocaleString("pt-PT") + " km" : "--");
   const sw = vs.software_update || {}, ver = String(vs.car_version || "").split(" ")[0];
+  renderMaint();
   D("tsSw", sw.status && sw.status !== "" ? "Atualização: " + sw.status : (ver || "--"));
   // avisos importantes
   const al = [];
@@ -12234,23 +12248,42 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   renderCineEpg();
 })();
 
-/* v304: donativos (valores predefinidos e «outro valor») e mostrar/ocultar a produção solar */
-const DONATE_URL = "https://www.paypal.com/paypalme/ruivascoamaro";
+/* v306: manutenção (revisão e pneus) com aviso perto do prazo */
+function renderMaint(){
+  const el = document.getElementById("maintBody"); if(!el) return;
+  const m = LS.get("maint", {}) || {};
+  const odo = car && car.vehicle_state && isFinite(+car.vehicle_state.odometer) ? +car.vehicle_state.odometer * MI : NaN;
+  const lines = [], warn = [];
+  const monthsSince = d => { const t = Date.parse(d); return isFinite(t) ? (Date.now() - t) / (30.44 * 864e5) : NaN; };
+  if(m.svDate || m.svKm){
+    const every = +m.svEvery || 25000, everyM = +m.svMonths || 12;
+    const dueKm = (+m.svKm || 0) + every, left = dueKm - odo;
+    const age = monthsSince(m.svDate), leftM = everyM - age;
+    let t = "Revisão: próxima aos " + Math.round(dueKm).toLocaleString("pt-PT") + " km";
+    if(isFinite(odo)) t += " (faltam " + Math.round(left).toLocaleString("pt-PT") + " km)";
+    if(isFinite(leftM)) t += " ou em " + Math.max(0, Math.round(leftM)) + " meses";
+    lines.push(t);
+    if((isFinite(left) && left <= 1000) || (isFinite(leftM) && leftM <= 1)) warn.push("🔧 A revisão está perto do prazo.");
+  }
+  if(m.tyDate || m.tyKm){
+    const eKm = +m.tyEvery || 50000, eM = +m.tyMonths || 48;
+    const usedKm = isFinite(odo) && +m.tyKm ? odo - (+m.tyKm) : NaN, leftKm = eKm - usedKm;
+    const age = monthsSince(m.tyDate), leftM = eM - age;
+    let t = "Pneus: trocar ao fim de " + eKm.toLocaleString("pt-PT") + " km ou " + eM + " meses";
+    if(isFinite(usedKm)) t += " · já andaram " + Math.round(usedKm).toLocaleString("pt-PT") + " km";
+    lines.push(t);
+    if((isFinite(leftKm) && leftKm <= 1000) || (isFinite(leftM) && leftM <= 2)) warn.push("🛞 Os pneus estão perto da troca.");
+  }
+  el.innerHTML = (warn.length ? warn.map(w => '<div class="banner" style="margin:6px 0">' + w + '</div>').join("") : "") +
+    (lines.length ? lines.map(x => '<p style="margin:4px 0">' + x + '</p>').join("") : "Sem dados. Põe as datas e os km em Definições › Manutenção.");
+}
 (function(){
-  const donate = amt => { const url = DONATE_URL + "/" + amt + "EUR";
-    try{ const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }catch(err){}
-    setTimeout(() => { if(!document.hidden) toast("Se o PayPal não abriu, copia o endereço: " + url); }, 1200); };
-  const box = document.getElementById("donateAmts");
-  if(box) box.addEventListener("click", e => { const b = e.target.closest("[data-amt]"); if(b) donate(b.dataset.amt); });
-  const go = document.getElementById("donOtherGo");
-  if(go) go.onclick = () => { const v = Math.round(Number(String(document.getElementById("donOther").value).trim().replace(",", ".")) * 100) / 100;
-    if(!isFinite(v) || v < 1 || v > 1000){ toast("Escreve um valor entre 1 e 1000 €."); return; } donate(v); };
-  /* produção solar: mostrar ou ocultar (guardado neste aparelho) */
-  const applySolar = on => document.querySelectorAll(".solarPanel").forEach(el => el.hidden = !on);
-  const cb = document.getElementById("setShowSolar");
-  const on0 = LS.get("showSolar", true) !== false;
-  if(cb){ cb.checked = on0; cb.onchange = () => { LS.set("showSolar", cb.checked); applySolar(cb.checked); }; }
-  applySolar(on0);
+  const MF = {svDate:"setSvDate", svKm:"setSvKm", svEvery:"setSvEvery", svMonths:"setSvMonths", tyDate:"setTyDate", tyKm:"setTyKm", tyEvery:"setTyEvery", tyMonths:"setTyMonths"};
+  const m = LS.get("maint", {}) || {};
+  Object.keys(MF).forEach(k => { const e = document.getElementById(MF[k]); if(e) e.value = m[k] || ""; });
+  const b = document.getElementById("btnSaveMaint");
+  if(b) b.onclick = () => { const o = {}; Object.keys(MF).forEach(k => { const e = document.getElementById(MF[k]); if(e) o[k] = e.value.trim(); }); LS.set("maint", o); renderMaint(); toast("Manutenção guardada"); };
+  renderMaint();
 })();
 </script>
 <style>
