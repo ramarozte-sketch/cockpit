@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v298";
+const APP_VERSION = "v299";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -9842,14 +9842,14 @@ function gameKart(st){
           if(r.ai && !r.fin){ const gap = me.prog - r.prog; r.rb = gap > 40 ? 1.1 : gap < -60 ? .9 : 1; r.useT -= dt; if(r.item && r.useT <= 0){ useItem(r); r.useT = 2 + Math.random()*5; } if(Math.random() < dt*.2) r.lane = (Math.random() - .5)*10; } }
         else { const man = (K.ArrowLeft || B.l || held < 0 ? -1 : 0) + (K.ArrowRight || B.r || held > 0 ? 1 : 0); /* ajuda à direção: sem toque o kart segue suavemente a pista */ steer = man || (kAssist ? steer*.55 : 0); drift = !!(B.d || K.ShiftLeft || K.Space) && Math.abs(steer) > 0 && r.spd > 15; }
         if(r.spin > 0){ r.spin -= dt; r.m.rotation.y += dt*14; r.spd *= (1 - 2*dt); }
-        else { const lat = PTS[r.idx].clone().sub(r.pos), off = Math.abs(lat.dot(NRM[r.idx])) > HW; const top = (off ? .55 : 1)*MAX*(r.rb || 1);
+        else { const lat = PTS[r.idx].clone().sub(r.pos), off = Math.abs(lat.dot(NRM[r.idx])) > HW; const top = (off ? .8 : 1)*MAX*(r.rb || 1);
           r.spd += (top - r.spd)*Math.min(1, dt*(r.boost > 0 ? 3 : 1.1));
           const tr = (drift ? 2.3 : 1.6)*Math.min(1, r.spd/18); r.head -= steer*tr*dt;
           if(drift){ r.drift = 1; r.dch = Math.min(1.5, r.dch + dt); } else if(r.drift){ r.drift = 0; if(r.dch > .6){ r.boost = r.dch > 1.2 ? 1.3 : .8; if(r === me) GX.tone(500, .3, "sawtooth", .1, 1000); } r.dch = 0; }
           r.boost = Math.max(0, r.boost - dt); r.shield = Math.max(0, r.shield - dt); }
         fwd.set(Math.sin(r.head), 0, Math.cos(r.head)); r.pos.addScaledVector(fwd, r.spd*dt);
         /* paredes (fora da pista demasiado) */
-        r.idx = nearestIdx(r); const p = PTS[r.idx], ln = r.pos.clone().sub(p).dot(NRM[r.idx]); if(Math.abs(ln) > HW + 6){ r.pos.addScaledVector(NRM[r.idx], (Math.sign(ln)*(HW + 6) - ln)); r.spd *= .6; }
+        r.idx = nearestIdx(r); const p = PTS[r.idx], ln = r.pos.clone().sub(p).dot(NRM[r.idx]); if(Math.abs(ln) > HW + 6){ r.pos.addScaledVector(NRM[r.idx], (Math.sign(ln)*(HW + 6) - ln)); r.spd *= .85; }
         /* volta e progresso */
         const prevProg = r.prog; let lp = r.lap; const pr = lp*N + r.idx; if(pr - prevProg < -N/2) { r.lap++; } else if(pr - prevProg > N/2 && r.lap > 0) r.lap--;
         r.prog = r.lap*N + r.idx; 
@@ -16619,7 +16619,7 @@ html.nightUi #ambient{filter:brightness(.75)}
           "#rpAbxy{display:grid;grid-template:repeat(3,19vmin)/repeat(3,19vmin);gap:1px}#rpAbxy button{border-radius:50%;font-size:24px}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
-        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
+        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpFull">⛶ Ecrã</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
           '<div class="ctl"><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
@@ -16641,6 +16641,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         S.addEventListener("pointermove", e => { if(e.pointerId === sid) stick(e); });
         ["pointerup", "pointercancel"].forEach(t => S.addEventListener(t, e => { if(e.pointerId !== sid) return; sid = null; K.style.transform = ""; [12, 13, 14, 15].forEach(b => press(b, false)); }));
         let mode = 0; document.getElementById("rpMode").onclick = () => { releaseAll(); mode = 1 - mode; document.getElementById("rpMode").textContent = mode ? "Joystick" : "Cruzeta"; document.getElementById("rpDpad").style.display = mode ? "none" : "grid"; S.style.display = mode ? "block" : "none"; };
+        document.getElementById("rpFull").onclick = () => send({t:"cmd", c:"gfull"});
         document.getElementById("rpPl").onclick = () => { releaseAll(); myPlayer = 1 - myPlayer; document.getElementById("rpPl").textContent = "J" + (myPlayer + 1); };
         document.getElementById("rpClose").onclick = () => { releaseAll(); P.style.display = "none"; try{ document.exitFullscreen && document.fullscreenElement && document.exitFullscreen(); screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); }catch(e){} };
         document.addEventListener("visibilitychange", () => { if(document.hidden) releaseAll(); });
@@ -16663,7 +16664,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         const pc = new RTCPeerConnection(await rtcConfig(base, key));
         pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
         await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
-        const pr = await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify(pc.localDescription)});
+        const pr = await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify({type:pc.localDescription.type, sdp:pc.localDescription.sdp, n:offer.n})});
         if(!pr.ok){ $r("rmSt").textContent = "O Worker recusou a resposta (HTTP " + pr.status + "). Gera um código novo no carro."; return; }
         $r("rmSt").textContent = "A estabelecer a ligação…";
         setTimeout(() => { if(!(dc && dc.readyState === "open")) $r("rmSt").textContent = "A ligação direta não abriu (estado: " + pc.iceConnectionState + "). Tenta com o telemóvel no mesmo Wi-Fi/hotspot do carro, ou ativa o TURN da Cloudflare no Worker."; }, 25000);
@@ -16698,6 +16699,7 @@ html.nightUi #ambient{filter:brightness(.75)}
           else if(c === "mute"){ const v = document.getElementById("vid" + audioSlot); v.muted = !v.muted; tx({t:"toast", m:v.muted ? "Sem som" : "Com som"}); }
           else if(c === "mirror"){ if(typeof toggleMirror === "function") toggleMirror(); }
           else if(c === "full"){ if(window.__ah) window.__ah.pass = Date.now() + 3000; show("tv"); setCinema(true); window.__goFull && window.__goFull(); }
+          else if(c === "gfull"){ if(currentView === "games" && typeof gmFullSet === "function") gmFullSet(!gmIsFull()); else tx({t:"toast", m:"Abre um jogo primeiro."}); }
           else if(c === "home"){ setCinema(false); show("tvinicio"); }
           else if(c === "stop"){ window.__tvStop && window.__tvStop(); } }
         else if(o.t === "view"){ setCinema(false); show(o.v === "tv" ? "tvinicio" : o.v); }
@@ -16717,25 +16719,44 @@ html.nightUi #ambient{filter:brightness(.75)}
         setTimeout(() => tx(state()), 700);
       }catch(e){ tx({t:"toast", m:"Erro: " + (e.message || e)}); }
     };
+    /* v299: cada telemóvel ganha o seu offer (com um n.º único). O mesmo código serve para o 2.º telemóvel: o carro publica um novo offer logo após cada ligação */
+    let gen = 0;
+    const newOffer = async (code) => {
+      const pc = new RTCPeerConnection(await rtcConfig(cfg.proxy, cfg.pkey));
+      const dc = pc.createDataChannel("ctl", {ordered:true});
+      (window.__rmKeep = window.__rmKeep || []).push(pc);
+      const nonce = Math.random().toString(36).slice(2, 10);
+      dc.onopen = () => { if(!conns.includes(dc)) conns.push(dc); st2("✅ Telemóvel ligado. Podes fechar esta janela. Para o 2.º jogador, abre este código outra vez noutro telemóvel."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
+      dc.onmessage = m => onCmd(m, dc);
+      dc.onclose = () => { const i = conns.indexOf(dc); if(i >= 0) conns.splice(i, 1); if(!conns.length) clearInterval(stT); toast("📱 Um telemóvel desligou-se."); };
+      await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
+      const ld = pc.localDescription;
+      const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify({type:ld.type, sdp:ld.sdp, n:nonce})});
+      if(!r.ok){ try{ pc.close(); }catch(e){} throw new Error(r.status === 501 ? "Falta o KV SYNC no teu Worker." : "o Worker recusou o código (HTTP " + r.status + ")"); }
+      return {pc, dc, nonce};
+    };
     const start = async () => {
       if(!cfg.proxy){ st2("Configura primeiro o proxy do Cockpit (Definições)."); return; }
-      try{ if(pc && !(dc && dc.readyState === "open")) pc.close(); }catch(e){}
+      const my = ++gen;
       const code = String(Math.floor(100000 + Math.random() * 900000)); $c("rmCode").textContent = code;
       link = location.origin + location.pathname + "?remote=" + code + "&b=" + encodeURIComponent(cfg.proxy) + (cfg.pkey ? "&k=" + encodeURIComponent(cfg.pkey) : "");
       $c("rmQr").innerHTML = ""; if(await loadQr()){ try{ new QRCode($c("rmQr"), {text:link, width:260, height:260, correctLevel:QRCode.CorrectLevel.M}); }catch(e){} }
       st2("A preparar a ligação…");
-      pc = new RTCPeerConnection(await rtcConfig(cfg.proxy, cfg.pkey)); dc = pc.createDataChannel("ctl", {ordered:true});
-      (window.__rmKeep = window.__rmKeep || []).push(pc);
-      const d0 = dc;
-      d0.onopen = () => { if(!conns.includes(d0)) conns.push(d0); st2("✅ Telemóvel ligado. Podes fechar esta janela. Para o 2.º jogador, abre este código outra vez noutro telemóvel."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
-      d0.onmessage = m => onCmd(m, d0); d0.onclose = () => { const i = conns.indexOf(d0); if(i >= 0) conns.splice(i, 1); if(!conns.length) clearInterval(stT); toast("📱 Um telemóvel desligou-se."); };
-      await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
-      const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify(pc.localDescription)});
-      if(r.status === 501){ st2("Falta o KV SYNC no teu Worker."); return; }
-      if(!r.ok){ st2("O Worker recusou o código (HTTP " + r.status + " " + (await r.text().catch(() => "")).slice(0, 60) + "). Toca para gerar outro."); try{ window.__dbgEv && window.__dbgEv(0, "comando telemóvel: erro no /sync", {status:r.status}); }catch(e){} return; }
-      st2("À espera do telemóvel…");
-      for(let i = 0; i < 150 && pc && M.classList.contains("on") && !(dc && dc.readyState === "open"); i++){ await sleep(2000);
-        try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 1))); if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && !pc.remoteDescription){ await pc.setRemoteDescription(ans); st2("A estabelecer a ligação…"); const pc0 = pc; setTimeout(() => { if(pc === pc0 && !(dc && dc.readyState === "open")){ st2("O telemóvel respondeu mas a ligação direta não abriu (" + pc0.iceConnectionState + "). Põe o telemóvel no mesmo Wi-Fi/hotspot do carro ou ativa o TURN da Cloudflare."); try{ window.__dbgEv && window.__dbgEv(0, "comando telemóvel: WebRTC não abriu", {ice:pc0.iceConnectionState, turn:typeof rtcTurnMode !== "undefined" ? rtcTurnMode : "?"}); }catch(e){} } }, 25000); } } }catch(e){} }
+      const t0 = Date.now();
+      while(my === gen && conns.length < 2 && Date.now() - t0 < 600000){
+        let o;
+        try{ o = await newOffer(code); }catch(e){ st2("Erro: " + (e.message || e) + ". Toca para gerar outro."); return; }
+        st2(conns.length ? "À espera do 2.º telemóvel (usa o mesmo código)…" : "À espera do telemóvel…");
+        let got = false; const until = Date.now() + 90000;
+        while(my === gen && !got && Date.now() < until && conns.length < 2){
+          await sleep(1500);
+          try{ const a = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 1)), {cache:"no-store"});
+            if(a.ok){ const ans = await a.json(); if(ans && ans.sdp && ans.n === o.nonce && o.pc.signalingState === "have-local-offer"){ await o.pc.setRemoteDescription({type:"answer", sdp:ans.sdp}); got = true; st2("A estabelecer a ligação…"); } } }catch(e){}
+        }
+        if(got){ const t1 = Date.now(); while(o.dc.readyState !== "open" && Date.now() - t1 < 25000 && my === gen) await sleep(300);
+          if(o.dc.readyState !== "open"){ st2("O telemóvel respondeu mas a ligação direta não abriu (" + o.pc.iceConnectionState + "). Põe o telemóvel no mesmo Wi-Fi/hotspot do carro ou ativa o TURN da Cloudflare."); try{ o.pc.close(); }catch(e){} } }
+        else { try{ o.pc.close(); }catch(e){} }
+      }
     };
     window.__remoteStart = () => { M.classList.add("on"); start().catch(e => st2("Erro: " + (e.message || e))); };
     $c("rmClose").onclick = () => M.classList.remove("on");
@@ -16915,9 +16936,24 @@ html.nightUi #ambient{filter:brightness(.75)}
     /* v291: botões vindos do comando no telemóvel (joystick). Jogo do Cockpit → teclas dos jogos; emulador → teclas do EmulatorJS (dentro da janela); fora disso → navegação */
     const EMUK = {0:["z","KeyZ",90], 1:["x","KeyX",88], 2:["a","KeyA",65], 3:["s","KeyS",83], 4:["q","KeyQ",81], 5:["e","KeyE",69], 8:["Shift","ShiftLeft",16], 9:["Enter","Enter",13], 12:["ArrowUp","ArrowUp",38], 13:["ArrowDown","ArrowDown",40], 14:["ArrowLeft","ArrowLeft",37], 15:["ArrowRight","ArrowRight",39]};
     const emuKey = (type, m) => { try{ const f = document.querySelector("#emuWin iframe"), d = f && f.contentDocument; if(!d) return; const ev = new f.contentWindow.KeyboardEvent(type, {key:m[0], code:m[1], keyCode:m[2], which:m[2], bubbles:true, cancelable:true}); (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(ev); }catch(e){} };
+    /* v299: jogos só com rato/toque: o joystick move um cursor no ecrã e o botão A carrega no sítio do cursor */
+    const VC = {x:innerWidth/2, y:innerHeight/2, dx:0, dy:0, t:null, el:null, down:false};
+    const vcShow = () => { if(!VC.el){ VC.el = document.createElement("div"); VC.el.style.cssText = "position:fixed;z-index:99998;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #7cc4ff;background:#7cc4ff55;box-shadow:0 0 0 2px #0008;pointer-events:none;display:none"; document.body.appendChild(VC.el); } VC.el.style.display = inGame() ? "block" : "none"; VC.el.style.left = VC.x + "px"; VC.el.style.top = VC.y + "px"; return VC.el; };
+    const vcPtr = type => { const t = document.elementFromPoint(VC.x, VC.y) || document.body; const o = {clientX:VC.x, clientY:VC.y, bubbles:true, cancelable:true, button:0, buttons:type === "pointerdown" ? 1 : 0};
+      try{ t.dispatchEvent(new PointerEvent(type, Object.assign({pointerId:7, pointerType:"touch", isPrimary:true}, o))); }catch(e){}
+      const mt = type === "pointerdown" ? "mousedown" : type === "pointerup" ? "mouseup" : "";
+      if(mt){ t.dispatchEvent(new MouseEvent(mt, o)); if(mt === "mouseup") t.dispatchEvent(new MouseEvent("click", o)); } };
+    const vcTick = () => { if(!inGame()){ VC.dx = VC.dy = 0; clearInterval(VC.t); VC.t = null; vcShow(); return; }
+      VC.x = Math.max(0, Math.min(innerWidth, VC.x + VC.dx * 9)); VC.y = Math.max(0, Math.min(innerHeight, VC.y + VC.dy * 9)); vcShow(); };
+    const vcPad = (i, on) => {
+      if(i >= 12 && i <= 15){ const dx = i === 14 ? -1 : i === 15 ? 1 : 0, dy = i === 12 ? -1 : i === 13 ? 1 : 0;
+        if(on){ VC.dx += dx; VC.dy += dy; } else { VC.dx -= dx; VC.dy -= dy; }
+        if((VC.dx || VC.dy) && !VC.t) VC.t = setInterval(vcTick, 16); if(!VC.dx && !VC.dy){ clearInterval(VC.t); VC.t = null; } vcShow(); }
+      else if(i === 0 && on !== VC.down){ VC.down = on; vcShow(); vcPtr(on ? "pointerdown" : "pointerup"); } };
     window.__padPress = (pi, i, on) => {
       try{
         if(inEmu()){ const m = EMUK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); return; }
+        if(pi === 0 && inGame()) vcPad(i, on);
         const map = pi === 1 ? P2 : P1;
         if(inGame()){ const m = map[i]; if(m) key(on ? "keydown" : "keyup", m[0], m[1]); return; }
         if(!on || pi !== 0) return;
