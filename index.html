@@ -2859,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v312";
+const APP_VERSION = "v313";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3824,6 +3824,7 @@ class SoftVideoDecoder {
     /* v312: com o motor WebCodecs (Definições) usa wcdec.js; por defeito mantém-se o h264soft.js e a reserva como antes */
     W.wc = !this.hevc && !!(window.__wcOn && window.__wcOn());
     W.w = W.wc ? new Worker("wcdec.js?v=" + APP_VERSION) : (SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION));
+    window.__motorUsado = W.wc ? "webcodecs" : "h264soft";
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
@@ -14203,7 +14204,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
-      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger},
+      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:(window.__wcOn && window.__wcOn()) ? "webcodecs" : "h264soft", motorUsado:window.__motorUsado || "nenhum ainda"},
       conta:await account(), bw:+LS.get("bwEst", 0) || 0};
     const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined})).concat([0, 1].map(s => DBG.watch[s]).filter(w => w && w.ev.length).map(w => Object.assign({}, w, {res:"em observação", t0:undefined, t00:undefined})));
     return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
