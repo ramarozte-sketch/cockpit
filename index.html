@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v294";
+const APP_VERSION = "v295";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15503,18 +15503,13 @@ html.half #visKar .k1{font-size:19px}
           const u = el.currentSrc || el.src;
           if(!S.corsBad.has(u) && !S.corsTried.has(el)){ S.corsTried.add(el); const t = el.currentTime;
             el.crossOrigin = "anonymous"; const back = () => { el.removeEventListener("error", back);
-              /* v292: o servidor da rádio não autoriza ler o som (CORS): tenta a mesma rádio pelo proxy do Cockpit, que autoriza; só se isso também falhar usa o ritmo simulado */
-              const PT0 = (S.proxTried = S.proxTried || new Set());
-              if(!PT0.has(u) && typeof HASPX === "function" && HASPX() && !/^(blob:|data:)/i.test(u)){ PT0.add(u); let pu = ""; try{ pu = px(u); }catch(e){}
-                if(pu && pu !== u){ const back2 = () => { el.removeEventListener("error", back2); S.corsBad.add(u); el.removeAttribute("crossorigin"); el.src = u; el.play().catch(() => {}); };
-                  el.crossOrigin = "anonymous"; el.addEventListener("error", back2, {once:true}); el.src = pu; el.play().catch(() => {}); return; } }
               S.corsBad.add(u); el.removeAttribute("crossorigin"); el.src = u; el.play().catch(() => {}); };
             el.addEventListener("error", back, {once:true}); el.src = u; el.play().catch(() => {}); try{ if(t) el.currentTime = t; }catch(e){} }
           S.hint = S.corsBad.has(u) ? "Esta rádio não deixa ler o som: uso o ritmo simulado (ou escolhe «Colunas do carro»)." : ""; return null;
         }
         const c = (A && A.ctx && A.ctx.state !== "closed") ? A.ctx : (S.ctx || (S.ctx = new AC({latencyHint:"playback"})));
         if(A && !A.ctx) A.ctx = c;
-        c.resume().catch(() => {});
+        if(c.state !== "running"){ c.resume().catch(() => {}); S.hint = ""; return null; }   /* v295: com o contexto parado a rádio ficava muda: só liga quando já está a correr */
         const src = c.createMediaElementSource(el), gn = c.createGain(); src.connect(gn); gn.connect(c.destination); el._amp = {g:gn}; el._visAn = mkAn(c); gn.connect(el._visAn);
         S.hint = ""; return el._visAn;
       }catch(e){ S.hint = "Não consegui ler o som desta rádio: uso o ritmo simulado."; return null; }
