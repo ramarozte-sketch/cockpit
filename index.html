@@ -2855,7 +2855,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v308";
+const APP_VERSION = "v309";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16288,7 +16288,7 @@ select option,select optgroup{background:#fff;color:#111}
     const dlg = document.createElement("div"); dlg.id = "avDlg"; dlg.hidden = true; document.body.appendChild(dlg);
     dlg.innerHTML = '<div class="avTabs"><button data-t="talk" aria-selected="true">💬 Conversar</button><button data-t="look" aria-selected="false">🎨 Aparência</button><button data-t="brain" aria-selected="false">🧠 Cérebro</button><span style="flex:1"></span><button data-x="1" aria-label="Fechar" style="font-size:30px;line-height:1">×</button></div>' +
       '<div data-p="talk"><div id="avLog"></div><div class="row2"><input type="text" id="avIn" placeholder="Escreve ao avatar…" autocomplete="off"><button id="avMic" aria-label="Falar">🎤</button><button id="avSend" class="pri">Enviar</button></div></div>' +
-      '<div data-p="look" hidden><div class="grid" id="avGrid"></div>' +
+      '<div data-p="look" hidden><label class="f2">Personagem<select id="avChSel"></select></label><div class="row" style="justify-content:center"><canvas id="avChPrev" width="144" height="172" style="width:96px;height:115px"></canvas></div>' +
       '<label class="f2">Nome<input type="text" id="avNm" maxlength="16"></label>' +
       '<label class="f2">Cor <input type="range" id="avHue" min="0" max="359"></label>' +
       '<label class="f2">Tamanho <input type="range" id="avSz" min="70" max="160"></label>' +
@@ -16317,8 +16317,10 @@ select option,select optgroup{background:#fff;color:#111}
     const tab = t => { dlg.querySelectorAll("[data-t]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.t === t))); dlg.querySelectorAll("[data-p]").forEach(p => p.hidden = p.dataset.p !== t); if(t === "look") paintGrid(); };
     const openDlg = t => { dlg.hidden = false; fill(); tab(t || "talk"); if(!$a("avLog").children.length) addLog("a", "Olá Rui! Sou o " + A.name + ". Toca no 🎤 ou escreve. Na aparência podes mudar-me."); };
     window.__avatarOpen = openDlg;
-    const paintGrid = () => { const G = $a("avGrid"); if(!G.children.length){ G.innerHTML = CH.map(c => '<button data-c="' + c[0] + '"><canvas width="144" height="172"></canvas><span>' + c[1] + '</span></button>').join(""); }
-      G.querySelectorAll("[data-c]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.c === A.ch)); const c = b.querySelector("canvas"); if(window.__visDrawChar) window.__visDrawChar(c, b.dataset.c, {b:0.1, m:0.2, t:0.3, spec:null}); c.style.filter = A.hue ? "hue-rotate(" + A.hue + "deg)" : ""; }); };
+    /* v309: personagens numa lista (dropdown) com pré-visualização, em vez da grelha */
+    const paintGrid = () => { const sel = $a("avChSel"); if(!sel.options.length) sel.innerHTML = CH.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join("");
+      sel.value = A.ch; const c = $a("avChPrev"); if(window.__visDrawChar) window.__visDrawChar(c, A.ch, {b:0.1, m:0.2, t:0.3, spec:null}); c.style.filter = A.hue ? "hue-rotate(" + A.hue + "deg)" : ""; };
+    $a("avChSel").onchange = e => { A.ch = e.target.value; saveA(); paintGrid(); };
     const fill = () => { $a("avNm").value = A.name; $a("avHue").value = A.hue; $a("avSz").value = Math.round(A.size * 100); $a("avPers").value = A.pers; $a("avPitch").value = Math.round(A.pitch * 100); $a("avRate").value = Math.round(A.rate * 100);
       $a("avWalk").checked = A.walk; $a("avTrip").checked = A.trip; $a("avTripMin").value = String(A.tripMin); $a("avAi").value = A.ai; $a("avTts").value = A.tts || "auto"; $a("avHat").value = A.hat || ""; $a("avGl").checked = !!A.glasses; $a("avSc").value = A.scarf || ""; $a("avReact").checked = A.react !== false; $a("avAl").checked = A.alerts !== false; $a("avBat").value = String(A.batLow || 20); $a("avWake").checked = !!A.wake; $a("avKey").value = LS.get("xaiKey", "") ? "••••••••" : ""; $a("avModel").value = LS.get("xaiModel", "");
       try{ const sel = $a("avVoice"), vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang) || v.name === A.voice); if(sel.options.length <= 1) vs.forEach(v => { const o = document.createElement("option"); o.value = v.name; o.textContent = v.name + " (" + v.lang + ")"; sel.appendChild(o); }); sel.value = A.voice || ""; }catch(e){} };
