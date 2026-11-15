@@ -1556,6 +1556,11 @@ body.layout-atv .rail{display:none}
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
         </div>
       </div>
+      <div class="panel" id="donatePanel">
+        <h2>☕ Apoiar o Cockpit</h2>
+        <p class="small muted" style="margin:0">Se a app te for útil, podes oferecer um donativo para continuar a desenvolvê-la. É opcional e não desbloqueia nada.</p>
+        <div class="row"><button class="btn primary" id="btnDonate">☕ Fazer um donativo</button></div>
+      </div>
       <h3 class="setgrp">Aparência</h3>
       <div class="setcards">
       <div class="panel setcard">
@@ -2825,7 +2830,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v300";
+const APP_VERSION = "v301";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12223,6 +12228,11 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   try{ document.querySelectorAll("img").forEach(fix); new MutationObserver(ms => { for(const m of ms) m.addedNodes.forEach(n => { if(n.nodeType !== 1) return; if(n.tagName === "IMG") fix(n); else if(n.querySelectorAll) n.querySelectorAll("img").forEach(fix); }); }).observe(document.body, {childList:true, subtree:true}); }catch(e){}
   renderCineEpg();
 })();
+
+/* v301: donativos (opcional). Põe aqui o endereço de donativos (ex.: Ko-fi, PayPal.me) entre aspas. */
+const DONATE_URL = "";
+(function(){ const b = document.getElementById("btnDonate"); if(!b) return;
+  b.onclick = () => { if(!DONATE_URL){ toast("Donativos: o endereço ainda não foi definido."); return; } window.open(DONATE_URL, "_blank", "noopener"); }; })();
 </script>
 <style>
 /* ===== Tesla: Início da TV ao estilo Android TV (Definições → TV e IPTV → Ecrã inicial da TV) ===== */
