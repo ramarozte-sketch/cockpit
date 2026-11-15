@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v297";
+const APP_VERSION = "v298";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15494,6 +15494,15 @@ html.half #visKar .k1{font-size:19px}
     const mkAn = c => { const a = c.createAnalyser(); a.fftSize = 1024; a.smoothingTimeConstant = 0.78; S.data = new Uint8Array(a.frequencyBinCount); S.wave = new Uint8Array(a.fftSize); return a; };
     const radioEl = () => $v("radioAud");
     window.__visWantsAn = () => !!S.on && S.src === "radio";
+    /* v297: diagnóstico do avatar no log (a cada 6 s enquanto há música): de onde vem o som, se o analisador lê níveis e porquê o ritmo é simulado */
+    setInterval(() => { try{
+      if(!S.on || !window.__dbgEv) return;
+      const el = radioEl(), WA = window.__wamp, ampOn = !!(WA && WA.playing && WA.playing()), radioOn = !!(el && !el.paused && (el.currentSrc || el.src));
+      if(!ampOn && !radioOn && !S.mic) return;
+      let mx = 0; if(S.data) for(let i = 0; i < S.data.length; i += 2) if(S.data[i] > mx) mx = S.data[i];
+      let host = ""; try{ host = new URL(el.currentSrc || el.src, location.href).host; }catch(e){}
+      window.__dbgEv(0, "avatar: estado", {fonte:S.src, amp:ampOn, radio:radioOn, rádio_host:host, crossOrigin:el && el.crossOrigin || "", ligadoWebAudio:!!(el && el._visAn), ctx:(window.__amp && window.__amp.ctx) ? window.__amp.ctx.state : (S.ctx ? S.ctx.state : null), semCORS:S.corsBad.size, mic:!!S.mic, nivelMax:mx, bpm:S.bpm || null, dica:S.hint || ""});
+    }catch(e){} }, 6000);
     const safeSrc = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin || el.crossOrigin === "anonymous"; }catch(e){ return false; } };
     const tapRadio = () => {
       const el = radioEl(); if(!el || el.paused || !(el.currentSrc || el.src)) { S.hint = "Liga uma rádio em cima (ou escolhe «Colunas do carro»)."; return null; }
