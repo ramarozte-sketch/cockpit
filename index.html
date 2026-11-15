@@ -2832,7 +2832,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v304";
+const APP_VERSION = "v305";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6966,6 +6966,9 @@ const GAMES_LOCAL = [
   {id:"ttt", name:"Jogo do galo", desc:"Contra o Cockpit", ico:"⭕", grp:"Puzzles e tabuleiro", c:"#5cf2ff,#0a1a2a"},
   {id:"simon", name:"Simão diz", desc:"Repete a sequência de cores e sons", ico:"🎵", grp:"Puzzles e tabuleiro", c:"#2ecc71,#0a2a1a"}
 ];
+/* v305: etiqueta do comando em cada jogo: os de só toque usam o cursor do joystick */
+{ const TOQUE = new Set(["mem","ttt","c4","mole","simon","mines","def"]);
+  GAMES_LOCAL.forEach(g => { g.desc += TOQUE.has(g.id) ? " · 🖱️ comando: cursor" : " · 🎮 comando completo"; }); }
 // Jogos online grátis e de boa qualidade. "ext" = abre numa página própria (precisam de sessão ou não deixam abrir dentro de outra página).
 const GAMES_ONLINE = [
   /* os mais populares de itch.io/games/made-with-threejs que se jogam no browser (outubro 2026) */
@@ -16702,11 +16705,15 @@ html.nightUi #ambient{filter:brightness(.75)}
   /* ====================== CARRO: mostra o código e recebe os comandos ====================== */
   try{
     const M = document.createElement("div"); M.id = "rmModal";
-    M.innerHTML = '<div class="b"><h2 style="margin:0">📱 Comando no telemóvel</h2><p style="margin:8px 0 0">No telemóvel do passageiro, aponta a câmara para o código.</p><div id="rmQr"></div><div class="code" id="rmCode">······</div><div class="st" id="rmSt2">A preparar…</div><div style="margin-top:10px"><button id="rmCopy">Copiar link</button><button id="rmClose" style="background:#555">Fechar</button></div></div>';
+    M.innerHTML = '<div class="b"><h2 style="margin:0">📱 Comando no telemóvel</h2><p style="margin:8px 0 0">No telemóvel do passageiro, aponta a câmara para o código.</p><div id="rmQr"></div><div class="code" id="rmCode">······</div><div class="st" id="rmSt2">A preparar…</div><div id="rmPeers" style="margin-top:8px"></div><div style="margin-top:10px"><button id="rmCopy">Copiar link</button><button id="rmClose" style="background:#555">Fechar</button></div></div>';
     document.body.appendChild(M);
     const $c = id => document.getElementById(id);
     let pc = null, dc = null, link = "", stT = 0; const conns = [];   /* v291: vários telemóveis ligados (1.º = jogador 1, 2.º = jogador 2) */
     const st2 = t => { const e = $c("rmSt2"); if(e) e.textContent = t; };
+    /* v305: lista dos telemóveis ligados, com botão para desligar cada um */
+    const peers = () => { const el = $c("rmPeers"); if(!el) return;
+      el.innerHTML = conns.length ? conns.map((d, i) => '<div style="margin:6px 0"><b>' + (i ? "2.º" : "1.º") + ' telemóvel</b> <button data-k="' + i + '" style="min-height:44px">Desligar</button></div>').join("") : '<p class="small muted" style="margin:0">Nenhum telemóvel ligado.</p>';
+      el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const d = conns[+b.dataset.k]; try{ d && d.close(); }catch(e){} setTimeout(peers, 300); }); };
     const vidT = () => document.getElementById("vid" + (typeof tvTarget === "number" ? tvTarget : 0));
     const state = () => { const slots = [0, 1].map(i => { const c = lastPlayed[i]; if(!c) return {}; let now = ""; try{ const nn = nowNext(c); if(nn && nn.now) now = nn.now.title; }catch(e){} return {name:c.name, logo:c.logo || "", now}; });
       let other = ""; try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) other = "🎵 " + W.cur.artist + " — " + W.cur.title; else if(typeof radioCur !== "undefined" && radioCur) other = "📻 " + radioCur.name; }catch(e){}
@@ -16752,9 +16759,9 @@ html.nightUi #ambient{filter:brightness(.75)}
       const dc = pc.createDataChannel("ctl", {ordered:true});
       (window.__rmKeep = window.__rmKeep || []).push(pc);
       const nonce = Math.random().toString(36).slice(2, 10);
-      dc.onopen = () => { if(!conns.includes(dc)) conns.push(dc); st2("✅ Telemóvel ligado. Podes fechar esta janela. Para o 2.º jogador, abre este código outra vez noutro telemóvel."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
+      dc.onopen = () => { if(!conns.includes(dc)) conns.push(dc); peers(); st2("✅ Telemóvel ligado. Podes fechar esta janela. Para o 2.º jogador, abre este código outra vez noutro telemóvel."); clearInterval(stT); stT = setInterval(() => tx(state()), 3000); setTimeout(() => { M.classList.remove("on"); }, 2500); };
       dc.onmessage = m => onCmd(m, dc);
-      dc.onclose = () => { const i = conns.indexOf(dc); if(i >= 0) conns.splice(i, 1); if(!conns.length) clearInterval(stT); toast("📱 Um telemóvel desligou-se."); };
+      dc.onclose = () => { const i = conns.indexOf(dc); if(i >= 0) conns.splice(i, 1); peers(); if(!conns.length) clearInterval(stT); toast("📱 Um telemóvel desligou-se."); };
       await pc.setLocalDescription(await pc.createOffer()); await waitIce(pc);
       const ld = pc.localDescription;
       const r = await fetch(syncUrl(cfg.proxy, cfg.pkey, __rmId(code, 0)), {method:"POST", body:JSON.stringify({type:ld.type, sdp:ld.sdp, n:nonce})});
@@ -16789,7 +16796,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         else { try{ o.pc.close(); }catch(e){} }
       }
     };
-    window.__remoteStart = () => { M.classList.add("on"); start().catch(e => st2("Erro: " + (e.message || e))); };
+    window.__remoteStart = () => { M.classList.add("on"); peers(); start().catch(e => st2("Erro: " + (e.message || e))); };
     $c("rmClose").onclick = () => M.classList.remove("on");
     $c("rmCopy").onclick = () => { try{ navigator.clipboard.writeText(link).then(() => toast("Link copiado"), () => toast("Não consegui copiar.", true)); }catch(e){} };
     /* botões: Definições (cartão do passageiro) e cabeçalho */
