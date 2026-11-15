@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v296";
+const APP_VERSION = "v297";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6229,11 +6229,7 @@ function playRadio(st){
   const failed = () => { if(radioCur===st){ toast(`A ${st.name} não está a responder. Experimenta outra.`, true); radioStop(); } };
   if(st.hls && window.Hls && Hls.isSupported()){ radioHls = new Hls({maxBufferLength:20}); radioHls.loadSource(src); radioHls.attachMedia(a); radioHls.on(Hls.Events.ERROR, (e,d)=>{ if(d.fatal) failed(); }); }
   else {
-    /* v296: com o visualizador ligado à rádio, abre-a pelo proxy do Cockpit com CORS (o som pode ser analisado e o avatar segue o ritmo); se o proxy falhar, volta à ligação direta */
-    const viaPx = !!(window.__visWantsAn && window.__visWantsAn() && typeof HASPX === "function" && HASPX());
-    a._fb = 0;
-    if(viaPx){ let pu = ""; try{ pu = px(st.url); }catch(e){} if(pu && pu !== st.url){ a.crossOrigin = "anonymous"; a.src = pu; a.onerror = () => { if(a._fb || radioCur !== st) return failed(); a._fb = 1; a.removeAttribute("crossorigin"); a.src = src; a.onerror = failed; a.play().catch(()=>{}); }; } else { a.src = src; a.onerror = failed; } }
-    else { a.src = src; a.onerror = failed; }
+    a._fb = 0; a.src = src; a.onerror = failed;   /* v297: a rádio abre sempre pela ligação direta (pelo proxy não dava som) */
   }
   a.play().catch(()=>{});
   $("rnName").textContent = st.name; $("radioNow").hidden = false; radioUpdFav();
