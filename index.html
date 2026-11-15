@@ -2846,7 +2846,7 @@ function parseM3U(text){
     if(line.startsWith("#EXTINF")){
       const attr = k => { const m=line.match(new RegExp(k+'="([^"]*)"')); return m?m[1]:""; };
       const comma = line.lastIndexOf(",");
-      cur = {name:(comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name"), logo:attr("tvg-logo"), group:attr("group-title")||"Sem categoria", id:attr("tvg-id")};
+      cur = {name:((comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name")).replace(/^\|PT\|\s*/,"").replace(/\s{2,}/g," ").trim(), logo:attr("tvg-logo"), group:attr("group-title")||"Sem categoria", id:attr("tvg-id")};
     } else if(!line.startsWith("#") && cur){
       cur.url=line; cur.kind = /\/movie\//i.test(line) ? "movie" : /\/series\//i.test(line) ? "series" : (VID_EXT.test(line) && !/\.(m3u8|ts)(\?|$)/i.test(line)) ? "movie" : "live";
       out.push(cur); cur=null;
@@ -2859,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v315";
+const APP_VERSION = "v316";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
