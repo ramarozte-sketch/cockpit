@@ -1559,7 +1559,7 @@ body.layout-atv .rail{display:none}
       <div class="panel" id="donatePanel">
         <h2>☕ Apoiar o Cockpit</h2>
         <p class="small muted" style="margin:0">Se a app te for útil, podes oferecer um donativo para continuar a desenvolvê-la. É opcional e não desbloqueia nada.</p>
-        <div class="row"><button class="btn primary" id="btnDonate">☕ Fazer um donativo</button></div>
+        <div class="row" id="donateAmts"><button class="btn" data-amt="2">2 €</button><button class="btn" data-amt="5">5 €</button><button class="btn primary" data-amt="10">10 €</button><button class="btn" data-amt="20">20 €</button></div>
       </div>
       <h3 class="setgrp">Aparência</h3>
       <div class="setcards">
@@ -2830,7 +2830,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v302";
+const APP_VERSION = "v303";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12229,10 +12229,13 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   renderCineEpg();
 })();
 
-/* v301: donativos (opcional). Põe aqui o endereço de donativos (ex.: Ko-fi, PayPal.me) entre aspas. */
+/* v303: donativos (opcional): valores predefinidos que abrem o PayPal com o montant */
 const DONATE_URL = "https://www.paypal.com/paypalme/ruivascoamaro";
-(function(){ const b = document.getElementById("btnDonate"); if(!b) return;
-  b.onclick = () => { if(!DONATE_URL){ toast("Donativos: o endereço ainda não foi definido."); return; } window.open(DONATE_URL, "_blank", "noopener"); }; })();
+(function(){ const box = document.getElementById("donateAmts"); if(!box) return;
+  box.addEventListener("click", e => { const b = e.target.closest("[data-amt]"); if(!b) return;
+    const url = DONATE_URL + "/" + b.dataset.amt + "EUR";
+    try{ const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }catch(err){}
+    setTimeout(() => { if(!document.hidden) { toast("Se o PayPal não abriu, copia o endereço: " + url); } }, 1200); }); })();
 </script>
 <style>
 /* ===== Tesla: Início da TV ao estilo Android TV (Definições → TV e IPTV → Ecrã inicial da TV) ===== */
