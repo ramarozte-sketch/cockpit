@@ -1043,7 +1043,7 @@ body.layout-atv .rail{display:none}
             <div class="stat"><span>Consumo</span><b id="scEff">--</b></div>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel solarPanel">
           <h2>Produção solar agora <span class="small muted">· Growatt</span></h2>
           <div class="banner" id="solarSetup" hidden>Para ver a produção solar, põe o token da Growatt e o Plant ID em Definições › Energia.</div>
           <div class="gauge"><div class="big" id="pvNow">--</div><div class="muted" style="padding-bottom:10px">kW · hoje <span id="pvToday">--</span> kWh</div></div>
@@ -1560,6 +1560,7 @@ body.layout-atv .rail{display:none}
         <h2>☕ Apoiar o Cockpit</h2>
         <p class="small muted" style="margin:0">Se a app te for útil, podes oferecer um donativo para continuar a desenvolvê-la. É opcional e não desbloqueia nada.</p>
         <div class="row" id="donateAmts"><button class="btn" data-amt="2">2 €</button><button class="btn" data-amt="5">5 €</button><button class="btn primary" data-amt="10">10 €</button><button class="btn" data-amt="20">20 €</button></div>
+        <div class="row" id="donateOther"><input type="text" id="donOther" inputmode="decimal" placeholder="Outro valor (€)" autocomplete="off" style="flex:2;min-height:48px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn primary" id="donOtherGo" style="flex:1">Doar</button></div>
       </div>
       <h3 class="setgrp">Aparência</h3>
       <div class="setcards">
@@ -1678,6 +1679,7 @@ body.layout-atv .rail{display:none}
           <div class="row" style="flex-wrap:nowrap"><label class="f" style="flex:1">Bateria útil (kWh, vazio = automático)<input type="text" id="setCapKwh" inputmode="decimal" placeholder="auto"></label><label class="f" style="flex:1">Consumo (Wh/km, vazio = automático)<input type="text" id="setEffWh" inputmode="numeric" placeholder="auto"></label><label class="f" style="flex:1">Reserva mínima (%)<input type="text" id="setReserve" inputmode="numeric" placeholder="10"></label></div>
           <label class="f">Chave Open Charge Map (opcional, dá mais detalhe aos carregadores)<input type="password" id="setOcmKey" autocomplete="off"></label>
           <p class="small muted" style="margin:0">Se a produção aparecer 1000 vezes menor do que no ShinePhone (por exemplo 2 em vez de 2000), muda a unidade para kW. A Growatt só atualiza de minuto a minuto ou de 5 em 5 minutos, conforme o teu datalogger.</p>
+          <label class="f" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" id="setShowSolar" style="width:22px;height:22px"> Mostrar a produção solar (painel e ajuste de carga)</label>
           <button class="btn" id="btnSaveEnergy">Guardar Energia</button>
         </div>
       <div class="panel setcard">
@@ -2830,7 +2832,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v303";
+const APP_VERSION = "v304";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12229,13 +12231,24 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
   renderCineEpg();
 })();
 
-/* v303: donativos (opcional): valores predefinidos que abrem o PayPal com o montant */
+/* v304: donativos (valores predefinidos e «outro valor») e mostrar/ocultar a produção solar */
 const DONATE_URL = "https://www.paypal.com/paypalme/ruivascoamaro";
-(function(){ const box = document.getElementById("donateAmts"); if(!box) return;
-  box.addEventListener("click", e => { const b = e.target.closest("[data-amt]"); if(!b) return;
-    const url = DONATE_URL + "/" + b.dataset.amt + "EUR";
+(function(){
+  const donate = amt => { const url = DONATE_URL + "/" + amt + "EUR";
     try{ const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); }catch(err){}
-    setTimeout(() => { if(!document.hidden) { toast("Se o PayPal não abriu, copia o endereço: " + url); } }, 1200); }); })();
+    setTimeout(() => { if(!document.hidden) toast("Se o PayPal não abriu, copia o endereço: " + url); }, 1200); };
+  const box = document.getElementById("donateAmts");
+  if(box) box.addEventListener("click", e => { const b = e.target.closest("[data-amt]"); if(b) donate(b.dataset.amt); });
+  const go = document.getElementById("donOtherGo");
+  if(go) go.onclick = () => { const v = Math.round(Number(String(document.getElementById("donOther").value).trim().replace(",", ".")) * 100) / 100;
+    if(!isFinite(v) || v < 1 || v > 1000){ toast("Escreve um valor entre 1 e 1000 €."); return; } donate(v); };
+  /* produção solar: mostrar ou ocultar (guardado neste aparelho) */
+  const applySolar = on => document.querySelectorAll(".solarPanel").forEach(el => el.hidden = !on);
+  const cb = document.getElementById("setShowSolar");
+  const on0 = LS.get("showSolar", true) !== false;
+  if(cb){ cb.checked = on0; cb.onchange = () => { LS.set("showSolar", cb.checked); applySolar(cb.checked); }; }
+  applySolar(on0);
+})();
 </script>
 <style>
 /* ===== Tesla: Início da TV ao estilo Android TV (Definições → TV e IPTV → Ecrã inicial da TV) ===== */
