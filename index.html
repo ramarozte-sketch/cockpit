@@ -1529,6 +1529,12 @@ body.layout-atv .rail{display:none}
     <!-- DEFINIÇÕES -->
     <section class="view" id="v-settings" hidden>
       <h1>Definições</h1>
+      <div class="panel" id="donatePanel">
+        <h2>☕ Apoiar o Cockpit</h2>
+        <p class="small muted" style="margin:0">Se a app te for útil, podes oferecer um donativo para continuar a desenvolvê-la. É opcional e não desbloqueia nada.</p>
+        <div class="row" id="donateAmts"><button class="btn" data-amt="2">2 €</button><button class="btn" data-amt="5">5 €</button><button class="btn primary" data-amt="10">10 €</button><button class="btn" data-amt="20">20 €</button></div>
+        <div class="row" id="donateOther"><input type="text" id="donOther" inputmode="decimal" placeholder="Outro valor (€)" autocomplete="off" style="flex:2;min-height:48px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn primary" id="donOtherGo" style="flex:1">Doar</button></div>
+      </div>
       <h3 class="setgrp">Segurança e carro</h3>
       <div class="setcards">
       <div class="panel setcard">
@@ -1559,12 +1565,6 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">O passageiro pode ver a TV no telemóvel ou tablet dele, também com o carro em andamento. Mostra-lhe o código e ele fica com a TV pronta.</p>
           <div class="row"><button class="btn primary" id="btnShowQr">Mostrar código para o passageiro</button><button class="btn" id="btnMePassenger">Usar este aparelho como passageiro</button></div>
         </div>
-      </div>
-      <div class="panel" id="donatePanel">
-        <h2>☕ Apoiar o Cockpit</h2>
-        <p class="small muted" style="margin:0">Se a app te for útil, podes oferecer um donativo para continuar a desenvolvê-la. É opcional e não desbloqueia nada.</p>
-        <div class="row" id="donateAmts"><button class="btn" data-amt="2">2 €</button><button class="btn" data-amt="5">5 €</button><button class="btn primary" data-amt="10">10 €</button><button class="btn" data-amt="20">20 €</button></div>
-        <div class="row" id="donateOther"><input type="text" id="donOther" inputmode="decimal" placeholder="Outro valor (€)" autocomplete="off" style="flex:2;min-height:48px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn primary" id="donOtherGo" style="flex:1">Doar</button></div>
       </div>
       <div class="panel setcard">
           <h2>Manutenção</h2>
@@ -2845,7 +2845,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v306";
+const APP_VERSION = "v307";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
