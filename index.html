@@ -2859,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v314";
+const APP_VERSION = "v315";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14199,7 +14199,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 
   /* --- relatório --- */
   const report = async () => {
-    let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, mbps:n.downlink, rtt:n.rtt}; }catch(e){}
+    /* v315: o tipo vem da estimativa do browser (não é o meio: Wi-Fi ou dados); o débito medido pelos pedidos de vídeo é o que conta */
+    let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, nota:"estimativa do browser (não indica Wi-Fi ou dados)", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
     const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
