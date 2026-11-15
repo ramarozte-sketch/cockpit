@@ -2855,7 +2855,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v309";
+const APP_VERSION = "v310";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3470,7 +3470,7 @@ function playChannel(c, slot=tvTarget, auto=false){
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
         const go = src => {
           if(mirrorOn) stopMirror(slot);
-          const h = new Hls({enableWorker:true, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3, fLoader: makeCapLoader(slot)}); hlsInst[slot] = h;
+          const h = new Hls({...HLS_CAR, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3, fLoader: makeCapLoader(slot)}); hlsInst[slot] = h;
           if(mirrorOn) startMirror(slot);
           h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
           h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
@@ -5059,14 +5059,23 @@ if($("mirDelMinus")) $("mirDelMinus").onclick = ()=>nudgeDelay(-250);
 if($("mirDelPlus")) $("mirDelPlus").onclick = ()=>nudgeDelay(250);
 fmtDelay();
 syncMirror();
+/* v310: opções comuns do hls.js no carro: a qualidade acompanha o tamanho do ecrã (evita descodificar 4K no ecrã do Tesla) */
+const HLS_CAR = {enableWorker:true, startLevel:-1, capLevelToPlayerSize:true, capLevelOnFPSDrop:true};
 const stallTimers = [null, null];
 /* Se o direto parar (imagem congelada) durante 12 s, volta a puxar o vídeo. */
 function watchStall(slot, v, fix){
   clearInterval(stallTimers[slot]);
-  let lastT = -1, still = 0;
+  let lastT = -1, still = 0, stalls = 0, ticks = 0, firstLogged = false;
+  const t0 = performance.now();
   stallTimers[slot] = setInterval(()=>{
+    ticks++;
+    try{
+      if(!firstLogged && v.readyState >= 2 && !v.paused){ firstLogged = true; window.__dbgEv && window.__dbgEv(slot, "reprodução: primeiro fotograma", {ms: Math.round(performance.now() - t0)}); }
+      if(firstLogged && ticks % 20 === 0){ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+        window.__dbgEv && window.__dbgEv(slot, "reprodução (60 s)", {congelamentos: stalls, fotogramas: q ? q.totalVideoFrames : null, perdidos: q ? q.droppedVideoFrames : null, nivel: hlsInst[slot] ? hlsInst[slot].currentLevel : null}); }
+    }catch(e){}
     if(v.paused || v.readyState===0){ still = 0; return; }
-    if(v.currentTime === lastT){ still += 3; if(still >= 12){ still = 0; fix(); } } else { still = 0; lastT = v.currentTime; }
+    if(v.currentTime === lastT){ still += 3; if(still >= 12){ still = 0; stalls++; fix(); } } else { still = 0; lastT = v.currentTime; }
   }, 3000);
 }
 let wakeLock = null;
@@ -5192,7 +5201,7 @@ function loadDash(){
 async function playMediaUrl(u, v, onFail){
   const e = fileExt(u); let h = null, ts = null, d = null;
   const stop = () => { try{ h && h.destroy(); }catch(x){} try{ ts && ts.destroy(); }catch(x){} try{ d && d.reset(); }catch(x){} h = ts = d = null; };
-  if(/\.m3u8(\?|#|$)/i.test(u) && window.Hls && Hls.isSupported()){ h = new Hls(); h.loadSource(u); h.attachMedia(v); h.on(Hls.Events.ERROR, (ev, x) => { if(x.fatal && onFail) onFail("HLS " + x.details); }); }
+  if(/\.m3u8(\?|#|$)/i.test(u) && window.Hls && Hls.isSupported()){ h = new Hls({...HLS_CAR}); h.loadSource(u); h.attachMedia(v); h.on(Hls.Events.ERROR, (ev, x) => { if(x.fatal && onFail) onFail("HLS " + x.details); }); }
   else if(e === "mpd" && await loadDash()){ d = dashjs.MediaPlayer().create(); d.initialize(v, u, true); d.on("error", () => { if(onFail) onFail("DASH"); }); }
   else if((e === "flv" || e === "ts" || e === "m2ts" || e === "mts") && await loadMpegts() && mpegts.isSupported()){
     ts = mpegts.createPlayer({type: e === "flv" ? "flv" : "mpegts", isLive:false, url:u}, {enableWorker:true, lazyLoad:true}); ts.attachMediaElement(v); ts.load();
@@ -6282,7 +6291,6 @@ $("radioForm").onsubmit = e => { e.preventDefault(); loadRadios($("radioQ").valu
 document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{ if(b.dataset.rt==="fav"){ radioTab="fav"; document.querySelectorAll("[data-rt]").forEach(x=>x.setAttribute("aria-selected", x===b)); renderRadios(radioFavs, "Ainda não tens rádios favoritas. Toca numa rádio e depois em ☆."); } else { $("radioQ").value=""; loadRadios(""); } });
 
 /* ---------- TV bloqueada com o carro em andamento (o modo "só áudio" foi removido) ---------- */
-let drivingNow = false;
 /* v237: com o botão «Andamento» ligado nada fica bloqueado em andamento (TV, vídeo por link, jogos, janelas e Cast) */
 /* v240: sem bloqueios em andamento (TV, vídeo por link, jogos, janelas, Cast): a pedido, deixam de depender do estado de condução */
 const tvBlockedRaw = () => false;
@@ -6293,34 +6301,19 @@ const tvBlocked = c => tvBlockedRaw() && !(typeof mirrorOn !== "undefined" && mi
 const vodOnly = () => { try{ const it = [lastPlayed[0], lastPlayed[1]].filter(Boolean); return it.length > 0 && it.every(x => isVodKind(x.kind)); }catch(e){ return false; } };
 function tvLockUi(){ const el = $("tvLock"); if(el) el.hidden = !(tvBlocked() && !vodOnly()); }
 function tvHaltPlayback(){ try{ stopSlot(0); stopSlot(1); lastPlayed[0] = lastPlayed[1] = null; updateCinemaBar(); keepAwake(false); }catch(e){} }
-/* Valores fixos: verificação em repouso de 10 em 10 s (mín. de 60 em 60 s com a TV/Jogos/Desktop abertos) e 6 s em P para desbloquear. */
-DRIVE.check = 10; DRIVE.hold = 6000; driveLoop();
+/* v310: verificação do estado a cada 60 s (antes 10 s, a Tessie recebia 6 pedidos por minuto sem utilidade, porque os bloqueios estão desligados). */
+DRIVE.check = 60; DRIVE.hold = 6000; driveLoop();
 driveChip();
 if(cfg.audioMode !== undefined){ delete cfg.audioMode; delete cfg.autoAudio; saveCfg(); }
 /* Em andamento a TV pára e fica bloqueada; em P volta a poder abrir-se. */
-function tvDriveSync(){
-  const blocked = tvBlocked() && !vodOnly();
-  if(blocked && !drivingNow){ drivingNow = true; tvHaltPlayback(); }
-  else if(!blocked) drivingNow = false;
-  tvLockUi();
-  try{ mediaDriveSync(); }catch(e){}
-}
+function tvDriveSync(){ tvLockUi(); try{ mediaDriveSync(); }catch(e){} }
 /* Mesma regra da TV para o vídeo do ecrã Media: YouTube na app, vídeo por link e trailers.
    Áudio (rádio, YouTube Music, Spotify, links .mp3) continua livre. */
 const mediaBlocked = () => tvBlockedRaw();
 const isAudioUrl = u => /\.(mp3|aac|m4a|ogg|opus|flac|wav)(\?|#|$)/i.test(String(u||""));
 const isVideoSite = u => { try{ const h = new URL(String(u), location.href).hostname.replace(/^www\./, ""); return h === "rtp.pt"; }catch(e){ return false; } };   /* YouTube e NOS TV ficam livres em andamento */
 function mediaLockUi(){ const el = $("mediaLock"); if(el) el.hidden = !mediaBlocked(); }
-let mediaWasBlocked = false;
-function mediaDriveSync(){
-  const b = mediaBlocked();
-  if(b && !mediaWasBlocked){
-    mediaWasBlocked = true;
-    try{ if(!isAudioUrl(mediaLastUrl)){ if(mediaStop){ mediaStop(); mediaStop = null; } if(mediaHls){ mediaHls.destroy(); mediaHls = null; } const v = $("mediaVid"); v.pause(); v.removeAttribute("src"); v.load(); v.hidden = true; } }catch(e){}
-    try{ if(currentView === "media") toast("Em andamento: vídeo por link parado."); }catch(e){}
-  } else if(!b) mediaWasBlocked = false;
-  mediaLockUi();
-}
+function mediaDriveSync(){ mediaLockUi(); }
 /* Deteção de arranque. Com a TV, os Jogos ou o Desktop abertos (ou um canal a tocar) o Cockpit pede o estado à Tessie no máximo de 60 em 60 s,
    e logo ao entrar nesses ecrãs. O valor das Definições (5–300 s) só manda quando não há nada bloqueável aberto. */
 DRIVE.timer = 0;
@@ -6339,7 +6332,7 @@ function driveCheckNow(){
 document.addEventListener("visibilitychange", () => { if(!document.hidden){ try{ driveUpdate(false); tvDriveSync(); driveLoop(true); }catch(e){} } });
 function driveLoop(immediate){
   clearTimeout(DRIVE.timer);
-  const secs = driveWatching() ? Math.min(DRIVE.check, 60) : DRIVE.check;
+  const secs = DRIVE.check;
   DRIVE.timer = setTimeout(async () => { await driveCheckNow(); driveLoop(); }, immediate ? 0 : secs * 1000);
 }
 
