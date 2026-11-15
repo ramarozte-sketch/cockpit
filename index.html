@@ -1649,6 +1649,10 @@ body.layout-atv .rail{display:none}
           <h3 class="setsubh">Avatar</h3>
           <p class="small muted" style="margin:0">Companheiro que anda pela app e conversa contigo.</p>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>
+          <h3 class="setsubh">Descodificação de vídeo</h3>
+          <p class="small muted" style="margin:0">Automática usa o hls.js, como hoje. WebCodecs é experimental: por agora só testa o descodificador do browser e ainda não reproduz canais.</p>
+          <label class="f">Motor de descodificação<select id="setDecode"><option value="auto">Automática (hls.js)</option><option value="webcodecs">WebCodecs (experimental)</option></select></label>
+          <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <h3 class="setsubh">Indicador de fps</h3>
           <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
           <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
@@ -2855,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v310";
+const APP_VERSION = "v311";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15016,6 +15020,7 @@ window.__sa = {
       const hf = $("setHalfMode"); if(hf) hf.value = cfg.halfMode || "auto";
       const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
+      const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "webcodecs" ? "webcodecs" : "auto";
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
       const tp = $("setTvHomeTpl"); if(tp) tp.value = cfg.tvHomeTpl || "equilibrado";
@@ -15026,6 +15031,36 @@ window.__sa = {
   bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
   bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
+  /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
+  bind("setDecode", e => { cfg.decodeMode = e.target.value === "webcodecs" ? "webcodecs" : "auto"; saveCfg(); toast(cfg.decodeMode === "webcodecs" ? "WebCodecs selecionado (experimental: ainda não reproduz canais)." : "Descodificação automática (hls.js)."); });
+  /* Teste real: codifica 5 fotogramas com VideoEncoder, descodifica com VideoDecoder e conta os que saem */
+  async function wcRoundTrip(){
+    if(!window.VideoEncoder || !window.VideoDecoder || !window.VideoFrame) return {ok:false, why:"este browser não tem WebCodecs"};
+    const W = 320, H = 180, codec = "avc1.42001f";
+    const ecfg = {codec, width:W, height:H, bitrate:500000, framerate:10, hardwareAcceleration:"prefer-hardware"};
+    const sup = await VideoEncoder.isConfigSupported(ecfg);
+    if(!sup.supported) return {ok:false, why:"codificador H.264 não suportado"};
+    const chunks = []; let desc = null, decoded = 0, derr = null;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+    const enc = new VideoEncoder({output:(c, m) => { if(m && m.decoderConfig && !desc) desc = m.decoderConfig; chunks.push(c); }, error:e => { derr = "codificar: " + e.message; }});
+    enc.configure(ecfg);
+    for(let i = 0; i < 5; i++){ g.fillStyle = "hsl(" + (i * 60) + ",80%,50%)"; g.fillRect(0, 0, W, H); const fr = new VideoFrame(cv, {timestamp: i * 100000}); enc.encode(fr, {keyFrame: i === 0}); fr.close(); }
+    await enc.flush(); enc.close();
+    const dec = new VideoDecoder({output:f => { decoded++; f.close(); }, error:e => { derr = "descodificar: " + e.message; }});
+    dec.configure({codec, codedWidth:W, codedHeight:H, hardwareAcceleration:"prefer-hardware", ...(desc && desc.description ? {description: desc.description} : {})});
+    const t0 = performance.now();
+    chunks.forEach(c => dec.decode(c));
+    await dec.flush(); dec.close();
+    if(derr) return {ok:false, why:derr};
+    return {ok: decoded === 5, frames: decoded, ms: Math.round(performance.now() - t0)};
+  }
+  const wcBtn = $("btnWcTest");
+  if(wcBtn && !wcBtn._v311){ wcBtn._v311 = 1; wcBtn.addEventListener("click", async () => {
+    toast("A testar WebCodecs…");
+    try{ const r = await wcRoundTrip(); const msg = r.ok ? "✅ WebCodecs OK: " + r.frames + "/5 fotogramas em " + r.ms + " ms" : "❌ WebCodecs: " + (r.why || ("só " + r.frames + "/5 fotogramas"));
+      toast(msg, !r.ok); window.__dbgEv && window.__dbgEv(0, "teste WebCodecs", r); }
+    catch(e){ toast("❌ WebCodecs: " + e.message, true); }
+  }); }
   bind("setCardAnim", e => { cfg.tvHomeAnim = e.target.value; saveCfg(); });
   bind("setTvHome", e => { cfg.tvHome = e.target.value; saveCfg(); });
   bind("setTvHomeTpl", e => { cfg.tvHomeTpl = e.target.value; saveCfg(); });
