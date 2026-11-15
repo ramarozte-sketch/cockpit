@@ -2825,7 +2825,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v295";
+const APP_VERSION = "v296";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -6219,7 +6219,7 @@ function renderRadios(list, empty){
 function radioStop(){
   podStop();
   const a = $("radioAud"); if(radioHls){ radioHls.destroy(); radioHls = null; }
-  a.pause(); a.removeAttribute("src"); a.load(); radioCur = null; $("radioNow").hidden = true;
+  a.pause(); a.removeAttribute("src"); a.removeAttribute("crossorigin"); a.load(); radioCur = null; $("radioNow").hidden = true;
   document.querySelectorAll(".rcard.on").forEach(x=>x.classList.remove("on"));
 }
 function playRadio(st){
@@ -6228,7 +6228,13 @@ function playRadio(st){
   const a = $("radioAud"), src = (/^http:/i.test(st.url) && location.protocol==="https:") ? px(st.url) : st.url;
   const failed = () => { if(radioCur===st){ toast(`A ${st.name} não está a responder. Experimenta outra.`, true); radioStop(); } };
   if(st.hls && window.Hls && Hls.isSupported()){ radioHls = new Hls({maxBufferLength:20}); radioHls.loadSource(src); radioHls.attachMedia(a); radioHls.on(Hls.Events.ERROR, (e,d)=>{ if(d.fatal) failed(); }); }
-  else { a.src = src; a.onerror = failed; }
+  else {
+    /* v296: com o visualizador ligado à rádio, abre-a pelo proxy do Cockpit com CORS (o som pode ser analisado e o avatar segue o ritmo); se o proxy falhar, volta à ligação direta */
+    const viaPx = !!(window.__visWantsAn && window.__visWantsAn() && typeof HASPX === "function" && HASPX());
+    a._fb = 0;
+    if(viaPx){ let pu = ""; try{ pu = px(st.url); }catch(e){} if(pu && pu !== st.url){ a.crossOrigin = "anonymous"; a.src = pu; a.onerror = () => { if(a._fb || radioCur !== st) return failed(); a._fb = 1; a.removeAttribute("crossorigin"); a.src = src; a.onerror = failed; a.play().catch(()=>{}); }; } else { a.src = src; a.onerror = failed; } }
+    else { a.src = src; a.onerror = failed; }
+  }
   a.play().catch(()=>{});
   $("rnName").textContent = st.name; $("radioNow").hidden = false; radioUpdFav();
   document.querySelectorAll(".rcard").forEach((x)=>x.classList.toggle("on", x.querySelector("b")?.textContent === st.name));
@@ -15491,6 +15497,7 @@ html.half #visKar .k1{font-size:19px}
     const AC = window.AudioContext || window.webkitAudioContext;
     const mkAn = c => { const a = c.createAnalyser(); a.fftSize = 1024; a.smoothingTimeConstant = 0.78; S.data = new Uint8Array(a.frequencyBinCount); S.wave = new Uint8Array(a.fftSize); return a; };
     const radioEl = () => $v("radioAud");
+    window.__visWantsAn = () => !!S.on && S.src === "radio";
     const safeSrc = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin || el.crossOrigin === "anonymous"; }catch(e){ return false; } };
     const tapRadio = () => {
       const el = radioEl(); if(!el || el.paused || !(el.currentSrc || el.src)) { S.hint = "Liga uma rádio em cima (ou escolhe «Colunas do carro»)."; return null; }
@@ -15510,7 +15517,11 @@ html.half #visKar .k1{font-size:19px}
         const c = (A && A.ctx && A.ctx.state !== "closed") ? A.ctx : (S.ctx || (S.ctx = new AC({latencyHint:"playback"})));
         if(A && !A.ctx) A.ctx = c;
         if(c.state !== "running"){ c.resume().catch(() => {}); S.hint = ""; return null; }   /* v295: com o contexto parado a rádio ficava muda: só liga quando já está a correr */
-        const src = c.createMediaElementSource(el), gn = c.createGain(); src.connect(gn); gn.connect(c.destination); el._amp = {g:gn}; el._visAn = mkAn(c); gn.connect(el._visAn);
+        const src = c.createMediaElementSource(el), gn = c.createGain(), cp = c.createDynamicsCompressor();
+        /* v296: mesma cadeia do Amplificador (ganho + limitador de segurança); antes o ganho do Amp (até 200 %) ia direto à saída: som altíssimo e distorcido */
+        cp.threshold.value = -1; cp.knee.value = 0; cp.ratio.value = 20; cp.attack.value = 0.002; cp.release.value = 0.12;
+        try{ gn.gain.value = A && A.pct ? A.pct() / 100 : 1; }catch(e){}
+        src.connect(gn); gn.connect(cp); cp.connect(c.destination); el._amp = {g:gn}; if(A) A.used = (A.used || 0) + 1; el._visAn = mkAn(c); gn.connect(el._visAn);
         S.hint = ""; return el._visAn;
       }catch(e){ S.hint = "Não consegui ler o som desta rádio: uso o ritmo simulado."; return null; }
     };
