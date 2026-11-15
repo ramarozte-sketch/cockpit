@@ -1650,8 +1650,8 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Companheiro que anda pela app e conversa contigo.</p>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>
           <h3 class="setsubh">Descodificação de vídeo</h3>
-          <p class="small muted" style="margin:0">Automática usa o hls.js, como hoje. WebCodecs é experimental: por agora só testa o descodificador do browser e ainda não reproduz canais.</p>
-          <label class="f">Motor de descodificação<select id="setDecode"><option value="auto">Automática (hls.js)</option><option value="webcodecs">WebCodecs (experimental)</option></select></label>
+          <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
+          <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <h3 class="setsubh">Indicador de fps</h3>
           <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
@@ -2859,7 +2859,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v313";
+const APP_VERSION = "v314";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3821,10 +3821,7 @@ class SoftVideoDecoder {
   _mkWorker(cfg){
     const W = {q:[], inflight:0, busy:false, draining:false, done:false, ep:SVD_EP += 1000, fps:0, fr:0, ms:0};
     /* ?v= obriga o browser/alojamento a ir buscar o descodificador desta versão (um h264soft.js antigo em cache não sabe trabalhar em paralelo) */
-    /* v312: com o motor WebCodecs (Definições) usa wcdec.js; por defeito mantém-se o h264soft.js e a reserva como antes */
-    W.wc = !this.hevc && !!(window.__wcOn && window.__wcOn());
-    W.w = W.wc ? new Worker("wcdec.js?v=" + APP_VERSION) : (SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION));
-    window.__motorUsado = W.wc ? "webcodecs" : "h264soft";
+    W.w = SVD_POOL.shift() || new Worker("h264soft.js?v=" + APP_VERSION);
     W.w.onmessage = e => { const d = e.data;
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
@@ -3959,7 +3956,7 @@ class SoftVideoDecoder {
     this.state = "closed"; this.pending = []; this.owner = null;
     /* o Worker volta para a reserva (até 3) já com o FFmpeg carregado; os restantes terminam */
     for(const W of this.W){ try{ W.w.onmessage = null; W.w.onerror = null;
-        if(!W.wc && !this.legacy && SVD_POOL.length < 3){ W.w.postMessage({cmd:"flush", ep:++SVD_EP}); SVD_POOL.push(W.w); } else W.w.terminate(); }catch(e){} }
+        if(!this.legacy && SVD_POOL.length < 3){ W.w.postMessage({cmd:"flush", ep:++SVD_EP}); SVD_POOL.push(W.w); } else W.w.terminate(); }catch(e){} }
     this.W = [];
   }
 }
@@ -4378,13 +4375,15 @@ function tsMirInit(slot){
     return;
   }
   const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null, t0:performance.now()};
-  if(!WC_NATIVE){   /* v195: página http — o mesmo FFmpeg/WASM em paralelo (Annex B, sem WebCodecs) */
-    st.soft = true;
+  /* v314: software se escolhido nas Definições; por defeito WebCodecs em HTTPS e software em HTTP */
+  if(!WC_NATIVE || (window.__useSoft && window.__useSoft())){   /* v195: o mesmo FFmpeg/WASM em paralelo (Annex B, sem WebCodecs) */
+    st.soft = true; window.__motorUsado = "h264soft";
     st.decoder = new SoftVideoDecoder({output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; if(st.frames === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "primeira imagem em andamento", {ms:Math.round(performance.now() - st.t0)}); }catch(e){} } mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).length});
     const pre = tap.pre || []; tap.pre = []; tap.preN = 0; for(const b of pre) tsMirFeed(slot, b);
     return;
   }
+  window.__motorUsado = "webcodecs";
   st.decoder = new PacedDecoder({
     output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
     error: e => { st.err = "decoder: " + e.message; },
@@ -14204,7 +14203,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
-      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:(window.__wcOn && window.__wcOn()) ? "webcodecs" : "h264soft", motorUsado:window.__motorUsado || "nenhum ainda"},
+      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:(window.__useSoft && window.__useSoft()) ? "software" : "webcodecs", motorUsado:window.__motorUsado || "nenhum ainda"},
       conta:await account(), bw:+LS.get("bwEst", 0) || 0};
     const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined})).concat([0, 1].map(s => DBG.watch[s]).filter(w => w && w.ev.length).map(w => Object.assign({}, w, {res:"em observação", t0:undefined, t00:undefined})));
     return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
@@ -15023,20 +15022,20 @@ window.__sa = {
       const hf = $("setHalfMode"); if(hf) hf.value = cfg.halfMode || "auto";
       const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
-      const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "webcodecs" ? "webcodecs" : "auto";
+      const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "software" ? "software" : "webcodecs";
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
       const tp = $("setTvHomeTpl"); if(tp) tp.value = cfg.tvHomeTpl || "equilibrado";
     }catch(e){}
   };
   const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
-  window.__wcOn = () => !!(window.VideoDecoder && cfg && cfg.decodeMode === "webcodecs");
+  window.__useSoft = () => !!(cfg && cfg.decodeMode === "software");
   bind("setUiScale", e => { cfg.uiScale = +e.target.value || 100; saveCfg(); applyScale(); });
   bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
   bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
-  bind("setDecode", e => { cfg.decodeMode = e.target.value === "webcodecs" ? "webcodecs" : "auto"; saveCfg(); toast(cfg.decodeMode === "webcodecs" ? "WebCodecs selecionado (experimental: ainda não reproduz canais)." : "Descodificação automática (hls.js)."); });
+  bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg(); toast(cfg.decodeMode === "software" ? "Motor: software (h264soft.js). Reabre a imagem em andamento." : "Motor: WebCodecs (por defeito). Reabre a imagem em andamento."); });
   /* Teste real: codifica 5 fotogramas com VideoEncoder, descodifica com VideoDecoder e conta os que saem */
   async function wcRoundTrip(){
     if(!window.VideoEncoder || !window.VideoDecoder || !window.VideoFrame) return {ok:false, why:"este browser não tem WebCodecs"};
