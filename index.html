@@ -2830,7 +2830,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v301";
+const APP_VERSION = "v302";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -12230,7 +12230,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
 })();
 
 /* v301: donativos (opcional). Põe aqui o endereço de donativos (ex.: Ko-fi, PayPal.me) entre aspas. */
-const DONATE_URL = "";
+const DONATE_URL = "https://www.paypal.com/paypalme/ruivascoamaro";
 (function(){ const b = document.getElementById("btnDonate"); if(!b) return;
   b.onclick = () => { if(!DONATE_URL){ toast("Donativos: o endereço ainda não foi definido."); return; } window.open(DONATE_URL, "_blank", "noopener"); }; })();
 </script>
