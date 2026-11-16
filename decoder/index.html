@@ -10,6 +10,7 @@ label{display:block;margin:8px 0}
 <h2>Descodificador de som E-AC-3 / AC-3 / AAC</h2>
 <p>Escolhe um ficheiro MP4 com som. O som é descodificado no próprio browser (biblioteca libav) e pode ser ouvido ou descarregado em WAV.</p>
 <label>Ficheiro MP4 <input type="file" id="f" accept="video/mp4,.mp4,.m4a"></label>
+<label>ou endereço do filme (cola o endereço completo) <input type="text" id="u" placeholder="https://..." style="width:100%"></label>
 <label>Minutos a descodificar <input type="number" id="mins" value="10" min="1" max="180"></label>
 <button id="go" disabled>Descodificar</button>
 <button id="dl" disabled>Descarregar WAV</button>
@@ -41,7 +42,7 @@ function adts(d, sr, ch) {
 }
 
 /* lê o MP4 em blocos e recolhe as amostras de som até ao limite de tempo */
-function demux(file, maxSec) {
+function demux(src, maxSec) {
   return new Promise(async (res, rej) => {
     const mp = MP4Box.createFile(); const samples = []; let aTrack = null;
     mp.onError = e => rej(new Error("mp4box: " + e));
@@ -56,10 +57,22 @@ function demux(file, maxSec) {
       for (const x of s) { const ts = x.cts / x.timescale; if (ts <= maxSec) samples.push({ ts, data: new Uint8Array(x.data) }); }
     };
     try {
-      const CH = 16 << 20; let pos = 0;
-      while (pos < file.size) {
-        const ab = await file.slice(pos, pos + CH).arrayBuffer();
-        ab.fileStart = pos; pos += ab.byteLength; mp.appendBuffer(ab);
+      if (typeof src === "string") {
+        const r = await fetch(src, { headers: { Range: "bytes=0-" } });
+        L("pedido", r.status, "content-range", r.headers.get("content-range") || "(sem)");
+        const rd = r.body.getReader(); let pos = 0;
+        for (;;) {
+          const { done, value } = await rd.read(); if (done) break;
+          const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
+          ab.fileStart = pos; pos += ab.byteLength; mp.appendBuffer(ab);
+        }
+        L("lidos", (pos / 1e6).toFixed(0), "MB");
+      } else {
+        const CH = 16 << 20; let pos = 0;
+        while (pos < src.size) {
+          const ab = await src.slice(pos, pos + CH).arrayBuffer();
+          ab.fileStart = pos; pos += ab.byteLength; mp.appendBuffer(ab);
+        }
       }
       mp.flush();
       res({ aTrack, samples });
@@ -101,14 +114,17 @@ function wavBlob({ sr, l, r }) {
   return new Blob([buf], { type: "audio/wav" });
 }
 
-const f = document.getElementById("f"), go = document.getElementById("go"), dl = document.getElementById("dl");
-f.onchange = () => { go.disabled = !f.files[0]; dl.disabled = true; out = null; };
+const f = document.getElementById("f"), go = document.getElementById("go"), dl = document.getElementById("dl"), u = document.getElementById("u");
+const fonte = () => u.value.trim() || (f.files[0] || null);
+f.onchange = () => { go.disabled = !fonte(); dl.disabled = true; out = null; };
+u.oninput = () => { go.disabled = !fonte(); };
 go.onclick = async () => {
   go.disabled = true; dl.disabled = true; document.getElementById("log").textContent = "";
   try {
     const maxSec = (+document.getElementById("mins").value || 10) * 60;
-    L("ficheiro:", f.files[0].name, "·", (f.files[0].size / 1e6).toFixed(0), "MB · primeiros", maxSec / 60, "min");
-    const { aTrack, samples } = await demux(f.files[0], maxSec);
+    const src = fonte();
+    L(typeof src === "string" ? "endereço: " + src.slice(0, 60) + "…" : "ficheiro: " + src.name + " (" + (src.size / 1e6).toFixed(0) + " MB)", "· primeiros", maxSec / 60, "min");
+    const { aTrack, samples } = await demux(src, maxSec);
     L("amostras de som:", samples.length);
     out = await decode(aTrack, samples);
     const url = URL.createObjectURL(wavBlob(out));
