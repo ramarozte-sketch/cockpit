@@ -2763,10 +2763,10 @@ async function loadFreeTv(force){
   for(const u of [FREE_SRC, HASPX() ? px(FREE_SRC) : null].filter(Boolean)){
     try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
   }
-  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list; return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
+  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list.map(x => ({...x, name:cleanTag(x.name)})); return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
   const seen = new Set();
   freeChans = parseM3U(txt).map(c=>({...c, kind:"live", free:true, group:"Sinal aberto",
-      name:c.name.replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
+      name:cleanTag(c.name).replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
     .filter(c=>c.url && /^https?:/i.test(c.url) && !seen.has(c.url) && seen.add(c.url))
     .sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
   LS.set("freeTv", {t:Date.now(), list:freeChans.map(({name,logo,id,url,kind,free,group})=>({name,logo,id,url,kind,free,group}))});
@@ -2791,7 +2791,7 @@ async function loadIntl(k, force){
   if(!txt){ if(c?.list?.length){ intlChans = c.list; return; } throw new Error("não consegui obter a lista"); }
   const seen = new Set(), lab = (INTL_SETS.find(x=>x[0]===k)||[,k])[1];
   intlChans = parseM3U(txt).map(x=>({...x, kind:"live", free:true, intl:true, group:lab,
-      name:x.name.replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
+      name:cleanTag(x.name).replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
     .filter(x=>x.url && /^https?:/i.test(x.url) && !seen.has(x.url) && seen.add(x.url))
     .sort((a,b)=>a.name.localeCompare(b.name));
   LS.set(key, {t:Date.now(), list:intlChans.map(({name,logo,id,url,kind,free,intl,group})=>({name,logo,id,url,kind,free,intl,group}))});
@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v328";
+const APP_VERSION = "v329";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
