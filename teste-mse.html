@@ -51,16 +51,19 @@ function flushPend() {
   const anchor = ac.currentTime - v.currentTime;
   if (window.__lastAnchor !== undefined && Math.abs(anchor - window.__lastAnchor) > 0.2) resyncAudio();
   window.__lastAnchor = anchor;
-  const when = anchor + p.ts;
-  if (when < ac.currentTime + 0.01) { window.__aLate = (window.__aLate || 0) + 1; return; }
+  let when = anchor + p.ts;
+  /* encadeia os blocos: cada um começa onde o anterior acaba (sem falhas nem sobreposições = sem grilos) */
+  if (window.__aEnd && Math.abs(when - window.__aEnd) < 0.15) when = window.__aEnd;
+  if (when < ac.currentTime + 0.01) { window.__aLate = (window.__aLate || 0) + 1; window.__aEnd = 0; return; }
   const b = ac.createBuffer(2, p.n, p.sr);
   const cat = arr => { const o = new Float32Array(p.n); let k = 0; for (const a of arr) { o.set(a, k); k += a.length; } return o; };
   b.copyToChannel(cat(p.l), 0); b.copyToChannel(cat(p.r), 1);
   const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination);
   s.onended = () => { srcs = srcs.filter(x => x !== s); };
+  window.__aEnd = when + b.duration;
   srcs.push(s); s.start(when);
 }
-function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); srcs = []; window.__aRe = (window.__aRe || 0) + 1; }
+function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); srcs = []; window.__aEnd = 0; window.__aRe = (window.__aRe || 0) + 1; }
 
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
