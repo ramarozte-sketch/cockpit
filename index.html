@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v325";
+const APP_VERSION = "v326";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15082,11 +15082,18 @@ window.__sa = {
     try{ const hs = await VideoDecoder.isConfigSupported({codec:"hvc1.1.6.L93.B0", codedWidth:1920, codedHeight:1080, hardwareAcceleration:"prefer-hardware"}); hevc = hs.supported ? "suportado" : "não suportado"; }catch(e){ hevc = "erro: " + e.message; }
     return {ok: decoded === 5, frames: decoded, ms: Math.round(performance.now() - t0), hevc};
   }
+  /* v326: o que a reprodução usa é o descodificador. Testa-o sozinho (H.264 e HEVC), sem depender do codificador */
+  async function wcCaps(){
+    const dec = async c => { try{ const r = await VideoDecoder.isConfigSupported(c); return r.supported ? "sim" : "não"; }catch(e){ return "erro"; } };
+    if(!window.VideoDecoder) return {h264:"sem WebCodecs", hevc:"sem WebCodecs"};
+    return { h264: await dec({codec:"avc1.42001f", codedWidth:1280, codedHeight:720, hardwareAcceleration:"prefer-hardware"}),
+             hevc: await dec({codec:"hvc1.1.6.L93.B0", codedWidth:1920, codedHeight:1080, hardwareAcceleration:"prefer-hardware"}) };
+  }
   const wcBtn = $("btnWcTest");
   if(wcBtn && !wcBtn._v311){ wcBtn._v311 = 1; wcBtn.addEventListener("click", async () => {
     toast("A testar WebCodecs…");
-    try{ const r = await wcRoundTrip(); const msg = (r.ok ? "✅ WebCodecs OK: " + r.frames + "/5 fotogramas em " + r.ms + " ms" : "❌ WebCodecs: " + (r.why || ("só " + r.frames + "/5 fotogramas"))) + " · HEVC 1080p: " + (r.hevc || "—");
-      toast(msg, !r.ok); window.__dbgEv && window.__dbgEv(0, "teste WebCodecs", r); }
+    try{ const caps = await wcCaps(); const r = await wcRoundTrip(); const msg = "Descodificador — H.264 720p: " + caps.h264 + " · HEVC 1080p: " + caps.hevc + " | " + (r.ok ? "✅ WebCodecs OK: " + r.frames + "/5 fotogramas em " + r.ms + " ms" : "❌ WebCodecs: " + (r.why || ("só " + r.frames + "/5 fotogramas"))) + " · HEVC 1080p: " + (r.hevc || "—");
+      toast(msg, caps.h264 !== "sim"); window.__dbgEv && window.__dbgEv(0, "teste WebCodecs", Object.assign({caps}, r)); }
     catch(e){ toast("❌ WebCodecs: " + e.message, true); }
   }); }
   bind("setCardAnim", e => { cfg.tvHomeAnim = e.target.value; saveCfg(); });
