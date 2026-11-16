@@ -268,12 +268,27 @@ async function run(url) {
       L("índice lido · moov a", (moovAt / 1e3).toFixed(0), "KB · ficheiro", (size / 1e6).toFixed(0), "MB");
       /* 2) dados em sequência (blocos de 8 MB), como o leitor do descodificador */
       const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen, dEnd = moovAt > ftypLen ? moovAt : size;
-      for (let q = dStart; q < dEnd; q += 8 << 20) {
-        const e = Math.min(dEnd, q + (8 << 20));
-        /* não lê mais de ~60 s à frente do que está a tocar (memória) */
-        while (started && sb && sb.buffered.length && sb.buffered.end(sb.buffered.length - 1) - v.currentTime > 60 || queue.length > 30) await new Promise(r => setTimeout(r, 500));
-        feed(await fr(q, e - 1), q); pos = e;
-        if (((q - dStart) / 50e6 | 0) !== (((q - dStart) - (8 << 20)) / 50e6 | 0)) L("lidos", (pos / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms");
+      /* uma única ligação contínua: os dados chegam ao leitor à medida que descarregam (blocos de 8 MB davam imagem aos soluços) */
+      let q = dStart, fails = 0, nextLog = 50e6;
+      const sleep = ms2 => new Promise(r => setTimeout(r, ms2));
+      while (q < dEnd) {
+        const q0 = q; let rd = null, parts = [], n = 0;
+        const flushP = () => { if (!n) return; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } parts = []; n = 0; feed(o.buffer, q); q += o.length; pos = q; if (q - dStart >= nextLog) { nextLog += 50e6; L("lidos", ((q - dStart) / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } };
+        try {
+          const r = await fetch(url, { headers: { Range: "bytes=" + q + "-" + (dEnd - 1) } });
+          if (!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+          rd = r.body.getReader();
+          for (;;) {
+            /* não lê mais de ~60 s à frente do que está a tocar (memória) */
+            while (started && sb && sb.buffered.length && sb.buffered.end(sb.buffered.length - 1) - v.currentTime > 60 || queue.length > 30) await sleep(500);
+            const { done, value } = await rd.read(); if (done) break;
+            parts.push(value); n += value.length; if (n >= 1 << 20) flushP();
+          }
+          flushP();
+        } catch (e) { flushP(); L("leitura interrompida em", (q / 1e6).toFixed(0), "MB:", String(e && e.message || e).slice(0, 60)); }
+        if (q >= dEnd) break;
+        if (q === q0) { if (++fails > 6) throw new Error("leitura falhou em " + q); } else fails = 0;
+        await sleep(1500 * (fails + 1));
       }
       f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
       const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
