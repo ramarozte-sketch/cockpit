@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v322";
+const APP_VERSION = "v323";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4137,7 +4137,13 @@ function present(slot){
   const head = q.length ? q[0].timestamp : (st.decoder && st.decoder.headTs ? st.decoder.headTs() : null);
   const pn = performance.now();
   /* v320 (só medição): quanto tempo o relógio do vídeo esteve parado entre atualizações (causa possível das pausas) */
-  if(st.ctAt && !st.wall) st.ctMaxStale = Math.max(st.ctMaxStale || 0, pn - st.ctAt);
+  if(st.ctAt && !st.wall){
+    const stale = pn - st.ctAt; st.ctMaxStale = Math.max(st.ctMaxStale || 0, stale);
+    /* v323 (só registo): quando o relógio do vídeo para mais de 1 s, regista o estado do <video> nesse momento */
+    if(stale > 1000 && !st.staleLogged && v){ st.staleLogged = true; try{ const b = v.buffered, be = b.length ? b.end(b.length - 1) : null;
+      window.__dbgEv && window.__dbgEv(slot, "relógio do vídeo parado", {ms:Math.round(stale), readyState:v.readyState, networkState:v.networkState, bufferFim_s:be == null ? null : +be.toFixed(2), agora_s:+v.currentTime.toFixed(2), pausado:v.paused, procura:v.seeking, escondido:document.hidden}); }catch(e){} }
+    else if(stale < 300) st.staleLogged = false;
+  }
   if(v && st.masterUs!=null){
     const dct = v.currentTime - (st.ctLast == null ? v.currentTime : st.ctLast);
     if(st.ctLast == null || dct !== 0){
