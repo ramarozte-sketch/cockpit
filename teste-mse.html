@@ -77,10 +77,14 @@ document.getElementById("go").onclick = async () => {
 async function run(url) {
   const ms = new MediaSource(), v = document.getElementById("v");
   v.src = URL.createObjectURL(ms);
+  ms.addEventListener("sourceopen", () => L("fonte de vídeo aberta"));
+  ms.addEventListener("sourceclose", () => L("fonte de vídeo FECHADA"));
+  ms.addEventListener("sourceended", () => L("fonte de vídeo terminada"));
+  v.addEventListener("error", () => L("vídeo ERRO", v.error && v.error.code, v.error && v.error.message));
   ac = ac || new (window.AudioContext || window.webkitAudioContext)();
   const f = MP4Box.createFile(); let sb = null, queue = [], pos = 0, started = false, t0 = performance.now();
-  let aTrack = null, Lv = null, dec = null, aq = [], aBusy = false, firstV = null;
-  const pushQ = () => { if (!sb || sb.updating || !queue.length) return; try { sb.appendBuffer(queue.shift()); } catch (e) { L("appendBuffer ERRO", String(e)); } };
+  let decP = null, aTrack = null, Lv = null, dec = null, aq = [], aBusy = false, firstV = null;
+  const pushQ = () => { if (!sb || sb.updating || !queue.length) return; try { sb.appendBuffer(queue.shift()); } catch (e) { L("appendBuffer ERRO", String(e).slice(0, 80), "· estado:", ms.readyState); } };
   const drainAudio = async () => {
     if (aBusy || !dec) return; aBusy = true;
     try {
@@ -125,7 +129,8 @@ async function run(url) {
   f.onSegment = (id, user, data) => { queue.push(new Uint8Array(data)); pushQ(); };
   f.onSamples = async (id, user, samples) => {
     if (!aTrack || id !== aTrack.id) return;
-    try { if (!dec) { if (!Lv) return; dec = await Lv.ff_init_decoder(window.__cod || "eac3"); L("descodificador de som pronto:", window.__cod); } } catch (e) { L("som: init ERRO", String(e && e.message || e)); return; }
+    if (!decP) { if (!Lv) return; decP = Lv.ff_init_decoder(window.__cod || "eac3").then(d => { dec = d; L("descodificador de som pronto:", window.__cod); }).catch(e => { L("som: init ERRO", String(e && e.message || e)); decP = null; }); }
+    await decP; if (!dec) return;
     for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     if (ac.state !== "running") ac.resume().catch(() => {});
     if (!window.__drainT) window.__drainT = setInterval(() => drainAudio(), 150);
