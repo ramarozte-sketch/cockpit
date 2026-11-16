@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v343";
+const APP_VERSION = "v344";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -13509,6 +13509,20 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
         '<h3 style="margin:14px 0 6px">Controlo parental</h3><p class="small muted" id="parSt" style="margin:0 0 6px"></p>' +
         '<div class="row"><input type="password" inputmode="numeric" id="parPin" maxlength="8" placeholder="PIN (4 a 8 algarismos)" style="max-width:220px"><button class="btn primary" id="parSet">Guardar PIN</button><button class="btn" id="parOff">Desligar</button><button class="btn" id="parUnlock">Desbloquear agora</button></div>';
       tvc.parentNode.insertBefore(card, tvc.nextSibling);
+      /* v344: mostrar e ocultar canais, filmes e séries (mesma lógica da app Android: categorias por tipo e canais individuais) */
+      const vis = document.createElement("div"); vis.className = "panel setcard"; vis.id = "visCard";
+      const KN = {live:"Ao vivo", movie:"Filmes", series:"Séries"};
+      const kindOfUrl = u => { const c = channels.find(x => x.url === u); return c ? c.kind : ""; };
+      const visRender = () => {
+        const rows = ["live","movie","series"].map(k => { const gh = ((TVORG.grpHide || {})[k] || []).length, hc = (TVORG.chHide || []).filter(u => kindOfUrl(u) === k).length;
+          return '<div class="row" style="margin:6px 0"><span class="nm" style="flex:1">' + KN[k] + ' <small class="muted">· ' + gh + ' categorias e ' + hc + ' canais ocultos</small></span><button class="btn" data-vg="' + k + '">Gerir</button><button class="btn" data-vs="' + k + '">Mostrar todos</button></div>'; }).join("");
+        vis.querySelector(".visList").innerHTML = rows;
+        vis.querySelectorAll("[data-vg]").forEach(b => b.onclick = () => { tvKind = b.dataset.vg; try{ orgOpen(); }catch(e){ toast("Não consegui abrir a organização.", true); } });
+        vis.querySelectorAll("[data-vs]").forEach(b => b.onclick = () => { const k = b.dataset.vs; TVORG.grpHide = TVORG.grpHide || {}; TVORG.grpHide[k] = []; TVORG.chHide = (TVORG.chHide || []).filter(u => kindOfUrl(u) !== k); orgSave(); try{ orgRefreshMain(); }catch(e){} visRender(); toast(KN[k] + ": tudo visível."); });
+      };
+      vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Esconde categorias e canais de cada tipo. Os países ocultos estão em cima.</p><div class="visList" style="margin-top:8px"></div>';
+      card.parentNode.insertBefore(vis, card.nextSibling);
+      visRender();
       const S = C.state;
       const render = () => {
         const cnt = new Map();
