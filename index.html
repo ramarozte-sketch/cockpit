@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v326";
+const APP_VERSION = "v327";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -16889,7 +16889,8 @@ html.nightUi #ambient{filter:brightness(.75)}
       st2("A preparar a ligação…");
       const t0 = Date.now();
       while(my === gen && conns.length < 2 && Date.now() - t0 < 600000){
-        if(conns.length){ code = await showCode(); M.classList.add("on"); }
+        /* v327: não volta a abrir o modal sozinho (antes reabria a cada ciclo de 90 s enquanto houvesse um telemóvel ligado) */
+        if(conns.length){ code = await showCode(); }
         let o;
         try{ o = await newOffer(code); }catch(e){ st2("Erro: " + (e.message || e) + ". Toca para gerar outro."); return; }
         st2(conns.length ? "À espera do 2.º telemóvel (usa o mesmo código)…" : "À espera do telemóvel…");
