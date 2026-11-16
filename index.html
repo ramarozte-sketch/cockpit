@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v332";
+const APP_VERSION = "v333";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -5261,13 +5261,16 @@ async function playTs(v, url, slot, onFail){
   if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
   /* imagem em andamento: o fluxo é duplicado para o leitor da imagem (precisa do mpegts.js fora do Worker) */
   const tapOn = typeof mirrorOn !== "undefined" && mirrorOn && WC_OK && !window.ANDROID;
-  if(tapOn) window.__tsTaps[slot] = {url, on:true, fn:b => tsMirFeed(slot, b)}; else if(window.__tsTaps[slot]) window.__tsTaps[slot].on = false;
+  /* v333 (diagnóstico): conta os bytes TS que chegam ao espelho e regista erros do leitor, para ver o caminho HEVC em HTTP */
+  if(tapOn) window.__tsTaps[slot] = {url, on:true, fn:b => { try{ window.__tsBytes = (window.__tsBytes || 0) + b.byteLength; }catch(e){} tsMirFeed(slot, b); }}; else if(window.__tsTaps[slot]) window.__tsTaps[slot].on = false;
   /* v196: com rede lenta, «perseguir o direto» fazia saltos para a frente depois de cada quebra; aí fica desligado */
   let slowNet = false; try{ const n = navigator.connection; if(n && ((n.effectiveType && /^(slow-2g|2g|3g)$/.test(n.effectiveType)) || (n.downlink && n.downlink < 3))) slowNet = true; const bw = +LS.get("bwEst", 0); if(bw && bw < 3e6) slowNet = true; }catch(e){}
   const p = mpegts.createPlayer({type:"mpegts", isLive:true, url}, Object.assign({enableWorker:!tapOn, liveBufferLatencyChasing:!slowNet, lazyLoad:false}, window.__TESLA ? {enableStashBuffer:true, stashInitialSize:384*1024,
     liveBufferLatencyMaxLatency:8, liveBufferLatencyMinRemain:3,
     autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:30, autoCleanupMinBackwardDuration:15, fixAudioTimestampGap:true} : {}));
   p.__url = url; p.attachMediaElement(v); p.load(); tsInst[slot]=p;
+  try{ window.__tsBytes = 0; p.on(mpegts.Events.ERROR, (t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: erro do leitor", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "")}); }catch(e){} });
+    setTimeout(() => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: bytes ao espelho (10 s)", {bytes:window.__tsBytes || 0, mirror:!!tapOn, hevcMse:!!HEVC_OK()}); }catch(e){} }, 10000); }catch(e){}
   if(tapOn) setTimeout(() => { try{ if(tsInst[slot] === p && mirrorOn) startMirror(slot); }catch(e){} }, 0);
   if(window.__TESLA){ try{ watchStall(slot, v, () => { try{ if(tsInst[slot] !== p) return; p.unload(); p.load(); v.play().catch(()=>{}); }catch(e){} }); }catch(e){} }
   /* v224: o .ts em direto (HEVC 1080p50) chegava mesmo ao fim do que estava carregado e parava ~1 vez por segundo (log de 06/11 09:19: RTP 1 UHD a preto).
