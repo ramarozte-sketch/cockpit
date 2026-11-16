@@ -43,44 +43,70 @@ function adts(d, sr, ch) {
 }
 
 /* lê o MP4 em blocos e recolhe as amostras de som até ao limite de tempo */
-/* para endereços: lê só os intervalos que o mp4box pede (índice no fim do ficheiro não obriga a ler tudo) */
-function demuxRanges(url, maxSec) {
-  return new Promise(async (res, rej) => {
-    const mp = MP4Box.createFile(); const samples = []; let aTrack = null, ready = false, total = 0;
-    mp.onError = e => rej(new Error("mp4box: " + e));
-    mp.onReady = info => {
-      aTrack = info.audioTracks[0]; ready = true;
-      if (!aTrack) return rej(new Error("o ficheiro não tem faixa de som"));
-      L("índice pronto (com " + (lastPos / 1e6).toFixed(1) + " MB pedidos)");
-      mp.setExtractionOptions(aTrack.id, null, { nbSamples: 500 });
-      mp.start();
-    };
-    mp.onSamples = (id, u, s) => {
-      if (!aTrack || id !== aTrack.id) return;
-      for (const x of s) { const ts = x.cts / x.timescale; if (ts <= maxSec) samples.push({ ts, data: new Uint8Array(x.data) }); }
-    };
-    const CH = 8 << 20; let lastPos = 0;
-    const get = async from => {
-      const end = total ? Math.min(total - 1, from + CH - 1) : from + CH - 1;
-      const r = await fetch(url, { headers: { Range: "bytes=" + from + "-" + end } });
-      if (!total) { const m = /\/(\d+)$/.exec(r.headers.get("content-range") || ""); if (m) total = +m[1]; }
-      const ab = await r.arrayBuffer(); ab.fileStart = from; lastPos = from; return ab;
-    };
-    try {
-      let want = 0, guard = 0;
-      while (guard++ < 2000) {
-        if (total && want >= total) break;
-        const ab = await get(want);
-        if (!ab.byteLength) break;
-        const next = mp.appendBuffer(ab);
-        if (ready && samples.length && samples[samples.length - 1].ts > maxSec) break;
-        want = (typeof next === "number" && next >= 0) ? next : want + ab.byteLength;
-      }
-      L("pedidos feitos · total", (total / 1e6).toFixed(0), "MB");
-      mp.flush();
-      res({ aTrack, samples });
-    } catch (e) { rej(e); }
-  });
+/* para endereços: lê só as caixas de topo até ao moov (sem ler o mdat), e depois só os bytes das amostras de som pedidas */
+async function demuxRanges(url, maxSec) {
+  let total = 0, nReq = 0, nBytes = 0;
+  const fetchR = async (from, to) => {
+    const r = await fetch(url, { headers: { Range: "bytes=" + from + "-" + to } });
+    const cr = /\/(\d+)$/.exec(r.headers.get("content-range") || "");
+    if (cr) total = +cr[1];
+    const ab = await r.arrayBuffer(); nReq++; nBytes += ab.byteLength;
+    return ab;
+  };
+  let pos = 0, moovAb = null, moovPos = 0, firstSize = 0;
+  for (let i = 0; i < 200 && !moovAb; i++) {
+    const ab = await fetchR(pos, pos + 15);
+    const h = new DataView(ab);
+    let size = h.getUint32(0); const type = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
+    if (size === 1) size = Number(h.getBigUint64(8));
+    if (size === 0) break;
+    if (i === 0) firstSize = size;
+    if (type === "moov") { moovPos = pos; moovAb = await fetchR(pos, pos + size - 1); break; }
+    pos += size;
+    if (total && pos >= total) break;
+  }
+  if (!moovAb) throw new Error("não encontrei a caixa moov");
+  const mp = MP4Box.createFile();
+  let info = null;
+  mp.onError = e => L("mp4box: " + e);
+  mp.onReady = i => { info = i; };
+  /* ftyp + cabeçalho falso de mdat a tapar o que está entre o ftyp e o moov: o mp4box salta-os sem os ler */
+  const ftypSize = firstSize;
+  const ftyp = await fetchR(0, ftypSize - 1); ftyp.fileStart = 0; mp.appendBuffer(ftyp);
+  const gap = moovPos - ftypSize;
+  if (gap > 0) {
+    const hd = new ArrayBuffer(gap > 0xFFFFFFFF ? 16 : 8), dv = new DataView(hd);
+    if (gap > 0xFFFFFFFF) { dv.setUint32(0, 1); dv.setUint32(4, 0x6d646174); dv.setBigUint64(8, BigInt(gap)); }
+    else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
+    hd.fileStart = ftypSize; mp.appendBuffer(hd);
+  }
+  moovAb.fileStart = moovPos; mp.appendBuffer(moovAb); mp.flush();
+  if (!info) throw new Error("índice não lido");
+  const aTrack = info.audioTracks[0];
+  if (!aTrack) throw new Error("o ficheiro não tem faixa de som");
+  L("índice lido (" + (moovAb.byteLength / 1e3).toFixed(0) + " KB de moov, ficheiro de " + (total / 1e6).toFixed(0) + " MB)");
+  const list = [];
+  for (const x of mp.getTrackSamplesInfo(aTrack.id)) {
+    const t = x.cts / x.timescale;
+    if (t <= maxSec) list.push({ off: x.offset, size: x.size, ts: t });
+  }
+  list.sort((x, y) => x.off - y.off);
+  const runs = [];
+  for (const x of list) {
+    const last = runs[runs.length - 1];
+    if (last && x.off <= last.end + 262144 && x.off + x.size - last.start <= (16 << 20)) last.end = Math.max(last.end, x.off + x.size);
+    else runs.push({ start: x.off, end: x.off + x.size });
+  }
+  const samples = []; let j = 0;
+  for (const run of runs) {
+    const u = new Uint8Array(await fetchR(run.start, run.end - 1));
+    while (j < list.length && list[j].off < run.end) {
+      const x = list[j++];
+      samples.push({ ts: x.ts, data: u.slice(x.off - run.start, x.off - run.start + x.size) });
+    }
+  }
+  L("pedidos feitos: " + nReq + " · " + (nBytes / 1e6).toFixed(1) + " MB lidos de " + (total / 1e6).toFixed(0) + " MB · amostras " + samples.length);
+  return { aTrack, samples };
 }
 
 function demux(src, maxSec) {
