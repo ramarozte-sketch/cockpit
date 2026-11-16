@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v331";
+const APP_VERSION = "v332";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14219,7 +14219,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   const report = async () => {
     /* v315: o tipo vem da estimativa do browser (não é o meio: Wi-Fi ou dados); o débito medido pelos pedidos de vídeo é o que conta */
     let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, nota:"estimativa do browser (não indica Wi-Fi ou dados)", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
-    const env = {lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
+    const env = {hevcCaps:window.__hevcCaps || "por medir", lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
       opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:window.__motorUsado === "h264soft" ? "software" : window.__motorUsado === "webcodecs" ? "webcodecs" : ((window.__useSoft && window.__useSoft()) ? "software (escolhido)" : "webcodecs (escolhido)"), motorEscolhido:(window.__useSoft && window.__useSoft()) ? "software" : "webcodecs", motorUsado:window.__motorUsado || "nenhum ainda"},
@@ -15096,6 +15096,10 @@ window.__sa = {
     return { h264: await dec({codec:"avc1.42001f", codedWidth:1280, codedHeight:720, hardwareAcceleration:"prefer-hardware"}),
              hevc: await dec({codec:"hvc1.1.6.L93.B0", codedWidth:1920, codedHeight:1080, hardwareAcceleration:"prefer-hardware"}) };
   }
+  /* v332 (só registo): capacidades HEVC deste browser, para o registo de sessão */
+  (async () => { try{ const mse = !!(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'));
+    const wc = window.VideoDecoder ? (await VideoDecoder.isConfigSupported({codec:"hvc1.1.6.L93.B0", codedWidth:1920, codedHeight:1080, hardwareAcceleration:"prefer-hardware"})).supported : false;
+    window.__hevcCaps = {msePlay:mse, webcodecsDecode:wc, software:typeof SoftVideoDecoder === "function"}; }catch(e){ window.__hevcCaps = {erro:String(e.message||e)}; } })();
   const wcBtn = $("btnWcTest");
   if(wcBtn && !wcBtn._v311){ wcBtn._v311 = 1; wcBtn.addEventListener("click", async () => {
     toast("A testar WebCodecs…");
