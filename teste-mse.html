@@ -121,7 +121,7 @@ function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); 
 
 const fmtT = t => { t = Math.max(0, t | 0); return (t / 3600 | 0) + ":" + String(t / 60 % 60 | 0).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
 window.__aAdj = (parseFloat((/[?&]aoff=(-?[\d.]+)/.exec(location.search) || [])[1]) || 0) / 1000;
-const setAdj = d => { window.__aAdj = Math.round((window.__aAdj + d) * 1000) / 1000; document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; pend = null; resyncAudio(); L("acerto do som:", Math.round(window.__aAdj * 1000), "ms"); };
+const setAdj = d => { window.__aAdj = Math.round((window.__aAdj + d) * 1000) / 1000; try { if (window.__film) localStorage.setItem("mse_aoff_" + window.__film, String(window.__aAdj)); } catch (e) {} document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; pend = null; resyncAudio(); L("acerto do som:", Math.round(window.__aAdj * 1000), "ms"); };
 [["am2", -0.25], ["am", -0.05], ["ap", 0.05], ["ap2", 0.25]].forEach(([id, d]) => document.getElementById(id).onclick = () => setAdj(d));
 document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms";
 { const ps = document.getElementById("pos"), pt = document.getElementById("posT"), vv = document.getElementById("v"); let drag = false;
@@ -138,6 +138,7 @@ document.getElementById("go").onclick = async () => {
       ? (list || []).find(x => /Forgotten Island/i.test(x.name || "") && !/^\s*EN\b/i.test(x.name || "") && x.kind === "movie")
       : (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie") || (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
     if (!it) { L("não encontrei o filme na lista guardada (IndexedDB 'channels')"); return; }
+    window.__film = it.name; try { const sv = localStorage.getItem("mse_aoff_" + it.name); if (sv !== null && !/[?&]aoff=/.test(location.search)) { window.__aAdj = parseFloat(sv) || 0; document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; L("acerto do som guardado para este filme:", Math.round(window.__aAdj * 1000), "ms"); } } catch (e) {}
     const url = urlFor(it.url);
     L("filme:", it.name, "· via proxy:", url !== it.url);
     await run(url);
@@ -160,16 +161,17 @@ async function run(url) {
   let seekReq = null, seekT = null;
   const ahead = () => { if (!sb) return 0; const ct = v.currentTime; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) return sb.buffered.end(i) - ct; return 0; };
   window.__seek = t => { seekReq = t; window.__seeking = true; };
+  /* zona em reserva que contém t ou, se não houver, a primeira que começa depois de t */
+  const rangeFor = t => { if (!sb) return null; let best = null; for (let i = 0; i < sb.buffered.length; i++) { const a = sb.buffered.start(i), b = sb.buffered.end(i); if (b <= t + 0.2) continue; if (a <= t) return [a, b]; if (!best || a < best[0]) best = [a, b]; } return best; };
   /* vigia: se a imagem ficar parada com dados em reserva, retoma (play) ou avança um pouco até um ponto que o descodificador aceite */
   let lastCt = -1, still = 0, nudges = 0;
   clearInterval(window.__wd); window.__wd = setInterval(() => {
     if (!started || !sb || seekT !== null || seekReq !== null) { still = 0; return; }
     const ct = v.currentTime; if (ct !== lastCt) { lastCt = ct; still = 0; nudges = 0; return; }
-    if (++still < 3 || ahead() < 1.5) return; still = 0;
-    let rs = -1, re = -1; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) { rs = sb.buffered.start(i); re = sb.buffered.end(i); }
-    L("imagem parada em", ct.toFixed(2), "s · em pausa:", v.paused, "· estado", v.readyState, "· reserva", rs.toFixed(2) + "–" + re.toFixed(2), "· tentativa", nudges + 1);
+    const rg = rangeFor(ct); if (++still < 3 || !rg || rg[1] - Math.max(ct, rg[0]) < 1) return; still = 0;
+    L("imagem parada em", ct.toFixed(2), "s · em pausa:", v.paused, "· estado", v.readyState, "· reserva", rg[0].toFixed(2) + "–" + rg[1].toFixed(2), "· tentativa", nudges + 1);
     if (v.paused && nudges % 2 === 0) v.play().catch(e => L("play recusado:", String(e).slice(0, 60)));
-    else if (nudges < 40) { try { v.currentTime = Math.min(re - 0.5, (rs > ct ? rs : ct + 0.5) + 0.05); } catch (e) {} v.play().catch(() => {}); }
+    else if (nudges < 40) { try { v.currentTime = Math.min(rg[1] - 0.5, (rg[0] > ct ? rg[0] : ct + 0.5) + 0.05); } catch (e) {} v.play().catch(() => {}); }
     nudges++;
   }, 1000);
   const drainAudio = async () => {
@@ -242,7 +244,7 @@ async function run(url) {
           }
           if (!use) { L("nenhuma versão do segmento inicial foi aceite por este browser"); return; }
           sb = ms.addSourceBuffer(mime); sb.mode = "segments";
-          sb.addEventListener("updateend", () => { pushQ(); if (seekT !== null && sb.buffered.length) { v.currentTime = Math.max(seekT, sb.buffered.start(0)) + 0.01; seekT = null; window.__seeking = false; v.play().catch(() => {}); L("posição retomada em", v.currentTime.toFixed(1), "s"); } if (!started && sb.buffered.length) { started = true; if (sb.buffered.start(0) > v.currentTime) v.currentTime = sb.buffered.start(0); v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } });
+          sb.addEventListener("updateend", () => { pushQ(); const sr = seekT !== null ? rangeFor(seekT - 0.5) : null; if (sr) { L("primeira imagem utilizável em", sr[0].toFixed(2), "s (ponto-chave pedido", seekT.toFixed(2), "s)"); v.currentTime = Math.max(seekT, sr[0]) + 0.01; seekT = null; window.__seeking = false; v.play().catch(() => {}); L("posição retomada em", v.currentTime.toFixed(1), "s"); } if (!started && sb.buffered.length) { started = true; if (sb.buffered.start(0) > v.currentTime) v.currentTime = sb.buffered.start(0); v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } });
           queue.push(use); pushQ(); f.start();
         } catch (e) { L("init ERRO", String(e && e.stack || e).slice(0, 300)); }
       })();
@@ -312,6 +314,7 @@ async function run(url) {
           const waitSb = async () => { while (sb.updating) await sleep(30); };
           try { await waitSb(); sb.remove(0, 1e9); await waitSb(); } catch (e) { L("limpeza ERRO", String(e).slice(0, 60)); }
           queue.length = 0;
+          try { (f.fragmentedTracks || []).forEach(ft => { ft.segmentStream = null; }); } catch (e) {}
           const r = f.seek(t, true); aq.length = 0; queue.length = 0; q = Math.max(dStart, Math.min(dEnd - 1, r.offset)); fails = 0;
           seekT = r.time + (window.__vOff || 0); try { v.currentTime = seekT; } catch (e) {}
           L("salto para", t, "s → ponto-chave", r.time.toFixed(1), "s · byte", (q / 1e6).toFixed(0), "MB");
