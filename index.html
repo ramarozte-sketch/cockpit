@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v342";
+const APP_VERSION = "v343";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3473,8 +3473,6 @@ function playChannel(c, slot=tvTarget, auto=false){
     { const src1 = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
       const gapF = window.__TESLA ? 1000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
       const setF = () => { if(playId !== playSeq[slot]) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
-    /* v342: no Tesla, regista o codec de som dos .mp4 (sem alterar a reprodução) */
-    if(window.__TESLA && /\.(mp4|m4v|mov)(\?|$)/i.test(c.url)) mp4ProbeAudio(src1).then(r => { try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mp4: codecs", r); }catch(e){} }).catch(e => { try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mp4: codecs (falhou)", {erro:String(e.message || e)}); }catch(x){} });
       if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
