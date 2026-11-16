@@ -97,8 +97,10 @@ async function demuxRanges(url, maxSec) {
     if (last && x.off <= last.end + 262144 && x.off + x.size - last.start <= (16 << 20)) last.end = Math.max(last.end, x.off + x.size);
     else runs.push({ start: x.off, end: x.off + x.size });
   }
-  const samples = []; let j = 0;
+  L("amostras de som: " + list.length + " · blocos a pedir: " + runs.length);
+  const samples = []; let j = 0, k = 0;
   for (const run of runs) {
+    if (++k % 20 === 0) L("a ler som: " + k + "/" + runs.length + " blocos · " + (nBytes / 1e6).toFixed(0) + " MB");
     const u = new Uint8Array(await fetchR(run.start, run.end - 1));
     while (j < list.length && list[j].off < run.end) {
       const x = list[j++];
