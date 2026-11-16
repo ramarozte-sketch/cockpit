@@ -2864,7 +2864,20 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v339";
+const APP_VERSION = "v340";
+/* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
+   Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
+(function(){ try{
+  if(!/^https?:$/.test(location.protocol) || (location.search && !/^\?v=[\w]+$/.test(location.search))) return;
+  const cur = document.querySelector('script[src*="app/1.js?v="]'), curSha = cur ? (/[?&]v=([0-9a-f]+)/.exec(cur.src) || [])[1] : "";
+  fetch(location.pathname + "?_=" + Date.now(), {cache:"no-store"}).then(r => r.ok ? r.text() : "").then(t => {
+    if(!t) return; let tag = "";
+    const sha = (/app\/1\.js\?v=([0-9a-f]+)/.exec(t) || [])[1], ver = (/APP_VERSION = "v(\d+)"/.exec(t) || [])[1];
+    if(sha && curSha && sha !== curSha) tag = sha; else if(ver && +ver > +APP_VERSION.slice(1)) tag = "v" + ver;
+    if(!tag) return; try{ if(sessionStorage.getItem("ck_upd") === tag) return; sessionStorage.setItem("ck_upd", tag); }catch(e){}
+    location.replace(location.pathname + "?v=" + tag + location.hash);
+  }).catch(() => {});
+}catch(e){} })();
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
