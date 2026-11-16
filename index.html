@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v344";
+const APP_VERSION = "v345";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -13520,9 +13520,32 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
         vis.querySelectorAll("[data-vg]").forEach(b => b.onclick = () => { tvKind = b.dataset.vg; try{ orgOpen(); }catch(e){ toast("Não consegui abrir a organização.", true); } });
         vis.querySelectorAll("[data-vs]").forEach(b => b.onclick = () => { const k = b.dataset.vs; TVORG.grpHide = TVORG.grpHide || {}; TVORG.grpHide[k] = []; TVORG.chHide = (TVORG.chHide || []).filter(u => kindOfUrl(u) !== k); orgSave(); try{ orgRefreshMain(); }catch(e){} visRender(); toast(KN[k] + ": tudo visível."); });
       };
-      vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Esconde categorias e canais de cada tipo. Os países ocultos estão em cima.</p><div class="visList" style="margin-top:8px"></div>';
+      vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Esconde categorias e canais de cada tipo, ou só as categorias de um país.</p><div class="visList" style="margin-top:8px"></div>' +
+        '<h3 style="margin:14px 0 6px">Categorias por país</h3><div class="row"><select id="visCty" style="max-width:320px"></select></div><div id="visCats" style="margin-top:6px"></div>';
+      const visCatsRender = () => {
+        const sel = $("visCty"), box = $("visCats"); if(!sel || !box) return;
+        const cur = sel.value; const cnt = new Map();
+        channels.forEach(c => { if(!KN[c.kind]) return; const k = C.ctyOfItem(c); cnt.set(k, (cnt.get(k) || 0) + 1); });
+        const keys = [...cnt.keys()].sort((a, b) => (C.rank(a) - C.rank(b)) || (cnt.get(b) - cnt.get(a)));
+        sel.innerHTML = keys.map(k => '<option value="' + k + '">' + C.flag(k) + " " + C.name(k) + " · " + cnt.get(k) + "</option>").join("");
+        if(cur && keys.includes(cur)) sel.value = cur;
+        const pick = sel.value; if(!pick){ box.innerHTML = ""; return; }
+        let html = "";
+        for(const k of ["live","movie","series"]){
+          const groups = [...new Set(channels.filter(c => c.kind === k && C.ctyOfItem(c) === pick).map(c => c.group))].sort((a, b) => String(a).localeCompare(String(b)));
+          if(!groups.length) continue;
+          const hid = new Set((TVORG.grpHide || {})[k] || []);
+          html += '<div style="margin:8px 0 4px"><b>' + KN[k] + '</b></div>' + groups.map(g => '<label class="row small" style="margin:3px 0"><input type="checkbox" data-vgc="' + k + '" data-vgn="' + encodeURIComponent(g) + '"' + (hid.has(g) ? "" : " checked") + '> ' + String(g).replace(/[<&>]/g, "") + '</label>').join("");
+        }
+        box.innerHTML = html || '<p class="small muted">Este país não tem categorias.</p>';
+        box.querySelectorAll("[data-vgc]").forEach(cb => cb.onchange = () => {
+          const k = cb.dataset.vgc, g = decodeURIComponent(cb.dataset.vgn); TVORG.grpHide = TVORG.grpHide || {}; const h = (TVORG.grpHide[k] || []).filter(x => x !== g);
+          if(!cb.checked) h.push(g); TVORG.grpHide[k] = h; orgSave(); try{ orgRefreshMain(); }catch(e){} visRender();
+        });
+      };
+
       card.parentNode.insertBefore(vis, card.nextSibling);
-      visRender();
+      visRender(); $("visCty").onchange = () => visCatsRender(); visCatsRender();
       const S = C.state;
       const render = () => {
         const cnt = new Map();
