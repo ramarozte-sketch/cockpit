@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v324";
+const APP_VERSION = "v325";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -14615,7 +14615,9 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         if(st.hevc){ const pw = st.pw || (st.pw = []); pw.push(x.pts); if(pw.length >= 24){ const q = pw.slice().sort((m, n) => m - n); let mn = 0; for(let i = 1; i < q.length; i++){ const dd = Math.round((q[i] - q[i - 1]) / 90 * 1000); if(dd >= 8000 && dd <= 90000 && (!mn || dd < mn)) mn = dd; } if(mn) st.pdur = mn; st.pw = []; } }   /* intervalo real entre imagens (50p = 20 ms), mesmo com B-frames */
         const ms = Math.round(usOf(st, x.pts) / 1000); batch.push({data:x.data, pts:ms, ptshi:0}); }
       if(batch.length){
-        const out = await st.L.ff_decode_multi(c, pkt, frame, batch, {ignoreErrors:true});
+        const t0d = performance.now(); const out = await st.L.ff_decode_multi(c, pkt, frame, batch, {ignoreErrors:true});
+        /* v325 (só medição): tempo gasto a descodificar e blocos processados, para comparar com o tempo real do som */
+        window.__dolDec = {ms:(window.__dolDec ? window.__dolDec.ms : 0) + (performance.now() - t0d), n:(window.__dolDec ? window.__dolDec.n : 0) + batch.length};
         const nowU = v.currentTime * 1e6;
         for(const f of out){ if(f.format != null && f.format !== 0){ st.errs++; continue; } const vf = toVideoFrame(f, (f.pts != null ? f.pts : 0) * 1000);
           if(vf && st.hevc){ const tn = performance.now(); if(!st.lw0) st.lw0 = tn;
@@ -14857,7 +14859,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
           this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
         if(this.agc) this.agc.gain.value = this.gA;
-        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
+        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {decMs:window.__dolDec ? Math.round(window.__dolDec.ms) : null, decBlocos:window.__dolDec ? window.__dolDec.n : null, rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
