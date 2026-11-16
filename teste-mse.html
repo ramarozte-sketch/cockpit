@@ -321,7 +321,7 @@ async function run(url) {
       feed(mvRaw, moovAt);
       L("índice lido · moov a", (moovAt / 1e3).toFixed(0), "KB · ficheiro", (size / 1e6).toFixed(0), "MB");
       /* 2) dados em sequência (blocos de 8 MB), como o leitor do descodificador */
-      const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen, dEnd = moovAt > ftypLen ? moovAt : size;
+      const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen; let dEnd = moovAt > ftypLen ? moovAt : (size || Infinity); /* sem proxy o tamanho pode não vir no cabeçalho: lê até ao fim */
       /* uma única ligação contínua: os dados chegam ao leitor à medida que descarregam (blocos de 8 MB davam imagem aos soluços) */
       let q = dStart, fails = 0, nextLog = 50e6;
       const sleep = ms2 => new Promise(r => setTimeout(r, ms2));
@@ -335,7 +335,7 @@ async function run(url) {
           try { (f.fragmentedTracks || []).forEach(ft => { ft.segmentStream = null; }); } catch (e) {}
           /* salto só nas faixas usadas (vídeo + som escolhido): o seek geral do mp4box olha para todas, e uma faixa de capítulos ou legendas atira o salto para o sítio errado */
           const rv = f.seekTrack(t, true, f.getTrackById(vId)), ra = aTrack ? f.seekTrack(rv.time, false, f.getTrackById(aTrack.id)) : rv;
-          const r = { time: rv.time, offset: Math.min(rv.offset, ra.offset) }; aq.length = 0; queue.length = 0; q = Math.max(dStart, Math.min(dEnd - 1, r.offset)); fails = 0;
+          const r = { time: rv.time, offset: Math.min(rv.offset, ra.offset) }; aq.length = 0; queue.length = 0; q = Math.max(dStart, isFinite(dEnd) ? Math.min(dEnd - 1, r.offset) : r.offset); fails = 0;
           seekT = r.time + (window.__vOff || 0); try { v.currentTime = seekT; } catch (e) {}
           L("salto para", t, "s → ponto-chave", r.time.toFixed(1), "s · byte", (q / 1e6).toFixed(0), "MB");
         }
@@ -343,8 +343,10 @@ async function run(url) {
         const q0 = q; let rd = null, parts = [], n = 0, sk = false;
         const flushP = () => { if (!n || sk) return; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } parts = []; n = 0; feed(o.buffer, q); q += o.length; pos = q; if (q - dStart >= nextLog) { nextLog = q - dStart + 50e6; L("lidos até", (q / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } };
         try {
-          const r = await fetch(url, { headers: { Range: "bytes=" + q + "-" + (dEnd - 1) } });
+          const r = await fetch(url, { headers: { Range: "bytes=" + q + "-" + (isFinite(dEnd) ? dEnd - 1 : "") } });
+          if (r.status === 416 && !isFinite(dEnd)) { dEnd = q; continue; }
           if (!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+          if (!isFinite(dEnd)) { const cl = +r.headers.get("content-length"); if (cl > 0) { dEnd = q + cl; L("tamanho do ficheiro:", (dEnd / 1e6).toFixed(0), "MB"); } }
           rd = r.body.getReader();
           for (;;) {
             /* não lê mais de ~60 s à frente do que está a tocar (memória) */
@@ -354,6 +356,7 @@ async function run(url) {
             parts.push(value); n += value.length; if (n >= 1 << 20) flushP();
           }
           flushP();
+          if (!sk && !isFinite(dEnd) && q > q0) dEnd = q;
           if (!sk && q >= dEnd) { f.flush(); L("fim do ficheiro lido"); }
         } catch (e) { flushP(); L("leitura interrompida em", (q / 1e6).toFixed(0), "MB:", String(e && e.message || e).slice(0, 60)); }
         if (sk || q >= dEnd) continue;
