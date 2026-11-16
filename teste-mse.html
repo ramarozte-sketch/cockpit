@@ -103,6 +103,7 @@ async function run(url) {
   f.onReady = i => {
     try {
       const vt = i.videoTracks[0];
+      L("índice pronto com", (pos / 1e6).toFixed(0), "MB lidos de", (ms && ms.duration >= 0 ? "" : "") + "ficheiro", "·", Math.round(performance.now() - t0), "ms desde o início");
       L("vídeo:", vt.codec, vt.track_width + "x" + vt.track_height, "amostras", vt.nb_samples, "· faixas de som:", (i.audioTracks || []).map(t => t.codec).join(" / ") || "nenhuma");
       aTrack = (i.audioTracks || []).find(t => /^(ec-3|ac-3|mp4a)/.test(t.codec || "")) || null;
       if (aTrack) {
