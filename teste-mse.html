@@ -137,7 +137,8 @@ async function run(url) {
       const r = await fetch(url, { headers: { Range: "bytes=0-" } });
       L("pedido", r.status, "content-range", r.headers.get("content-range") || "(sem)");
       const rd = r.body.getReader(); let got = 0;
-      for (;;) { const { done, value } = await rd.read(); if (done) break; const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; }
+      let nextLog = 50e6;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; if (pos >= nextLog) { nextLog += 50e6; L("lidos", (pos / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; }
       f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
       const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
     } catch (e) { L("leitura ERRO", String(e && e.message || e)); }
