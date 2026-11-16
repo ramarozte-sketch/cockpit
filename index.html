@@ -2628,7 +2628,7 @@ function orgChannels(list, kind, group){
   return l.map((c, i) => [c, i]).sort((a, b) => (group ? 0 : gi(a[0]) - gi(b[0]) || seen.get(a[0].group) - seen.get(b[0].group)) || ci(a[0]) - ci(b[0]) || a[1] - b[1]).map(x => x[0]);
 }
 const orgKindNow = () => tvKind === "free" ? "free" : tvKind === "fav" ? "fav" : tvKind;
-const ORG = {tab:"grp", grp:""};
+const ORG = {tab:"grp", grp:"", sel:new Set(), selCtx:""};
 const orgSource = kind => kind === "free" ? freeChans : kind === "intl" ? intlChans : channels.filter(c => c.kind === kind);
 function orgMove(arr, name, how){
   const i = arr.indexOf(name); if(i < 0) return;
@@ -2649,6 +2649,23 @@ function orgWirePos(onMove){
   });
 }
 function orgRefreshMain(){ fillGroups(); renderTvList(); }
+function orgBulk(){
+  const n = ORG.sel.size, d = n ? "" : " disabled";
+  return `<div class="orgbulk" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px"><button class="btn" data-bulk="all">Selecionar todos</button><button class="btn" data-bulk="none">Limpar seleção</button><button class="btn" data-bulk="hsel"${d}>🚫 Ocultar selecionados (${n})</button><button class="btn" data-bulk="ssel"${d}>👁 Mostrar selecionados (${n})</button><button class="btn" data-bulk="hall">🚫 Ocultar todos desta lista</button><button class="btn" data-bulk="sall">👁 Mostrar todos desta lista</button></div>`;
+}
+function orgBulkWire(boxKeys, allKeys, apply){
+  $("orgList").querySelectorAll(".orgsel").forEach(cb => cb.onchange = () => { const k = boxKeys[+cb.dataset.i]; cb.checked ? ORG.sel.add(k) : ORG.sel.delete(k); orgRender(); });
+  $("orgList").querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => {
+    const a = b.dataset.bulk;
+    if(a === "all") ORG.sel = new Set(allKeys);
+    else if(a === "none") ORG.sel = new Set();
+    else if(a === "hsel") { apply([...ORG.sel], true); ORG.sel = new Set(); }
+    else if(a === "ssel") { apply([...ORG.sel], false); ORG.sel = new Set(); }
+    else if(a === "hall") { apply(allKeys, true); ORG.sel = new Set(); }
+    else if(a === "sall") { apply(allKeys, false); ORG.sel = new Set(); }
+    orgSave(); orgRender(); orgRefreshMain();
+  });
+}
 function orgRender(){
   let kind = orgKindNow(); if(kind === "fav") kind = "live";
   const isFree = kind === "free"; if(isFree) ORG.tab = "ch";
@@ -2660,7 +2677,8 @@ function orgRender(){
   if(ORG.tab === "grp"){
     $("orgGrp").hidden = true;
     const hid = new Set((TVORG.grpHide || {})[kind] || []);
-    $("orgList").innerHTML = orgGroupList(kind, names, true).map((n, i) => `<div class="orgrow${hid.has(n) ? " off" : ""}">${orgPosInput(i, names.length)}<span class="nm">${esc(n)} <span class="muted small">(${src.filter(c => c.group === n).length})</span></span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hid.has(n) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") || `<p class="muted small">Sem categorias. Carrega primeiro a lista.</p>`;
+    const sc = kind + "|grp"; if(ORG.selCtx !== sc){ ORG.sel = new Set(); ORG.selCtx = sc; }
+    $("orgList").innerHTML = orgBulk() + orgGroupList(kind, names, true).map((n, i) => `<div class="orgrow${hid.has(n) ? " off" : ""}"><input type="checkbox" class="orgsel" data-i="${i}"${ORG.sel.has(n) ? " checked" : ""} aria-label="Selecionar ${esc(n)}">${orgPosInput(i, names.length)}<span class="nm">${esc(n)} <span class="muted small">(${src.filter(c => c.group === n).length})</span></span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hid.has(n) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") || `<p class="muted small">Sem categorias. Carrega primeiro a lista.</p>`;
     const list = orgGroupList(kind, names, true);
     orgWirePos((i, v) => { TVORG.grp = TVORG.grp || {}; const arr = TVORG.grp[kind] = orgGroupList(kind, names, true); orgMoveTo(arr, list[i], v); orgSave(); orgRender(); orgRefreshMain(); });
     $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
@@ -2670,6 +2688,8 @@ function orgRender(){
       else orgMove(arr, n, b.dataset.a);
       orgSave(); orgRender(); orgRefreshMain();
     });
+    const gKeys = orgGroupList(kind, names, true);
+    orgBulkWire(gKeys, gKeys, (ks, hide) => { TVORG.grpHide = TVORG.grpHide || {}; const h = TVORG.grpHide[kind] = TVORG.grpHide[kind] || []; ks.forEach(x => { const k = h.indexOf(x); if(hide && k < 0) h.push(x); else if(!hide && k >= 0) h.splice(k, 1); }); });
   } else {
     $("orgGrp").hidden = isFree;
     if(!isFree){
@@ -2681,7 +2701,8 @@ function orgRender(){
     const saved = ((TVORG.ch || {})[key]) || [], pos = new Map(saved.map((u, i) => [u, i]));
     chs = chs.map((c, i) => [c, i]).sort((a, b) => (pos.has(a[0].url) ? pos.get(a[0].url) : 1e6) - (pos.has(b[0].url) ? pos.get(b[0].url) : 1e6) || a[1] - b[1]).map(x => x[0]);
     const shownC = chs.slice(0, 400);
-    $("orgList").innerHTML = shownC.map((c, i) => `<div class="orgrow${hidC.has(c.url) ? " off" : ""}">${orgPosInput(i, chs.length)}<span class="nm">${esc(c.name)}</span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hidC.has(c.url) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") + (chs.length > 400 ? `<p class="muted small">A mostrar 400 de ${chs.length}.</p>` : "") || `<p class="muted small">Nenhum canal nesta categoria.</p>`;
+    const sc = kind + "|ch|" + (isFree ? "" : ORG.grp); if(ORG.selCtx !== sc){ ORG.sel = new Set(); ORG.selCtx = sc; }
+    $("orgList").innerHTML = orgBulk() + shownC.map((c, i) => `<div class="orgrow${hidC.has(c.url) ? " off" : ""}"><input type="checkbox" class="orgsel" data-i="${i}"${ORG.sel.has(c.url) ? " checked" : ""} aria-label="Selecionar ${esc(c.name)}">${orgPosInput(i, chs.length)}<span class="nm">${esc(c.name)}</span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hidC.has(c.url) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") + (chs.length > 400 ? `<p class="muted small">A mostrar 400 de ${chs.length}.</p>` : "") || `<p class="muted small">Nenhum canal nesta categoria.</p>`;
     orgWirePos((i, v) => { TVORG.ch = TVORG.ch || {}; const arr = TVORG.ch[key] = chs.map(x => x.url); orgMoveTo(arr, shownC[i].url, v); orgSave(); orgRender(); orgRefreshMain(); const t = $("orgList").querySelectorAll(".orgrow")[Math.max(0, Math.min(shownC.length - 1, (parseInt(v, 10) || 1) - 1))]; if(t) t.scrollIntoView({block:"center"}); });
     $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
       const c = shownC[+b.dataset.i]; TVORG.ch = TVORG.ch || {}; TVORG.chHide = TVORG.chHide || [];
@@ -2690,6 +2711,7 @@ function orgRender(){
       orgSave(); orgRender(); orgRefreshMain();
       const keep = $("orgList").querySelectorAll(".orgrow")[Math.max(0, +b.dataset.i + (b.dataset.a === "dn" ? 1 : b.dataset.a === "up" ? -1 : 0))]; if(keep) keep.scrollIntoView({block:"nearest"});
     });
+    orgBulkWire(shownC.map(c => c.url), chs.map(c => c.url), (ks, hide) => { TVORG.chHide = TVORG.chHide || []; ks.forEach(u => { const k = TVORG.chHide.indexOf(u); if(hide && k < 0) TVORG.chHide.push(u); else if(!hide && k >= 0) TVORG.chHide.splice(k, 1); }); });
   }
 }
 function orgOpen(){ ORG.tab = "grp"; orgRender(); $("orgDlg").hidden = false; }
@@ -2864,7 +2886,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v346";
+const APP_VERSION = "v347";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
