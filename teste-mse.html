@@ -42,6 +42,7 @@ function playPcm(planes, sr, atSec) {
   b.copyToChannel(Float32Array.from(l), 0); b.copyToChannel(Float32Array.from(r), 1);
   const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination);
   const when = Math.max(ac.currentTime + 0.01, audioStart + atSec);
+  if (audioStart + atSec < ac.currentTime) window.__aLate = (window.__aLate || 0) + 1;
   s.start(when);
 }
 
@@ -107,7 +108,7 @@ async function run(url) {
     try { if (!dec) { if (!Lv) return; dec = await Lv.ff_init_decoder(window.__cod || "eac3"); L("descodificador de som pronto:", window.__cod); } } catch (e) { L("som: init ERRO", String(e && e.message || e)); return; }
     for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     if (ac.state !== "running") ac.resume().catch(() => {});
-    if (!audioStart) audioStart = ac.currentTime;
+    if (!audioStart) { audioStart = ac.currentTime; const v0 = document.getElementById("v"); window.__syncT = setInterval(() => { if (!audioStart) return; L("sincronia: vídeo", v0.currentTime.toFixed(1), "s · som", (ac.currentTime - audioStart).toFixed(1), "s · atrasados", window.__aLate || 0); }, 5000); }
     drainAudio();
   };
   f.onError = e => L("mp4box ERRO", String(e));
