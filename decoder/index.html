@@ -12,6 +12,7 @@ label{display:block;margin:8px 0}
 <label>Ficheiro MP4 <input type="file" id="f" accept="video/mp4,.mp4,.m4a"></label>
 <label>ou endereço do filme (cola o endereço completo) <input type="text" id="u" placeholder="https://..." style="width:100%"></label>
 <label>Minutos a descodificar <input type="number" id="mins" value="10" min="1" max="180"></label>
+<button id="gu">Usar o filme EN guardado neste browser</button>
 <button id="go" disabled>Descodificar</button>
 <button id="dl" disabled>Descarregar WAV</button>
 <audio id="a" controls></audio>
@@ -115,6 +116,20 @@ function wavBlob({ sr, l, r }) {
 }
 
 const f = document.getElementById("f"), go = document.getElementById("go"), dl = document.getElementById("dl"), u = document.getElementById("u");
+const idbGet = k => new Promise((res, rej) => { const r = indexedDB.open("cockpit", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onerror = () => rej(r.error); r.onsuccess = () => { const q = r.result.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }; });
+const cfgLs = () => { try { return JSON.parse(localStorage.getItem("ck_cfg")) || {}; } catch (e) { return {}; } };
+const pxVia = (base, key, url) => base.replace(/\/+$/, "") + "/?" + (key ? "k=" + encodeURIComponent(key) + "&" : "") + "url=" + encodeURIComponent(url);
+document.getElementById("gu").onclick = async () => {
+  try {
+    const list = await idbGet("channels");
+    const it = (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie");
+    if (!it) { L("não encontrei o EN - Forgotten Island na lista guardada; abre a app Cockpit neste browser e espera a lista carregar"); return; }
+    const c = cfgLs();
+    u.value = (c.proxy && !c.directMode) ? pxVia(c.proxy, c.pkey, it.url) : it.url;
+    L("filme EN preenchido a partir do armazenamento deste browser (não é mostrado aqui)");
+    go.disabled = false;
+  } catch (e) { L("ERRO ao ler o armazenamento:", String(e && e.message || e)); }
+};
 const fonte = () => u.value.trim() || (f.files[0] || null);
 f.onchange = () => { go.disabled = !fonte(); dl.disabled = true; out = null; };
 u.oninput = () => { go.disabled = !fonte(); };
