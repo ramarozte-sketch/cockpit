@@ -94,14 +94,24 @@ async function demuxRanges(url, maxSec) {
   const runs = [];
   for (const x of list) {
     const last = runs[runs.length - 1];
-    if (last && x.off <= last.end + 262144 && x.off + x.size - last.start <= (16 << 20)) last.end = Math.max(last.end, x.off + x.size);
+    if (last && x.off <= last.end && x.off + x.size - last.start <= (16 << 20)) last.end = Math.max(last.end, x.off + x.size);
     else runs.push({ start: x.off, end: x.off + x.size });
   }
   L("amostras de som: " + list.length + " · blocos a pedir: " + runs.length);
   const samples = []; let j = 0, k = 0;
+  const bufs = [];
   for (const run of runs) {
+    let buf = null;
+    for (let t = 0; t < 4 && !buf; t++) {
+      try { buf = await fetchR(run.start, run.end - 1); }
+      catch (e) { L("pedido falhou, a repetir (" + (t + 1) + ")"); await new Promise(res => setTimeout(res, 1500 * (t + 1))); }
+    }
+    if (!buf) throw new Error("falhou o pedido do som em " + run.start);
     if (++k % 20 === 0) L("a ler som: " + k + "/" + runs.length + " blocos · " + (nBytes / 1e6).toFixed(0) + " MB");
-    const u = new Uint8Array(await fetchR(run.start, run.end - 1));
+    bufs.push(buf);
+  }
+  for (let ri = 0; ri < runs.length; ri++) {
+    const run = runs[ri]; const u = new Uint8Array(bufs[ri]);
     while (j < list.length && list[j].off < run.end) {
       const x = list[j++];
       samples.push({ ts: x.ts, data: u.slice(x.off - run.start, x.off - run.start + x.size) });
