@@ -1652,6 +1652,7 @@ body.layout-atv .rail{display:none}
           <h3 class="setsubh">Descodificação de vídeo</h3>
           <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
+          <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
           <h3 class="setsubh">Indicador de fps</h3>
@@ -2899,7 +2900,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v350";
+const APP_VERSION = "v351";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4963,6 +4964,236 @@ async function mp4ProbeAudio(src){
   const txt = moov.bytes; const has = q => { const c = [...q].map(x => x.charCodeAt(0)); for(let i = 0; i + 4 <= txt.length; i++) if(txt[i] === c[0] && txt[i+1] === c[1] && txt[i+2] === c[2] && txt[i+3] === c[3]) return true; return false; };
   const vid = ["avc1", "hvc1", "hev1"].filter(has), aud = ["ec-3", "ac-3", "mp4a"].filter(has);
   return {video: vid.join(" ") || "?", audio: aud.join(" ") || "?", moov: moov.sz, fonte: moov.at > h.bytes.length ? "fim" : "início"};
+}
+/* v351: filmes .mp4 com som AC-3/E-AC-3 num só leitor e numa só ligação (MSE). O leitor do carro + som lido à parte (v341)
+   abria duas ligações ao servidor (a conta só aceita uma → 458) e não acertava com ficheiros de índice no fim.
+   Aqui a mesma ligação alimenta a imagem (mp4box → MediaSource) e o som (libav → relógio do som já existente).
+   Qualquer falha devolve o filme ao caminho antigo (leitor do carro + mp4aRun), no ponto onde ia. */
+const MSEF = (() => {
+  const B4 = (b, p) => ((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]) >>> 0;
+  const T4 = (b, p) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+  const rdBoxes = (b, s, e) => { const o = []; let p = s; while(p + 8 <= e){ const sz = B4(b, p), t = T4(b, p + 4); if(sz < 8 || p + sz > e){ o.push({t, p, sz, bad:true}); break; } o.push({t, p, sz}); p += sz; } return o; };
+  const KIDS = {moov:8, trak:8, mdia:8, minf:8, stbl:8, mvex:8, edts:8, dinf:8, stsd:16, avc1:86, avc3:86, hvc1:86, hev1:86, encv:86};
+  const boxDump = (b, s, e) => rdBoxes(b, s === undefined ? 0 : s, e === undefined ? b.length : e).map(x => x.t.replace(/[^\x20-\x7e]/g, "?") + x.sz + (x.bad ? "!MAU" : "") + (!x.bad && KIDS[x.t] ? "[" + boxDump(b, x.p + KIDS[x.t], x.p + x.sz) + "]" : "")).join(" ");
+  const mkBox = (t, ...parts) => { let n = 8; for(const p of parts) n += p.length; const o = new Uint8Array(n); new DataView(o.buffer).setUint32(0, n); for(let i = 0; i < 4; i++) o[4 + i] = t.charCodeAt(i); let k = 8; for(const p of parts){ o.set(p, k); k += p.length; } return o; };
+  const KEEP = {"":["ftyp", "moov"], moov:["mvhd", "trak", "mvex"], trak:["tkhd", "mdia"], mdia:["mdhd", "hdlr", "minf"], minf:["vmhd", "dinf", "stbl"], stbl:["stsd", "stts", "stsc", "stsz", "stco", "co64"], mvex:["trex"], stsd:["avc1", "avc3"], avc1:["avcC"], avc3:["avcC"]};
+  /* versão limpa do segmento inicial: só as caixas essenciais (o Chrome rejeita alguns cabeçalhos escritos pelo mp4box) */
+  const cleanInit = (b, s, e, parent) => { const out = [];
+    for(const x of rdBoxes(b, s === undefined ? 0 : s, e === undefined ? b.length : e)){ if(x.bad || !KEEP[parent || ""].includes(x.t)) continue;
+      if(KEEP[x.t]){ const h = KIDS[x.t]; out.push(mkBox(x.t, b.subarray(x.p + 8, x.p + h), cleanInit(b, x.p + h, x.p + x.sz, x.t))); } else out.push(b.subarray(x.p, x.p + x.sz)); }
+    let n = 0; for(const p of out) n += p.length; const o = new Uint8Array(n); let k = 0; for(const p of out){ o.set(p, k); k += p.length; } return o; };
+  const findBox = (b, t) => { for(let k = 4; k + 4 <= b.length; k++) if(b[k] === t.charCodeAt(0) && b[k + 1] === t.charCodeAt(1) && b[k + 2] === t.charCodeAt(2) && b[k + 3] === t.charCodeAt(3)){ const sz = B4(b, k - 4); if(sz >= 8 && k - 4 + sz <= b.length) return b.subarray(k - 4, k - 4 + sz); } return null; };
+  /* segmento inicial escrito de raiz, só com o avcC original */
+  const synthInit = (avcC, id, ts, w, h) => {
+    const u = (...a) => { const o = new Uint8Array(a.length * 4), d = new DataView(o.buffer); a.forEach((x, i) => d.setUint32(i * 4, x)); return o; };
+    const z = n => new Uint8Array(n), s = t => Uint8Array.from(t, c => c.charCodeAt(0));
+    const mat = u(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
+    const mvhd = mkBox("mvhd", u(0, 0, 0, 1000, 0, 0x10000), Uint8Array.of(1, 0, 0, 0), z(8), mat, z(24), u(id + 1));
+    const tkhd = mkBox("tkhd", u(3, 0, 0, id, 0, 0), z(8), z(8), mat, u(w << 16, h << 16));
+    const mdhd = mkBox("mdhd", u(0, 0, 0, ts, 0), Uint8Array.of(0x55, 0xc4, 0, 0));
+    const hdlr = mkBox("hdlr", u(0, 0), s("vide"), z(12), s("Video\0"));
+    const dinf = mkBox("dinf", mkBox("dref", u(0, 1), mkBox("url ", u(1))));
+    const ve = new Uint8Array(78), dv = new DataView(ve.buffer); dv.setUint16(6, 1); dv.setUint16(24, w); dv.setUint16(26, h); dv.setUint32(28, 0x480000); dv.setUint32(32, 0x480000); dv.setUint16(40, 1); dv.setUint16(74, 24); dv.setUint16(76, 0xffff);
+    const stbl = mkBox("stbl", mkBox("stsd", u(0, 1), mkBox("avc1", ve, avcC)), mkBox("stts", u(0, 0)), mkBox("stsc", u(0, 0)), mkBox("stsz", u(0, 0, 0)), mkBox("stco", u(0, 0)));
+    const trak = mkBox("trak", tkhd, mkBox("mdia", mdhd, hdlr, mkBox("minf", mkBox("vmhd", u(1, 0, 0)), dinf, stbl)));
+    const ftyp = mkBox("ftyp", s("isom"), u(0x200), s("isomiso5avc1mp41")), moov = mkBox("moov", mvhd, trak, mkBox("mvex", mkBox("trex", u(0, id, 1, 0, 0, 0))));
+    const o = new Uint8Array(ftyp.length + moov.length); o.set(ftyp); o.set(moov, ftyp.length); return o; };
+  /* testa um segmento inicial numa fonte à parte (uma falha fecha a fonte, por isso não se testa na principal) */
+  const probeInit = (bytes, mime) => new Promise(res => {
+    const tm = new MediaSource(), tv = document.createElement("video"); tv.muted = true; let done = false;
+    const fin = ok => { if(done) return; done = true; try{ tv.removeAttribute("src"); tv.load(); }catch(e){} res(ok); };
+    tv.addEventListener("error", () => fin(false));
+    tm.addEventListener("sourceopen", () => { try{ const b = tm.addSourceBuffer(mime); b.addEventListener("error", () => fin(false)); b.addEventListener("updateend", () => setTimeout(() => fin(tm.readyState === "open"), 60)); b.appendBuffer(bytes.slice()); }catch(e){ fin(false); } }, {once:true});
+    tv.src = URL.createObjectURL(tm); setTimeout(() => fin(false), 4000); });
+  return {boxDump, cleanInit, findBox, synthInit, probeInit};
+})();
+function mp4MseRun(slot, st, src, c, playId, onFail){
+  const v = $("vid" + slot), sleep = ms => new Promise(r => setTimeout(r, ms));
+  const EV = (e, d) => { try{ window.__dbgEv && window.__dbgEv(slot, e, d || {}); }catch(_){} };
+  const mine = () => !!(window.__mka && window.__mka[slot] === st) && playId === playSeq[slot];
+  const alive = () => mine() && !st.mseOff;
+  const ctl = new AbortController(); st.abort = ctl; st.mse = true; st.err = null; st.aq = []; st.n = 0;
+  let took = false, lastCt = v.currentTime || 0, origErr = null, ms = null, sb = null, blobUrl = null, done = false, drainT = 0, wdT = 0;
+  const fT = () => { if(v.currentTime > 0 && !v.seeking) lastCt = v.currentTime; };
+  let onSeeking = null;
+  const cleanup = () => { try{ ctl.abort(); }catch(e){} clearInterval(drainT); clearInterval(wdT); try{ v.removeEventListener("seeking", onSeeking); v.removeEventListener("timeupdate", fT); }catch(e){} try{ blobUrl && URL.revokeObjectURL(blobUrl); }catch(e){} };
+  const giveUp = why => {
+    if(done) return; done = true; st.mseOff = true; st.mse = false;
+    EV("filme num só leitor (MSE): desiste e volta ao leitor do carro", {motivo:String(why && why.message || why).slice(0, 180), em_s:Math.round(lastCt), tomou:took});
+    cleanup(); try{ st.clock && st.clock.close(); }catch(e){} st.clock = null; st.aq = []; st.drain = null;
+    (window.__mseNo = window.__mseNo || {})[c.url] = Date.now();
+    if(!mine()) return;
+    if(!took){ try{ onFail(); }catch(e){} return; }
+    window.__connCloseAt = Date.now();
+    setTimeout(() => { if(!mine()) return;
+      v.onerror = origErr; const t = lastCt;
+      if(t > 3){ const go = () => { v.removeEventListener("loadedmetadata", go); if(playId === playSeq[slot]){ try{ v.currentTime = t; }catch(e){} } }; v.addEventListener("loadedmetadata", go); }
+      v.src = src; try{ v.load(); v.play().catch(() => {}); }catch(e){}
+      try{ onFail(); }catch(e){} }, 1000);
+  };
+  (async () => {
+    try{
+      if(!window.MediaSource || !(await loadMirLibs()) || !window.MP4Box){ giveUp("sem MediaSource ou mp4box"); return; }
+      if(!alive()) return;
+      /* liberta a ligação do leitor do carro: a conta só aceita uma */
+      origErr = v.onerror; v.onerror = null; lastCt = v.currentTime || 0; took = true;
+      try{ v.pause(); }catch(e){} v.removeAttribute("src"); try{ v.load(); }catch(e){}
+      window.__connCloseAt = Date.now();
+      try{ toast("Som Dolby: a abrir o filme num só leitor…"); }catch(e){}
+      EV("filme num só leitor (MSE): início", {em_s:Math.round(lastCt)});
+      await sleep(1000); if(!alive()) return;
+      let size = 0; const t0 = performance.now();
+      const fr = async (x, y) => { let last = null;
+        for(let t = 0; t < 4 && alive(); t++){
+          try{ const r = await fetch(src, {headers:{Range:"bytes=" + x + "-" + y}, signal:ctl.signal});
+            if(r.status === 200 && x > 0){ try{ r.body && r.body.cancel(); }catch(e){} const er = new Error("o servidor não aceita leitura parcial (Range)"); er.fatal = 1; throw er; }
+            if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+            const cr = /\/(\d+)$/.exec(r.headers.get("content-range") || ""); if(cr) size = +cr[1];
+            const ab = await r.arrayBuffer(); if(ab.byteLength < y - x + 1) throw new Error("resposta curta: " + ab.byteLength + " de " + (y - x + 1)); return ab;
+          }catch(e){ last = e; if(e.name === "AbortError" || e.fatal) throw e; EV("filme num só leitor (MSE): pedido falhou", {em:x, vez:t + 1, erro:String(e.message || e).slice(0, 80)}); await sleep(2000 * (t + 1)); } }
+        throw last || new Error("cancelado"); };
+      /* 1) índice: caixas de topo até ao moov, sem ler o mdat */
+      let p = 0, moovAt = -1, moovLen = 0, ftypLen = 0;
+      for(let i = 0; i < 200 && moovAt < 0; i++){
+        const h = new DataView(await fr(p, p + 15)); let sz = h.getUint32(0); const ty = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
+        if(sz === 1) sz = Number(h.getBigUint64(8));
+        if(i === 0){ ftypLen = sz; if(ty !== "ftyp"){ giveUp("o ficheiro não é MP4"); return; } }
+        if(sz === 0) break;
+        if(ty === "moov"){ moovAt = p; moovLen = sz; break; }
+        p += sz; if(size && p >= size) break;
+      }
+      if(moovAt < 0){ giveUp("índice (moov) não encontrado"); return; }
+      if(moovLen > (64 << 20)){ giveUp("índice demasiado grande: " + moovLen); return; }
+      const f = MP4Box.createFile(); let info = null, perr = ""; f.onReady = i => { info = i; }; f.onError = e => { perr = String(e); };
+      const feed = (buf, at) => { buf.fileStart = at; f.appendBuffer(buf); };
+      feed(await fr(0, ftypLen - 1), 0);
+      if(moovAt > ftypLen){ const gap = moovAt - ftypLen, hd = new ArrayBuffer(gap > 0xFFFFFFFF ? 16 : 8), dv = new DataView(hd);
+        if(gap > 0xFFFFFFFF){ dv.setUint32(0, 1); dv.setUint32(4, 0x6d646174); dv.setBigUint64(8, BigInt(gap)); } else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
+        feed(hd, ftypLen); }
+      const mvRaw = await fr(moovAt, moovAt + moovLen - 1), rawMoov = new Uint8Array(mvRaw.slice(0)); feed(mvRaw, moovAt);
+      if(!alive()) return;
+      if(!info){ giveUp(perr || "índice não lido"); return; }
+      const vt = (info.videoTracks || [])[0]; if(!vt){ giveUp("sem faixa de vídeo"); return; }
+      const ats = info.audioTracks || [], dol = ats.filter(t => /^(ec-3|ac-3)/i.test(t.codec || "")), at = dol.find(t => /^(pt|por)/i.test(t.language || "")) || dol[0];
+      EV("ficheiro mp4: faixas de som", {faixas:ats.map(t => ({n:t.id, codec:t.codec, lang:t.language || "", canais:t.audio && t.audio.channel_count})), video:vt.codec, indice:moovAt > ftypLen ? "fim" : "início", ms:Math.round(performance.now() - t0)});
+      if(!at){ giveUp("sem faixa AC-3/E-AC-3"); return; }
+      const mime = `video/mp4; codecs="${vt.codec}"`;
+      if(!/^avc[13]/i.test(vt.codec) || !MediaSource.isTypeSupported(mime)){ giveUp("vídeo " + vt.codec + " não suportado em MSE neste browser"); return; }
+      const isE = /^ec-3/i.test(at.codec), cod = isE ? "eac3" : "ac3";
+      const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(cod); await window.__dolbyStereo(L, st.ldec);
+      if(!alive()) return;
+      /* listas de edições: tempo de apresentação = cts + desvio */
+      const editShift = t => { let empty = 0, mt = 0; for(const e of (t.edits || [])){ if(e.media_time < 0) empty += e.segment_duration; else { mt = e.media_time; break; } } return empty / (info.timescale || 1000) - mt / t.timescale; };
+      let uOff = 0; try{ uOff = parseFloat(localStorage.getItem("mse_aoff_" + c.name)) || 0; }catch(e){}
+      f.setExtractionOptions(at.id, null, {nbSamples:50});
+      f.setSegmentOptions(vt.id, null, {nbSamples:60});
+      const ib = new Uint8Array(f.initializeSegmentation()[0].buffer);
+      const rawAvc1 = MSEF.findBox(rawMoov, "avc1"), rawAvcC = rawAvc1 && MSEF.findBox(rawAvc1.subarray(86), "avcC"), boxAvcC = MSEF.findBox(ib, "avcC");
+      const ed = -editShift(vt), W = (vt.video && vt.video.width) || vt.track_width, H = (vt.video && vt.video.height) || vt.track_height;
+      const cands = [["original", () => ib, 0], ["limpo", () => MSEF.cleanInit(ib), ed]];
+      if(rawAvcC) cands.push(["de raiz (avcC do ficheiro)", () => MSEF.synthInit(rawAvcC, vt.id, vt.timescale, W, H), ed]);
+      if(boxAvcC) cands.push(["de raiz (avcC do mp4box)", () => MSEF.synthInit(boxAvcC, vt.id, vt.timescale, W, H), ed]);
+      let use = null, vOff = 0, usedName = "";
+      for(const [name, mk, off] of cands){ let bytes = null, ok = false; try{ bytes = mk(); ok = await MSEF.probeInit(bytes, mime); }catch(e){} if(!alive()) return; if(ok){ use = bytes; vOff = off; usedName = name; break; } }
+      if(!use){ EV("filme num só leitor (MSE): cabeçalho de vídeo rejeitado", {caixas:MSEF.boxDump(ib).slice(0, 400)}); giveUp("nenhum segmento inicial aceite"); return; }
+      const aAdd = editShift(at) + uOff + vOff;   /* o som toca quando o relógio do vídeo chega a cts + aAdd */
+      EV("filme num só leitor (MSE): pronto", {video:vt.codec, som:at.codec, inicial:usedName, desvioVideo_s:+vOff.toFixed(3), acertoSom_ms:Math.round(uOff * 1000), ms:Math.round(performance.now() - t0)});
+      st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec};
+      try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
+      /* 2) fonte de vídeo */
+      ms = new MediaSource(); blobUrl = URL.createObjectURL(ms);
+      await new Promise((res, rej) => { ms.addEventListener("sourceopen", res, {once:true}); v.src = blobUrl; setTimeout(() => rej(new Error("a fonte de vídeo não abriu")), 8000); });
+      if(!alive()) return;
+      const dur = info.duration / info.timescale; try{ if(dur > 0) ms.duration = dur; }catch(e){}
+      sb = ms.addSourceBuffer(mime); sb.mode = "segments";
+      v.onerror = () => { if(done || !alive()) return; giveUp("erro do leitor: " + (v.error ? v.error.code + " " + String(v.error.message || "").slice(0, 100) : "?")); };
+      v.addEventListener("timeupdate", fT);
+      let queue = [], started = false, seekReq = lastCt > 3 ? lastCt : null, seekT = null, selfAt = 0, selfT = -1, eos = false;
+      const setCt = t => { selfAt = performance.now(); selfT = t; try{ v.currentTime = t; }catch(e){} };
+      const rangeFor = t => { let best = null; try{ for(let i = 0; i < sb.buffered.length; i++){ const a = sb.buffered.start(i), b = sb.buffered.end(i); if(b <= t + 0.2) continue; if(a <= t) return [a, b]; if(!best || a < best[0]) best = [a, b]; } }catch(e){} return best; };
+      const ahead = () => { try{ const ct = v.currentTime; for(let i = 0; i < sb.buffered.length; i++) if(sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) return sb.buffered.end(i) - ct; }catch(e){} return 0; };
+      const pushQ = () => { if(!alive() || sb.updating || !queue.length) return; const seg = queue.shift();
+        try{ sb.appendBuffer(seg); }catch(e){
+          if(e && e.name === "QuotaExceededError"){ queue.unshift(seg); try{ if(sb.buffered.length && v.currentTime - sb.buffered.start(0) > 15) sb.remove(sb.buffered.start(0), v.currentTime - 10); else setTimeout(pushQ, 1000); }catch(e2){ setTimeout(pushQ, 1000); } }
+          else if(alive()) giveUp("appendBuffer: " + String(e).slice(0, 100)); } };
+      sb.addEventListener("updateend", () => { if(!alive()) return; pushQ();
+        const sr = seekT !== null ? rangeFor(seekT - 0.5) : null;
+        if(sr){ const t = Math.max(seekT, sr[0]) + 0.01; EV("filme num só leitor (MSE): posição retomada", {pedido_s:+seekT.toFixed(1), imagem_s:+sr[0].toFixed(1)}); seekT = null; setCt(t); v.play().catch(() => {}); }
+        if(!started && seekT === null && seekReq === null && sb.buffered.length){ started = true; if(sb.buffered.start(0) > v.currentTime) setCt(sb.buffered.start(0) + 0.01); v.play().catch(() => {}); EV("filme num só leitor (MSE): a tocar", {ms:Math.round(performance.now() - t0)}); } });
+      f.onSegment = (id, user, data, next) => { if(!alive()) return; queue.push(new Uint8Array(data)); pushQ(); try{ if(next) f.releaseUsedSamples(id, next); }catch(e){} };
+      f.onSamples = (id, user, samples) => { if(!alive() || id !== at.id) return;
+        for(const s of samples){ const ts = Math.round((s.cts / s.timescale + aAdd) * 1e6); if(st.aq.length && ts < st.aq[st.aq.length - 1].ts - 1e6) st.aq = []; st.aq.push({ts, data:new Uint8Array(s.data.slice ? s.data.slice(0) : s.data)}); }
+        try{ if(samples.length) f.releaseUsedSamples(id, samples[samples.length - 1].number + 1); }catch(e){} };
+      /* som: descodifica só o que está perto do relógio do vídeo, e só com a imagem a andar (senão o relógio do som deita-o fora) */
+      const drain = async () => { if(st.abusy || !alive()) return; st.abusy = true; st.busyAt = performance.now();
+        try{ while(st.aq.length && alive()){
+            if(v.paused || v.seeking || v.readyState < 3 || seekT !== null) break;
+            if(st.aq[0].ts / 1e6 - v.currentTime > 3) break;
+            const x = st.aq.shift(), frs = window.__ac3Frames(x.data); if(!frs.length) continue; const [, cc, pkt, frm] = st.ldec;
+            const out = await Promise.race([L.ff_decode_multi(cc, pkt, frm, frs.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]);
+            let t = x.ts / 1e6; st.lastDec = performance.now();
+            for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
+              pl = window.__downmix(pl); if(st.clock) st.clock.push(pl, sr, t); st.lastOut = performance.now(); t += pl[0].length / sr; st.n++; } } }
+        catch(e){ st.err = String(e.message || e); EV("som por software: erro", {erro:st.err, fila:st.aq.length}); if(/parado/.test(st.err)){ try{ st.ldec = await L.ff_init_decoder(cod); }catch(e3){} } }
+        st.abusy = false; };
+      st.drain = drain; drainT = setInterval(() => { if(!alive()){ cleanup(); return; } drain(); }, 150);
+      onSeeking = () => { if(!alive()) return; if(performance.now() - selfAt < 1500 && Math.abs(v.currentTime - selfT) < 0.3) return; seekReq = v.currentTime; };
+      v.addEventListener("seeking", onSeeking);
+      /* vigia: imagem parada com dados em reserva → retoma ou avança até um ponto que o descodificador aceite */
+      { let lc = -1, still = 0, nudges = 0;
+        wdT = setInterval(() => { if(!alive()){ cleanup(); return; } if(!started || seekT !== null || seekReq !== null || v.paused){ still = 0; return; }
+          const ct = v.currentTime; if(ct !== lc){ lc = ct; still = 0; nudges = 0; return; }
+          const rg = rangeFor(ct); if(++still < 3 || !rg || rg[1] - Math.max(ct, rg[0]) < 1) return; still = 0;
+          EV("filme num só leitor (MSE): imagem parada", {em_s:+ct.toFixed(2), estado:v.readyState, reserva:rg[0].toFixed(2) + "–" + rg[1].toFixed(2), vez:nudges + 1});
+          if(nudges < 40){ setCt(Math.min(rg[1] - 0.5, (rg[0] > ct ? rg[0] : ct + 0.5) + 0.05)); v.play().catch(() => {}); }
+          else if(nudges === 40) giveUp("imagem parada sem recuperação");
+          nudges++; }, 1000); }
+      queue.push(use); pushQ(); f.start();
+      /* 3) dados numa ligação contínua; saltos reabrem a ligação no ponto-chave */
+      const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen; let dEnd = moovAt > ftypLen ? moovAt : (size || Infinity);
+      let q = dStart, fails = 0;
+      while(alive()){
+        if(seekReq !== null){
+          const t = Math.max(0, Math.min(seekReq, dur > 10 ? dur - 5 : seekReq)); seekReq = null; eos = false;
+          queue = []; st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){}
+          const waitSb = async () => { for(let k = 0; k < 200 && sb.updating; k++) await sleep(30); };
+          try{ await waitSb(); sb.remove(0, 1e9); await waitSb(); }catch(e){}
+          if(!alive()) break;
+          try{ (f.fragmentedTracks || []).forEach(ft => { ft.segmentStream = null; }); }catch(e){}
+          const rv = f.seekTrack(t, true, f.getTrackById(vt.id)), ra = f.seekTrack(rv.time, false, f.getTrackById(at.id));
+          queue = []; st.aq = []; q = Math.max(dStart, isFinite(dEnd) ? Math.min(dEnd - 1, Math.min(rv.offset, ra.offset)) : Math.min(rv.offset, ra.offset)); fails = 0;
+          seekT = Math.max(t, rv.time + vOff); setCt(seekT);
+          EV("filme num só leitor (MSE): salto", {para_s:Math.round(t), pontoChave_s:+rv.time.toFixed(1), MB:Math.round(q / 1e6)});
+        }
+        if(q >= dEnd){ if(!eos && !queue.length && !sb.updating && ms.readyState === "open"){ eos = true; try{ ms.endOfStream(); }catch(e){} } await sleep(300); continue; }
+        const q0 = q; let rd = null, parts = [], n = 0, sk = false;
+        const flushP = () => { if(!n || sk || !alive()) return; const o = new Uint8Array(n); let k = 0; for(const x of parts){ o.set(x, k); k += x.length; } parts = []; n = 0; feed(o.buffer, q); q += o.length; };
+        try{
+          const r = await fetch(src, {headers:{Range:"bytes=" + q + "-" + (isFinite(dEnd) ? dEnd - 1 : "")}, signal:ctl.signal});
+          if(r.status === 416 && !isFinite(dEnd)){ dEnd = q; continue; }
+          if(r.status === 200 && q > 0){ try{ r.body && r.body.cancel(); }catch(e){} giveUp("o servidor não aceita leitura parcial (Range)"); return; }
+          if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+          if(!isFinite(dEnd)){ const cl = +r.headers.get("content-length"); if(cl > 0) dEnd = q + cl; }
+          rd = r.body.getReader();
+          for(;;){
+            /* não lê mais de ~60 s à frente do que está a tocar (memória) */
+            while(alive() && seekReq === null && ((started && ahead() > 60) || queue.length > 30 || st.aq.length > 6000)) await sleep(300);
+            if(!alive()){ sk = true; try{ await rd.cancel(); }catch(e){} break; }
+            if(seekReq !== null){ sk = true; try{ await rd.cancel(); }catch(e){} break; }
+            const x = await rd.read(); if(x.done) break;
+            parts.push(x.value); n += x.value.length; if(n >= 1 << 20) flushP();
+          }
+          flushP();
+          if(!sk && !isFinite(dEnd) && q > q0) dEnd = q;
+          if(!sk && q >= dEnd){ try{ f.flush(); }catch(e){} }
+        }catch(e){ if(e.name === "AbortError" || !alive()) break; flushP(); st.err = "rede: " + String(e.message || e).slice(0, 80); EV("filme num só leitor (MSE): leitura interrompida", {MB:Math.round(q / 1e6), erro:st.err}); }
+        if(sk || q >= dEnd) continue;
+        if(q === q0){ if(++fails > 8){ giveUp("leitura falhou em " + q); return; } } else fails = 0;
+        await sleep(1500 * (fails + 1));
+      }
+      cleanup();
+    }catch(e){ if(e && e.name === "AbortError"){ cleanup(); return; } if(mine()) giveUp(e); else cleanup(); }
+  })();
 }
 function mp4aRun(slot, st, src, onNone){
   const alive = () => !!(window.__mka && window.__mka[slot] === st);
@@ -15122,7 +15353,11 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const v = $("vid" + slot), src = v.currentSrc || v.src, isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || ""); if(!src || !(/\.mkv(\?|$)/i.test(c.url) || (isMp4 && window.__TESLA && typeof mp4aRun === "function" && !(window.__mkaNo && window.__mkaNo[slot] === playId))) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
       const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
-      if(isMp4) mp4aRun(slot, st, src, () => { (window.__mkaNo = window.__mkaNo || [])[slot] = playId; const f = window.__mkaFallback && window.__mkaFallback[slot]; if(f && playId === playSeq[slot]) f(); }); else mkvRun(slot, st, src, true);
+      if(isMp4){ const onNone = () => { (window.__mkaNo = window.__mkaNo || [])[slot] = playId; const f = window.__mkaFallback && window.__mkaFallback[slot]; if(f && playId === playSeq[slot]) f(); };
+        /* v351: um só leitor (MSE) quando possível; se não for aplicável ou falhar, o caminho antigo (leitor do carro + som à parte) */
+        let useMse = false; try{ useMse = cfg.mseFilm !== false && typeof mp4MseRun === "function" && !!window.MediaSource && !(typeof mirrorOn !== "undefined" && mirrorOn) && !hlsInst[slot] && !(window.__mseNo && window.__mseNo[c.url]); }catch(e){}
+        if(useMse) mp4MseRun(slot, st, src, c, playId, () => mp4aRun(slot, st, src, onNone)); else mp4aRun(slot, st, src, onNone); }
+      else mkvRun(slot, st, src, true);
       let live0 = Date.now(); const t = setInterval(() => { try{ const nw = performance.now(); if(nw - (st.wdAt || 0) > 5000 && window.__mka[slot] === st && st.aq && st.aq.length && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 4000){ st.wdAt = nw; const cur = st.clock ? st.clock.v.currentTime : v.currentTime, h0 = st.aq[0].ts / 1e6;
           window.__dbgEv && window.__dbgEv(slot, "som por software: parado", {fila:st.aq.length, cabeca_menos_agora_s:+(h0 - cur).toFixed(1), ocupado:!!st.abusy, ocupadoHa_s:st.abusy ? +((nw - (st.busyAt || nw)) / 1000).toFixed(1) : null, descodificados:st.n, erro:st.err || "", ctx:st.clock && st.clock.ctx ? st.clock.ctx.state : null});
           if(st.abusy && nw - (st.busyAt || nw) > 8000) st.abusy = false;
@@ -15248,6 +15483,7 @@ window.__sa = {
       const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "software" ? "software" : "webcodecs";
+      const mf = $("setMseFilm"); if(mf) mf.value = cfg.mseFilm === false ? "off" : "on";
       const sm = $("setSmooth"); if(sm) sm.checked = cfg.smoothClock !== false;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
@@ -15265,6 +15501,7 @@ window.__sa = {
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
   bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
+  bind("setMseFilm", e => { cfg.mseFilm = e.target.value !== "off"; saveCfg(); toast(cfg.mseFilm ? "Filmes com som Dolby: um só leitor. Reabre o filme." : "Filmes com som Dolby: leitor do carro + som à parte. Reabre o filme."); });
   bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg();
     /* v328: reinicia o espelho de cada ecrã para usar o motor escolhido (antes ficava o motor antigo) */
     try{ if(mirrorOn) [0, 1].forEach(sl => { try{ if(MIR[sl]){ cancelAnimationFrame(mirrorRAF[sl]); wcDestroy(sl); MIR[sl] = null; startMirror(sl); } }catch(err){} }); }catch(err){}
