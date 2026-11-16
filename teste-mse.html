@@ -2,7 +2,7 @@
 <style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:10px}video{width:100%;max-height:60vh;background:#000}pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto}button{font-size:18px;padding:10px 16px;margin:6px 0}</style>
 </head><body>
 <h3>Teste MSE (imagem + som por software)</h3>
-<button id="go">Testar Forgotten Island</button>
+<button id="go">Testar Forgotten Island</button> <button id="cp">Copiar log</button>
 <video id="v" playsinline></video>
 <pre id="log"></pre>
 <script src="mp4box.all.min.js"></script>
@@ -26,6 +26,58 @@ function getLibav() {
   return libavP;
 }
 
+/*INIT-LIB: diagnóstico e reconstrução do segmento inicial de vídeo */
+const B4 = (b, p) => ((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]) >>> 0;
+const T4 = (b, p) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+function rdBoxes(b, s, e) { const o = []; let p = s; while (p + 8 <= e) { const sz = B4(b, p), t = T4(b, p + 4); if (sz < 8 || p + sz > e) { o.push({ t, p, sz, bad: true }); break; } o.push({ t, p, sz }); p += sz; } return o; }
+const KIDS = { moov: 8, trak: 8, mdia: 8, minf: 8, stbl: 8, mvex: 8, edts: 8, dinf: 8, stsd: 16, avc1: 86, avc3: 86, hvc1: 86, hev1: 86, encv: 86 };
+function boxDump(b, s, e) { return rdBoxes(b, s === undefined ? 0 : s, e === undefined ? b.length : e).map(x => x.t.replace(/[^\x20-\x7e]/g, "?") + x.sz + (x.bad ? "!MAU" : "") + (!x.bad && KIDS[x.t] ? "[" + boxDump(b, x.p + KIDS[x.t], x.p + x.sz) + "]" : "")).join(" "); }
+const hex = (b, n) => Array.from(b.subarray(0, n)).map(x => x.toString(16).padStart(2, "0")).join("");
+function mkBox(t, ...parts) { let n = 8; for (const p of parts) n += p.length; const o = new Uint8Array(n); new DataView(o.buffer).setUint32(0, n); for (let i = 0; i < 4; i++) o[4 + i] = t.charCodeAt(i); let k = 8; for (const p of parts) { o.set(p, k); k += p.length; } return o; }
+const KEEP = { "": ["ftyp", "moov"], moov: ["mvhd", "trak", "mvex"], trak: ["tkhd", "mdia"], mdia: ["mdhd", "hdlr", "minf"], minf: ["vmhd", "dinf", "stbl"], stbl: ["stsd", "stts", "stsc", "stsz", "stco", "co64"], mvex: ["trex"], stsd: ["avc1", "avc3"], avc1: ["avcC"], avc3: ["avcC"] };
+/* versão limpa: só as caixas essenciais (sem edts nem extras dentro do avc1) */
+function cleanInit(b, s, e, parent) {
+  const out = [];
+  for (const x of rdBoxes(b, s === undefined ? 0 : s, e === undefined ? b.length : e)) {
+    if (x.bad || !KEEP[parent || ""].includes(x.t)) continue;
+    if (KEEP[x.t]) { const h = KIDS[x.t]; out.push(mkBox(x.t, b.subarray(x.p + 8, x.p + h), cleanInit(b, x.p + h, x.p + x.sz, x.t))); }
+    else out.push(b.subarray(x.p, x.p + x.sz));
+  }
+  let n = 0; for (const p of out) n += p.length; const o = new Uint8Array(n); let k = 0; for (const p of out) { o.set(p, k); k += p.length; } return o;
+}
+function findBox(b, t) { for (let k = 4; k + 4 <= b.length; k++) if (b[k] === t.charCodeAt(0) && b[k + 1] === t.charCodeAt(1) && b[k + 2] === t.charCodeAt(2) && b[k + 3] === t.charCodeAt(3)) { const sz = B4(b, k - 4); if (sz >= 8 && k - 4 + sz <= b.length) return b.subarray(k - 4, k - 4 + sz); } return null; }
+/* versão sintética: escrita de raiz, só com o avcC original do ficheiro */
+function synthInit(avcC, id, ts, w, h) {
+  const u = (...a) => { const o = new Uint8Array(a.length * 4), d = new DataView(o.buffer); a.forEach((x, i) => d.setUint32(i * 4, x)); return o; };
+  const z = n => new Uint8Array(n), s = t => Uint8Array.from(t, c => c.charCodeAt(0));
+  const mat = u(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
+  const mvhd = mkBox("mvhd", u(0, 0, 0, 1000, 0, 0x10000), Uint8Array.of(1, 0, 0, 0), z(8), mat, z(24), u(id + 1));
+  const tkhd = mkBox("tkhd", u(3, 0, 0, id, 0, 0), z(8), z(8), mat, u(w << 16, h << 16));
+  const mdhd = mkBox("mdhd", u(0, 0, 0, ts, 0), Uint8Array.of(0x55, 0xc4, 0, 0));
+  const hdlr = mkBox("hdlr", u(0, 0), s("vide"), z(12), s("Video\0"));
+  const dinf = mkBox("dinf", mkBox("dref", u(0, 1), mkBox("url ", u(1))));
+  const ve = new Uint8Array(78), dv = new DataView(ve.buffer); dv.setUint16(6, 1); dv.setUint16(24, w); dv.setUint16(26, h); dv.setUint32(28, 0x480000); dv.setUint32(32, 0x480000); dv.setUint16(40, 1); dv.setUint16(74, 24); dv.setUint16(76, 0xffff);
+  const stsd = mkBox("stsd", u(0, 1), mkBox("avc1", ve, avcC));
+  const stbl = mkBox("stbl", stsd, mkBox("stts", u(0, 0)), mkBox("stsc", u(0, 0)), mkBox("stsz", u(0, 0, 0)), mkBox("stco", u(0, 0)));
+  const minf = mkBox("minf", mkBox("vmhd", u(1, 0, 0)), dinf, stbl);
+  const trak = mkBox("trak", tkhd, mkBox("mdia", mdhd, hdlr, minf));
+  const mvex = mkBox("mvex", mkBox("trex", u(0, id, 1, 0, 0, 0)));
+  const ftyp = mkBox("ftyp", s("isom"), u(0x200), s("isomiso5avc1mp41"));
+  const moov = mkBox("moov", mvhd, trak, mvex);
+  const o = new Uint8Array(ftyp.length + moov.length); o.set(ftyp); o.set(moov, ftyp.length); return o;
+}
+/* testa um segmento inicial numa fonte de vídeo à parte (uma falha fecha a fonte, por isso não se testa na principal) */
+function probeInit(bytes, mime) {
+  return new Promise(res => {
+    const tm = new MediaSource(), tv = document.createElement("video"); tv.muted = true; let done = false;
+    const fin = ok => { if (done) return; done = true; try { tv.removeAttribute("src"); tv.load(); } catch (e) {} res(ok); };
+    tv.addEventListener("error", () => fin(false));
+    tm.addEventListener("sourceopen", () => { try { const b = tm.addSourceBuffer(mime); b.addEventListener("error", () => fin(false)); b.addEventListener("updateend", () => setTimeout(() => fin(tm.readyState === "open"), 60)); b.appendBuffer(bytes.slice()); } catch (e) { fin(false); } }, { once: true });
+    tv.src = URL.createObjectURL(tm); setTimeout(() => fin(false), 4000);
+  });
+}
+/*END-INIT-LIB*/
+
 let ac = null;
 function adtsWrap(d, cfg) {
   const rates = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
@@ -48,7 +100,7 @@ function flushPend() {
   if (!pend || !ac) { pend = null; return; }
   const p = pend; pend = null;
   const v = document.getElementById("v");
-  const anchor = ac.currentTime - v.currentTime;
+  const anchor = ac.currentTime - (v.currentTime - (window.__vOff || 0));
   if (window.__lastAnchor !== undefined && Math.abs(anchor - window.__lastAnchor) > 0.2) resyncAudio();
   window.__lastAnchor = anchor;
   let when = anchor + p.ts;
@@ -65,6 +117,7 @@ function flushPend() {
 }
 function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); srcs = []; window.__aEnd = 0; window.__aRe = (window.__aRe || 0) + 1; }
 
+document.getElementById("cp").onclick = () => { const t = document.getElementById("log").textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); }); };
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
   try {
@@ -95,15 +148,19 @@ async function run(url) {
     if (aBusy || !dec) return; aBusy = true;
     try {
       while (aq.length) {
-        if (v.paused || v.currentTime <= 0) { aq.length = 0; break; }
-        if (aq[0].ts > v.currentTime + 2.5) break;
+        if (v.paused || v.currentTime <= 0) break;
+        if (aq[0].ts > v.currentTime - (window.__vOff || 0) + 2.5) break;
         const x = aq.shift(); const [, c, pkt, frm] = dec;
         const out = await Lv.ff_decode_multi(c, pkt, frm, [{data: x.data}], {ignoreErrors: true});
         window.__aDec = (window.__aDec || 0) + 1;
         if (window.__aDec <= 3 || (window.__aDec % 200 === 0)) L("som: amostra", window.__aDec, "→ frames", out.length, out[0] && out[0].data ? "planos " + out[0].data.length : "sem dados");
         for (const fo of out) { const pl = Array.isArray(fo.data) ? fo.data : null; if (!pl || !pl.length) continue;
           const sr = fo.sample_rate || 48000;
-          playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, x.ts, v.currentTime); }
+          let pp = pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a));
+          /* 5.1 → estéreo: sem isto perdia-se o canal central (diálogos) */
+          if (pp.length >= 6) { const n = pp[0].length, l = new Float32Array(n), r = new Float32Array(n), [FL, FR, FC, , SL, SR] = pp; for (let i = 0; i < n; i++) { l[i] = 0.5 * FL[i] + 0.354 * FC[i] + 0.354 * SL[i]; r[i] = 0.5 * FR[i] + 0.354 * FC[i] + 0.354 * SR[i]; } pp = [l, r]; }
+          else if (pp.length >= 3) { const n = pp[0].length, l = new Float32Array(n), r = new Float32Array(n); for (let i = 0; i < n; i++) { l[i] = 0.6 * pp[0][i] + 0.42 * pp[2][i]; r[i] = 0.6 * pp[1][i] + 0.42 * pp[2][i]; } pp = [l, r]; }
+          playPcm(pp, sr, x.ts, v.currentTime); }
       }
       if (!aq.length) flushPend();
     } catch (e) { L("som ERRO", String(e && e.message || e)); }
@@ -128,21 +185,43 @@ async function run(url) {
       f.setSegmentOptions(vt.id, null, { nbSamples: 60 });
       const is = f.initializeSegmentation();
       const ib = new Uint8Array(is[0].buffer);
-      /* neutraliza a lista de edições (edts) do segmento inicial: vira caixa 'free' do mesmo tamanho */
-      for (let k = 4; k + 4 <= ib.length; k++) {
-        if (ib[k] === 0x65 && ib[k + 1] === 0x64 && ib[k + 2] === 0x74 && ib[k + 3] === 0x73) { ib[k] = 0x66; ib[k + 1] = 0x72; ib[k + 2] = 0x65; ib[k + 3] = 0x65; L("edts neutralizado no segmento inicial"); break; }
-      }
-      if (!sb) { sb = ms.addSourceBuffer(`video/mp4; codecs="${vt.codec}"`); sb.mode = "segments"; sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } }); }
-      try { L("init vídeo:", ib.length, "bytes · débito", vt.bitrate, "· escala", vt.timescale, "· tamanho", vt.track_width + "x" + vt.track_height, "· perfil", vt.profile, "· nível", vt.level, "· edits", vt.edits ? vt.edits.length : "—"); } catch (e) { }
-      queue.push(ib); pushQ(); f.start();
+      const mime = `video/mp4; codecs="${vt.codec}"`;
+      (async () => {
+        try {
+          const raw = window.__moovRaw, rawAvc1 = raw && findBox(raw, "avc1"), rawAvcC = rawAvc1 && findBox(rawAvc1.subarray(86), "avcC"), boxAvcC = findBox(ib, "avcC");
+          const ed = vt.edits && vt.edits.length === 1 && vt.edits[0].media_time > 0 ? vt.edits[0].media_time / vt.timescale : 0;
+          const W = (vt.video && vt.video.width) || vt.track_width, H = (vt.video && vt.video.height) || vt.track_height;
+          const cands = [["original", () => ib, 0], ["limpo", () => cleanInit(ib), ed]];
+          if (rawAvcC) cands.push(["de raiz (avcC do ficheiro)", () => synthInit(rawAvcC, vt.id, vt.timescale, W, H), ed]);
+          if (boxAvcC) cands.push(["de raiz (avcC do mp4box)", () => synthInit(boxAvcC, vt.id, vt.timescale, W, H), ed]);
+          let use = null;
+          for (const [name, mk, off] of cands) {
+            let bytes = null, ok = false;
+            try { bytes = mk(); ok = await probeInit(bytes, mime); } catch (e) { L("init", name, "ERRO", String(e).slice(0, 80)); }
+            L("segmento inicial «" + name + "» (" + (bytes ? bytes.length : 0) + " bytes):", ok ? "ACEITE" : "rejeitado");
+            if (ok) { use = bytes; window.__vOff = off; break; }
+          }
+          if (!use || use !== ib) {
+            L("DIAG init mp4box:", boxDump(ib));
+            if (rawAvc1) L("DIAG avc1 do ficheiro:", boxDump(rawAvc1, 86));
+            if (rawAvcC) L("DIAG avcC ficheiro:", hex(rawAvcC, 96));
+            if (boxAvcC) L("DIAG avcC mp4box:", hex(boxAvcC, 96));
+          }
+          if (!use) { L("nenhuma versão do segmento inicial foi aceite por este browser"); return; }
+          sb = ms.addSourceBuffer(mime); sb.mode = "segments";
+          sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; if (sb.buffered.start(0) > v.currentTime) v.currentTime = sb.buffered.start(0); v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } });
+          queue.push(use); pushQ(); f.start();
+        } catch (e) { L("init ERRO", String(e && e.stack || e).slice(0, 300)); }
+      })();
     } catch (e) { L("onReady ERRO", String(e && e.stack || e).slice(0, 300)); }
   };
-  f.onSegment = (id, user, data) => { queue.push(new Uint8Array(data)); pushQ(); };
+  f.onSegment = (id, user, data, next) => { queue.push(new Uint8Array(data)); pushQ(); try { if (next) f.releaseUsedSamples(id, next); } catch (e) {} };
   f.onSamples = async (id, user, samples) => {
     if (!aTrack || id !== aTrack.id) return;
     if (!decP) { if (!Lv) return; decP = Lv.ff_init_decoder(window.__cod || "eac3").then(d => { dec = d; L("descodificador de som pronto:", window.__cod); }).catch(e => { L("som: init ERRO", String(e && e.message || e)); decP = null; }); }
     await decP; if (!dec) return;
     for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
+    try { if (samples.length) f.releaseUsedSamples(id, samples[samples.length - 1].number + 1); } catch (e) {}
     if (ac.state !== "running") ac.resume().catch(() => {});
     if (!window.__drainT) window.__drainT = setInterval(() => drainAudio(), 150);
     if (!window.__syncT) window.__syncT = setInterval(() => { L("sincronia: vídeo", v.currentTime.toFixed(1), "s · sons ativos", srcs.length, "· atrasados", window.__aLate || 0, "· reajustes", window.__aRe || 0); }, 5000);
@@ -184,12 +263,15 @@ async function run(url) {
         else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
         feed(hd, ftypLen);
       }
-      feed(await fr(moovAt, moovAt + moovLen - 1), moovAt);
+      const mvRaw = await fr(moovAt, moovAt + moovLen - 1); window.__moovRaw = new Uint8Array(mvRaw.slice(0)); window.__vOff = 0;
+      feed(mvRaw, moovAt);
       L("índice lido · moov a", (moovAt / 1e3).toFixed(0), "KB · ficheiro", (size / 1e6).toFixed(0), "MB");
       /* 2) dados em sequência (blocos de 8 MB), como o leitor do descodificador */
       const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen, dEnd = moovAt > ftypLen ? moovAt : size;
       for (let q = dStart; q < dEnd; q += 8 << 20) {
         const e = Math.min(dEnd, q + (8 << 20));
+        /* não lê mais de ~60 s à frente do que está a tocar (memória) */
+        while (started && sb && sb.buffered.length && sb.buffered.end(sb.buffered.length - 1) - v.currentTime > 60 || queue.length > 30) await new Promise(r => setTimeout(r, 500));
         feed(await fr(q, e - 1), q); pos = e;
         if (((q - dStart) / 50e6 | 0) !== (((q - dStart) - (8 << 20)) / 50e6 | 0)) L("lidos", (pos / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms");
       }
