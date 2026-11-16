@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v341";
+const APP_VERSION = "v342";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3473,6 +3473,8 @@ function playChannel(c, slot=tvTarget, auto=false){
     { const src1 = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
       const gapF = window.__TESLA ? 1000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
       const setF = () => { if(playId !== playSeq[slot]) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
+    /* v342: no Tesla, regista o codec de som dos .mp4 (sem alterar a reprodução) */
+    if(window.__TESLA && /\.(mp4|m4v|mov)(\?|$)/i.test(c.url)) mp4ProbeAudio(src1).then(r => { try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mp4: codecs", r); }catch(e){} }).catch(e => { try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mp4: codecs (falhou)", {erro:String(e.message || e)}); }catch(x){} });
       if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
@@ -4910,6 +4912,25 @@ function mkvRun(slot, st, src, audio){
 }
 /* v341: filmes .mp4 com som AC-3/E-AC-3 (o leitor do carro não o toca): lê o índice do ficheiro com o mp4box, vai buscar as
    amostras de som numa ligação contínua (como nos .mkv) e toca-as por software. Sem faixa Dolby: chama onNone (versão HLS). */
+/* v342: deteção do som de um .mp4 com poucos pedidos pequenos (início 64 KB; se o índice (moov) estiver no fim, o último 2 MB).
+   Só regista o codec no registo, sem alterar a reprodução. */
+async function mp4ProbeAudio(src){
+  const readN = async (range, n) => { const r = await fetch(src, {headers:{Range:range}}); if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+    const cr = r.headers.get("content-range"); const total = cr ? +((/\/(\d+)/.exec(cr) || [])[1] || 0) : null;
+    const rd = r.body.getReader(); const parts = []; let got = 0; while(got < n){ const x = await rd.read(); if(x.done) break; parts.push(x.value); got += x.value.length; } try{ rd.cancel(); }catch(e){}
+    const out = new Uint8Array(Math.min(got, n)); let k = 0; for(const x of parts){ const m = Math.min(x.length, out.length - k); out.set(x.subarray(0, m), k); k += m; if(k >= out.length) break; } return {bytes:out, total}; };
+  const boxes = (b, base) => { const o = []; let p = 0; while(p + 8 <= b.length){ let sz = (b[p] << 24 >>> 0) + (b[p+1] << 16) + (b[p+2] << 8) + b[p+3]; const t = String.fromCharCode(b[p+4], b[p+5], b[p+6], b[p+7]); if(sz === 1 && p + 16 <= b.length) sz = Number(new DataView(b.buffer, b.byteOffset + p + 8, 8).getBigUint64(0)); if(sz < 8) break; o.push({t, at:base + p, sz}); p += sz; } return o; };
+  const h = await readN("bytes=0-65535", 65536); let moov = null, ftyp = null;
+  for(const bx of boxes(h.bytes, 0)){ if(bx.t === "ftyp") ftyp = bx; if(bx.t === "moov" && bx.at + bx.sz <= h.bytes.length) moov = {at:bx.at, sz:bx.sz, bytes:h.bytes.subarray(bx.at, bx.at + bx.sz)}; }
+  if(!moov){ const tailN = 2 << 20, tail = await readN("bytes=-" + tailN, tailN); const tot = tail.total; const base = tot ? tot - tail.bytes.length : 0; const ti = (() => { for(let i = tail.bytes.length - 4; i >= 4; i--) if(tail.bytes[i] === 0x6D && tail.bytes[i+1] === 0x6F && tail.bytes[i+2] === 0x6F && tail.bytes[i+3] === 0x76) return i; return -1; })();
+    if(ti < 4) throw new Error("índice (moov) não encontrado"); const sz = (tail.bytes[ti-4] << 24 >>> 0) + (tail.bytes[ti-3] << 16) + (tail.bytes[ti-2] << 8) + tail.bytes[ti-1]; const at = base + ti - 4;
+    if(sz <= 0 || sz > (16 << 20)) throw new Error("índice com tamanho estranho: " + sz);
+    const whole = await readN("bytes=" + at + "-" + (at + sz - 1), sz); moov = {at, sz, bytes:whole.bytes}; }
+  /* o mp4box não lê um índice que está no fim sem o resto do ficheiro: procura os nomes dos codecs no bloco moov (tabela de descrição das faixas) */
+  const txt = moov.bytes; const has = q => { const c = [...q].map(x => x.charCodeAt(0)); for(let i = 0; i + 4 <= txt.length; i++) if(txt[i] === c[0] && txt[i+1] === c[1] && txt[i+2] === c[2] && txt[i+3] === c[3]) return true; return false; };
+  const vid = ["avc1", "hvc1", "hev1"].filter(has), aud = ["ec-3", "ac-3", "mp4a"].filter(has);
+  return {video: vid.join(" ") || "?", audio: aud.join(" ") || "?", moov: moov.sz, fonte: moov.at > h.bytes.length ? "fim" : "início"};
+}
 function mp4aRun(slot, st, src, onNone){
   const alive = () => !!(window.__mka && window.__mka[slot] === st);
   const v = $("vid" + slot), ct = () => v.currentTime, sleep = ms => new Promise(r => setTimeout(r, ms)), EMPTY = new Uint8Array(0);
