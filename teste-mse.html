@@ -174,7 +174,7 @@ async function run(url) {
   const pushQ = () => { if (!sb || sb.updating || !queue.length) return; const seg = queue.shift(); try { sb.appendBuffer(seg); } catch (e) {
       if (e && e.name === "QuotaExceededError") { queue.unshift(seg); try { if (sb.buffered.length && v.currentTime - sb.buffered.start(0) > 15) sb.remove(sb.buffered.start(0), v.currentTime - 10); else setTimeout(pushQ, 1000); } catch (e2) { setTimeout(pushQ, 1000); } }
       else L("appendBuffer ERRO", String(e).slice(0, 80), "· estado:", ms.readyState); } };
-  let seekReq = null, seekT = null;
+  let seekReq = null, seekT = null, vId = 0;
   const ahead = () => { if (!sb) return 0; const ct = v.currentTime; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) return sb.buffered.end(i) - ct; return 0; };
   window.__seek = t => { seekReq = t; window.__seeking = true; };
   /* zona em reserva que contém t ou, se não houver, a primeira que começa depois de t */
@@ -233,6 +233,7 @@ async function run(url) {
       f.setSegmentOptions(vt.id, null, { nbSamples: 60 });
       const is = f.initializeSegmentation();
       const ib = new Uint8Array(is[0].buffer);
+      vId = vt.id;
       const mime = `video/mp4; codecs="${vt.codec}"`;
       { const ps = document.getElementById("pos"); ps.max = Math.floor(i.duration / i.timescale); ps.disabled = false; }
       (async () => {
@@ -332,7 +333,9 @@ async function run(url) {
           try { await waitSb(); sb.remove(0, 1e9); await waitSb(); } catch (e) { L("limpeza ERRO", String(e).slice(0, 60)); }
           queue.length = 0;
           try { (f.fragmentedTracks || []).forEach(ft => { ft.segmentStream = null; }); } catch (e) {}
-          const r = f.seek(t, true); aq.length = 0; queue.length = 0; q = Math.max(dStart, Math.min(dEnd - 1, r.offset)); fails = 0;
+          /* salto só nas faixas usadas (vídeo + som escolhido): o seek geral do mp4box olha para todas, e uma faixa de capítulos ou legendas atira o salto para o sítio errado */
+          const rv = f.seekTrack(t, true, f.getTrackById(vId)), ra = aTrack ? f.seekTrack(rv.time, false, f.getTrackById(aTrack.id)) : rv;
+          const r = { time: rv.time, offset: Math.min(rv.offset, ra.offset) }; aq.length = 0; queue.length = 0; q = Math.max(dStart, Math.min(dEnd - 1, r.offset)); fails = 0;
           seekT = r.time + (window.__vOff || 0); try { v.currentTime = seekT; } catch (e) {}
           L("salto para", t, "s → ponto-chave", r.time.toFixed(1), "s · byte", (q / 1e6).toFixed(0), "MB");
         }
