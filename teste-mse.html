@@ -35,17 +35,27 @@ function adtsWrap(d, cfg) {
   h[3] = ((ch & 3) << 6) | ((n >> 11) & 3); h[4] = (n >> 3) & 0xFF; h[5] = ((n & 7) << 5) | 0x1F; h[6] = 0xFC;
   const o = new Uint8Array(n); o.set(h); o.set(d, 7); return o;
 }
-let srcs = [];
+let srcs = [], pend = null;
 function playPcm(planes, sr, ts, vt) {
   if (!ac) return;
-  const anchor = ac.currentTime - vt;
+  const L = planes[0], R = planes.length > 1 ? planes[1] : planes[0];
+  if (pend && pend.sr !== sr) flushPend();
+  if (!pend) pend = { l: [], r: [], n: 0, ts, sr };
+  pend.l.push(Float32Array.from(L)); pend.r.push(Float32Array.from(R)); pend.n += L.length;
+  if (pend.n >= sr * 0.1) flushPend();
+}
+function flushPend() {
+  if (!pend || !ac) { pend = null; return; }
+  const p = pend; pend = null;
+  const v = document.getElementById("v");
+  const anchor = ac.currentTime - v.currentTime;
   if (window.__lastAnchor !== undefined && Math.abs(anchor - window.__lastAnchor) > 0.2) resyncAudio();
   window.__lastAnchor = anchor;
-  const when = anchor + ts;
+  const when = anchor + p.ts;
   if (when < ac.currentTime + 0.01) { window.__aLate = (window.__aLate || 0) + 1; return; }
-  const n = planes[0].length, b = ac.createBuffer(2, n, sr);
-  const l = planes[0], r = planes.length > 1 ? planes[1] : planes[0];
-  b.copyToChannel(Float32Array.from(l), 0); b.copyToChannel(Float32Array.from(r), 1);
+  const b = ac.createBuffer(2, p.n, p.sr);
+  const cat = arr => { const o = new Float32Array(p.n); let k = 0; for (const a of arr) { o.set(a, k); k += a.length; } return o; };
+  b.copyToChannel(cat(p.l), 0); b.copyToChannel(cat(p.r), 1);
   const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination);
   s.onended = () => { srcs = srcs.filter(x => x !== s); };
   srcs.push(s); s.start(when);
@@ -85,6 +95,7 @@ async function run(url) {
           const sr = fo.sample_rate || 48000;
           playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, x.ts, v.currentTime); }
       }
+      if (!aq.length) flushPend();
     } catch (e) { L("som ERRO", String(e && e.message || e)); }
     aBusy = false;
   };
