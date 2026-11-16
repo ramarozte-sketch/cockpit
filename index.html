@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v323";
+const APP_VERSION = "v324";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3344,6 +3344,8 @@ function playChannel(c, slot=tvTarget, auto=false){
         maxBufferLength:20, maxMaxBufferLength:40, backBufferLength: window.__TESLA ? (live ? 20 : 60) : 90, maxBufferSize:40*1000*1000,
         ...(window.__TESLA ? {maxBufferHole:1, nudgeMaxRetry:6, startFragPrefetch:true, abrEwmaDefaultEstimate: Math.max(5e5, Math.min(8e6, +LS.get("bwEst", 0) || 25e5)),
           manifestLoadingTimeOut:live ? 4000 : 8000, levelLoadingTimeOut:live ? 4500 : 9000, fragLoadingTimeOut:25000} : {}),
+        /* v324: no telemóvel o direto também pede a lista de qualidades com timeout curto (as falhas levelLoadTimeOut dos registos) */
+        ...(!window.__TESLA && live ? {manifestLoadingTimeOut:4000, levelLoadingTimeOut:4500} : {}),
         liveSyncDurationCount:goodNet ? 2 : 3, liveMaxLatencyDurationCount:10,
         manifestLoadingMaxRetry:4, manifestLoadingRetryDelay:window.__TESLA && live ? 350 : 800,
         levelLoadingMaxRetry: window.__TESLA && live ? 10 : 4, levelLoadingRetryDelay:window.__TESLA && live ? 350 : 800, levelLoadingMaxRetryTimeout:4000,
