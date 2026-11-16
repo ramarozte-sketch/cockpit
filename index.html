@@ -1653,7 +1653,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
-          <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado também no telemóvel (experimental; no carro já está ligado)</label>
+          <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
           <h3 class="setsubh">Indicador de fps</h3>
           <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
           <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v321";
+const APP_VERSION = "v322";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15030,7 +15030,7 @@ window.__sa = {
       const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "software" ? "software" : "webcodecs";
-      const sm = $("setSmooth"); if(sm) sm.checked = !!cfg.smoothClock;
+      const sm = $("setSmooth"); if(sm) sm.checked = cfg.smoothClock !== false;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
       const tp = $("setTvHomeTpl"); if(tp) tp.value = cfg.tvHomeTpl || "equilibrado";
@@ -15039,7 +15039,8 @@ window.__sa = {
   const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
   window.__useSoft = () => !!(cfg && cfg.decodeMode === "software");
   /* v321: relógio suavizado (no carro já vem ligado; no telemóvel só se a opção estiver marcada) */
-  window.__smoothOn = () => !!(cfg && cfg.smoothClock);
+  /* v322: ligado por defeito (é o mesmo código que já corre no carro); desligar nas Definições se houver problemas */
+  window.__smoothOn = () => !(cfg && cfg.smoothClock === false);
   bind("setUiScale", e => { cfg.uiScale = +e.target.value || 100; saveCfg(); applyScale(); });
   bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
   bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
