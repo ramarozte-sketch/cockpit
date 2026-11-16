@@ -4,6 +4,8 @@
 <h3>Teste MSE (imagem + som por software)</h3>
 <button id="go">Testar Forgotten Island</button> <button id="cp">Copiar log</button>
 <video id="v" playsinline></video>
+<div style="display:flex;gap:8px;align-items:center"><input type="range" id="pos" min="0" max="100" step="1" value="0" style="flex:1" disabled><span id="posT" style="min-width:110px;text-align:right">0:00</span></div>
+<div>Acerto do som: <button id="am2">−250</button><button id="am">−50</button> <b id="aoT">0 ms</b> <button id="ap">+50</button><button id="ap2">+250</button> <small>(+ atrasa o som)</small></div>
 <pre id="log"></pre>
 <script src="mp4box.all.min.js"></script>
 <script>
@@ -103,7 +105,7 @@ function flushPend() {
   const anchor = ac.currentTime - (v.currentTime - (window.__vOff || 0));
   if (window.__lastAnchor !== undefined && Math.abs(anchor - window.__lastAnchor) > 0.2) resyncAudio();
   window.__lastAnchor = anchor;
-  let when = anchor + p.ts;
+  let when = anchor + p.ts + (window.__aAdj || 0);
   /* encadeia os blocos: cada um começa onde o anterior acaba (sem falhas nem sobreposições = sem grilos) */
   if (window.__aEnd && Math.abs(when - window.__aEnd) < 0.15) when = window.__aEnd;
   if (when < ac.currentTime + 0.01) { window.__aLate = (window.__aLate || 0) + 1; window.__aEnd = 0; return; }
@@ -117,6 +119,15 @@ function flushPend() {
 }
 function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); srcs = []; window.__aEnd = 0; window.__aRe = (window.__aRe || 0) + 1; }
 
+const fmtT = t => { t = Math.max(0, t | 0); return (t / 3600 | 0) + ":" + String(t / 60 % 60 | 0).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+window.__aAdj = (parseFloat((/[?&]aoff=(-?[\d.]+)/.exec(location.search) || [])[1]) || 0) / 1000;
+const setAdj = d => { window.__aAdj = Math.round((window.__aAdj + d) * 1000) / 1000; document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; pend = null; resyncAudio(); L("acerto do som:", Math.round(window.__aAdj * 1000), "ms"); };
+[["am2", -0.25], ["am", -0.05], ["ap", 0.05], ["ap2", 0.25]].forEach(([id, d]) => document.getElementById(id).onclick = () => setAdj(d));
+document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms";
+{ const ps = document.getElementById("pos"), pt = document.getElementById("posT"), vv = document.getElementById("v"); let drag = false;
+  ps.addEventListener("input", () => { drag = true; pt.textContent = fmtT(+ps.value) + " / " + fmtT(+ps.max); });
+  ps.addEventListener("change", () => { drag = false; if (window.__seek) window.__seek(+ps.value); });
+  vv.addEventListener("timeupdate", () => { if (drag || window.__seeking) return; ps.value = vv.currentTime; pt.textContent = fmtT(vv.currentTime) + " / " + fmtT(+ps.max); }); }
 document.getElementById("cp").onclick = () => { const t = document.getElementById("log").textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); }); };
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
@@ -143,13 +154,18 @@ async function run(url) {
   ac = ac || new (window.AudioContext || window.webkitAudioContext)();
   const f = MP4Box.createFile(); let sb = null, queue = [], pos = 0, started = false, t0 = performance.now();
   let decP = null, aTrack = null, Lv = null, dec = null, aq = [], aBusy = false, firstV = null;
-  const pushQ = () => { if (!sb || sb.updating || !queue.length) return; try { sb.appendBuffer(queue.shift()); } catch (e) { L("appendBuffer ERRO", String(e).slice(0, 80), "· estado:", ms.readyState); } };
+  const pushQ = () => { if (!sb || sb.updating || !queue.length) return; const seg = queue.shift(); try { sb.appendBuffer(seg); } catch (e) {
+      if (e && e.name === "QuotaExceededError") { queue.unshift(seg); try { if (sb.buffered.length && v.currentTime - sb.buffered.start(0) > 15) sb.remove(sb.buffered.start(0), v.currentTime - 10); else setTimeout(pushQ, 1000); } catch (e2) { setTimeout(pushQ, 1000); } }
+      else L("appendBuffer ERRO", String(e).slice(0, 80), "· estado:", ms.readyState); } };
+  let seekReq = null, seekT = null;
+  const ahead = () => { if (!sb) return 0; const ct = v.currentTime; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) return sb.buffered.end(i) - ct; return 0; };
+  window.__seek = t => { seekReq = t; window.__seeking = true; };
   const drainAudio = async () => {
     if (aBusy || !dec) return; aBusy = true;
     try {
       while (aq.length) {
         if (v.paused || v.currentTime <= 0) break;
-        if (aq[0].ts > v.currentTime - (window.__vOff || 0) + 2.5) break;
+        if (aq[0].ts + (window.__aAdj || 0) > v.currentTime - (window.__vOff || 0) + 2.5) break;
         const x = aq.shift(); const [, c, pkt, frm] = dec;
         const out = await Lv.ff_decode_multi(c, pkt, frm, [{data: x.data}], {ignoreErrors: true});
         window.__aDec = (window.__aDec || 0) + 1;
@@ -169,7 +185,6 @@ async function run(url) {
   getLibav().then(x => { Lv = x; L("libav pronto"); }).catch(e => L("libav ERRO", String(e && e.message || e)));
   /* desvio da lista de edições de uma faixa: tempo de apresentação = cts + desvio */
   const editShift = (t, movieTs) => { let empty = 0, mt = 0; for (const e of (t.edits || [])) { if (e.media_time < 0) empty += e.segment_duration; else { mt = e.media_time; break; } } return empty / (movieTs || 1000) - mt / t.timescale; };
-  const manual = (parseFloat((/[?&]aoff=(-?[\d.]+)/.exec(location.search) || [])[1]) || 0) / 1000;
   f.onReady = i => {
     try {
       const vt = i.videoTracks[0];
@@ -189,11 +204,12 @@ async function run(url) {
       const is = f.initializeSegmentation();
       const ib = new Uint8Array(is[0].buffer);
       const mime = `video/mp4; codecs="${vt.codec}"`;
+      { const ps = document.getElementById("pos"); ps.max = Math.floor(i.duration / i.timescale); ps.disabled = false; }
       (async () => {
         try {
           const raw = window.__moovRaw, rawAvc1 = raw && findBox(raw, "avc1"), rawAvcC = rawAvc1 && findBox(rawAvc1.subarray(86), "avcC"), boxAvcC = findBox(ib, "avcC");
           const ed = -editShift(vt, i.timescale);
-          window.__aShift = (aTrack ? editShift(aTrack, i.timescale) : 0) + manual;
+          window.__aShift = (aTrack ? editShift(aTrack, i.timescale) : 0);
           L("edições · vídeo:", JSON.stringify((vt.edits || []).map(e => [e.segment_duration, e.media_time])), "escala", vt.timescale, "· som:", JSON.stringify(((aTrack && aTrack.edits) || []).map(e => [e.segment_duration, e.media_time])), "escala", aTrack && aTrack.timescale, "· filme", i.timescale, "· desvio vídeo", ed.toFixed(3), "s · desvio som", window.__aShift.toFixed(3), "s");
           const W = (vt.video && vt.video.width) || vt.track_width, H = (vt.video && vt.video.height) || vt.track_height;
           const cands = [["original", () => ib, 0], ["limpo", () => cleanInit(ib), ed]];
@@ -214,7 +230,7 @@ async function run(url) {
           }
           if (!use) { L("nenhuma versão do segmento inicial foi aceite por este browser"); return; }
           sb = ms.addSourceBuffer(mime); sb.mode = "segments";
-          sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; if (sb.buffered.start(0) > v.currentTime) v.currentTime = sb.buffered.start(0); v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } });
+          sb.addEventListener("updateend", () => { pushQ(); if (seekT !== null && sb.buffered.length) { v.currentTime = Math.max(seekT, sb.buffered.start(0)) + 0.01; seekT = null; window.__seeking = false; v.play().catch(() => {}); L("posição retomada em", v.currentTime.toFixed(1), "s"); } if (!started && sb.buffered.length) { started = true; if (sb.buffered.start(0) > v.currentTime) v.currentTime = sb.buffered.start(0); v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } });
           queue.push(use); pushQ(); f.start();
         } catch (e) { L("init ERRO", String(e && e.stack || e).slice(0, 300)); }
       })();
@@ -225,11 +241,12 @@ async function run(url) {
     if (!aTrack || id !== aTrack.id) return;
     if (!decP) { if (!Lv) return; decP = Lv.ff_init_decoder(window.__cod || "eac3").then(d => { dec = d; L("descodificador de som pronto:", window.__cod); }).catch(e => { L("som: init ERRO", String(e && e.message || e)); decP = null; }); }
     await decP; if (!dec) return;
-    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale + (window.__aShift || 0), data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
+    /* amostras que recuam no tempo = houve salto: o que estava na fila é da posição antiga */
+    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; if (aq.length && s.cts / s.timescale + (window.__aShift || 0) < aq[aq.length - 1].ts - 1) aq.length = 0; aq.push({ts: s.cts / s.timescale + (window.__aShift || 0), data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     try { if (samples.length) f.releaseUsedSamples(id, samples[samples.length - 1].number + 1); } catch (e) {}
     if (ac.state !== "running") ac.resume().catch(() => {});
     if (!window.__drainT) window.__drainT = setInterval(() => drainAudio(), 150);
-    if (!window.__syncT) window.__syncT = setInterval(() => { L("sincronia: vídeo", v.currentTime.toFixed(1), "s · sons ativos", srcs.length, "· atrasados", window.__aLate || 0, "· reajustes", window.__aRe || 0); }, 5000);
+    if (!window.__syncT) window.__syncT = setInterval(() => { L("sincronia: vídeo", v.currentTime.toFixed(1), "s · sons ativos", srcs.length, "· atrasados", window.__aLate || 0, "· reajustes", window.__aRe || 0, "· fila som", aq.length, aq.length ? "(" + aq[0].ts.toFixed(1) + " s)" : "", "· reserva", ahead().toFixed(0), "s"); }, 5000);
     drainAudio();
   };
   f.onError = e => L("mp4box ERRO", String(e));
@@ -276,27 +293,38 @@ async function run(url) {
       /* uma única ligação contínua: os dados chegam ao leitor à medida que descarregam (blocos de 8 MB davam imagem aos soluços) */
       let q = dStart, fails = 0, nextLog = 50e6;
       const sleep = ms2 => new Promise(r => setTimeout(r, ms2));
-      while (q < dEnd) {
-        const q0 = q; let rd = null, parts = [], n = 0;
-        const flushP = () => { if (!n) return; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } parts = []; n = 0; feed(o.buffer, q); q += o.length; pos = q; if (q - dStart >= nextLog) { nextLog += 50e6; L("lidos", ((q - dStart) / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } };
+      for (;;) {
+        if (seekReq !== null && sb) {
+          const t = seekReq; seekReq = null;
+          queue.length = 0; aq.length = 0; pend = null; resyncAudio();
+          const waitSb = async () => { while (sb.updating) await sleep(30); };
+          try { await waitSb(); sb.remove(0, 1e9); await waitSb(); } catch (e) { L("limpeza ERRO", String(e).slice(0, 60)); }
+          queue.length = 0;
+          const r = f.seek(t, true); aq.length = 0; queue.length = 0; q = Math.max(dStart, Math.min(dEnd - 1, r.offset)); fails = 0;
+          seekT = r.time + (window.__vOff || 0); try { v.currentTime = seekT; } catch (e) {}
+          L("salto para", t, "s → ponto-chave", r.time.toFixed(1), "s · byte", (q / 1e6).toFixed(0), "MB");
+        }
+        if (q >= dEnd) { await sleep(300); continue; }
+        const q0 = q; let rd = null, parts = [], n = 0, sk = false;
+        const flushP = () => { if (!n || sk) return; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } parts = []; n = 0; feed(o.buffer, q); q += o.length; pos = q; if (q - dStart >= nextLog) { nextLog = q - dStart + 50e6; L("lidos até", (q / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } };
         try {
           const r = await fetch(url, { headers: { Range: "bytes=" + q + "-" + (dEnd - 1) } });
           if (!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
           rd = r.body.getReader();
           for (;;) {
             /* não lê mais de ~60 s à frente do que está a tocar (memória) */
-            while (started && sb && sb.buffered.length && sb.buffered.end(sb.buffered.length - 1) - v.currentTime > 60 || queue.length > 30) await sleep(500);
+            while (seekReq === null && (started && ahead() > 60 || queue.length > 30)) await sleep(300);
+            if (seekReq !== null) { sk = true; try { await rd.cancel(); } catch (e) {} break; }
             const { done, value } = await rd.read(); if (done) break;
             parts.push(value); n += value.length; if (n >= 1 << 20) flushP();
           }
           flushP();
+          if (!sk && q >= dEnd) { f.flush(); L("fim do ficheiro lido"); }
         } catch (e) { flushP(); L("leitura interrompida em", (q / 1e6).toFixed(0), "MB:", String(e && e.message || e).slice(0, 60)); }
-        if (q >= dEnd) break;
+        if (sk || q >= dEnd) continue;
         if (q === q0) { if (++fails > 6) throw new Error("leitura falhou em " + q); } else fails = 0;
         await sleep(1500 * (fails + 1));
       }
-      f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
-      const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
     } catch (e) { L("leitura ERRO", String(e && e.message || e)); }
   }, { once: true });
 }
