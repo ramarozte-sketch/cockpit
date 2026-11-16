@@ -135,11 +135,42 @@ async function run(url) {
   f.onError = e => L("mp4box ERRO", String(e));
   ms.addEventListener("sourceopen", async () => {
     try {
-      const r = await fetch(url, { headers: { Range: "bytes=0-" } });
-      L("pedido", r.status, "content-range", r.headers.get("content-range") || "(sem)");
-      const rd = r.body.getReader(); let got = 0;
-      let nextLog = 50e6;
-      for (;;) { const { done, value } = await rd.read(); if (done) break; if (pos >= nextLog) { nextLog += 50e6; L("lidos", (pos / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms"); } const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; }
+      let size = 0;
+      const fr = async (x, y) => {
+        for (let t = 0; t < 4; t++) {
+          try { const r = await fetch(url, { headers: { Range: "bytes=" + x + "-" + y } }); const cr = /\/(\d+)$/.exec(r.headers.get("content-range") || ""); if (cr) size = +cr[1]; return await r.arrayBuffer(); }
+          catch (e) { L("pedido falhou, a repetir (" + (t + 1) + ")"); await new Promise(res => setTimeout(res, 1500 * (t + 1))); }
+        }
+        throw new Error("pedido falhou em " + x);
+      };
+      /* 1) índice: caixas de topo até ao moov, sem ler o mdat (o moov pode estar no fim do ficheiro) */
+      let p = 0, moovAt = -1, moovLen = 0, ftypLen = 0;
+      for (let i = 0; i < 200 && moovAt < 0; i++) {
+        const h = new DataView(await fr(p, p + 15));
+        let sz = h.getUint32(0); const ty = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
+        if (sz === 1) sz = Number(h.getBigUint64(8));
+        if (i === 0) ftypLen = sz;
+        if (ty === "moov") { moovAt = p; moovLen = sz; break; }
+        p += sz; if (size && p >= size) break;
+      }
+      if (moovAt < 0) throw new Error("moov não encontrado");
+      const feed = (buf, at) => { buf.fileStart = at; f.appendBuffer(buf); };
+      feed(await fr(0, ftypLen - 1), 0);
+      if (moovAt > ftypLen) {
+        const gap = moovAt - ftypLen, hd = new ArrayBuffer(gap > 0xFFFFFFFF ? 16 : 8), dv = new DataView(hd);
+        if (gap > 0xFFFFFFFF) { dv.setUint32(0, 1); dv.setUint32(4, 0x6d646174); dv.setBigUint64(8, BigInt(gap)); }
+        else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
+        feed(hd, ftypLen);
+      }
+      feed(await fr(moovAt, moovAt + moovLen - 1), moovAt);
+      L("índice lido · moov a", (moovAt / 1e3).toFixed(0), "KB · ficheiro", (size / 1e6).toFixed(0), "MB");
+      /* 2) dados em sequência (blocos de 8 MB), como o leitor do descodificador */
+      const dStart = moovAt > ftypLen ? ftypLen : moovAt + moovLen, dEnd = moovAt > ftypLen ? moovAt : size;
+      for (let q = dStart; q < dEnd; q += 8 << 20) {
+        const e = Math.min(dEnd, q + (8 << 20));
+        feed(await fr(q, e - 1), q); pos = e;
+        if (((q - dStart) / 50e6 | 0) !== (((q - dStart) - (8 << 20)) / 50e6 | 0)) L("lidos", (pos / 1e6).toFixed(0), "MB em", Math.round(performance.now() - t0), "ms");
+      }
       f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
       const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
     } catch (e) { L("leitura ERRO", String(e && e.message || e)); }
