@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v335";
+const APP_VERSION = "v336";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3408,6 +3408,8 @@ function playChannel(c, slot=tvTarget, auto=false){
         /* o fornecedor serve um vídeo de «manutenção» no lugar do canal: não adianta insistir (proxies, .ts…) */
         if(playId === playSeq[slot] && /Maintenance\d*\.mp4/i.test(String((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || ""))){
           if(!h.__mnt){ h.__mnt = 1; maintAt.set(c.url, Date.now()); try{ window.__dbgEv && window.__dbgEv(slot, "canal em manutenção no fornecedor", {}); }catch(e){} fail("HLS", "HINT:" + c.name + ": o fornecedor tem este canal em manutenção neste momento. Tenta outra versão do canal ou mais tarde."); } return; }
+        /* v336 (diagnóstico): cada erro fatal do HLS com o estado da decisão de rota (proxy, direto, 458) */
+        try{ if(d.fatal && playId===playSeq[slot]) window.__dbgEv && window.__dbgEv(slot, "HLS: decisão de rota", {det:d.details, tipo:d.type, codigo:(d.response && d.response.code) || 0, viaProxy:!!viaProxy, direta:!!direct, r458, via2, reconfirma:!!resolveTried, url:red(c.url)}); }catch(e){}
         if(!d.fatal || playId!==playSeq[slot]) return;
         const code = d.response?.code || 0;
         if(d.type===Hls.ErrorTypes.MEDIA_ERROR){
