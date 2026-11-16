@@ -66,7 +66,10 @@ document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
   try {
     const list = await idbGet("channels");
-    const it = (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie") || (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
+    const wantAr = /[?&]film=ar\b/i.test(location.search);
+    const it = wantAr
+      ? (list || []).find(x => /Forgotten Island/i.test(x.name || "") && !/^\s*EN\b/i.test(x.name || "") && x.kind === "movie")
+      : (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie") || (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
     if (!it) { L("não encontrei o filme na lista guardada (IndexedDB 'channels')"); return; }
     const url = urlFor(it.url);
     L("filme:", it.name, "· via proxy:", url !== it.url);
