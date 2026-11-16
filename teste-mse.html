@@ -143,8 +143,14 @@ async function run(url) {
       let size = 0;
       const fr = async (x, y) => {
         for (let t = 0; t < 4; t++) {
-          try { const r = await fetch(url, { headers: { Range: "bytes=" + x + "-" + y } }); const cr = /\/(\d+)$/.exec(r.headers.get("content-range") || ""); if (cr) size = +cr[1]; return await r.arrayBuffer(); }
-          catch (e) { L("pedido falhou, a repetir (" + (t + 1) + ")"); await new Promise(res => setTimeout(res, 1500 * (t + 1))); }
+          try {
+            const r = await fetch(url, { headers: { Range: "bytes=" + x + "-" + y } });
+            if (!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+            const cr = /\/(\d+)$/.exec(r.headers.get("content-range") || ""); if (cr) size = +cr[1];
+            const ab = await r.arrayBuffer();
+            if (ab.byteLength < (y - x + 1) && y - x < 1e9) throw new Error("recebidos " + ab.byteLength + " de " + (y - x + 1) + " bytes");
+            return ab;
+          } catch (e) { L("pedido " + x + " falhou (" + (t + 1) + "): " + String(e && e.message || e).slice(0, 80)); await new Promise(res => setTimeout(res, 2000 * (t + 1))); }
         }
         throw new Error("pedido falhou em " + x);
       };
