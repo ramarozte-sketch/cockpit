@@ -160,6 +160,18 @@ async function run(url) {
   let seekReq = null, seekT = null;
   const ahead = () => { if (!sb) return 0; const ct = v.currentTime; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) return sb.buffered.end(i) - ct; return 0; };
   window.__seek = t => { seekReq = t; window.__seeking = true; };
+  /* vigia: se a imagem ficar parada com dados em reserva, retoma (play) ou avança um pouco até um ponto que o descodificador aceite */
+  let lastCt = -1, still = 0, nudges = 0;
+  clearInterval(window.__wd); window.__wd = setInterval(() => {
+    if (!started || !sb || seekT !== null || seekReq !== null) { still = 0; return; }
+    const ct = v.currentTime; if (ct !== lastCt) { lastCt = ct; still = 0; nudges = 0; return; }
+    if (++still < 3 || ahead() < 1.5) return; still = 0;
+    let rs = -1, re = -1; for (let i = 0; i < sb.buffered.length; i++) if (sb.buffered.start(i) <= ct + 2 && sb.buffered.end(i) > ct) { rs = sb.buffered.start(i); re = sb.buffered.end(i); }
+    L("imagem parada em", ct.toFixed(2), "s · em pausa:", v.paused, "· estado", v.readyState, "· reserva", rs.toFixed(2) + "–" + re.toFixed(2), "· tentativa", nudges + 1);
+    if (v.paused && nudges % 2 === 0) v.play().catch(e => L("play recusado:", String(e).slice(0, 60)));
+    else if (nudges < 40) { try { v.currentTime = Math.min(re - 0.5, (rs > ct ? rs : ct + 0.5) + 0.05); } catch (e) {} v.play().catch(() => {}); }
+    nudges++;
+  }, 1000);
   const drainAudio = async () => {
     if (aBusy || !dec) return; aBusy = true;
     try {
