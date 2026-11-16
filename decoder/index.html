@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Descodificador de som E-AC-3 / AC-3 / AAC</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#111;color:#eee;margin:0;padding:12px;max-width:760px}
+button,input{font-size:16px;padding:8px 12px;margin:4px 0}
+pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:45vh;overflow:auto}
+label{display:block;margin:8px 0}
+</style></head><body>
+<h2>Descodificador de som E-AC-3 / AC-3 / AAC</h2>
+<p>Escolhe um ficheiro MP4 com som. O som é descodificado no próprio browser (biblioteca libav) e pode ser ouvido ou descarregado em WAV.</p>
+<label>Ficheiro MP4 <input type="file" id="f" accept="video/mp4,.mp4,.m4a"></label>
+<label>Minutos a descodificar <input type="number" id="mins" value="10" min="1" max="180"></label>
+<button id="go" disabled>Descodificar</button>
+<button id="dl" disabled>Descarregar WAV</button>
+<audio id="a" controls></audio>
+<pre id="log"></pre>
+<script src="../mp4box.all.min.js"></script>
+<script>
+const L = (...a) => { document.getElementById("log").textContent += new Date().toISOString().slice(11, 19) + " " + a.map(x => typeof x === "string" ? x : JSON.stringify(x)).join(" ") + "\n"; };
+let Lv = null, out = null;
+
+async function getLibav() {
+  if (Lv) return Lv;
+  const sc = document.createElement("script");
+  sc.src = "../libav/libav-6.10.9.0-dolby.js";
+  await new Promise((res, rej) => { sc.onload = res; sc.onerror = () => rej(new Error("libav não carregou (pasta libav/)")); document.head.appendChild(sc); });
+  Lv = await window.LibAV.LibAV();
+  try { await Lv.av_log_set_level(16); } catch (e) {}
+  L("libav pronto");
+  return Lv;
+}
+
+/* cabeçalho ADTS para o AAC (o descodificador precisa dele em cada amostra) */
+function adts(d, sr, ch) {
+  const rates = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+  const sfi = Math.max(0, rates.indexOf(sr)), n = d.length + 7, h = new Uint8Array(7);
+  h[0] = 0xFF; h[1] = 0xF1; h[2] = (1 << 6) | (sfi << 2) | ((ch >> 2) & 1);
+  h[3] = ((ch & 3) << 6) | ((n >> 11) & 3); h[4] = (n >> 3) & 0xFF; h[5] = ((n & 7) << 5) | 0x1F; h[6] = 0xFC;
+  const o = new Uint8Array(n); o.set(h); o.set(d, 7); return o;
+}
+
+/* lê o MP4 em blocos e recolhe as amostras de som até ao limite de tempo */
+function demux(file, maxSec) {
+  return new Promise(async (res, rej) => {
+    const mp = MP4Box.createFile(); const samples = []; let aTrack = null;
+    mp.onError = e => rej(new Error("mp4box: " + e));
+    mp.onReady = info => {
+      aTrack = info.audioTracks[0];
+      if (!aTrack) return rej(new Error("o ficheiro não tem faixa de som"));
+      mp.setExtractionOptions(aTrack.id, null, { nbSamples: 500 });
+      mp.start();
+    };
+    mp.onSamples = (id, u, s) => {
+      if (!aTrack || id !== aTrack.id) return;
+      for (const x of s) { const ts = x.cts / x.timescale; if (ts <= maxSec) samples.push({ ts, data: new Uint8Array(x.data) }); }
+    };
+    try {
+      const CH = 16 << 20; let pos = 0;
+      while (pos < file.size) {
+        const ab = await file.slice(pos, pos + CH).arrayBuffer();
+        ab.fileStart = pos; pos += ab.byteLength; mp.appendBuffer(ab);
+      }
+      mp.flush();
+      res({ aTrack, samples });
+    } catch (e) { rej(e); }
+  });
+}
+
+async function decode(aTrack, samples) {
+  const L2 = await getLibav();
+  const cod = /^ec-3/.test(aTrack.codec) ? "eac3" : /^ac-3/.test(aTrack.codec) ? "ac3" : "aac";
+  const sr0 = (aTrack.audio && aTrack.audio.sample_rate) || 48000, ch0 = (aTrack.audio && aTrack.audio.channel_count) || 2;
+  L("codec:", aTrack.codec, "→ descodificador", cod, "·", sr0, "Hz", ch0, "canais");
+  const [, c, pkt, frm] = await L2.ff_init_decoder(cod);
+  const left = [], right = []; let sr = sr0, frames = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const d = cod === "aac" ? adts(samples[i].data, sr0, ch0) : samples[i].data;
+    const o = await L2.ff_decode_multi(c, pkt, frm, [{ data: d }], { ignoreErrors: true });
+    for (const fo of o) {
+      const pl = Array.isArray(fo.data) ? fo.data : null; if (!pl || !pl.length) continue;
+      sr = fo.sample_rate || sr; frames++;
+      left.push(Float32Array.from(pl[0])); right.push(Float32Array.from(pl.length > 1 ? pl[1] : pl[0]));
+    }
+    if (i && i % 1000 === 0) L("descodificado", i, "de", samples.length, "amostras");
+  }
+  const cat = a => { const n = a.reduce((s, x) => s + x.length, 0), o = new Float32Array(n); let k = 0; for (const x of a) { o.set(x, k); k += x.length; } return o; };
+  L("pronto:", frames, "blocos ·", sr, "Hz");
+  return { sr, l: cat(left), r: cat(right), cod };
+}
+
+function wavBlob({ sr, l, r }) {
+  const n = l.length, buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 4, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 2, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 4, true);
+  v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 4, true);
+  let o = 44; for (let i = 0; i < n; i++) {
+    for (const x of [l[i], r[i]]) { const s = Math.max(-1, Math.min(1, x)); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2; }
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+const f = document.getElementById("f"), go = document.getElementById("go"), dl = document.getElementById("dl");
+f.onchange = () => { go.disabled = !f.files[0]; dl.disabled = true; out = null; };
+go.onclick = async () => {
+  go.disabled = true; dl.disabled = true; document.getElementById("log").textContent = "";
+  try {
+    const maxSec = (+document.getElementById("mins").value || 10) * 60;
+    L("ficheiro:", f.files[0].name, "·", (f.files[0].size / 1e6).toFixed(0), "MB · primeiros", maxSec / 60, "min");
+    const { aTrack, samples } = await demux(f.files[0], maxSec);
+    L("amostras de som:", samples.length);
+    out = await decode(aTrack, samples);
+    const url = URL.createObjectURL(wavBlob(out));
+    const a = document.getElementById("a"); a.src = url;
+    dl.disabled = false; dl.onclick = () => { const x = document.createElement("a"); x.href = url; x.download = "som.wav"; x.click(); };
+    L("pode ouvir ou descarregar o WAV");
+  } catch (e) { L("ERRO:", String(e && e.message || e)); }
+  go.disabled = false;
+};
+</script></body></html>
