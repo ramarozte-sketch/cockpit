@@ -11,7 +11,7 @@ const L = (...a) => { const s = a.map(x => typeof x === "string" ? x : JSON.stri
 const idbGet = k => new Promise((res, rej) => { const r = indexedDB.open("cockpit", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onerror = () => rej(r.error); r.onsuccess = () => { const q = r.result.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error); }; });
 const cfgLs = () => { try { return JSON.parse(localStorage.getItem("ck_cfg")) || {}; } catch (e) { return {}; } };
 const pxVia = (base, key, url) => base.replace(/\/+$/, "") + "/?" + (key ? "k=" + encodeURIComponent(key) + "&" : "") + "url=" + encodeURIComponent(url);
-function urlFor(raw) { const c = cfgLs(); if (c.proxy2) return pxVia(c.proxy2, c.pkey2, raw); if (c.proxy) return pxVia(c.proxy, c.pkey, raw); return raw; }
+function urlFor(raw) { const c = cfgLs(); if (/[?&]direct=1/.test(location.search) || c.directMode) return raw; if (c.proxy2) return pxVia(c.proxy2, c.pkey2, raw); if (c.proxy) return pxVia(c.proxy, c.pkey, raw); return raw; }
 
 /* libav (o mesmo descodificador da app), carregado a pedido */
 let libavP = null;
