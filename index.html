@@ -2653,18 +2653,26 @@ function orgBulk(){
   const n = ORG.sel.size, d = n ? "" : " disabled";
   return `<div class="orgbulk" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px"><button class="btn" data-bulk="all">Selecionar todos</button><button class="btn" data-bulk="none">Limpar seleção</button><button class="btn" data-bulk="hsel"${d}>🚫 Ocultar selecionados (${n})</button><button class="btn" data-bulk="ssel"${d}>👁 Mostrar selecionados (${n})</button><button class="btn" data-bulk="hall">🚫 Ocultar todos desta lista</button><button class="btn" data-bulk="sall">👁 Mostrar todos desta lista</button></div>`;
 }
-function orgBulkWire(boxKeys, allKeys, apply){
-  $("orgList").querySelectorAll(".orgsel").forEach(cb => cb.onchange = () => { const k = boxKeys[+cb.dataset.i]; cb.checked ? ORG.sel.add(k) : ORG.sel.delete(k); orgRender(); });
+function orgBulkRefresh(){
+  const el = $("orgList").querySelector(".orgbulk"); if(!el) return;
+  const t = document.createElement("div"); t.innerHTML = orgBulk(); el.replaceWith(t.firstElementChild); orgBulkBind();
+}
+function orgBulkBind(){
   $("orgList").querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => {
-    const a = b.dataset.bulk;
-    if(a === "all") ORG.sel = new Set(allKeys);
-    else if(a === "none") ORG.sel = new Set();
-    else if(a === "hsel") { apply([...ORG.sel], true); ORG.sel = new Set(); }
-    else if(a === "ssel") { apply([...ORG.sel], false); ORG.sel = new Set(); }
-    else if(a === "hall") { apply(allKeys, true); ORG.sel = new Set(); }
-    else if(a === "sall") { apply(allKeys, false); ORG.sel = new Set(); }
-    orgSave(); orgRender(); orgRefreshMain();
+    const B = ORG.bulk, a = b.dataset.bulk;
+    if(a === "all") { ORG.sel = new Set(B.allKeys); orgRender(); return; }
+    if(a === "none") { ORG.sel = new Set(); orgRender(); return; }
+    if(a === "hsel") B.apply([...ORG.sel], true);
+    else if(a === "ssel") B.apply([...ORG.sel], false);
+    else if(a === "hall") B.apply(B.allKeys, true);
+    else if(a === "sall") B.apply(B.allKeys, false);
+    ORG.sel = new Set(); orgSave(); orgRender(); orgRefreshMain();
   });
+}
+function orgBulkWire(boxKeys, allKeys, apply){
+  ORG.bulk = {allKeys, apply};
+  $("orgList").querySelectorAll(".orgsel").forEach(cb => cb.onchange = () => { const k = boxKeys[+cb.dataset.i]; cb.checked ? ORG.sel.add(k) : ORG.sel.delete(k); orgBulkRefresh(); });
+  orgBulkBind();
 }
 function orgRender(){
   let kind = orgKindNow(); if(kind === "fav") kind = "live";
@@ -2886,7 +2894,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v347";
+const APP_VERSION = "v348";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
