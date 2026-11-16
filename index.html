@@ -2708,14 +2708,15 @@ function orgRender(){
       $("orgGrp").innerHTML = ordered.map(n => `<option${n === ORG.grp ? " selected" : ""}>${esc(n)}</option>`).join("");
     }
     const key = kind + "|" + (isFree ? "" : ORG.grp), hidC = new Set(TVORG.chHide || []);
-    let chs = src.filter(c => isFree || c.group === ORG.grp);
+    let chs = ORG.q && !isFree ? src.filter(c => orgMatch(c.name) || orgMatch(c.group)) : src.filter(c => isFree || c.group === ORG.grp);
     const saved = ((TVORG.ch || {})[key]) || [], pos = new Map(saved.map((u, i) => [u, i]));
     chs = chs.map((c, i) => [c, i]).sort((a, b) => (pos.has(a[0].url) ? pos.get(a[0].url) : 1e6) - (pos.has(b[0].url) ? pos.get(b[0].url) : 1e6) || a[1] - b[1]).map(x => x[0]);
     const fIdx = chs.map((c, i) => i).filter(i => orgMatch(chs[i].name)), shownIdx = fIdx.slice(0, 400);
     const sc = kind + "|ch|" + (isFree ? "" : ORG.grp); if(ORG.selCtx !== sc){ ORG.sel = new Set(); ORG.selCtx = sc; }
     $("orgList").innerHTML = orgBulk() + shownIdx.map(i => { const c = chs[i]; return `<div class="orgrow${hidC.has(c.url) ? " off" : ""}"><input type="checkbox" class="orgsel" data-i="${i}"${ORG.sel.has(c.url) ? " checked" : ""} aria-label="Selecionar ${esc(c.name)}">${orgPosInput(i, chs.length)}<span class="nm">${esc(c.name)}</span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hidC.has(c.url) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`; }).join("") + (fIdx.length > 400 ? `<p class="muted small">A mostrar 400 de ${fIdx.length}.</p>` : "") || `<p class="muted small">Nenhum canal corresponde à pesquisa.</p>`;
-    orgWirePos((i, v) => { TVORG.ch = TVORG.ch || {}; const arr = TVORG.ch[key] = chs.map(x => x.url); orgMoveTo(arr, chs[i].url, v); orgSave(); orgRender(); orgRefreshMain(); const t = $("orgList").querySelectorAll(".orgrow")[Math.max(0, Math.min(shownIdx.length - 1, (parseInt(v, 10) || 1) - 1))]; if(t) t.scrollIntoView({block:"center"}); });
+    orgWirePos((i, v) => { if(ORG.q){ toast("Limpa a pesquisa para reordenar."); orgRender(); return; } TVORG.ch = TVORG.ch || {}; const arr = TVORG.ch[key] = chs.map(x => x.url); orgMoveTo(arr, chs[i].url, v); orgSave(); orgRender(); orgRefreshMain(); const t = $("orgList").querySelectorAll(".orgrow")[Math.max(0, Math.min(shownIdx.length - 1, (parseInt(v, 10) || 1) - 1))]; if(t) t.scrollIntoView({block:"center"}); });
     $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
+      if(ORG.q && b.dataset.a !== "hide"){ toast("Limpa a pesquisa para reordenar."); return; }
       const c = chs[+b.dataset.i]; TVORG.ch = TVORG.ch || {}; TVORG.chHide = TVORG.chHide || [];
       if(b.dataset.a === "hide"){ const k = TVORG.chHide.indexOf(c.url); k < 0 ? TVORG.chHide.push(c.url) : TVORG.chHide.splice(k, 1); }
       else { const arr = TVORG.ch[key] = chs.map(x => x.url); orgMove(arr, c.url, b.dataset.a); }
@@ -2898,7 +2899,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v349";
+const APP_VERSION = "v350";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
