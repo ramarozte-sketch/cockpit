@@ -27,6 +27,14 @@ function getLibav() {
 }
 
 let ac = null, audioStart = null;
+function adtsWrap(d, cfg) {
+  const rates = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+  const sfi = Math.max(0, rates.indexOf(cfg.sr)), ch = cfg.ch, n = d.length + 7;
+  const h = new Uint8Array(7);
+  h[0] = 0xFF; h[1] = 0xF1; h[2] = (1 << 6) | (sfi << 2) | ((ch >> 2) & 1);
+  h[3] = ((ch & 3) << 6) | ((n >> 11) & 3); h[4] = (n >> 3) & 0xFF; h[5] = ((n & 7) << 5) | 0x1F; h[6] = 0xFC;
+  const o = new Uint8Array(n); o.set(h); o.set(d, 7); return o;
+}
 function playPcm(planes, sr, atSec) {
   if (!ac) return;
   const n = planes[0].length, b = ac.createBuffer(2, n, sr);
@@ -62,6 +70,8 @@ async function run(url) {
       while (aq.length) {
         const x = aq.shift(); const [, c, pkt, frm] = dec;
         const out = await Lv.ff_decode_multi(c, pkt, frm, [{data: x.data}], {ignoreErrors: true});
+        window.__aDec = (window.__aDec || 0) + 1;
+        if (window.__aDec <= 3 || (window.__aDec % 200 === 0)) L("som: amostra", window.__aDec, "→ frames", out.length, out[0] && out[0].data ? "planos " + out[0].data.length : "sem dados");
         for (const fo of out) { const pl = Array.isArray(fo.data) ? fo.data : null; if (!pl || !pl.length) continue;
           const sr = fo.sample_rate || 48000; const at = x.ts - (firstV || 0);
           playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, Math.max(0, at)); }
@@ -81,6 +91,8 @@ async function run(url) {
         f.setExtractionOptions(aTrack.id, null, { nbSamples: 100 });
         L("som:", aTrack.codec, "→ extração ligada");
         window.__cod = cod;
+        window.__aCfg = { sr: (aTrack.audio && aTrack.audio.sample_rate) || 48000, ch: (aTrack.audio && aTrack.audio.channel_count) || 2 };
+        L("som: config", window.__aCfg.sr + " Hz", window.__aCfg.ch + " canais");
       } else L("sem faixa de som no ficheiro");
       f.setSegmentOptions(vt.id, null, { nbSamples: 60 });
       const is = f.initializeSegmentation();
@@ -93,7 +105,7 @@ async function run(url) {
   f.onSamples = async (id, user, samples) => {
     if (!aTrack || id !== aTrack.id) return;
     try { if (!dec) { if (!Lv) return; dec = await Lv.ff_init_decoder(window.__cod || "eac3"); L("descodificador de som pronto:", window.__cod); } } catch (e) { L("som: init ERRO", String(e && e.message || e)); return; }
-    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: new Uint8Array(s.data.slice(0))}); }
+    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     if (ac.state !== "running") ac.resume().catch(() => {});
     if (!audioStart) audioStart = ac.currentTime;
     drainAudio();
