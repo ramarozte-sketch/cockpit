@@ -2763,7 +2763,7 @@ async function loadFreeTv(force){
   for(const u of [FREE_SRC, HASPX() ? px(FREE_SRC) : null].filter(Boolean)){
     try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
   }
-  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list.map(x => ({...x, name:cleanTag(x.name)})); return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
+  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list.map(x => ({...x, ctry:x.ctry || ctryPrefix(x.name), name:cleanTag(x.name)})); return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
   const seen = new Set();
   freeChans = parseM3U(txt).map(c=>({...c, kind:"live", free:true, group:"Sinal aberto",
       name:cleanTag(c.name).replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
@@ -2842,6 +2842,8 @@ async function healthCheck(list){
 const hBadge = c => { const s = hState(c); return s==="ok" ? "✅ " : s==="dead" ? "❌ " : s==="unk" ? "❓ " : ""; };
 /* v317: tira o prefixo de país (|PT|) dos nomes e categorias que vêm do servidor ou da lista */
 const cleanTag = s => String(s == null ? "" : s).replace(/^\|PT\|\s*/, "").replace(/\s{2,}/g, " ").trim();
+/* v335: o país do prefixo («|PT| …») guarda-se à parte, antes de o nome ser limpo; senão a lista PT ficava vazia */
+const ctryPrefix = s => { const m = /^\s*\|([A-Za-z]{2})\|/.exec(String(s == null ? "" : s)); return m ? m[1].toUpperCase() : ""; };
 function parseM3U(text){
   const out=[]; const lines=text.split(/\r?\n/); let cur=null;
   for(const raw of lines){
@@ -2849,7 +2851,7 @@ function parseM3U(text){
     if(line.startsWith("#EXTINF")){
       const attr = k => { const m=line.match(new RegExp(k+'="([^"]*)"')); return m?m[1]:""; };
       const comma = line.lastIndexOf(",");
-      cur = {name:((comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name")).replace(/^\|PT\|\s*/,"").replace(/\s{2,}/g," ").trim(), logo:attr("tvg-logo"), group:cleanTag(attr("group-title"))||"Sem categoria", id:attr("tvg-id")};
+      cur = {ctry:ctryPrefix((comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name")), name:((comma>-1?line.slice(comma+1):"").trim() || attr("tvg-name")).replace(/^\|PT\|\s*/,"").replace(/\s{2,}/g," ").trim(), logo:attr("tvg-logo"), group:cleanTag(attr("group-title"))||"Sem categoria", id:attr("tvg-id")};
     } else if(!line.startsWith("#") && cur){
       cur.url=line; cur.kind = /\/movie\//i.test(line) ? "movie" : /\/series\//i.test(line) ? "series" : (VID_EXT.test(line) && !/\.(m3u8|ts)(\?|$)/i.test(line)) ? "movie" : "live";
       out.push(cur); cur=null;
@@ -2862,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v334";
+const APP_VERSION = "v335";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -2936,9 +2938,9 @@ async function loadXtream(){
   const ext = (!fmts.length || fmts.includes("m3u8")) ? "m3u8" : "ts";
   LS.set("xfmts", fmts);
   const out = [];
-  (Array.isArray(ls)?ls:[]).forEach(s=>out.push({name:cleanTag(s.name), logo:s.stream_icon||"", group:cleanTag(lcm[s.category_id])||"Sem categoria", id:s.epg_channel_id||"", url:`${b}/live/${u}/${p}/${s.stream_id}.${ext}`, kind:"live"}));
-  (Array.isArray(vs)?vs:[]).forEach(s=>out.push({name:cleanTag(s.name), logo:s.stream_icon||"", group:cleanTag(vcm[s.category_id])||"Sem categoria", id:"", url:`${b}/movie/${u}/${p}/${s.stream_id}.${s.container_extension||"mp4"}`, kind:"movie"}));
-  (Array.isArray(ss)?ss:[]).forEach(s=>out.push({name:cleanTag(s.name), logo:s.cover||"", group:cleanTag(scm[s.category_id])||"Sem categoria", id:"", url:`series:${s.series_id}`, sid:s.series_id, kind:"series"}));
+  (Array.isArray(ls)?ls:[]).forEach(s=>out.push({ctry:ctryPrefix(s.name), name:cleanTag(s.name), logo:s.stream_icon||"", group:cleanTag(lcm[s.category_id])||"Sem categoria", id:s.epg_channel_id||"", url:`${b}/live/${u}/${p}/${s.stream_id}.${ext}`, kind:"live"}));
+  (Array.isArray(vs)?vs:[]).forEach(s=>out.push({ctry:ctryPrefix(s.name), name:cleanTag(s.name), logo:s.stream_icon||"", group:cleanTag(vcm[s.category_id])||"Sem categoria", id:"", url:`${b}/movie/${u}/${p}/${s.stream_id}.${s.container_extension||"mp4"}`, kind:"movie"}));
+  (Array.isArray(ss)?ss:[]).forEach(s=>out.push({ctry:ctryPrefix(s.name), name:cleanTag(s.name), logo:s.cover||"", group:cleanTag(scm[s.category_id])||"Sem categoria", id:"", url:`series:${s.series_id}`, sid:s.series_id, kind:"series"}));
   return out;
 }
 /* v275: os canais, filmes e séries do Xtream seguem sempre o servidor configurado (útil quando o fornecedor muda de endereço) */
@@ -12076,7 +12078,7 @@ else { const v = LS.get("view","car"); show(v==="web" ? "apps" : (v==="settings"
       .replace(/^[\s\W_]*(pt|portugal)\b[\s|:\-\/]*/i, "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
       .replace(/\b(fhd|uhd|hd|sd|4k|8k|hevc|h265|raw)\b/g, " ")
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    const ptc = c => c.kind === "live" && (isPtGroup(c.group) || /^[\s\W_]*(PT|PORTUGAL)\b/i.test(c.name || ""));
+    const ptc = c => c.kind === "live" && (c.ctry === "PT" || isPtGroup(c.group) || /^[\s\W_]*(PT|PORTUGAL)\b/i.test(c.name || ""));
     const persist = () => { clearTimeout(saveT); saveT = setTimeout(() => { idle(() => { try{ IDB.set("picons", PIC); IDB.set("picons_miss", MISS); }catch(e){} }); }, 15000); };
     function patch(){
       if(!ready) return;
@@ -13172,7 +13174,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     return g.trim() ? "G:" + g.trim() : "??";
   };
   /* país de um item: a categoria; se não disser, o prefixo do nome («|PT| Título») */
-  const ctyOfItem = c => { let k = ctyOf(c && c.group); if((k === "??" || k.slice(0, 2) === "G:") && c && c.name){ const n = ctyOf(c.name); if(n !== "??" && n.slice(0, 2) !== "G:") k = n; } return k; };
+  const ctyOfItem = c => { if(c && c.ctry) return c.ctry; let k = ctyOf(c && c.group); if((k === "??" || k.slice(0, 2) === "G:") && c && c.name){ const n = ctyOf(c.name); if(n !== "??" && n.slice(0, 2) !== "G:") k = n; } return k; };
   window.__par = {unlocked:false, re:/(^|[^a-z0-9])(xxx|adult[oa]?s?|adulto|porn\w*|er[oó]tic\w*|sexy|18\+|\+18|hentai|playboy|hustler|brazzers|for adults|xxxx)([^a-z0-9]|$)/i,
     on(){ try{ return !!localStorage.getItem("ck_parPin"); }catch(e){ return false; } },
     blocksText(t){ return this.on() && !this.unlocked && this.re.test(String(t || "")); },
