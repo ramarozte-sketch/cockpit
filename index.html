@@ -2862,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v327";
+const APP_VERSION = "v328";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4244,7 +4244,10 @@ function wcInit(slot){
     const DS = window.DataStream || MP4Box.DataStream;
     st.fileStart = 0; st.gotInit = false; st.lastFrame = 0; st.err = null; st.ranges = []; st.marks = []; st.curFrag = null;
     const file = MP4Box.createFile(); st.file = file;
-    const decoder = new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
+    /* v328: a opção de software também vale no direto (HLS): antes só se escolhia pelo HTTP/HTTPS */
+    const softNow = !WC_NATIVE || !!(window.__useSoft && window.__useSoft());
+    st.soft = softNow; window.__motorUsado = softNow ? "h264soft" : "webcodecs";
+    const decoder = new (softNow ? SoftVideoDecoder : PacedDecoder)({
       output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; },
       backlog: () => (st.q || []).length
@@ -15057,7 +15060,10 @@ window.__sa = {
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
   bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
-  bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg(); toast(cfg.decodeMode === "software" ? "Motor: software (h264soft.js). Reabre a imagem em andamento." : "Motor: WebCodecs (por defeito). Reabre a imagem em andamento."); });
+  bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg();
+    /* v328: reinicia o espelho de cada ecrã para usar o motor escolhido (antes ficava o motor antigo) */
+    try{ if(mirrorOn) [0, 1].forEach(sl => { try{ if(MIR[sl]){ cancelAnimationFrame(mirrorRAF[sl]); wcDestroy(sl); MIR[sl] = null; startMirror(sl); } }catch(err){} }); }catch(err){}
+    toast(cfg.decodeMode === "software" ? "Motor: software (h264soft.js). Reabre a imagem em andamento." : "Motor: WebCodecs (por defeito). Reabre a imagem em andamento."); });
   /* Teste real: codifica 5 fotogramas com VideoEncoder, descodifica com VideoDecoder e conta os que saem */
   async function wcRoundTrip(){
     if(!window.VideoEncoder || !window.VideoDecoder || !window.VideoFrame) return {ok:false, why:"este browser não tem WebCodecs"};
