@@ -167,6 +167,9 @@ async function run(url) {
     aBusy = false;
   };
   getLibav().then(x => { Lv = x; L("libav pronto"); }).catch(e => L("libav ERRO", String(e && e.message || e)));
+  /* desvio da lista de edições de uma faixa: tempo de apresentação = cts + desvio */
+  const editShift = (t, movieTs) => { let empty = 0, mt = 0; for (const e of (t.edits || [])) { if (e.media_time < 0) empty += e.segment_duration; else { mt = e.media_time; break; } } return empty / (movieTs || 1000) - mt / t.timescale; };
+  const manual = (parseFloat((/[?&]aoff=(-?[\d.]+)/.exec(location.search) || [])[1]) || 0) / 1000;
   f.onReady = i => {
     try {
       const vt = i.videoTracks[0];
@@ -189,7 +192,9 @@ async function run(url) {
       (async () => {
         try {
           const raw = window.__moovRaw, rawAvc1 = raw && findBox(raw, "avc1"), rawAvcC = rawAvc1 && findBox(rawAvc1.subarray(86), "avcC"), boxAvcC = findBox(ib, "avcC");
-          const ed = vt.edits && vt.edits.length === 1 && vt.edits[0].media_time > 0 ? vt.edits[0].media_time / vt.timescale : 0;
+          const ed = -editShift(vt, i.timescale);
+          window.__aShift = (aTrack ? editShift(aTrack, i.timescale) : 0) + manual;
+          L("edições · vídeo:", JSON.stringify((vt.edits || []).map(e => [e.segment_duration, e.media_time])), "escala", vt.timescale, "· som:", JSON.stringify(((aTrack && aTrack.edits) || []).map(e => [e.segment_duration, e.media_time])), "escala", aTrack && aTrack.timescale, "· filme", i.timescale, "· desvio vídeo", ed.toFixed(3), "s · desvio som", window.__aShift.toFixed(3), "s");
           const W = (vt.video && vt.video.width) || vt.track_width, H = (vt.video && vt.video.height) || vt.track_height;
           const cands = [["original", () => ib, 0], ["limpo", () => cleanInit(ib), ed]];
           if (rawAvcC) cands.push(["de raiz (avcC do ficheiro)", () => synthInit(rawAvcC, vt.id, vt.timescale, W, H), ed]);
@@ -220,7 +225,7 @@ async function run(url) {
     if (!aTrack || id !== aTrack.id) return;
     if (!decP) { if (!Lv) return; decP = Lv.ff_init_decoder(window.__cod || "eac3").then(d => { dec = d; L("descodificador de som pronto:", window.__cod); }).catch(e => { L("som: init ERRO", String(e && e.message || e)); decP = null; }); }
     await decP; if (!dec) return;
-    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
+    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale + (window.__aShift || 0), data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     try { if (samples.length) f.releaseUsedSamples(id, samples[samples.length - 1].number + 1); } catch (e) {}
     if (ac.state !== "running") ac.resume().catch(() => {});
     if (!window.__drainT) window.__drainT = setInterval(() => drainAudio(), 150);
