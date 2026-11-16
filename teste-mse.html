@@ -129,6 +129,7 @@ async function run(url) {
       const is = f.initializeSegmentation();
       const ib = new Uint8Array(is[0].buffer);
       if (!sb) { sb = ms.addSourceBuffer(`video/mp4; codecs="${vt.codec}"`); sb.mode = "segments"; sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } }); }
+      try { L("init vídeo:", ib.length, "bytes · débito", vt.bitrate, "· escala", vt.timescale, "· tamanho", vt.track_width + "x" + vt.track_height, "· perfil", vt.profile, "· nível", vt.level, "· edits", vt.edits ? vt.edits.length : "—"); } catch (e) { }
       queue.push(ib); pushQ(); f.start();
     } catch (e) { L("onReady ERRO", String(e && e.stack || e).slice(0, 300)); }
   };
