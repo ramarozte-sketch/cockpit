@@ -1,0 +1,56 @@
+<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Teste MSE (um leitor)</title>
+<style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:10px}video{width:100%;max-height:60vh;background:#000}pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto}button{font-size:18px;padding:10px 16px;margin:6px 0}</style>
+</head><body>
+<h3>Teste MSE (um leitor, só imagem)</h3>
+<button id="go">Testar Forgotten Island</button>
+<video id="v" controls playsinline></video>
+<pre id="log"></pre>
+<script src="mp4box.all.min.js"></script>
+<script>
+const L = (...a) => { const s = a.map(x => typeof x === "string" ? x : JSON.stringify(x)).join(" "); document.getElementById("log").textContent += new Date().toISOString().slice(11, 19) + " " + s + "\n"; console.log(s); };
+const idbGet = k => new Promise((res, rej) => { const r = indexedDB.open("cockpit", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onerror = () => rej(r.error); r.onsuccess = () => { const q = r.result.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error); }; });
+const cfgLs = () => { try { return JSON.parse(localStorage.getItem("ck_cfg")) || {}; } catch (e) { return {}; } };
+const pxVia = (base, key, url) => base.replace(/\/+$/, "") + "/?" + (key ? "k=" + encodeURIComponent(key) + "&" : "") + "url=" + encodeURIComponent(url);
+function urlFor(raw) { const c = cfgLs(); if (c.proxy2) return pxVia(c.proxy2, c.pkey2, raw); if (c.proxy) return pxVia(c.proxy, c.pkey, raw); return raw; }
+
+document.getElementById("go").onclick = async () => {
+  document.getElementById("log").textContent = "";
+  try {
+    const list = await idbGet("channels");
+    const it = (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
+    if (!it) { L("não encontrei o filme na lista guardada (IndexedDB 'channels')"); return; }
+    const url = urlFor(it.url);
+    L("filme:", it.name, "· via proxy:", url !== it.url);
+    await run(url);
+  } catch (e) { L("ERRO", String(e && e.message || e)); }
+};
+
+async function run(url) {
+  const ms = new MediaSource(), v = document.getElementById("v");
+  v.src = URL.createObjectURL(ms);
+  const f = MP4Box.createFile(); let sb = null, queue = [], pos = 0, started = false, t0 = performance.now();
+  const pushQ = () => { if (!sb || sb.updating || !queue.length) return; try { sb.appendBuffer(queue.shift()); } catch (e) { L("appendBuffer ERRO", String(e)); } };
+  let info = null;
+  f.onReady = i => {
+    info = i; const vt = i.videoTracks[0];
+    L("vídeo:", vt.codec, vt.track_width + "x" + vt.track_height, "amostras", vt.nb_samples, "· pedido 1 ligação");
+    f.setSegmentOptions(vt.id, null, { nbSamples: 60 });
+    const is = f.initializeSegmentation();
+    const ib = new Uint8Array(is[0].buffer);
+    if (!sb) { sb = ms.addSourceBuffer(`video/mp4; codecs="${vt.codec}"`); sb.mode = "segments"; sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } }); }
+    queue.push(ib); pushQ(); f.start();
+  };
+  f.onSegment = (id, user, data) => { queue.push(new Uint8Array(data)); pushQ(); };
+  f.onError = e => L("mp4box ERRO", String(e));
+  ms.addEventListener("sourceopen", async () => {
+    try {
+      const r = await fetch(url, { headers: { Range: "bytes=0-" } });
+      L("pedido", r.status, "content-range", r.headers.get("content-range") || "(sem)");
+      const rd = r.body.getReader(); let got = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; if (got % (50 << 20) < value.byteLength) L("lidos", (got / 1e6).toFixed(0), "MB"); }
+      f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
+      const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
+    } catch (e) { L("leitura ERRO", String(e && e.message || e)); }
+  }, { once: true });
+}
+</script></body></html>
