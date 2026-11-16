@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v336";
+const APP_VERSION = "v339";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -3418,8 +3418,7 @@ function playChannel(c, slot=tvTarget, auto=false){
           fail("HLS", "o browser não consegue descodificar este vídeo"); return;
         }
         /* 458 = o servidor ainda tem a ligação anterior aberta (a conta só tem 1): espera um pouco e repete pela mesma rota, que é a mais estável, antes de passar à outra */
-        /* v331: 458 = limite de ligações do fornecedor. Espera mais (6 s, 2 vezes) antes de voltar a pedir, em vez de empilhar pedidos */
-        if(code===458 && r458 < 2 && (d.type===Hls.ErrorTypes.NETWORK_ERROR)){ r458++; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 6000); return; }
+        if(code===458 && r458 < 1 && (d.type===Hls.ErrorTypes.NETWORK_ERROR)){ r458++; h.destroy(); setTimeout(()=>{ if(playId!==playSeq[slot]) return; h = mk(); wire(h); }, 1800); return; }
         if(direct){ fail("HLS", "ligação direta falhou: " + d.details + (code ? " " + code : "")); return; }
         // O servidor de vídeo recusa a Cloudflare (403): pergunta ao proxy para onde redireciona e liga o Tesla diretamente.
         // Falhou pelo 1.º proxy (bloqueio, resposta vazia ou manifesto inválido): tenta o 2.º proxy, se existir.
@@ -3482,6 +3481,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
+        let n458 = 0; // v339: 458 = a conta já tem a ligação em uso (outro aparelho); espera 6 s e repete a mesma rota, até 2 vezes, antes de tentar a direta (que usa a mesma conta)
         const go = src => {
           if(mirrorOn) stopMirror(slot);
           const h = new Hls({...HLS_CAR, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3, fLoader: makeCapLoader(slot)}); hlsInst[slot] = h;
@@ -3490,12 +3490,15 @@ function playChannel(c, slot=tvTarget, auto=false){
           h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
           h.on(Hls.Events.ERROR, (ev, d) => {
             if(!d.fatal || playId !== playSeq[slot]) return;
+            if((d.response && d.response.code) === 458 && n458 < 2){ n458++; h.destroy(); setTimeout(() => { if(playId !== playSeq[slot]) return; go(src); }, 6000); return; }
             if(src !== "direct"){ h.destroy(); go("direct"); return; }
             fail("vídeo", "código " + code + " · HLS " + d.details + (d.response?.code ? " " + d.response.code : ""));
           });
           h.loadSource(src === "direct" ? directUrl(m3u) : (cfg.proxy2 ? px2 : px)(m3u)); h.attachMedia(v);
         };
-        go("proxy");
+        /* v339: troca pedida com o filme a dar (sem som → versão HLS): o servidor ainda conta a ligação do ficheiro (conta de 1 ligação → 458). Dá 1,5 s para ela fechar */
+        if(code === 0){ try{ window.__connCloseAt = Date.now(); window.__dbgEv && window.__dbgEv(slot, "filme sem som: passa à versão HLS após fechar a ligação do ficheiro", {espera_ms:1500}); }catch(e){} setTimeout(() => { if(playId === playSeq[slot]) go("proxy"); }, 1500); }
+        else go("proxy");
         return;
       }
       fail("vídeo", "código " + code + ((code === 3 || code === 4) && fmtHint(c.url) ? " HINT:" + fmtHint(c.url) : ""));
