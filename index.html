@@ -2864,7 +2864,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v345";
+const APP_VERSION = "v346";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -13521,7 +13521,19 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
         vis.querySelectorAll("[data-vs]").forEach(b => b.onclick = () => { const k = b.dataset.vs; TVORG.grpHide = TVORG.grpHide || {}; TVORG.grpHide[k] = []; TVORG.chHide = (TVORG.chHide || []).filter(u => kindOfUrl(u) !== k); orgSave(); try{ orgRefreshMain(); }catch(e){} visRender(); toast(KN[k] + ": tudo visível."); });
       };
       vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Esconde categorias e canais de cada tipo, ou só as categorias de um país.</p><div class="visList" style="margin-top:8px"></div>' +
-        '<h3 style="margin:14px 0 6px">Categorias por país</h3><div class="row"><select id="visCty" style="max-width:320px"></select></div><div id="visCats" style="margin-top:6px"></div>';
+        '<h3 style="margin:14px 0 6px">Categorias por país</h3><div class="row"><select id="visCty" style="max-width:320px"></select></div><div id="visCats" style="margin-top:6px"></div>' +
+        '<h3 style="margin:14px 0 6px">Canais e títulos do país</h3><div class="row"><input type="search" id="visQ" placeholder="Pesquisar canal ou título" style="max-width:320px"></div><div id="visItems" style="margin-top:6px;max-height:50vh;overflow:auto"></div>';
+      const visItemsRender = () => {
+        const sel = $("visCty"), box = $("visItems"), q = (($("visQ") && $("visQ").value) || "").trim().toLowerCase(); if(!sel || !box) return;
+        const pick = sel.value; const hid = new Set(TVORG.chHide || []);
+        const list = channels.filter(c => KN[c.kind] && C.ctyOfItem(c) === pick && (!q || String(c.name || "").toLowerCase().includes(q)));
+        const shown = list.slice(0, 150);
+        box.innerHTML = (list.length ? '' : '<p class="small muted">Nada encontrado.</p>') + shown.map(c => '<label class="row small" style="margin:2px 0"><input type="checkbox" data-vci="' + encodeURIComponent(c.url) + '"' + (hid.has(c.url) ? "" : " checked") + '> <span class="muted">' + KN[c.kind] + ' · </span>' + String(c.name || "").replace(/[<&>]/g, "") + '</label>').join("") + (list.length > shown.length ? '<p class="small muted">A mostrar ' + shown.length + ' de ' + list.length + '. Escreve na pesquisa para afinar.</p>' : "");
+        box.querySelectorAll("[data-vci]").forEach(cb => cb.onchange = () => {
+          const u = decodeURIComponent(cb.dataset.vci); const h = (TVORG.chHide || []).filter(x => x !== u);
+          if(!cb.checked) h.push(u); TVORG.chHide = h; orgSave(); try{ orgRefreshMain(); }catch(e){} visRender();
+        });
+      };
       const visCatsRender = () => {
         const sel = $("visCty"), box = $("visCats"); if(!sel || !box) return;
         const cur = sel.value; const cnt = new Map();
@@ -13538,6 +13550,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
           html += '<div style="margin:8px 0 4px"><b>' + KN[k] + '</b></div>' + groups.map(g => '<label class="row small" style="margin:3px 0"><input type="checkbox" data-vgc="' + k + '" data-vgn="' + encodeURIComponent(g) + '"' + (hid.has(g) ? "" : " checked") + '> ' + String(g).replace(/[<&>]/g, "") + '</label>').join("");
         }
         box.innerHTML = html || '<p class="small muted">Este país não tem categorias.</p>';
+        visItemsRender();
         box.querySelectorAll("[data-vgc]").forEach(cb => cb.onchange = () => {
           const k = cb.dataset.vgc, g = decodeURIComponent(cb.dataset.vgn); TVORG.grpHide = TVORG.grpHide || {}; const h = (TVORG.grpHide[k] || []).filter(x => x !== g);
           if(!cb.checked) h.push(g); TVORG.grpHide[k] = h; orgSave(); try{ orgRefreshMain(); }catch(e){} visRender();
@@ -13545,7 +13558,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
       };
 
       card.parentNode.insertBefore(vis, card.nextSibling);
-      visRender(); $("visCty").onchange = () => visCatsRender(); visCatsRender();
+      visRender(); $("visCty").onchange = () => { visCatsRender(); }; $("visQ").oninput = () => visItemsRender(); visCatsRender();
       const S = C.state;
       const render = () => {
         const cnt = new Map();
