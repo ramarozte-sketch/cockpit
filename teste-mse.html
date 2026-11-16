@@ -1,17 +1,41 @@
-<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Teste MSE (um leitor)</title>
+<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Teste MSE (imagem + som)</title>
 <style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:10px}video{width:100%;max-height:60vh;background:#000}pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto}button{font-size:18px;padding:10px 16px;margin:6px 0}</style>
 </head><body>
-<h3>Teste MSE (um leitor, só imagem)</h3>
+<h3>Teste MSE (imagem + som por software)</h3>
 <button id="go">Testar Forgotten Island</button>
-<video id="v" controls playsinline></video>
+<video id="v" playsinline></video>
 <pre id="log"></pre>
 <script src="mp4box.all.min.js"></script>
 <script>
-const L = (...a) => { const s = a.map(x => typeof x === "string" ? x : JSON.stringify(x)).join(" "); document.getElementById("log").textContent += new Date().toISOString().slice(11, 19) + " " + s + "\n"; console.log(s); };
+const L = (...a) => { const s = a.map(x => typeof x === "string" ? x : JSON.stringify(x)).join(" "); document.getElementById("log").textContent += new Date().toISOString().slice(11, 19) + " " + s + "\n"; };
 const idbGet = k => new Promise((res, rej) => { const r = indexedDB.open("cockpit", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onerror = () => rej(r.error); r.onsuccess = () => { const q = r.result.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error); }; });
 const cfgLs = () => { try { return JSON.parse(localStorage.getItem("ck_cfg")) || {}; } catch (e) { return {}; } };
 const pxVia = (base, key, url) => base.replace(/\/+$/, "") + "/?" + (key ? "k=" + encodeURIComponent(key) + "&" : "") + "url=" + encodeURIComponent(url);
 function urlFor(raw) { const c = cfgLs(); if (c.proxy2) return pxVia(c.proxy2, c.pkey2, raw); if (c.proxy) return pxVia(c.proxy, c.pkey, raw); return raw; }
+
+/* libav (o mesmo descodificador da app), carregado a pedido */
+let libavP = null;
+function getLibav() {
+  if (libavP) return libavP;
+  libavP = (async () => {
+    const load = src => new Promise(res => { const sc = document.createElement("script"); sc.src = src; sc.onload = () => res(window.LibAV && window.LibAV.LibAV ? window.LibAV.LibAV : false); sc.onerror = () => res(false); document.head.appendChild(sc); });
+    const ctor = await load("libav/libav-6.10.9.0-dolby.js");
+    if (!ctor) throw new Error("libav não carregou (pasta libav/)");
+    const Lv = await ctor(); try { await Lv.av_log_set_level(16); } catch (e) {} return Lv;
+  })();
+  return libavP;
+}
+
+let ac = null, audioStart = null;
+function playPcm(planes, sr, atSec) {
+  if (!ac) return;
+  const n = planes[0].length, b = ac.createBuffer(2, n, sr);
+  const l = planes[0], r = planes.length > 1 ? planes[1] : planes[0];
+  b.copyToChannel(Float32Array.from(l), 0); b.copyToChannel(Float32Array.from(r), 1);
+  const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination);
+  const when = Math.max(ac.currentTime + 0.01, audioStart + atSec);
+  s.start(when);
+}
 
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
@@ -28,26 +52,57 @@ document.getElementById("go").onclick = async () => {
 async function run(url) {
   const ms = new MediaSource(), v = document.getElementById("v");
   v.src = URL.createObjectURL(ms);
+  ac = ac || new (window.AudioContext || window.webkitAudioContext)();
   const f = MP4Box.createFile(); let sb = null, queue = [], pos = 0, started = false, t0 = performance.now();
+  let aTrack = null, Lv = null, dec = null, aq = [], aBusy = false, firstV = null;
   const pushQ = () => { if (!sb || sb.updating || !queue.length) return; try { sb.appendBuffer(queue.shift()); } catch (e) { L("appendBuffer ERRO", String(e)); } };
-  let info = null;
-  f.onReady = i => {
-    info = i; const vt = i.videoTracks[0];
-    L("vídeo:", vt.codec, vt.track_width + "x" + vt.track_height, "amostras", vt.nb_samples, "· pedido 1 ligação");
+  const drainAudio = async () => {
+    if (aBusy || !dec) return; aBusy = true;
+    try {
+      while (aq.length) {
+        const x = aq.shift(); const [, c, pkt, frm] = dec;
+        const out = await Lv.ff_decode_multi(c, pkt, frm, [{data: x.data}], {ignoreErrors: true});
+        for (const fo of out) { const pl = Array.isArray(fo.data) ? fo.data : null; if (!pl || !pl.length) continue;
+          const sr = fo.sample_rate || 48000; const at = x.ts - (firstV || 0);
+          playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, Math.max(0, at)); }
+      }
+    } catch (e) { L("som ERRO", String(e && e.message || e)); }
+    aBusy = false;
+  };
+  f.onReady = async i => {
+    const vt = i.videoTracks[0];
+    L("vídeo:", vt.codec, vt.track_width + "x" + vt.track_height, "amostras", vt.nb_samples);
     f.setSegmentOptions(vt.id, null, { nbSamples: 60 });
     const is = f.initializeSegmentation();
     const ib = new Uint8Array(is[0].buffer);
     if (!sb) { sb = ms.addSourceBuffer(`video/mp4; codecs="${vt.codec}"`); sb.mode = "segments"; sb.addEventListener("updateend", () => { pushQ(); if (!started && sb.buffered.length) { started = true; v.play().catch(() => {}); L("a tocar (", Math.round(performance.now() - t0), "ms)"); } }); }
     queue.push(ib); pushQ(); f.start();
+    aTrack = (i.audioTracks || []).find(t => /^(ec-3|ac-3|mp4a)/.test(t.codec || "")) || null;
+    if (aTrack) {
+      L("som:", aTrack.codec);
+      try {
+        Lv = await getLibav();
+        dec = await Lv.ff_init_decoder(/^ec-3/.test(aTrack.codec) ? "eac3" : /^ac-3/.test(aTrack.codec) ? "ac3" : "aac");
+        f.setExtractionOptions(aTrack.id, null, { nbSamples: 100 });
+        L("descodificador de som pronto");
+      } catch (e) { L("som: libav ERRO", String(e && e.message || e)); aTrack = null; }
+    } else L("sem faixa de som no ficheiro");
   };
   f.onSegment = (id, user, data) => { queue.push(new Uint8Array(data)); pushQ(); };
+  f.onSamples = (id, user, samples) => {
+    if (!aTrack || id !== aTrack.id) return;
+    for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: new Uint8Array(s.data.slice(0))}); }
+    if (ac.state !== "running") ac.resume().catch(() => {});
+    if (!audioStart && v.currentTime >= 0) audioStart = ac.currentTime;
+    drainAudio();
+  };
   f.onError = e => L("mp4box ERRO", String(e));
   ms.addEventListener("sourceopen", async () => {
     try {
       const r = await fetch(url, { headers: { Range: "bytes=0-" } });
       L("pedido", r.status, "content-range", r.headers.get("content-range") || "(sem)");
       const rd = r.body.getReader(); let got = 0;
-      for (;;) { const { done, value } = await rd.read(); if (done) break; const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; if (got % (50 << 20) < value.byteLength) L("lidos", (got / 1e6).toFixed(0), "MB"); }
+      for (;;) { const { done, value } = await rd.read(); if (done) break; const ab = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); ab.fileStart = pos; pos += value.byteLength; f.appendBuffer(ab); got += value.byteLength; }
       f.flush(); L("leitura completa:", (pos / 1e6).toFixed(1), "MB em", Math.round(performance.now() - t0), "ms");
       const wait = setInterval(() => { if (!sb || (!sb.updating && !queue.length)) { clearInterval(wait); try { ms.endOfStream(); } catch (e) {} L("fim do fluxo"); } }, 300);
     } catch (e) { L("leitura ERRO", String(e && e.message || e)); }
