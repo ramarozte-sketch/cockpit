@@ -2,7 +2,7 @@
 <style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:10px}video{width:100%;max-height:60vh;background:#000}pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto}button{font-size:18px;padding:10px 16px;margin:6px 0}</style>
 </head><body>
 <h3>Teste MSE (imagem + som por software)</h3>
-<div><input id="fq" type="search" placeholder="Escolher outro filme (escreve parte do nome)" style="width:100%;box-sizing:border-box;font-size:16px;padding:8px"><div id="fl"></div></div>
+<div><input id="fq" type="search" placeholder="Escolher outro filme MP4 (escreve parte do nome)" style="width:100%;box-sizing:border-box;font-size:16px;padding:8px"><div id="fl"></div></div>
 <button id="go">Testar Forgotten Island</button> <button id="cp">Copiar log</button>
 <video id="v" playsinline></video>
 <div style="display:flex;gap:8px;align-items:center"><input type="range" id="pos" min="0" max="100" step="1" value="0" style="flex:1" disabled><span id="posT" style="min-width:110px;text-align:right">0:00</span></div>
@@ -136,14 +136,14 @@ if (pickName) document.getElementById("go").textContent = "Testar: " + pickName;
 { let movies = null; const fq = document.getElementById("fq"), fl = document.getElementById("fl");
   fq.addEventListener("input", async () => {
     const t = fq.value.trim().toLowerCase(); fl.textContent = ""; if (t.length < 2) return;
-    if (!movies) movies = ((await idbGet("channels")) || []).filter(x => x.kind === "movie");
+    if (!movies) movies = ((await idbGet("channels")) || []).filter(x => x.kind === "movie" && /\.(mp4|m4v|mov)(\?|$)/i.test(x.url || ""));
     const words = t.split(/\s+/);
     for (const m of movies.filter(x => words.every(w => (x.name || "").toLowerCase().includes(w))).slice(0, 25)) {
       const b = document.createElement("button"); b.textContent = m.name; b.style.cssText = "display:block;width:100%;text-align:left;font-size:15px;margin:2px 0";
       b.onclick = () => { const p = new URLSearchParams(location.search); p.set("name", m.name); p.delete("film"); location.search = p.toString(); };
       fl.appendChild(b);
     }
-    if (!fl.children.length) fl.textContent = "nenhum filme com esse nome";
+    if (!fl.children.length) fl.textContent = "nenhum filme MP4 com esse nome (os MKV não aparecem)";
   }); }
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
@@ -302,7 +302,8 @@ async function run(url) {
         const h = new DataView(await fr(p, p + 15));
         let sz = h.getUint32(0); const ty = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
         if (sz === 1) sz = Number(h.getBigUint64(8));
-        if (i === 0) ftypLen = sz;
+        if (i === 0) { ftypLen = sz; if (ty !== "ftyp") { const ext = (/\.([a-z0-9]{2,4})(?:\?|$)/i.exec(url.replace(/^.*url=/, "").replace(/%2E/gi, ".")) || [])[1] || "?"; throw new Error("este ficheiro não é MP4 (extensão ." + ext + ", início " + hex(new Uint8Array(h.buffer), 8) + "). Esta página só lê MP4/M4V/MOV; escolhe outro filme."); } }
+        if (sz === 0) break;
         if (ty === "moov") { moovAt = p; moovLen = sz; break; }
         p += sz; if (size && p >= size) break;
       }
