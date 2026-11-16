@@ -1653,6 +1653,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
+          <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado também no telemóvel (experimental; no carro já está ligado)</label>
           <h3 class="setsubh">Indicador de fps</h3>
           <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
           <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
@@ -2861,7 +2862,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v320";
+const APP_VERSION = "v321";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -4169,7 +4170,7 @@ function present(slot){
     /* v202: relógio suavizado — o currentTime do <video> anda aos saltos (avança de 20-40 em 20-40 ms) e a imagem escolhida
        em cada atualização do ecrã ficava irregular (1 imagem, depois 2, depois 0…). Entre saltos prevê o tempo pelo relógio
        do browser e corrige devagar; num salto grande (procura, pausa, espera) acompanha logo o valor real. */
-    try{ if(window.__TESLA && !v.paused && !v.seeking && v.readyState >= 2){
+    try{ if((window.__TESLA || (window.__smoothOn && window.__smoothOn())) && !v.paused && !v.seeking && v.readyState >= 2){
         const raw = st.masterUs;
         if(st.smT != null && pn - st.smT < 250){ const pred = st.smU + (pn - st.smT) * 1000, err = raw - pred; st.smU = Math.abs(err) > 150000 ? raw : pred + err * 0.08; }
         else st.smU = raw;
@@ -15029,6 +15030,7 @@ window.__sa = {
       const ni = $("setNightUi"); if(ni) ni.value = cfg.nightUi || "auto";
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = cfg.decodeMode === "software" ? "software" : "webcodecs";
+      const sm = $("setSmooth"); if(sm) sm.checked = !!cfg.smoothClock;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
       const tp = $("setTvHomeTpl"); if(tp) tp.value = cfg.tvHomeTpl || "equilibrado";
@@ -15036,11 +15038,14 @@ window.__sa = {
   };
   const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
   window.__useSoft = () => !!(cfg && cfg.decodeMode === "software");
+  /* v321: relógio suavizado (no carro já vem ligado; no telemóvel só se a opção estiver marcada) */
+  window.__smoothOn = () => !!(cfg && cfg.smoothClock);
   bind("setUiScale", e => { cfg.uiScale = +e.target.value || 100; saveCfg(); applyScale(); });
   bind("setHalfMode", e => { cfg.halfMode = e.target.value || "auto"; saveCfg(); try{ window.__halfUpd && window.__halfUpd(); }catch(x){} });
   bind("setNightUi", e => { cfg.nightUi = e.target.value || "auto"; saveCfg(); try{ const o=$("nightOpt"); if(o) o.value=cfg.nightUi; window.__night && window.__night(); }catch(x){} });
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
+  bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
   bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg(); toast(cfg.decodeMode === "software" ? "Motor: software (h264soft.js). Reabre a imagem em andamento." : "Motor: WebCodecs (por defeito). Reabre a imagem em andamento."); });
   /* Teste real: codifica 5 fotogramas com VideoEncoder, descodifica com VideoDecoder e conta os que saem */
   async function wcRoundTrip(){
