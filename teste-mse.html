@@ -26,7 +26,7 @@ function getLibav() {
   return libavP;
 }
 
-let ac = null, audioStart = null;
+let ac = null;
 function adtsWrap(d, cfg) {
   const rates = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
   const sfi = Math.max(0, rates.indexOf(cfg.sr)), ch = cfg.ch, n = d.length + 7;
@@ -35,16 +35,22 @@ function adtsWrap(d, cfg) {
   h[3] = ((ch & 3) << 6) | ((n >> 11) & 3); h[4] = (n >> 3) & 0xFF; h[5] = ((n & 7) << 5) | 0x1F; h[6] = 0xFC;
   const o = new Uint8Array(n); o.set(h); o.set(d, 7); return o;
 }
-function playPcm(planes, sr, atSec) {
+let srcs = [];
+function playPcm(planes, sr, ts, vt) {
   if (!ac) return;
+  const anchor = ac.currentTime - vt;
+  if (window.__lastAnchor !== undefined && Math.abs(anchor - window.__lastAnchor) > 0.2) resyncAudio();
+  window.__lastAnchor = anchor;
+  const when = anchor + ts;
+  if (when < ac.currentTime + 0.01) { window.__aLate = (window.__aLate || 0) + 1; return; }
   const n = planes[0].length, b = ac.createBuffer(2, n, sr);
   const l = planes[0], r = planes.length > 1 ? planes[1] : planes[0];
   b.copyToChannel(Float32Array.from(l), 0); b.copyToChannel(Float32Array.from(r), 1);
   const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination);
-  const when = Math.max(ac.currentTime + 0.01, audioStart + atSec);
-  if (audioStart + atSec < ac.currentTime) window.__aLate = (window.__aLate || 0) + 1;
-  s.start(when);
+  s.onended = () => { srcs = srcs.filter(x => x !== s); };
+  srcs.push(s); s.start(when);
 }
+function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); srcs = []; window.__aRe = (window.__aRe || 0) + 1; }
 
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
@@ -69,13 +75,14 @@ async function run(url) {
     if (aBusy || !dec) return; aBusy = true;
     try {
       while (aq.length) {
+        if (v.paused || v.currentTime <= 0) { aq.length = 0; break; }
         const x = aq.shift(); const [, c, pkt, frm] = dec;
         const out = await Lv.ff_decode_multi(c, pkt, frm, [{data: x.data}], {ignoreErrors: true});
         window.__aDec = (window.__aDec || 0) + 1;
         if (window.__aDec <= 3 || (window.__aDec % 200 === 0)) L("som: amostra", window.__aDec, "→ frames", out.length, out[0] && out[0].data ? "planos " + out[0].data.length : "sem dados");
         for (const fo of out) { const pl = Array.isArray(fo.data) ? fo.data : null; if (!pl || !pl.length) continue;
-          const sr = fo.sample_rate || 48000; const at = x.ts - (firstV || 0);
-          playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, Math.max(0, at)); }
+          const sr = fo.sample_rate || 48000;
+          playPcm(pl.map(a => a instanceof Float32Array ? a : Float32Array.from(a)), sr, x.ts, v.currentTime); }
       }
     } catch (e) { L("som ERRO", String(e && e.message || e)); }
     aBusy = false;
@@ -108,7 +115,7 @@ async function run(url) {
     try { if (!dec) { if (!Lv) return; dec = await Lv.ff_init_decoder(window.__cod || "eac3"); L("descodificador de som pronto:", window.__cod); } } catch (e) { L("som: init ERRO", String(e && e.message || e)); return; }
     for (const s of samples) { if (firstV === null) firstV = s.cts / s.timescale; aq.push({ts: s.cts / s.timescale, data: window.__cod === "aac" ? adtsWrap(new Uint8Array(s.data), window.__aCfg) : new Uint8Array(s.data.slice(0))}); }
     if (ac.state !== "running") ac.resume().catch(() => {});
-    if (!audioStart) { audioStart = ac.currentTime; const v0 = document.getElementById("v"); window.__syncT = setInterval(() => { if (!audioStart) return; L("sincronia: vídeo", v0.currentTime.toFixed(1), "s · som", (ac.currentTime - audioStart).toFixed(1), "s · atrasados", window.__aLate || 0); }, 5000); }
+    if (!window.__syncT) window.__syncT = setInterval(() => { L("sincronia: vídeo", v.currentTime.toFixed(1), "s · sons ativos", srcs.length, "· atrasados", window.__aLate || 0, "· reajustes", window.__aRe || 0); }, 5000);
     drainAudio();
   };
   f.onError = e => L("mp4box ERRO", String(e));
