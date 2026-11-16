@@ -2,6 +2,7 @@
 <style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:10px}video{width:100%;max-height:60vh;background:#000}pre{background:#000;color:#9f9;padding:8px;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto}button{font-size:18px;padding:10px 16px;margin:6px 0}</style>
 </head><body>
 <h3>Teste MSE (imagem + som por software)</h3>
+<div><input id="fq" type="search" placeholder="Escolher outro filme (escreve parte do nome)" style="width:100%;box-sizing:border-box;font-size:16px;padding:8px"><div id="fl"></div></div>
 <button id="go">Testar Forgotten Island</button> <button id="cp">Copiar log</button>
 <video id="v" playsinline></video>
 <div style="display:flex;gap:8px;align-items:center"><input type="range" id="pos" min="0" max="100" step="1" value="0" style="flex:1" disabled><span id="posT" style="min-width:110px;text-align:right">0:00</span></div>
@@ -129,12 +130,27 @@ document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + 
   ps.addEventListener("change", () => { drag = false; if (window.__seek) window.__seek(+ps.value); });
   vv.addEventListener("timeupdate", () => { if (drag || window.__seeking) return; ps.value = vv.currentTime; pt.textContent = fmtT(vv.currentTime) + " / " + fmtT(+ps.max); }); }
 document.getElementById("cp").onclick = () => { const t = document.getElementById("log").textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); }); };
+/* escolha de filme: recarrega a página com o nome no endereço (cada teste começa limpo) */
+const pickName = new URLSearchParams(location.search).get("name");
+if (pickName) document.getElementById("go").textContent = "Testar: " + pickName;
+{ let movies = null; const fq = document.getElementById("fq"), fl = document.getElementById("fl");
+  fq.addEventListener("input", async () => {
+    const t = fq.value.trim().toLowerCase(); fl.textContent = ""; if (t.length < 2) return;
+    if (!movies) movies = ((await idbGet("channels")) || []).filter(x => x.kind === "movie");
+    const words = t.split(/\s+/);
+    for (const m of movies.filter(x => words.every(w => (x.name || "").toLowerCase().includes(w))).slice(0, 25)) {
+      const b = document.createElement("button"); b.textContent = m.name; b.style.cssText = "display:block;width:100%;text-align:left;font-size:15px;margin:2px 0";
+      b.onclick = () => { const p = new URLSearchParams(location.search); p.set("name", m.name); p.delete("film"); location.search = p.toString(); };
+      fl.appendChild(b);
+    }
+    if (!fl.children.length) fl.textContent = "nenhum filme com esse nome";
+  }); }
 document.getElementById("go").onclick = async () => {
   document.getElementById("log").textContent = "";
   try {
     const list = await idbGet("channels");
     const wantAr = /[?&]film=ar\b/i.test(location.search);
-    const it = wantAr
+    const it = pickName ? (list || []).find(x => x.name === pickName && x.kind === "movie") : wantAr
       ? (list || []).find(x => /Forgotten Island/i.test(x.name || "") && !/^\s*EN\b/i.test(x.name || "") && x.kind === "movie")
       : (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie") || (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
     if (!it) { L("não encontrei o filme na lista guardada (IndexedDB 'channels')"); return; }
