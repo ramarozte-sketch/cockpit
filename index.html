@@ -2861,7 +2861,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v318";
+const APP_VERSION = "v319";
 const DIRECT_VIDEO = () => PAGE_HTTP || !!cfg.directMode;
 const VPX = () => HASPX() && !cfg.directMode;
 if(PHONE) setTimeout(() => { try{ toast("Proxy do telemóvel ativo: o vídeo IPTV sai pela ligação do telemóvel."); }catch(e){} }, 1500);
@@ -15059,12 +15059,15 @@ window.__sa = {
     chunks.forEach(c => dec.decode(c));
     await dec.flush(); dec.close();
     if(derr) return {ok:false, why:derr};
-    return {ok: decoded === 5, frames: decoded, ms: Math.round(performance.now() - t0)};
+    /* v319: também verifica HEVC (hvc1), que os canais de 1080p usam, só para saber se o descodificador o suporta */
+    let hevc = "não testado";
+    try{ const hs = await VideoDecoder.isConfigSupported({codec:"hvc1.1.6.L93.B0", codedWidth:1920, codedHeight:1080, hardwareAcceleration:"prefer-hardware"}); hevc = hs.supported ? "suportado" : "não suportado"; }catch(e){ hevc = "erro: " + e.message; }
+    return {ok: decoded === 5, frames: decoded, ms: Math.round(performance.now() - t0), hevc};
   }
   const wcBtn = $("btnWcTest");
   if(wcBtn && !wcBtn._v311){ wcBtn._v311 = 1; wcBtn.addEventListener("click", async () => {
     toast("A testar WebCodecs…");
-    try{ const r = await wcRoundTrip(); const msg = r.ok ? "✅ WebCodecs OK: " + r.frames + "/5 fotogramas em " + r.ms + " ms" : "❌ WebCodecs: " + (r.why || ("só " + r.frames + "/5 fotogramas"));
+    try{ const r = await wcRoundTrip(); const msg = (r.ok ? "✅ WebCodecs OK: " + r.frames + "/5 fotogramas em " + r.ms + " ms" : "❌ WebCodecs: " + (r.why || ("só " + r.frames + "/5 fotogramas"))) + " · HEVC 1080p: " + (r.hevc || "—");
       toast(msg, !r.ok); window.__dbgEv && window.__dbgEv(0, "teste WebCodecs", r); }
     catch(e){ toast("❌ WebCodecs: " + e.message, true); }
   }); }
