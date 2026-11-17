@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v360";
+const APP_VERSION = "v361";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -17641,7 +17641,8 @@ html.nightUi #ambient{filter:brightness(.75)}
 
   /* ---------- botão Parar nos canais ---------- */
   try{
-    const stopTv = () => { try{ const s = typeof tvTarget === "number" ? tvTarget : 0; stopSlot(s); lastPlayed[s] = null; LS.set("last" + s, null); updateCinemaBar(); if(!lastPlayed[0] && !lastPlayed[1]){ keepAwake(false); if(document.body.classList.contains("pfull") && window.__fsLeave) window.__fsLeave(); } toast("⏹ Canal parado."); }catch(e){} };
+    /* v361: Parar pára tudo (os dois ecrãs, rádio, motor) e cancela o regresso automático ao Início/Explorar */
+    const stopTv = () => { try{ window.__fsFromHome = false; window.__fsLeave_skip = true; stopAllPlayback(); LS.set("last0", null); LS.set("last1", null); updateCinemaBar(); if(document.body.classList.contains("pfull") && window.__fsLeave) window.__fsLeave(); window.__fsLeave_skip = false; try{ window.__ahPrevStop && window.__ahPrevStop(); }catch(e){} toast("⏹ Parado."); }catch(e){} };
     window.__tvStop = stopTv;
     const prevB = document.getElementById("chPrev");
     if(prevB){ const b = document.createElement("button"); b.className = "btn"; b.id = "chStop"; b.setAttribute("aria-label", "Parar o canal"); b.textContent = "⏹ Parar"; prevB.parentNode.insertBefore(b, prevB); b.onclick = e => { e.stopPropagation(); stopTv(); }; }
