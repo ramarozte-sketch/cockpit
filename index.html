@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v422";
+const APP_VERSION = "v423";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5400,7 +5400,9 @@ function mp4Run(slot, st, src){
     if(!ok || MIR[slot]!==st) return;
     const v = $("vid"+slot), DS = window.DataStream || MP4Box.DataStream, CH = 1<<21, sleep = ms => new Promise(r=>setTimeout(r, ms));
     const file = MP4Box.createFile(); st.file = file; const RR = rangeReader(src, st); st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
-    const decoder = new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
+    /* v423: o caminho do filme MP4 segue a opção de software (como o HLS) e indica o motor realmente usado */
+    const softFilm = !WC_NATIVE || !!(window.__useSoft && window.__useSoft()); st.soft = softFilm; window.__motorUsado = softFilm ? "h264soft" : "webcodecs";
+    const decoder = new (softFilm ? SoftVideoDecoder : PacedDecoder)({
       output: frame => { if(MIR[slot]!==st){ try{frame.close();}catch(e){} return; } st.frames=(st.frames||0)+1; mirPushFrame(st, frame); startPresent(slot); },
       error: e => { st.err = "decoder: "+e.message; },
       backlog: () => (st.q || []).length
