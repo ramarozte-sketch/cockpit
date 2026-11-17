@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v417";
+const APP_VERSION = "v418";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5260,10 +5260,11 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
 /* v415: o índice (moov) de um .mp4 costuma estar no fim: lê os últimos 2 MB, encontra o bloco moov e vai buscá-lo inteiro (como o mp4ProbeAudio do MSE) */
 async function mp4TailMoov(src){
   /* v416: o servidor recusa Range em sufixo (bytes=-N: "Failed to fetch"); primeiro obtém o tamanho com bytes=0-0 e depois pede o intervalo exato */
-  const r0 = await fetch(src, {headers:{Range:"bytes=0-0"}}); if(!r0.ok && r0.status !== 206) return null;
-  const cr0 = r0.headers.get("content-range"); const total = cr0 ? +((/\/(\d+)/.exec(cr0) || [])[1] || 0) : 0;
-  try{ r0.body && r0.body.cancel(); }catch(e){}
-  if(!total) return {erro:"sem tamanho", cr: cr0 || ""};
+  /* v417: o browser não lê content-range (sem exposição CORS); o tamanho vem de HEAD/content-length */
+  let total = 0, cr0 = "";
+  try{ const h = await fetch(src, {method:"HEAD"}); total = +(h.headers.get("content-length") || 0); cr0 = "HEAD " + h.status; }catch(e){}
+  if(!total){ const r0 = await fetch(src, {headers:{Range:"bytes=0-0"}}); cr0 = r0.headers.get("content-range") || ("sem cr, status " + r0.status); total = (r0.headers.get("content-range") ? +((/\/(\d+)/.exec(r0.headers.get("content-range")) || [])[1] || 0) : 0); try{ r0.body && r0.body.cancel(); }catch(e){} }
+  if(!total) return {erro:"sem tamanho", cr: cr0};
   const from = Math.max(0, total - (2 << 20));
   const r = await fetch(src, {headers:{Range:"bytes=" + from + "-" + (total - 1)}}); if(!r.ok && r.status !== 206) return null;
   const tail = new Uint8Array(await r.arrayBuffer()); const base = from;
