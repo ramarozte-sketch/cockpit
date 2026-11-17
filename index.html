@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v395";
+const APP_VERSION = "v396";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3325,7 +3325,6 @@ function playChannel(c, slot=tvTarget, auto=false){
     if(playId !== playSeq[slot]) return;
     /* v362: 458 = a conta ainda tem a ligação anterior aberta; repetir ou trocar de alternativa só volta a bater no 458 */
     if(Date.now() - (window.__last458 || 0) < 25000){ stopSlot(slot); try{ toast("Conta IPTV: ligação anterior ainda aberta (458). Espera 20 s e carrega o canal de novo."); }catch(e){} return; }
-    if(Date.now() - (window.__last429 || 0) < 20000){ stopSlot(slot); try{ toast("Servidor com limite de pedidos (429). Espera 20 s e carrega o canal de novo."); }catch(e){} return; }
     stopSlot(slot);
     if(c.free && /manifestLoadError|manifestParsingError|network|CORS|HTTP 40[13]/i.test(String(extra||""))){
       autoTried[slot].add(c.url);
@@ -14793,7 +14792,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
         me.on(H.Events.BUFFER_CODECS, (e, d) => { const t = {}; try{ for(const k of Object.keys(d || {})){ const x = d[k]; if(x) t[k] = (x.codec || "") + (x.levelCodec && x.levelCodec !== x.codec ? " (lista " + x.levelCodec + ")" : "") + (x.container ? " " + x.container : "") + (x.metadata && x.metadata.width ? " " + x.metadata.width + "x" + x.metadata.height : "") + (x.metadata && x.metadata.channelCount ? " " + x.metadata.channelCount + "ch" : ""); } }catch(x){} ev(me.__slot, "codecs reais", t); });
         let firstL = true; me.on(H.Events.LEVEL_LOADED, (e, d) => { if(!firstL) return; firstL = false; const dt = d.details || {}; ev(me.__slot, "lista", {alvo:dt.targetduration, pedacos:(dt.fragments || []).length, direto:!!dt.live}); });
         let nB = 0; me.on(H.Events.FRAG_BUFFERED, (e, d) => { if(!me.__fbAt) me.__fbAt = Date.now(); if(++nB > 3) return; const f = d.frag || {}, m = me.media; ev(me.__slot, nB + ".º pedaço no buffer", {tipo:f.type, inicio:+(f.start || 0).toFixed(1), dur:+(f.duration || 0).toFixed(1), faixas:trackBuf(me), junto:m ? bufStr(m) : "", agora:m ? +m.currentTime.toFixed(1) : 0, pronto:m ? m.readyState : -1}); });
-        me.on(H.Events.ERROR, (e, d) => { try{ if(d.response && d.response.code === 458) window.__last458 = Date.now(); if(d.response && d.response.code === 429) window.__last429 = Date.now(); }catch(x){} ev(me.__slot, "erro HLS", {tipo:d.type, det:d.details, fatal:!!d.fatal, http:d.response && d.response.code, motivo:scrub(d.reason || (d.error && d.error.message) || ""), url:red((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || "")}); });
+        me.on(H.Events.ERROR, (e, d) => { ev(me.__slot, "erro HLS", {tipo:d.type, det:d.details, fatal:!!d.fatal, http:d.response && d.response.code, motivo:scrub(d.reason || (d.error && d.error.message) || ""), url:red((d.frag && d.frag.url) || (d.context && d.context.url) || d.url || "")}); });
       }
       loadSource(u){ ev(this.__slot, "abrir HLS", {rota:route(u), url:red(u)}); this.__u = u; return super.loadSource(u); }
       attachMedia(m){ this.__slot = slotOf(m); if(this.__u) ev(this.__slot, "abrir HLS", {rota:route(this.__u), url:red(this.__u)}); return super.attachMedia(m); }
