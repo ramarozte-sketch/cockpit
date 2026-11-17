@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v402";
+const APP_VERSION = "v403";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3598,7 +3598,9 @@ function playChannel(c, slot=tvTarget, auto=false){
   /* v397: em HTTP os filmes arrancam logo pela versão HLS. O v395 usava variáveis de outro bloco (hlsPattern) e lançava erro em todos os arranques (canais incluídos), sem imagem nem registo */
   const filmeHttp = !live && location.protocol === "http:" && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i.test(c.url) && !!(window.Hls && Hls.isSupported()) && playId === playSeq[slot];
   if(filmeHttp){
-    try{ window.__dbgEv && window.__dbgEv(slot, "HTTP: arranca logo por HLS", {}); v.removeAttribute("src"); v.load(); toHls = true; /* v400: a versão HLS também espera a ligação anterior fechar (3 s), senão o fornecedor responde 458 */ const gH = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0; setTimeout(() => { if(playId !== playSeq[slot]) return; if(!(fileViaHls && fileViaHls())) audioWatch(slot, c, playId, () => fileViaHls && fileViaHls()); }, Math.max(0, gH)); }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "erro ao arrancar por HLS", {erro: String(e && e.message || e)}); }catch(_){} }
+    try{ window.__dbgEv && window.__dbgEv(slot, "HTTP: filme lido pelo descodificador H.264 por software (uma ligação)", {}); v.removeAttribute("src"); v.load(); toHls = true; window.__filmeSw = {slot:slot, pid:playId}; if(mirrorOn) startMirror(slot); }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "erro ao arrancar o filme em software", {erro:String(e && e.message || e)}); }catch(_){} } }
+  else if(false){
+    try{ v.removeAttribute("src"); v.load(); toHls = true; /* v400: a versão HLS também espera a ligação anterior fechar (3 s), senão o fornecedor responde 458 */ const gH = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0; setTimeout(() => { if(playId !== playSeq[slot]) return; if(!(fileViaHls && fileViaHls())) audioWatch(slot, c, playId, () => fileViaHls && fileViaHls()); }, Math.max(0, gH)); }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "erro ao arrancar por HLS", {erro: String(e && e.message || e)}); }catch(_){} }
   } else audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
   if(!live && /\.mkv(\?|$)/i.test(c.url) && window.__libav) setTimeout(() => { try{ window.__libav().catch(() => {}); }catch(e){} }, 200);   /* aquece o descodificador Dolby: se o som for AC-3 já está pronto */
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
@@ -4803,6 +4805,11 @@ function mp4Init(slot){
   const st = MIR[slot] = MIR[slot] || {};
   if(st.movie) return;
   st.movie = true; st.fixedOff = 0;
+  /* v403: em HTTP o filme é lido só pelo leitor de software (uma ligação), sem o elemento de vídeo */
+  if(location.protocol === "http:" && window.__filmeSw && window.__filmeSw.slot === slot && window.__filmeSw.pid === playSeq[slot]){
+    const srcF = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url); st.src = srcF;
+    (isMkv ? mkvRun : mp4Run)(slot, st, srcF); return;
+  }
   st.onMeta = () => {
     if(MIR[slot]!==st) return;
     const src = v.currentSrc || v.src; if(!src || st.src===src) return;
