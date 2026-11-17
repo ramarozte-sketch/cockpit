@@ -204,6 +204,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .cinebar .cinename{flex:1 0 100%}
 .cineepg{flex:1 0 100%;text-align:center;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.2em}
 #vStats{margin:0;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.35);font-size:12px;white-space:pre-wrap;color:#9fd0ff}
+/* v375: as informações abrem por cima do próprio vídeo */
+#vStats.ovl{position:absolute;left:8px;bottom:8px;z-index:20;max-width:70%;max-height:60%;overflow:auto;background:rgba(0,0,0,.72);pointer-events:none}
 .cinebar .btn{flex:1 1 auto;min-width:0;padding:8px 4px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-content:center}
 .cinebar .btn.av{flex:0 1 auto;padding-inline:8px}
 .cinebar .avval{flex:0 0 auto;align-self:center;min-width:44px;text-align:center}
@@ -2915,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v374";
+const APP_VERSION = "v375";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -12703,7 +12705,7 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     L.push("buffer " + buf.toFixed(1) + " s" + (q ? " · perdidos " + q.droppedVideoFrames + "/" + q.totalVideoFrames : "") + (h && h.latency ? " · atraso " + h.latency.toFixed(1) + " s" : "") + (h && h.bandwidthEstimate ? " · rede " + Math.round(h.bandwidthEstimate / 1e5) / 10 + " Mbps" : "") + (v.paused ? " · em pausa" : ""));
     o.textContent = L.join("\n");
   };
-  if($("chInfo")) $("chInfo").onclick = () => { const on = $("vStats").hidden; $("vStats").hidden = !on; $("chInfo").setAttribute("aria-pressed", on); clearInterval(stT); if(on){ stTick(); stT = setInterval(stTick, 1000); } };
+  if($("chInfo")) $("chInfo").onclick = () => { const o = $("vStats"); const on = o.hidden; const box = (typeof slotBox === "function") ? slotBox(tvTarget) : null; if(on){ if(!window.__vStatsHome) window.__vStatsHome = o.parentNode; if(box){ box.appendChild(o); o.classList.add("ovl"); } } else { o.classList.remove("ovl"); if(window.__vStatsHome) window.__vStatsHome.appendChild(o); } o.hidden = !on; $("chInfo").setAttribute("aria-pressed", on); clearInterval(stT); if(on){ stTick(); stT = setInterval(stTick, 1000); } };
 
   /* Picons: carregam só perto do ecrã, em segundo plano */
   const fix = im => { try{ if(im.tagName !== "IMG" || im.dataset.eager) return; if(im.closest && im.closest("#tvList,#gdList,#v-tvinicio,#mvDlg,#ahSrch")) im.referrerPolicy = "no-referrer"; if(!im.loading) im.loading = "lazy"; if(!im.decoding || im.decoding === "auto") im.decoding = "async"; if(!im.fetchPriority || im.fetchPriority === "auto") im.fetchPriority = "low"; }catch(e){} };
