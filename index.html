@@ -1613,23 +1613,9 @@ body.layout-atv .rail{display:none}
           <label class="row small"><input type="checkbox" id="setBootSnd"> Som futurista no arranque</label>
           <div class="row"><button class="btn" id="btnBootTest">▶ Ver o arranque</button></div>
         </div>
-      </div>
-      <h3 class="setgrp">Voz e assistente</h3>
-      <div class="setcards">
-      <div class="panel setcard">
-          <h2>Voz e assistente</h2>
-          <p class="small muted setsub" style="margin:0">Língua da voz, reconhecimento e assistente IA.</p>
-          <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
-          <label class="f">Assistente IA (frases livres, perguntas e emails)<select id="setAi"><option value="auto">Ligado</option><option value="off">Desligado (só comandos fixos)</option></select></label>
-          <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
-          <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
-        </div>
-      </div>
-      <h3 class="setgrp">Aspeto e layout</h3>
-      <div class="setcards">
       <div class="panel setcard">
           <h2>Aspeto e layout</h2>
-          <p class="small muted setsub" style="margin:0">Texto, botões, meia janela, animações, noite, cartões do Início, avatar e indicador de fps.</p>
+          <p class="small muted setsub" style="margin:0">Texto, botões, meia janela, animações, noite, cartões do Início e avatar.</p>
           <h3 class="setsubh">Tamanho do texto e dos botões</h3>
           <p class="small muted" style="margin:0">Aumenta ou reduz a letra e os botões em toda a interface (exceto o vídeo).</p>
           <label class="f">Escala da interface<select id="setUiScale"><option value="90">Pequena (90 %)</option><option value="100">Normal (100 %)</option><option value="110">Grande (110 %)</option><option value="125">Muito grande (125 %)</option></select></label>
@@ -1649,15 +1635,17 @@ body.layout-atv .rail{display:none}
           <h3 class="setsubh">Avatar</h3>
           <p class="small muted" style="margin:0">Companheiro que anda pela app e conversa contigo.</p>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>
-          <h3 class="setsubh">Descodificação de vídeo</h3>
-          <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
-          <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
-          <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
-          <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
-          <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
-          <h3 class="setsubh">Indicador de fps</h3>
-          <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
-          <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
+        </div>
+      </div>
+      <h3 class="setgrp">Voz e assistente</h3>
+      <div class="setcards">
+      <div class="panel setcard">
+          <h2>Voz e assistente</h2>
+          <p class="small muted setsub" style="margin:0">Língua da voz, reconhecimento e assistente IA.</p>
+          <label class="f">Língua da voz<select id="setLang"><option value="pt-PT">Português</option><option value="en-US">English</option><option value="fr-FR">Français</option></select></label>
+          <label class="f">Assistente IA (frases livres, perguntas e emails)<select id="setAi"><option value="auto">Ligado</option><option value="off">Desligado (só comandos fixos)</option></select></label>
+          <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
+          <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
         </div>
       </div>
       <h3 class="setgrp">Conta IPTV</h3>
@@ -1692,6 +1680,19 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
           <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada (a lista de onde abriste o canal)</option><option value="off">Desligada</option></select></label>
           <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
+        </div>
+      <div class="panel setcard">
+          <h2>Imagem e descodificação</h2>
+          <p class="small muted setsub" style="margin:0">Motor da imagem em andamento, filmes com som Dolby e indicador de fps.</p>
+          <h3 class="setsubh">Descodificação de vídeo</h3>
+          <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
+          <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
+          <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
+          <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
+          <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
+          <h3 class="setsubh">Indicador de fps</h3>
+          <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
+          <label class="row small"><input type="checkbox" id="setShowFps"> Mostrar indicador de fps e estado do andamento</label>
         </div>
       </div>
       <h3 class="setgrp">Serviços e contas</h3>
@@ -2900,7 +2901,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v351";
+const APP_VERSION = "v352";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -13769,12 +13770,12 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
     const tvc = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim())));
     if(tvc && C && P){
       const card = document.createElement("div"); card.className = "panel setcard"; card.id = "ctyCard";
-      card.innerHTML = '<h2>Países e controlo parental</h2><p class="small muted setsub" style="margin:0">Ordena e esconde as categorias por país; protege os conteúdos para adultos com um PIN.</p>' +
-        '<h3 style="margin:10px 0 6px">Países e categorias</h3><div id="ctyList" class="ctyList"></div>' +
-        '<div class="row" style="margin-top:6px"><button class="btn" id="ctyReset">Repor (mostrar todos)</button></div>' +
-        '<h3 style="margin:14px 0 6px">Controlo parental</h3><p class="small muted" id="parSt" style="margin:0 0 6px"></p>' +
+      /* v352: os países passaram para o cartão «Mostrar e ocultar» (um só sítio: país → categorias → canais); aqui fica só o controlo parental */
+      card.innerHTML = '<h2>Controlo parental</h2><p class="small muted setsub" style="margin:0">Protege os conteúdos para adultos com um PIN.</p>' +
+        '<p class="small muted" id="parSt" style="margin:8px 0 6px"></p>' +
         '<div class="row"><input type="password" inputmode="numeric" id="parPin" maxlength="8" placeholder="PIN (4 a 8 algarismos)" style="max-width:220px"><button class="btn primary" id="parSet">Guardar PIN</button><button class="btn" id="parOff">Desligar</button><button class="btn" id="parUnlock">Desbloquear agora</button></div>';
-      tvc.parentNode.insertBefore(card, tvc.nextSibling);
+      { const pinCard = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((e.querySelector("h2") || {}).textContent || "").trim() === "PIN de proteção");
+        if(pinCard) pinCard.parentNode.insertBefore(card, pinCard.nextSibling); else tvc.parentNode.insertBefore(card, tvc.nextSibling); }
       /* v344: mostrar e ocultar canais, filmes e séries (mesma lógica da app Android: categorias por tipo e canais individuais) */
       const vis = document.createElement("div"); vis.className = "panel setcard"; vis.id = "visCard";
       const KN = {live:"Ao vivo", movie:"Filmes", series:"Séries"};
@@ -13786,9 +13787,12 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
         vis.querySelectorAll("[data-vg]").forEach(b => b.onclick = () => { tvKind = b.dataset.vg; try{ orgOpen(); }catch(e){ toast("Não consegui abrir a organização.", true); } });
         vis.querySelectorAll("[data-vs]").forEach(b => b.onclick = () => { const k = b.dataset.vs; TVORG.grpHide = TVORG.grpHide || {}; TVORG.grpHide[k] = []; TVORG.chHide = (TVORG.chHide || []).filter(u => kindOfUrl(u) !== k); orgSave(); try{ orgRefreshMain(); }catch(e){} visRender(); toast(KN[k] + ": tudo visível."); });
       };
-      vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Esconde categorias e canais de cada tipo, ou só as categorias de um país.</p><div class="visList" style="margin-top:8px"></div>' +
-        '<h3 style="margin:14px 0 6px">Categorias por país</h3><div class="row"><select id="visCty" style="max-width:320px"></select></div><div id="visCats" style="margin-top:6px"></div>' +
-        '<h3 style="margin:14px 0 6px">Canais e títulos do país</h3><div class="row"><input type="search" id="visQ" placeholder="Pesquisar canal ou título" style="max-width:320px"></div><div id="visItems" style="margin-top:6px;max-height:50vh;overflow:auto"></div>';
+      vis.innerHTML = '<h2>Mostrar e ocultar</h2><p class="small muted setsub" style="margin:0">Um só sítio para países, categorias, canais, filmes e séries: escolhe o país, depois as categorias e os títulos.</p>' +
+        '<h3 style="margin:12px 0 6px">1. Países</h3><p class="small muted" style="margin:0 0 6px">Ordena (▲▼), esconde um país inteiro ou toca em «Gerir» para ver as categorias e os canais dele.</p><div id="ctyList" class="ctyList" style="max-height:45vh;overflow:auto"></div>' +
+        '<div class="row" style="margin-top:6px"><button class="btn" id="ctyReset">Repor países (mostrar todos)</button></div>' +
+        '<h3 style="margin:14px 0 6px">2. Categorias do país</h3><div class="row"><select id="visCty" style="max-width:320px"></select><button class="btn" id="visCatAll">Mostrar todas</button><button class="btn" id="visCatNone">Ocultar todas</button></div><div id="visCats" style="margin-top:6px;max-height:45vh;overflow:auto"></div>' +
+        '<h3 style="margin:14px 0 6px">3. Canais e títulos do país</h3><div class="row"><input type="search" id="visQ" placeholder="Pesquisar canal ou título" style="max-width:320px"></div><div id="visItems" style="margin-top:6px;max-height:50vh;overflow:auto"></div>' +
+        '<h3 style="margin:14px 0 6px">Resumo por tipo</h3><p class="small muted" style="margin:0 0 6px">«Gerir» abre o organizador completo desse tipo (ordenar, selecionar vários, pesquisar).</p><div class="visList"></div>';
       const visItemsRender = () => {
         const sel = $("visCty"), box = $("visItems"), q = (($("visQ") && $("visQ").value) || "").trim().toLowerCase(); if(!sel || !box) return;
         const pick = sel.value; const hid = new Set(TVORG.chHide || []);
@@ -13823,18 +13827,26 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
         });
       };
 
-      card.parentNode.insertBefore(vis, card.nextSibling);
+      { const grp = tvc.parentNode, hd = grp.previousElementSibling, h3 = document.createElement("h3"), box = document.createElement("div");
+        h3.className = "setgrp"; h3.textContent = "Conteúdos: mostrar e ocultar"; box.className = "setcards"; box.appendChild(vis);
+        const ref = hd && hd.classList && hd.classList.contains("setgrp") ? hd : grp; ref.parentNode.insertBefore(h3, ref); ref.parentNode.insertBefore(box, ref); }
       visRender(); $("visCty").onchange = () => { visCatsRender(); }; $("visQ").oninput = () => visItemsRender(); visCatsRender();
+      const visCatBulk = show => { const pick = $("visCty").value; if(!pick) return; TVORG.grpHide = TVORG.grpHide || {};
+        for(const k of ["live","movie","series"]){ const groups = new Set(channels.filter(c => c.kind === k && C.ctyOfItem(c) === pick).map(c => c.group)); if(!groups.size) continue;
+          const h = (TVORG.grpHide[k] || []).filter(g => !groups.has(g)); if(!show) groups.forEach(g => h.push(g)); TVORG.grpHide[k] = h; }
+        orgSave(); try{ orgRefreshMain(); }catch(e){} visRender(); visCatsRender(); toast(C.name(pick) + (show ? ": todas as categorias visíveis." : ": todas as categorias ocultas.")); };
+      $("visCatAll").onclick = () => visCatBulk(true); $("visCatNone").onclick = () => visCatBulk(false);
       const S = C.state;
       const render = () => {
         const cnt = new Map();
         channels.forEach(c => { const k = C.ctyOfItem(c); cnt.set(k, (cnt.get(k) || 0) + 1); });
         const st = S(); const keys = [...cnt.keys()].sort((a, b) => { const ia = st.order.indexOf(a), ib = st.order.indexOf(b); return (ia < 0 ? (a === "PT" ? -1 : 1e3) : ia) - (ib < 0 ? (b === "PT" ? -1 : 1e3) : ib) || cnt.get(b) - cnt.get(a); }).slice(0, 60);
-        $("ctyList").innerHTML = keys.length ? keys.map((k, i) => { const off = st.hide.indexOf(k) >= 0; return '<div class="orgrow' + (off ? " off" : "") + '"><span class="nm">' + C.flag(k) + " " + sx(C.name(k)) + ' <small class="muted">' + cnt.get(k) + '</small></span><button class="btn" data-cu="' + i + '">▲</button><button class="btn" data-cd="' + i + '">▼</button><button class="btn" data-ch="' + i + '">' + (off ? "Mostrar" : "Esconder") + '</button></div>'; }).join("") : '<p class="small muted">Carrega primeiro a tua lista IPTV.</p>';
+        $("ctyList").innerHTML = keys.length ? keys.map((k, i) => { const off = st.hide.indexOf(k) >= 0; return '<div class="orgrow' + (off ? " off" : "") + '"><span class="nm">' + C.flag(k) + " " + sx(C.name(k)) + ' <small class="muted">' + cnt.get(k) + '</small></span><button class="btn" data-cu="' + i + '">▲</button><button class="btn" data-cd="' + i + '">▼</button><button class="btn" data-ch="' + i + '">' + (off ? "Mostrar" : "Esconder") + '</button><button class="btn" data-cg="' + i + '">Gerir</button></div>'; }).join("") : '<p class="small muted">Carrega primeiro a tua lista IPTV.</p>';
         const apply = () => { C.save(); render(); try{ if(typeof fillGroups === "function") fillGroups(); if(currentView === "tv") renderTvList(); }catch(e){} try{ AH.rr = null; }catch(e){} };
         const fix = () => { const s2 = S(); s2.order = keys.slice(); return s2; };
         $("ctyList").querySelectorAll("[data-cu]").forEach(b => b.onclick = () => { const s2 = fix(), i = +b.dataset.cu; if(i > 0){ s2.order.splice(i - 1, 0, s2.order.splice(i, 1)[0]); apply(); } });
         $("ctyList").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => { const s2 = fix(), i = +b.dataset.cd; if(i < s2.order.length - 1){ s2.order.splice(i + 1, 0, s2.order.splice(i, 1)[0]); apply(); } });
+        $("ctyList").querySelectorAll("[data-cg]").forEach(b => b.onclick = () => { const k = keys[+b.dataset.cg], sel = $("visCty"); if(!sel) return; if(![...sel.options].some(o => o.value === k)){ toast("Este país não tem categorias para gerir."); return; } sel.value = k; visCatsRender(); try{ sel.scrollIntoView({block:"start", behavior:"smooth"}); }catch(e){} });
         $("ctyList").querySelectorAll("[data-ch]").forEach(b => b.onclick = () => { const s2 = S(), k = keys[+b.dataset.ch], j = s2.hide.indexOf(k); if(j >= 0) s2.hide.splice(j, 1); else s2.hide.push(k); apply(); });
         $("parSt").textContent = P.on() ? (P.unlocked ? "Ligado — desbloqueado até fechares a app." : "Ligado — conteúdos para adultos escondidos.") : "Desligado.";
       };
