@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v404";
+const APP_VERSION = "v405";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3595,13 +3595,8 @@ function playChannel(c, slot=tvTarget, auto=false){
   }
   v.muted = slot!==audioSlot; if(slot === audioSlot) v.volume = 1;
   v.play().catch(()=>{});
-  /* v397: em HTTP os filmes arrancam logo pela versão HLS. O v395 usava variáveis de outro bloco (hlsPattern) e lançava erro em todos os arranques (canais incluídos), sem imagem nem registo */
-  const filmeHttp = !live && location.protocol === "http:" && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i.test(c.url) && !!(window.Hls && Hls.isSupported()) && playId === playSeq[slot];
-  if(filmeHttp){
-    try{ window.__dbgEv && window.__dbgEv(slot, "HTTP: filme lido pelo descodificador H.264 por software (uma ligação)", {}); v.removeAttribute("src"); v.load(); toHls = true; window.__filmeSw = {slot:slot, pid:playId}; }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "erro ao arrancar o filme em software", {erro:String(e && e.message || e)}); }catch(_){} } }
-  else if(false){
-    try{ v.removeAttribute("src"); v.load(); toHls = true; /* v400: a versão HLS também espera a ligação anterior fechar (3 s), senão o fornecedor responde 458 */ const gH = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0; setTimeout(() => { if(playId !== playSeq[slot]) return; if(!(fileViaHls && fileViaHls())) audioWatch(slot, c, playId, () => fileViaHls && fileViaHls()); }, Math.max(0, gH)); }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "erro ao arrancar por HLS", {erro: String(e && e.message || e)}); }catch(_){} }
-  } else audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
+  /* v405: como na versão de 11 de novembro: o ficheiro abre pelo elemento de vídeo; se não houver som, passa à versão HLS */
+  audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
   if(!live && /\.mkv(\?|$)/i.test(c.url) && window.__libav) setTimeout(() => { try{ window.__libav().catch(() => {}); }catch(e){} }, 200);   /* aquece o descodificador Dolby: se o som for AC-3 já está pronto */
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
   if(mirrorOn) startMirror(slot);
@@ -15553,7 +15548,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
       if(isMp4){ const onNone = () => { (window.__mkaNo = window.__mkaNo || [])[slot] = playId; const f = window.__mkaFallback && window.__mkaFallback[slot]; if(f && playId === playSeq[slot]) f(); };
         /* v351: um só leitor (MSE) quando possível; se não for aplicável ou falhar, o caminho antigo (leitor do carro + som à parte) */
-        /* v374: o MSE também com a imagem em andamento (a cópia de fotogramas é feita a partir do vídeo MSE) */ let useMse = false; try{ useMse = cfg.mseFilm !== false && (location.protocol !== "http:" || window.__mseHttpOk === playId) && typeof mp4MseRun === "function" && !!window.MediaSource && !hlsInst[slot] && !(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000); }catch(e){}
+        /* v374: o MSE também com a imagem em andamento (a cópia de fotogramas é feita a partir do vídeo MSE) */ let useMse = false; try{ useMse = !mirrorOn && cfg.mseFilm !== false && (location.protocol !== "http:" || window.__mseHttpOk === playId) && typeof mp4MseRun === "function" && !!window.MediaSource && !hlsInst[slot] && !(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000); }catch(e){}
         if(useMse) mp4MseRun(slot, st, src, c, playId, () => mp4aRun(slot, st, src, onNone)); else mp4aRun(slot, st, src, onNone); }
       else mkvRun(slot, st, src, true);
       let live0 = Date.now(); const t = setInterval(() => { try{ const nw = performance.now(); if(nw - (st.wdAt || 0) > 5000 && window.__mka[slot] === st && st.aq && st.aq.length && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 4000){ st.wdAt = nw; const cur = st.clock ? st.clock.v.currentTime : v.currentTime, h0 = st.aq[0].ts / 1e6;
