@@ -2917,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v375";
+const APP_VERSION = "v376";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5463,7 +5463,7 @@ function mseMirrorStart(slot, pid, alive){
     try{
       if(v.readyState >= 2 && v.videoWidth){
         if(cv.width !== v.videoWidth || cv.height !== v.videoHeight){ cv.width = v.videoWidth; cv.height = v.videoHeight; }
-        if(v.currentTime !== last){ last = v.currentTime; ctx.drawImage(v, 0, 0, cv.width, cv.height); copies++; }
+        if(v.currentTime !== last){ last = v.currentTime; ctx.drawImage(v, 0, 0, cv.width, cv.height); copies++; (window.__mirCopias = window.__mirCopias || {})[slot] = copies; }
       }
     }catch(e){ errs = String(e && e.message || e).slice(0, 120); }
     const now = performance.now();
@@ -12703,6 +12703,19 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     let buf = 0; try{ for(let i = 0; i < v.buffered.length; i++) if(v.buffered.start(i) <= v.currentTime && v.buffered.end(i) >= v.currentTime) buf = v.buffered.end(i) - v.currentTime; }catch(e){}
     const L = [(v.videoWidth || 0) + "×" + (v.videoHeight || 0) + (h && h.levels && h.currentLevel >= 0 && h.levels[h.currentLevel] ? " · " + Math.round(h.levels[h.currentLevel].bitrate / 1e5) / 10 + " Mbps · " + (h.levels[h.currentLevel].videoCodec || "") : "")];
     L.push("buffer " + buf.toFixed(1) + " s" + (q ? " · perdidos " + q.droppedVideoFrames + "/" + q.totalVideoFrames : "") + (h && h.latency ? " · atraso " + h.latency.toFixed(1) + " s" : "") + (h && h.bandwidthEstimate ? " · rede " + Math.round(h.bandwidthEstimate / 1e5) / 10 + " Mbps" : "") + (v.paused ? " · em pausa" : ""));
+    /* v376: fps reais (fotogramas decodificados por segundo), som e MSE */
+    try{
+      const tf = q ? q.totalVideoFrames : null, now = performance.now();
+      if(tf != null){ if(stTick._pf != null && now > stTick._pt){ L[1] += " · " + Math.round((tf - stTick._pf) * 1000 / (now - stTick._pt)) + " fps"; } stTick._pf = tf; stTick._pt = now; }
+      const ma = window.__mseAcerto, mseOn = !!(ma && ma.alive && ma.alive());
+      const motor = window.__motorUsado || "—";
+      const vol = Math.round((v.volume || 0) * 100);
+      L.push("som: " + (v.muted ? "mudo" : vol + "%") + " · " + (mseOn ? "MSE (Dolby/PCM)" : "leitor do carro") + " · acerto " + (ma && ma.ms != null ? ma.ms : 0) + " ms · motor " + motor);
+      const ranges = []; try{ for(let i = 0; i < v.buffered.length; i++) ranges.push(v.buffered.start(i).toFixed(1) + "–" + v.buffered.end(i).toFixed(1)); }catch(e){}
+      if(ranges.length) L.push("intervalos: " + ranges.slice(0, 3).join(" · ") + " s");
+      const mc = (window.__mirCopias && window.__mirCopias[tvTarget]) || null;
+      if(mc != null) L.push("imagem em andamento: " + mc + " fotogramas copiados");
+    }catch(e){}
     o.textContent = L.join("\n");
   };
   if($("chInfo")) $("chInfo").onclick = () => { const o = $("vStats"); const on = o.hidden; const box = (typeof slotBox === "function") ? slotBox(tvTarget) : null; if(on){ if(!window.__vStatsHome) window.__vStatsHome = o.parentNode; if(box){ box.appendChild(o); o.classList.add("ovl"); } } else { o.classList.remove("ovl"); if(window.__vStatsHome) window.__vStatsHome.appendChild(o); } o.hidden = !on; $("chInfo").setAttribute("aria-pressed", on); clearInterval(stT); if(on){ stTick(); stT = setInterval(stTick, 1000); } };
