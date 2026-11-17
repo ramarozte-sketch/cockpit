@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v418";
+const APP_VERSION = "v419";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5290,7 +5290,7 @@ function mp4aRun(slot, st, src, onNone){
       const file = MP4Box.createFile(); let info = null, perr = ""; file.onReady = i => { info = i; }; file.onError = e => { perr = String(e); };
       /* v415: primeiro o índice no fim do ficheiro (pedidos pequenos); se não houver, a leitura do início como antes */
       try{ const tm = await mp4TailMoov(src); if(tm && tm.erro){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: nada", tm); }catch(e6){} } if(tm && tm.bytes && alive()){ const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
-      let pos = 0, guard = 0;
+      let pos = 0, guard = 0; st.probing = true; /* v419: enquanto procura o índice, o temporizador não mata o leitor */
       while(alive() && !info && !perr && guard++ < 300){
         const a = pos, tR = performance.now(); const u8 = await RR.read(a, 1 << 20);
         /* v413 (diagnóstico): cada leitura do índice do som, com o tempo que demora */
@@ -5301,7 +5301,7 @@ function mp4aRun(slot, st, src, onNone){
         /* v414: se a biblioteca pede de novo o início de um bloco incompleto, continua a partir do que acabou de receber (antes repetia o mesmo pedido) */
         pos = (nx && nx > a) ? nx : a + buf.byteLength;
       }
-      try{ window.__dbgEv && window.__dbgEv(slot, "som: fim da leitura do índice", {encontrado:!!info, erro:perr || "", pedidos:guard}); }catch(e){}
+      st.probing = false; try{ window.__dbgEv && window.__dbgEv(slot, "som: fim da leitura do índice", {encontrado:!!info, erro:perr || "", pedidos:guard}); }catch(e){}
       RR.reset(); if(!alive()) return;
       if(!info){ none(perr || "índice (moov) não encontrado"); return; }
       const ats = info.audioTracks || [];
@@ -15607,8 +15607,8 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
           if(!st.abusy && st.drain) st.drain();
           if(st.clock && st.clock.ctx && st.clock.ctx.state !== "running") st.clock.ctx.resume().catch(() => {}); }
         /* fila vazia e sem som há mais de 8 s com o filme a andar: a leitura do som parou (ligação perdida sem erro): recomeça-a no ponto atual */
-        else if(nw - (st.rsAt || 0) > 15000 && window.__mka[slot] === st && (!st.aq || !st.aq.length) && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 8000){ st.rsAt = nw; window.__dbgEv && window.__dbgEv(slot, "som por software: leitura parada, a recomeçar", {erro:st.err || "", descodificados:st.n}); setTimeout(() => { try{ if(playId === playSeq[slot]) window.__mkaStart(slot, c, playId, st.aac, st.keep, st.trackNum); }catch(e){} }, 50); } }catch(e){} try{ const live = (!!st.lastOut && performance.now() - st.lastOut < 3000) || v.paused; if(st.lastOut && window.__mka[slot] === st && playId === playSeq[slot] && !!v._nat !== live){ if(live && v._want === undefined) v._want = v.muted; v._nat = live; v.muted = v._want !== undefined ? v._want : v.muted; if(window.__dbgEv) window.__dbgEv(slot, live ? "som do leitor do carro calado (só o som por software)" : "som do leitor do carro reposto (o som por software parou)", {}); } }catch(e){}
-        const m0 = MIR[slot]; if(st.aac && !st.keep){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); try{ if(v._nat && !(window.__mka[slot] && window.__mka[slot] !== st && window.__mka[slot].lastOut)){ v._nat = false; v.muted = v._want !== undefined ? v._want : v.muted; } }catch(e){} if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
+        else if(nw - (st.rsAt || 0) > 15000 && window.__mka[slot] === st && (!st.aq || !st.aq.length) && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 8000 && !st.probing){ st.rsAt = nw; window.__dbgEv && window.__dbgEv(slot, "som por software: leitura parada, a recomeçar", {erro:st.err || "", descodificados:st.n}); setTimeout(() => { try{ if(playId === playSeq[slot]) window.__mkaStart(slot, c, playId, st.aac, st.keep, st.trackNum); }catch(e){} }, 50); } }catch(e){} try{ const live = (!!st.lastOut && performance.now() - st.lastOut < 3000) || v.paused; if(st.lastOut && window.__mka[slot] === st && playId === playSeq[slot] && !!v._nat !== live){ if(live && v._want === undefined) v._want = v.muted; v._nat = live; v.muted = v._want !== undefined ? v._want : v.muted; if(window.__dbgEv) window.__dbgEv(slot, live ? "som do leitor do carro calado (só o som por software)" : "som do leitor do carro reposto (o som por software parou)", {}); } }catch(e){}
+        const m0 = MIR[slot]; if(st.aac && !st.keep && !st.probing){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); try{ if(v._nat && !(window.__mka[slot] && window.__mka[slot] !== st && window.__mka[slot].lastOut)){ v._nat = false; v.muted = v._want !== undefined ? v._want : v.muted; } }catch(e){} if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
       return true;
     }catch(e){ return false; }
   };
