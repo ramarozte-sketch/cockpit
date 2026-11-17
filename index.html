@@ -246,6 +246,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 @media (max-width:700px){.mvbox{flex-direction:column}.mvposter{flex-basis:auto;width:130px}}
 .trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
 .trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
+.setdd{margin:8px 0}.setdd>summary{cursor:pointer;padding:8px 0;font-weight:600;list-style:none}.setdd>summary::-webkit-details-marker{display:none}.setdd>summary::after{content:" ▾";opacity:.6}.setdd[open]>summary::after{content:" ▴"}
 .trkStyle{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}.trkStyle .lb{font-size:14px;opacity:.8}.trkStyle .opts{display:flex;flex-wrap:wrap;gap:6px}.trkStyle .btn{min-height:44px;padding:0 14px}.trkStyle .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .trklist{display:flex;flex-wrap:wrap;gap:8px}.trklist .btn{min-height:52px}.trklist .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 video::cue{background:rgba(0,0,0,.72);color:#fff;font-size:1.35em;line-height:1.25}
@@ -1626,9 +1627,11 @@ body.layout-atv .rail{display:none}
           <h3 class="setsubh">Modo meia janela</h3>
           <p class="small muted" style="margin:0">No Tesla, com a janela estreita (≤ 820 px), o menu fica só com ícones e os botões maiores. Podes forçar ou desligar.</p>
           <label class="f">Meia janela<select id="setHalfMode"><option value="auto">Automática (largura ≤ 820 px no Tesla)</option><option value="on">Sempre</option><option value="off">Desligada</option></select></label>
+          <details class="setdd"><summary>Efeitos visuais</summary>
           <h3 class="setsubh">Animação dos cartões</h3>
           <p class="small muted" style="margin:0">Como os cartões do Início da TV se movem ao deslizar (Livro, Suave, Cascata, Zoom).</p>
           <label class="f">Animação ao deslizar<select id="setCardAnim"><option value="livro">Livro (virar página)</option><option value="suave">Suave</option><option value="cascata">Cascata</option><option value="zoom">Zoom</option><option value="nenhuma">Sem animação</option></select></label>
+          </details>
           <h3 class="setsubh">Modo noite</h3>
           <p class="small muted" style="margin:0">Baixa o brilho dos menus e botões; o vídeo em ecrã total fica igual.</p>
           <label class="f">Interface escura à noite<select id="setNightUi"><option value="auto">Automática: do pôr ao nascer do sol</option><option value="on">Sempre</option><option value="off">Desligada</option></select></label>
@@ -1636,9 +1639,10 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Modelo e estilo do ecrã inicial da TV (filas de cartões).</p>
           <label class="f">Ao abrir a TV mostrar<select id="setTvHome"><option value="android">Início estilo Android TV (destaque e filas)</option><option value="classic">Lista clássica de canais</option></select></label>
           <label class="f">Modelo do Início<select id="setTvHomeTpl"><option value="equilibrado">Equilibrado</option><option value="cinema">Cinema</option><option value="compacto">Compacto</option><option value="grelha">Grelha</option><option value="netflix">Estilo Netflix</option></select></label>
-          <h3 class="setsubh">Avatar</h3>
+          <details class="setdd"><summary>Avatar</summary>
           <p class="small muted" style="margin:0">Companheiro que anda pela app e conversa contigo.</p>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn primary" id="avShow">Mostrar e configurar o avatar</button></div>
+          </details>
         </div>
       </div>
       <h3 class="setgrp">Voz e assistente</h3>
@@ -2921,7 +2925,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v387";
+const APP_VERSION = "v388";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
