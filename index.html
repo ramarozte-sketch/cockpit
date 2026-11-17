@@ -2917,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v376";
+const APP_VERSION = "v377";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11878,7 +11878,34 @@ function osParse(raw){
     .replace(/[^\p{L}\p{N}' ]+/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();
   return {title:t, year:ym ? ym[1] : "", s:se ? +se[1] : 0, e:se ? +se[2] : 0};
 }
+/* v377: legendas em português SEM conta (a mesma forma da app Android): Cinemeta dá o código IMDb a partir do título; o addon aberto do OpenSubtitles (v3) dá as legendas desse código. */
+async function freeSubSearch(raw){
+  const q = osParse(raw); if(!q.title) throw new Error("escreve o título");
+  const kind = q.s ? "series" : "movie";
+  const rj = await (await fetchAny("https://v3-cinemeta.strem.io/catalog/" + kind + "/top/search=" + encodeURIComponent(q.title) + ".json")).json();
+  const norm = x => String(x || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const nt = norm(q.title); let best = -1, imdb = "";
+  (rj.metas || []).slice(0, 15).forEach((m, i) => {
+    const id = String(m.imdb_id || m.id || ""); if(!/^tt/.test(id)) return;
+    const nm = norm(m.name), ri = String(m.releaseInfo || m.year || "");
+    let sc = 100 - i;
+    if(nm === nt) sc += 1000; else if(nm.startsWith(nt) || nt.startsWith(nm)) sc += 300;
+    if(q.year && ri.startsWith(q.year)) sc += 500;
+    if(sc > best){ best = sc; imdb = id; }
+  });
+  if(!imdb) return [];
+  const vid = q.s ? imdb + ":" + q.s + ":" + Math.max(1, q.e) : imdb;
+  const sj = await (await fetchAny("https://opensubtitles-v3.strem.io/subtitles/" + kind + "/" + vid + ".json")).json();
+  const out = [];
+  for(const x of (sj.subtitles || [])){
+    const lang = String(x.lang || "").toLowerCase();
+    if(x.url && /^https?:/.test(x.url) && (lang === "por" || lang === "pt" || lang === "pt-pt") && out.length < 8)
+      out.push({free:true, url:x.url, lang:"pt-pt", rel:"sem conta · Stremio/OpenSubtitles", title:"", year:"", dl:0, hi:false, trusted:false});
+  }
+  return out;
+}
 async function osSearch(raw){
+  if(!cfg.osKey) return freeSubSearch(raw);
   const q = osParse(raw); if(!q.title) throw new Error("escreve o título");
   const p = {languages:"pt-pt,pt-br", query:q.title};
   if(q.year && !q.s) p.year = q.year;
@@ -11890,6 +11917,12 @@ async function osSearch(raw){
   return res;
 }
 async function osApply(r, slot, silent){
+  if(r.free){
+    const f = await fetchAny(r.url); if(!f.ok) throw new Error("HTTP " + f.status);
+    trkAddExt(slot, decodeSub(await f.arrayBuffer()), "Português · sem conta");
+    toast("Legendas em português ativadas ✓"); if(!$("trkDlg").hidden){ trkRender(); $("osNote").textContent = "Legendas ativadas."; }
+    return;
+  }
   await osLogin();
   const j = await osFetch("/download", {method:"POST", auth:true, body:{file_id:r.file_id, sub_format:"srt"}});
   if(!j.link) throw new Error("sem ligação de download");
@@ -11921,7 +11954,7 @@ $("osGo").onclick = async () => {
 $("osAuto").onclick = async () => { $("osNote").textContent = "A procurar a melhor legenda…"; try{ await osAutoFor(tvTarget, lastPlayed[tvTarget], false); }catch(x){ $("osNote").textContent = "Erro: " + x.message; } };
 /* Filmes e episódios sem legendas em português: procura sozinho, uma vez por título. */
 function osAutoPlay(slot, c){
-  if(!cfg.osAuto || !cfg.osKey || !c || c.kind === "live" || OS.tried.has(c.url)) return;
+  if(!cfg.osAuto || !c || c.kind === "live" || OS.tried.has(c.url)) return;
   /* v294: filme/série em português (título ou grupo com PT / Portugal): sem legendas automáticas */
   if(isPtTitle(c)) return;
   setTimeout(async () => {
