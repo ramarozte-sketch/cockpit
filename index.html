@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v359";
+const APP_VERSION = "v360";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -17018,16 +17018,6 @@ body:not(.pfull) #mirStat{bottom:auto;top:70px}
       stat.className = cls; stat.querySelector("span").textContent = txt; stat.style.display = "flex";
     }catch(e){} }, 2000);
 
-    /* 4. slider do desvio imagem/som (−2 s a +2 s), com indicação clara */
-    const plus = document.getElementById("mirDelPlus");
-    if(plus && typeof nudgeDelay === "function"){
-      const r = document.createElement("input"); r.type = "range"; r.id = "mirDelRange"; r.min = "-2000"; r.max = "2000"; r.step = "50"; r.setAttribute("aria-label", "Desvio entre imagem e som");
-      const t = document.createElement("span"); t.id = "mirDelTxt"; plus.after(r, t);
-      const paint = () => { let v = 0; try{ v = mirDelFor(tvTarget); }catch(e){} r.value = String(v); t.textContent = !v ? "imagem e som juntos" : v > 0 ? "imagem atrasada " + Math.abs(v) + " ms" : "imagem adiantada " + Math.abs(v) + " ms"; };
-      let rt = 0; r.addEventListener("input", () => { const want = +r.value; t.textContent = !want ? "imagem e som juntos" : want > 0 ? "imagem atrasada " + want + " ms" : "imagem adiantada " + Math.abs(want) + " ms"; clearTimeout(rt); rt = setTimeout(() => { try{ const cur = mirDelFor(tvTarget); if(want !== cur) nudgeDelay(want - cur); }catch(e){} paint(); }, 250); });
-      const _fd = window.fmtDelay; if(typeof _fd === "function") window.fmtDelay = function(){ const x = _fd.apply(this, arguments); try{ paint(); }catch(e){} return x; };
-      paint(); setInterval(paint, 3000);
-    }
   }catch(e){ console.log("andamento v264", e); }
 })();
 </script>
