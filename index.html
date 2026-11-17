@@ -2917,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v380";
+const APP_VERSION = "v381";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11874,7 +11874,7 @@ function osParse(raw){
   raw = String(raw || "").replace(/^\s*(\|[A-Za-z]{2,5}\||[A-Za-z]{2,5}\s*[-:])\s*/, "").replace(/\b(PT-?PT|PT-?BR|PT|AR|EN|BR|ES|FR|IT|DE)\b/g, " ").replace(/\b(multi|dual|dub|dublado|legendado|vost|leg|vo)\b/gi, " ");
   let t = String(raw || "").normalize("NFKD").replace(/\.(mkv|mp4|avi|mov|m4v|ts|m3u8)$/i, " ").replace(/\[[^\]]*\]|\([^)]*\)|\|[a-z]{2,3}\|/gi, " ").replace(/[._]+/g, " ");
   const se = t.match(/\bS(\d{1,2})\s?E(\d{1,3})\b/i) || t.match(/\b(\d{1,2})x(\d{2})\b/i);
-  const ym = t.match(/\b(19\d\d|20\d\d)\b/);
+  const ym = String(raw || "").match(/\b(19\d\d|20\d\d)\b/); /* v381: o ano lê-se antes de tirar os parênteses */
   t = t.replace(/\bS\d{1,2}\s?E\d{1,3}\b|\b\d{1,2}x\d{2}\b/i, " ").replace(/\b(19\d\d|20\d\d)\b.*$/, " ")
     .replace(/\b(uhd|fhd|4k|hevc|h ?26[45]|x26[45]|hd|sd|1080p?|720p?|2160p?|bluray|brrip|webrip|web-?dl|hdrip|dvdrip|dublado|legendado|pt-?pt|pt-?br)\b.*$/i, " ")
     .replace(/[^\p{L}\p{N}' ]+/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();
