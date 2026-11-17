@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v392";
+const APP_VERSION = "v393";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3549,8 +3549,10 @@ function playChannel(c, slot=tvTarget, auto=false){
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
-      if(code === 2 && fT > 5 && fRe < 3 && v.currentSrc){ fRe++; const src0 = v.currentSrc; try{ window.__dbgEv && window.__dbgEv(slot, "filme: ligação caiu a meio, retoma no mesmo ponto", {em_s:Math.round(fT), vez:fRe}); }catch(e){}
-        setTimeout(() => { if(playId !== playSeq[slot]) return; fResume(); v.src = src0; v.load(); v.play().catch(()=>{}); }, 600 * fRe); return; }
+      if(code === 2 && fRe < 4 && v.currentSrc){ fRe++; const src0 = v.currentSrc; try{ window.__dbgEv && window.__dbgEv(slot, "filme: ligação caiu a meio, retoma no mesmo ponto", {em_s:Math.round(fT), vez:fRe}); }catch(e){}
+        setTimeout(() => { if(playId !== playSeq[slot]) return; fResume(); v.src = src0; v.load(); v.play().catch(()=>{}); }, 2000 + 1500 * fRe); return; }
+      /* v393: formato que o browser não lê (ex.: HEVC): não vale a pena tentar outra vez nem por HLS */
+      if(code === 4){ try{ window.__dbgEv && window.__dbgEv(slot, "formato não suportado (ficheiro)", {code}); }catch(e){} fail("vídeo", "formato que o Tesla não lê (HEVC ou áudio não suportado)"); return; }
       fResume();
       if(stage === -1){ stage = 0; if(VPX()){ v.src = px(c.url); v.load(); v.play().catch(()=>{}); return; } }
       if(stage === 0 && VPX() && cfg.proxy2){ stage = 1; v.src = px2(c.url); v.load(); v.play().catch(()=>{}); return; }
@@ -4233,6 +4235,8 @@ function present(slot){
     if(stale > 1000 && !st.staleLogged && v){ st.staleLogged = true; try{ const b = v.buffered, be = b.length ? b.end(b.length - 1) : null;
       window.__dbgEv && window.__dbgEv(slot, "relógio do vídeo parado", {ms:Math.round(stale), readyState:v.readyState, networkState:v.networkState, bufferFim_s:be == null ? null : +be.toFixed(2), agora_s:+v.currentTime.toFixed(2), pausado:v.paused, procura:v.seeking, escondido:document.hidden}); }catch(e){} }
     else if(stale < 300) st.staleLogged = false;
+    /* v393: relógio parado com o filme a tocar: relança o <video> (no máximo a cada 4 s) */
+    if(stale > 4000 && v && !v.paused && !v.ended && (st.kickAt || 0) < pn - 4000){ st.kickAt = pn; try{ v.play().catch(() => {}); window.__dbgEv && window.__dbgEv(slot, "relógio parado: relança a reprodução", {ms:Math.round(stale)}); }catch(e){} }
   }
   if(v && st.masterUs!=null){
     const dct = v.currentTime - (st.ctLast == null ? v.currentTime : st.ctLast);
@@ -14765,7 +14769,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
                     ev(slot, "som do canal", {Hz:+hz, canais:+ch, perfil:["Main","LC","SSR","LTP"][+pr], amplificacao:!!(vv && vv._amp), ctxAmplificacao_Hz:A && A.ctx ? A.ctx.sampleRate : null, ctxEstado:A && A.ctx ? A.ctx.state : null}); } }catch(e){} } }catch(e){} os(r, st, cx, n); }}); } }catch(e){} return super.load(ctx, cf, cb); } }; }; }catch(e){}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
-  window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot; if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
+  window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot;
+    /* v393: troca rápida de canais: só arranca a última escolha, com pelo menos 3 s desde o arranque anterior */
+    const wait = 3000 - (Date.now() - (window.__lastStartAt || 0));
+    if(!auto && wait > 0){ const tk = window.__pcTok = (window.__pcTok || 0) + 1; setTimeout(() => { if(tk === window.__pcTok) window.playChannel(c, slot, auto); }, wait); return; }
+    if(!auto) window.__lastStartAt = Date.now();
+    if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
   const slotOf = el => el && el.id === "vid1" ? 1 : el && el.id === "vid0" ? 0 : -1;
   const wrapHls = () => {
     if(!window.Hls || window.Hls.__dbg) return;
