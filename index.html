@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v366";
+const APP_VERSION = "v367";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5451,15 +5451,20 @@ function mseMirrorStart(slot, pid){
   const v = $("vid"+slot), cv = $("cv"+slot), box = slotBox(slot); if(!v || !cv || !box) return;
   stopMirror(slot);
   box.classList.add("mirroring");
-  const ctx = cv.getContext("2d"); let last = -1;
+  const ctx = cv.getContext("2d"); let last = -1, copies = 0, errs = "", t0 = performance.now(), lastLog = 0, shown = false;
   const loop = () => {
     if(pid !== playSeq[slot] || !box.isConnected){ return; }
     try{
       if(v.readyState >= 2 && v.videoWidth){
         if(cv.width !== v.videoWidth || cv.height !== v.videoHeight){ cv.width = v.videoWidth; cv.height = v.videoHeight; }
-        if(v.currentTime !== last){ last = v.currentTime; ctx.drawImage(v, 0, 0, cv.width, cv.height); }
+        if(v.currentTime !== last){ last = v.currentTime; ctx.drawImage(v, 0, 0, cv.width, cv.height); copies++; }
       }
-    }catch(e){}
+    }catch(e){ errs = String(e && e.message || e).slice(0, 120); }
+    const now = performance.now();
+    /* diagnóstico: de 5 em 5 s, e se nenhum fotograma for copiado em 3 s, mostra o próprio vídeo em vez de um ecrã preto */
+    if(now - lastLog > 5000){ lastLog = now; try{ window.__dbgEv && window.__dbgEv(slot, "imagem MSE: cópia", {fotogramas:copies, cv:cv.width + "x" + cv.height, vídeo:v.videoWidth + "x" + v.videoHeight, pronto:v.readyState, erro:errs}); }catch(e){} }
+    if(!shown && copies === 0 && now - t0 > 3000){ shown = true; box.classList.remove("mirroring"); try{ window.__dbgEv && window.__dbgEv(slot, "imagem MSE sem fotogramas: mostra o vídeo", {erro:errs}); }catch(e){} }
+    if(copies > 0 && shown){ shown = false; box.classList.add("mirroring"); }
     mirrorRAF[slot] = requestAnimationFrame(loop);
   };
   mirrorRAF[slot] = requestAnimationFrame(loop);
