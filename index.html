@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v416";
+const APP_VERSION = "v417";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5263,7 +5263,7 @@ async function mp4TailMoov(src){
   const r0 = await fetch(src, {headers:{Range:"bytes=0-0"}}); if(!r0.ok && r0.status !== 206) return null;
   const cr0 = r0.headers.get("content-range"); const total = cr0 ? +((/\/(\d+)/.exec(cr0) || [])[1] || 0) : 0;
   try{ r0.body && r0.body.cancel(); }catch(e){}
-  if(!total) return null;
+  if(!total) return {erro:"sem tamanho", cr: cr0 || ""};
   const from = Math.max(0, total - (2 << 20));
   const r = await fetch(src, {headers:{Range:"bytes=" + from + "-" + (total - 1)}}); if(!r.ok && r.status !== 206) return null;
   const tail = new Uint8Array(await r.arrayBuffer()); const base = from;
@@ -5275,7 +5275,7 @@ async function mp4TailMoov(src){
       return {at, sz, bytes:new Uint8Array(await r2.arrayBuffer())};
     }
   }
-  return null;
+  return {erro:"sem moov na cauda", total, len: tail.length, de: from};
 }
 function mp4aRun(slot, st, src, onNone){
   const alive = () => !!(window.__mka && window.__mka[slot] === st);
@@ -5288,7 +5288,7 @@ function mp4aRun(slot, st, src, onNone){
       if(!(await loadMirLibs()) || !window.MP4Box){ if(alive()) none("mp4box em falta"); return; }
       const file = MP4Box.createFile(); let info = null, perr = ""; file.onReady = i => { info = i; }; file.onError = e => { perr = String(e); };
       /* v415: primeiro o índice no fim do ficheiro (pedidos pequenos); se não houver, a leitura do início como antes */
-      try{ const tm = await mp4TailMoov(src); if(tm && alive()){ const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
+      try{ const tm = await mp4TailMoov(src); if(tm && tm.erro){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: nada", tm); }catch(e6){} } if(tm && tm.bytes && alive()){ const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
       let pos = 0, guard = 0;
       while(alive() && !info && !perr && guard++ < 300){
         const a = pos, tR = performance.now(); const u8 = await RR.read(a, 1 << 20);
