@@ -247,6 +247,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .trkdlg{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:70}.trkdlg[hidden]{display:none}
 .trkbox{width:min(760px,94vw);max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:10px}.trkbox h3{margin:6px 0 0;font-size:15px;opacity:.75}
 .setdd{margin:8px 0}.setdd>summary{cursor:pointer;padding:8px 0;font-weight:600;list-style:none}.setdd>summary::-webkit-details-marker{display:none}.setdd>summary::after{content:" ▾";opacity:.6}.setdd[open]>summary::after{content:" ▴"}
+.trkSm{min-height:36px;padding:0 10px;font-size:14px;opacity:.85}
 .trkStyle{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}.trkStyle .lb{font-size:14px;opacity:.8}.trkStyle .opts{display:flex;flex-wrap:wrap;gap:6px}.trkStyle .btn{min-height:44px;padding:0 14px}.trkStyle .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .trklist{display:flex;flex-wrap:wrap;gap:8px}.trklist .btn{min-height:52px}.trklist .btn[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 video::cue{background:rgba(0,0,0,.72);color:#fff;font-size:1.35em;line-height:1.25}
@@ -1871,7 +1872,7 @@ body.layout-atv .rail{display:none}
   <div id="trkSecS">
     <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
     <h3>Legendas encontradas</h3><div class="trklist" id="osRes"></div>
-    <div class="row"><button class="btn primary" id="osAuto">⚡ Português automático</button><span class="small muted">Sincronia</span><button class="btn" id="trkM">−0,5 s</button><b id="trkOff" class="small">0 s</b><button class="btn" id="trkP">+0,5 s</button></div>
+    <div class="row"><button class="btn primary" id="osAuto">⚡ Português automático</button><span class="small muted">Sincronia</span><button class="btn trkSm" id="trkM" aria-label="Atrasar a legenda 0,5 segundos">−0,5</button><input type="number" id="trkOffIn" step="0.1" value="0" class="trkSm" style="width:84px" aria-label="Acerto da legenda em segundos (positivo adianta)"><span class="small muted">s</span><button class="btn trkSm" id="trkP" aria-label="Adiantar a legenda 0,5 segundos">+0,5</button><b id="trkOff" class="small">0 s</b></div>
     <p class="small muted" id="osNote" style="margin:0"></p>
   </div>
   <p class="small muted" id="trkNote" style="margin:0"></p>
@@ -2925,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v390";
+const APP_VERSION = "v391";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11786,6 +11787,7 @@ function trkShift(slot, d){
   const e = TRK.ext[slot]; if(!e) return toast("Carrega primeiro um ficheiro de legendas.", true);
   e.off += d; if(e.track.cues) for(const c of e.track.cues){ c.startTime = Math.max(0, c.startTime + d); c.endTime = Math.max(0.1, c.endTime + d); }
   $("trkOff").textContent = (e.off > 0 ? "+" : "") + e.off.toLocaleString("pt-PT") + " s";
+  const oi = $("trkOffIn"); if(oi) oi.value = String(e.off);
 }
 function trkRender(){
   const slot = tvTarget, a = trkAudioList(slot), subs = trkSubList(slot), c = lastPlayed[slot];
@@ -11819,6 +11821,9 @@ $("chSubs").onclick = () => trkOpen("s");
 $("trkClose").onclick = () => { $("trkDlg").hidden = true; };
 $("trkDlg").onclick = e => { if(e.target === $("trkDlg")) $("trkDlg").hidden = true; };
 $("trkAuto").onchange = e => { cfg.subAuto = e.target.checked; saveCfg(); };
+/* v391: acerto manual da legenda: botões discretos ou valor escrito diretamente (segundos) */
+const trkSetOff = v => { const e = TRK.ext[tvTarget]; if(!e) return toast("Carrega primeiro uma legenda.", true); const n = Math.round(v * 10) / 10; if(!isFinite(n)) return; trkShift(tvTarget, n - e.off); };
+$("trkOffIn").onchange = e => trkSetOff(parseFloat(String(e.target.value).replace(",", ".")));
 $("trkM").onclick = () => trkShift(tvTarget, -.5);
 $("trkP").onclick = () => trkShift(tvTarget, .5);
 /* Aspeto das legendas: tamanho, cor, fundo, contorno e posição (leitor da página e leitor nativo da app Android) */
