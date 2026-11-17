@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v393";
+const APP_VERSION = "v394";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3542,7 +3542,9 @@ function playChannel(c, slot=tvTarget, auto=false){
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
         try{ window.__dbgEv && window.__dbgEv(slot, "filme sem dados do servidor: pede outra vez", {}); }catch(e){}
-        const s0 = v.currentSrc || src1; v.removeAttribute("src"); v.load(); setTimeout(() => { if(playId !== playSeq[slot]) return; v.src = s0; v.load(); v.play().catch(()=>{}); }, 800); }catch(e){} }, 10000 + Math.max(0, gapF)); }
+        const s0 = v.currentSrc || src1; v.removeAttribute("src"); v.load(); setTimeout(() => { if(playId !== playSeq[slot]) return; v.src = s0; v.load(); v.play().catch(()=>{}); }, 800);
+        /* v394: se o ficheiro continuar sem dados, passa à versão HLS (o relógio não pode correr sem imagem) */
+        setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; window.__dbgEv && window.__dbgEv(slot, "filme sem dados: passa à versão HLS", {}); if(fileViaHls) fileViaHls(); }catch(e){} }, 12000); }catch(e){} }, 10000 + Math.max(0, gapF)); }
     /* v200: guarda onde ia o filme; se a ligação cair a meio, volta a pedir o mesmo endereço e continua desse ponto */
     let fT = 0, fRe = 0; const fTu = () => { if(playId === playSeq[slot] && v.currentTime > 0) fT = v.currentTime; }; try{ if(v.__fTu) v.removeEventListener("timeupdate", v.__fTu); }catch(e){} v.__fTu = fTu; v.addEventListener("timeupdate", fTu);
     const fResume = () => { if(fT < 3) return; const t = fT; const go = () => { v.removeEventListener("loadedmetadata", go); if(playId !== playSeq[slot]) return; try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); };
@@ -4773,7 +4775,7 @@ function makeCapLoader(slot){
       const onSucc = callbacks.onSuccess;
       callbacks = Object.assign({}, callbacks, { onSuccess:(resp,stats,ctx,net)=>{
         try{ const d0 = resp && resp.data; if(d0 && d0.byteLength > 752 && window.__tsFixOn !== false){ const u = d0 instanceof ArrayBuffer ? new Uint8Array(d0) : new Uint8Array(d0.buffer, d0.byteOffset, d0.byteLength);
-            if(u[0] === 0x47){ try{ const fr = ctx && ctx.frag; if(fr && fr.type === "main" && fr.level !== undefined && window.__tsContOn !== false){ const cr = __tsContinuity(slot, playSeq[slot], u, fr.sn); if(cr.shift){ window.__tsFixStat.relogio = (window.__tsFixStat.relogio || 0) + 1; try{ window.__dbgEv && window.__dbgEv(slot, "relógio do pedaço corrigido", {faixas:cr.shift, salto_s:cr.last && cr.last.seg, sn:fr.sn}); }catch(e){} } } }catch(e){} const r = __tsFixFn(u); window.__tsFixStat.pedacos++; try{ if(window.__sa) window.__sa.hook(slot, u); }catch(e){} try{ if(window.__sv) window.__sv.hook(slot, u, r); }catch(e){} if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
+            if(u[0] === 0x47){ try{ const fr = ctx && ctx.frag; if(fr && fr.type === "main" && fr.level !== undefined && window.__tsContOn !== false){ const nowC = Date.now(); window.__tsCorrs = (window.__tsCorrs || []).filter(t => nowC - t < 30000); const cr = window.__tsCorrs.length < 3 ? __tsContinuity(slot, playSeq[slot], u, fr.sn) : {shift:0}; if(cr.shift){ window.__tsCorrs.push(nowC); window.__tsFixStat.relogio = (window.__tsFixStat.relogio || 0) + 1; try{ window.__dbgEv && window.__dbgEv(slot, "relógio do pedaço corrigido", {faixas:cr.shift, salto_s:cr.last && cr.last.seg, sn:fr.sn}); }catch(e){} } } }catch(e){} const r = __tsFixFn(u); window.__tsFixStat.pedacos++; try{ if(window.__sa) window.__sa.hook(slot, u); }catch(e){} try{ if(window.__sv) window.__sv.hook(slot, u, r); }catch(e){} if(r.fixed){ window.__tsFixStat.corrigidos++; try{ const A = window.__dbg && window.__dbg.cur[slot]; if(A && !A.ev.some(x => x.e === "vídeo entrelaçado corrigido")) window.__dbgEv(slot, "vídeo entrelaçado corrigido", {sps:r.fixed, refs:r.old + "→8"}); }catch(e){} } } } }catch(e){}
         try{ if(mirrorOn){ const d=resp&&resp.data; if(d){ const u8 = d instanceof ArrayBuffer ? new Uint8Array(d.slice(0)) : (d.buffer ? new Uint8Array(d.buffer.slice(d.byteOffset, d.byteOffset+d.byteLength)) : null); if(u8 && u8.byteLength) mirrorFeed(slot, {payload:u8, frag:(ctx&&ctx.frag)||context.frag}); } } }catch(e){}
         onSucc(resp,stats,ctx,net);
       }});
