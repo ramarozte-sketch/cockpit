@@ -2917,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v381";
+const APP_VERSION = "v382";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11913,7 +11913,9 @@ async function osSearch(raw){
   if(q.year && !q.s) p.year = q.year;
   if(q.s){ p.season_number = q.s; p.episode_number = q.e; p.type = "episode"; }
   const qs = Object.keys(p).sort().map(k => k + "=" + encodeURIComponent(p[k])).join("&"); // a API exige os parâmetros por ordem alfabética
-  const j = await osFetch("/subtitles?" + qs);
+  let j = await osFetch("/subtitles?" + qs);
+  /* v382: se o ano não bater com nenhuma legenda, repete a pesquisa sem o ano */
+  if(!(j.data || []).length && p.year){ const p2 = Object.assign({}, p); delete p2.year; const qs2 = Object.keys(p2).sort().map(k => k + "=" + encodeURIComponent(p2[k])).join("&"); j = await osFetch("/subtitles?" + qs2); }
   const res = (j.data || []).map(d => { const a = d.attributes || {}, f = (a.files || [])[0] || {}; return {file_id:f.file_id, lang:a.language || "", rel:a.release || f.file_name || "", dl:a.download_count || 0, hi:!!a.hearing_impaired, trusted:!!a.from_trusted, title:(a.feature_details && (a.feature_details.title || a.feature_details.movie_name)) || "", year:a.feature_details && a.feature_details.year || ""}; }).filter(r => r.file_id);
   res.sort((a, b) => (/pt-?pt/i.test(b.lang) - /pt-?pt/i.test(a.lang)) || (b.trusted - a.trusted) || (a.hi - b.hi) || (b.dl - a.dl));
   return res;
