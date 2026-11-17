@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v367";
+const APP_VERSION = "v368";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5122,7 +5122,7 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       /* v357: acerto ao vivo (−/+ no leitor): guarda por filme e aplica aos blocos seguintes */
       window.__mseAcerto = {slot, alive: () => !st.mseOff, ms: () => Math.round(uOff * 1000), adj(ms){ uOff = Math.round((uOff * 1000 + ms)) / 1000; aAdd = editShift(at) + uOff + vOff; try{ localStorage.setItem(aoffKey(c.name), String(uOff)); }catch(e){} try{ EV("filme num só leitor (MSE): acerto do som", {acertoSom_ms: Math.round(uOff * 1000)}); }catch(e){} }};
       EV("filme num só leitor (MSE): pronto", {video:vt.codec, som:at.codec, inicial:usedName, desvioVideo_s:+vOff.toFixed(3), acertoSom_ms:Math.round(uOff * 1000), ms:Math.round(performance.now() - t0)});
-      st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v366: imagem em andamento no caminho MSE: copia os fotogramas do próprio elemento de vídeo (sem nova ligação ao ficheiro) */ try{ if(mirrorOn) mseMirrorStart(slot, playId); else stopMirror(slot); }catch(e){}
+      st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v366: imagem em andamento no caminho MSE: copia os fotogramas do próprio elemento de vídeo (sem nova ligação ao ficheiro) */ try{ if(mirrorOn) mseMirrorStart(slot, playId, () => !st.mseOff); else stopMirror(slot); }catch(e){}
       try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
       /* 2) fonte de vídeo */
       ms = new MediaSource(); blobUrl = URL.createObjectURL(ms);
@@ -5447,13 +5447,15 @@ function startMirror(slot){
   cancelAnimationFrame(mirrorRAF[slot]); copyLoop(slot);
 }
 /* v366: imagem em andamento sobre o vídeo do caminho MSE (copia fotogramas do próprio elemento, sem ligação extra) */
-function mseMirrorStart(slot, pid){
+function mseMirrorStart(slot, pid, alive){
   const v = $("vid"+slot), cv = $("cv"+slot), box = slotBox(slot); if(!v || !cv || !box) return;
   stopMirror(slot);
   box.classList.add("mirroring");
   const ctx = cv.getContext("2d"); let last = -1, copies = 0, errs = "", t0 = performance.now(), lastLog = 0, shown = false;
   const loop = () => {
     if(pid !== playSeq[slot] || !box.isConnected){ return; }
+    /* v368: se o caminho MSE desistiu (volta ao leitor do carro), a cópia pára e o vídeo do carro volta a ser mostrado */
+    if(alive && !alive()){ try{ stopMirror(slot); }catch(e){} return; }
     try{
       if(v.readyState >= 2 && v.videoWidth){
         if(cv.width !== v.videoWidth || cv.height !== v.videoHeight){ cv.width = v.videoWidth; cv.height = v.videoHeight; }
