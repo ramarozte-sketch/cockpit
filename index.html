@@ -174,7 +174,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .slot:not(.mirroring) canvas.mirb{display:none!important}
 .slot.mirroring video{opacity:0;pointer-events:none}
 /* v386: legendas externas desenhadas por cima do slot (também com a imagem em andamento, que cobre o vídeo) */
-.subov{position:absolute;left:0;right:0;bottom:7%;text-align:center;color:#fff;font-size:clamp(15px,3.4vw,34px);line-height:1.25;text-shadow:0 2px 4px #000,0 0 8px #000;pointer-events:none;white-space:pre-line;z-index:6;padding:0 6%}
+.subov{position:absolute;left:0;right:0;bottom:8%;text-align:center;color:#fff;font-size:clamp(15px,3.4vw,34px);line-height:1.25;text-shadow:0 2px 4px #000,0 0 8px #000;pointer-events:none;z-index:6;padding:0 6%}
 #btnMirror.on,#hMirror.on,#tMirror.on{background:var(--accent);color:var(--accent-ink);opacity:1!important}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
@@ -2921,7 +2921,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v386";
+const APP_VERSION = "v387";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11772,7 +11772,7 @@ function trkAddExt(slot, text, label){
   v.appendChild(el); el.track._ext = true; el.track.mode = "hidden";
   /* v386: o texto sai num sobreposto no slot, porque a imagem em andamento tapa o vídeo */
   try{ const box = slotBox(slot); let ov = box.querySelector(".subov"); if(!ov){ ov = document.createElement("div"); ov.className = "subov"; box.appendChild(ov); }
-    const tr = el.track; tr.addEventListener("cuechange", () => { ov.textContent = Array.from(tr.activeCues || []).map(c => String(c.text || "").replace(/<[^>]+>/g, "")).join("\n"); }); }catch(x){}
+    const tr = el.track; tr.addEventListener("cuechange", () => { ov.textContent = ""; Array.from(tr.activeCues || []).forEach(c => String(c.text || "").replace(/<[^>]+>/g, "").split("\n").forEach((line, k) => { if(k) ov.appendChild(document.createElement("br")); const sp = document.createElement("span"); sp.textContent = line; ov.appendChild(sp); })); }); }catch(x){}
   TRK.ext[slot] = {el, url, label, track:el.track, off:0};
   $("trkOff").textContent = "0 s";
 }
@@ -11832,7 +11832,8 @@ const SUBST = (() => {
     let st = document.getElementById("subStyleCss");
     if(!st){ st = document.createElement("style"); st.id = "subStyleCss"; document.head.appendChild(st); }
     const sh = ed === 1 ? "1px 1px 3px #000,0 0 4px #000" : ed === 2 ? "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000" : "none";
-    st.textContent = "video::cue{color:" + fg + ";background-color:" + bg + ";font-size:" + px + "%;text-shadow:" + sh + "}";
+    /* v387: o mesmo aspeto para o texto sobreposto (com imagem em andamento) */
+    st.textContent = "video::cue{color:" + fg + ";background-color:" + bg + ";font-size:" + px + "%;text-shadow:" + sh + "}" + ".subov{color:" + fg + ";font-size:clamp(12px," + (px * 0.034).toFixed(2) + "vw,120px);text-shadow:" + sh + ";bottom:" + Math.round(O.pos[2][v.pos] * 100) + "%}" + ".subov span{background-color:" + bg + ";border-radius:.2em;padding:0 .25em}";
     try{
       if(window.ANDROID && typeof Android.nsubstyle === "function"){
         const bgi = v.bg === 0 ? 0 : v.bg === 1 ? 0x99000000 : 0xFF000000;
