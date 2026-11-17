@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v358";
+const APP_VERSION = "v359";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -13962,7 +13962,7 @@ body.pfull #vSeek.on{display:flex}
   try{
   const b2 = $("cinebar2"); if(!b2) return;
   const w = document.createElement("div"); w.id = "vSeek";
-  w.innerHTML = '<span id="vSeekC">0:00</span><input type="range" id="vSeekR" min="0" max="1000" step="1" value="0" aria-label="Posição no vídeo"><span id="vSeekD">0:00</span><span id="vAcBox" style="display:none;align-items:center;gap:6px;min-width:0"><button id="vAcM" class="btn" aria-label="Som mais cedo 100 ms">−</button><span id="vAcT" style="min-width:86px">Som 0 ms</span><button id="vAcP" class="btn" aria-label="Som mais tarde 100 ms">+</button></span>';
+  w.innerHTML = '<span id="vSeekC">0:00</span><input type="range" id="vSeekR" min="0" max="1000" step="1" value="0" aria-label="Posição no vídeo"><span id="vSeekD">0:00</span><span id="vAcBox" style="display:none;align-items:center;gap:6px;flex:none"><button id="vAcM" class="btn" aria-label="Acertar o som 100 ms mais cedo">🔈 −0,1 s</button><span id="vAcT" class="muted small" style="min-width:80px;text-align:center">Som 0 ms</span><button id="vAcP" class="btn" aria-label="Acertar o som 100 ms mais tarde">🔊 +0,1 s</button></span>';
   b2.insertBefore(w, b2.firstChild);
   const R = $("vSeekR"); let drag = false;
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
