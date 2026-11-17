@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v371";
+const APP_VERSION = "v372";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5126,6 +5126,8 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
       /* 2) fonte de vídeo */
       ms = new MediaSource(); blobUrl = URL.createObjectURL(ms);
+      /* v372 (diagnóstico): quem chama v.load() durante o MSE (fecha a fonte de vídeo) */
+      try{ if(!v.__loadWrapped){ v.__loadWrapped = 1; const _ld = HTMLMediaElement.prototype.load; v.load = function(){ try{ if(window.__mseOwner === v) EV("MSE: v.load() chamado", {pilha:(new Error()).stack.split("\n").slice(2, 5).map(x => x.trim()).join(" | ").slice(0, 400)}); }catch(e){} return _ld.apply(this, arguments); }; } window.__mseOwner = v; }catch(e){}
       await new Promise((res, rej) => { ms.addEventListener("sourceopen", res, {once:true}); v.src = blobUrl; setTimeout(() => rej(new Error("a fonte de vídeo não abriu")), 8000); });
       if(!alive()) return;
       const dur = info.duration / info.timescale; try{ if(dur > 0) ms.duration = dur; }catch(e){}
