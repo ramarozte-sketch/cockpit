@@ -1915,7 +1915,7 @@ const IDB = {
   async get(k){ if(!this.db && !(await this.open())) return null; return new Promise(res=>{ try{ const q=this.db.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result??null); q.onerror=()=>res(null);}catch(e){res(null)} }); },
   async set(k,v){ if(!this.db && !(await this.open())) return; return new Promise(res=>{ try{ const t=this.db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>res();}catch(e){res()} }); }
 };
-const cfg = Object.assign({token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:"", stt:"auto", srBroken:false, ai:"auto", ui:"", ytKey:"", gClient:"", msClient:"", gwToken:"", gwPlant:"", gwUnit:"W", houseW:"", tarIn:"0.21", tarOut:"0.05", tarSc:"", phases:"1"}, LS.get("cfg", {}));
+const cfg = Object.assign({osAuto:true, token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:"", stt:"auto", srBroken:false, ai:"auto", ui:"", ytKey:"", gClient:"", msClient:"", gwToken:"", gwPlant:"", gwUnit:"W", houseW:"", tarIn:"0.21", tarOut:"0.05", tarSc:"", phases:"1"}, LS.get("cfg", {}));
 const saveCfg = () => LS.set("cfg", cfg);
 /* v280: «sem proxy» — a página https não pode pedir a um servidor http (o browser bloqueia); a versão http do Cockpit (InfinityFree) pode.
    As definições passam no endereço (#ckimp=…), só entre as duas páginas, sem passar por nenhum servidor intermédio. */
@@ -2917,7 +2917,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v378";
+const APP_VERSION = "v379";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
