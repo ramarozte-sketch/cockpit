@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v362";
+const APP_VERSION = "v363";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3547,7 +3547,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(stage <= 1 && /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i.test(c.url) && window.Hls && Hls.isSupported()){
         stage = 2; v.onerror = null; v.removeAttribute("src"); v.load();
         const m3u = c.url.replace(/\.[a-z0-9]+(\?|$)/i, ".m3u8$1");
-        let n458 = 0; // v339: 458 = a conta já tem a ligação em uso (outro aparelho); espera 6 s e repete a mesma rota, até 2 vezes, antes de tentar a direta (que usa a mesma conta)
+        let n458 = 0, n429 = 0; // v339: 458 = a conta já tem a ligação em uso (outro aparelho); espera 6 s e repete a mesma rota, até 2 vezes, antes de tentar a direta (que usa a mesma conta)
         const go = src => {
           if(mirrorOn) stopMirror(slot);
           const h = new Hls({...HLS_CAR, maxBufferLength:30, manifestLoadingMaxRetry:1, levelLoadingMaxRetry:2, fragLoadingMaxRetry:3, fLoader: makeCapLoader(slot)}); hlsInst[slot] = h;
@@ -3557,6 +3557,8 @@ function playChannel(c, slot=tvTarget, auto=false){
           h.on(Hls.Events.ERROR, (ev, d) => {
             if(!d.fatal || playId !== playSeq[slot]) return;
             if((d.response && d.response.code) === 458 && n458 < 2){ n458++; h.destroy(); setTimeout(() => { if(playId !== playSeq[slot]) return; go(src); }, 6000); return; }
+            /* v363: 429 = o fornecedor limitou os pedidos; espera 8 s e repete a mesma rota (até 2 vezes) antes de dar o filme como falhado */
+            if((d.response && d.response.code) === 429 && n429 < 2){ n429++; h.destroy(); setTimeout(() => { if(playId !== playSeq[slot]) return; go(src); }, 8000); return; }
             if(src !== "direct"){ h.destroy(); go("direct"); return; }
             fail("vídeo", "código " + code + " · HLS " + d.details + (d.response?.code ? " " + d.response.code : ""));
           });
