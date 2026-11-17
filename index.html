@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v405";
+const APP_VERSION = "v406";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5628,7 +5628,7 @@ function audioWatch(slot, c, playId, viaHls){
     if(window.__sa && window.__sa.on(slot)){ if(window.__sa.n(slot) > 0) clearInterval(audioWatchT[slot]); return; }
     if(!noAudioNow(v)) { if(typeof v.webkitAudioDecodedByteCount === "number" && v.webkitAudioDecodedByteCount > 0) clearInterval(audioWatchT[slot]); return; }
     /* num dispositivo com hardware, o pipeline Dolby pode levar 2–4 s a inicializar */
-    if(HW.eac3 && eac3Mode() === "hw" && ticks < 30) return;   /* até ~15 s */
+    if(HW.eac3 && eac3Mode() === "hw" && ticks < 8) return;   /* v406: até ~4 s; se o som não sair, passa já ao descodificador por software */
     if(ticks < (c.kind === "live" ? 12 : 4)) return; // dá tempo ao arranque
     clearInterval(audioWatchT[slot]);
     const h = hlsInst[slot], tr = h && h.audioTracks ? h.audioTracks : [];
