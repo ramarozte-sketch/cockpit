@@ -1684,6 +1684,26 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
         </div>
       <div class="panel setcard">
+          <h2>Legendas</h2>
+          <p class="small muted setsub" style="margin:0">Procurar, ficheiro, aspeto e conta OpenSubtitles. No filme ficam só as legendas encontradas.</p>
+          <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
+          <label class="row small"><input type="checkbox" id="osAutoOn"> Procurar sozinho ao abrir filmes e episódios sem legendas em português</label>
+      <h3>Procurar online (OpenSubtitles)</h3>
+          <div class="row"><input type="text" id="osQuery" placeholder="Título (ex.: Duna 2021, ou The Office S02E03)" style="flex:1;min-width:220px"><button class="btn" id="osGo">🔎 Procurar</button></div>
+          <div class="trklist" id="osRes"></div>
+          <h3>Ficheiro ou endereço</h3>
+          <div class="row"><input type="url" id="trkUrl" placeholder="Endereço de um ficheiro .srt ou .vtt" style="flex:1;min-width:220px"><button class="btn" id="trkUrlGo">Carregar</button></div>
+          <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiro .srt / .vtt<input type="file" id="trkFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" hidden></label></div>
+          <h3>Aspeto das legendas</h3><div id="trkStyle" class="trkStyle"></div>
+          <details><summary class="small muted" style="cursor:pointer">Conta OpenSubtitles (só é preciso configurar uma vez)</summary>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+              <input type="text" id="osKey" placeholder="Chave da API (API key)" autocomplete="off">
+              <input type="text" id="osUser" placeholder="Utilizador" autocomplete="off"><input type="password" id="osPass" placeholder="Palavra-passe" autocomplete="off">
+              <div class="row"><button class="btn" id="osSave">Guardar</button><span class="small muted">Cria conta grátis em opensubtitles.com e gera a chave em opensubtitles.com/consumers.</span></div>
+            </div>
+          </details>
+      </div>
+      <div class="panel setcard">
           <h2>Imagem e descodificação</h2>
           <p class="small muted setsub" style="margin:0">Motor da imagem em andamento, filmes com som Dolby e indicador de fps.</p>
           <h3 class="setsubh">Descodificação de vídeo</h3>
@@ -1847,24 +1867,6 @@ body.layout-atv .rail{display:none}
     <h3>Legendas</h3><div class="trklist" id="trkSubs"></div>
     <div class="row"><button class="btn primary" id="osAuto">⚡ Português automático</button><span class="small muted">Sincronia</span><button class="btn" id="trkM">−0,5 s</button><b id="trkOff" class="small">0 s</b><button class="btn" id="trkP">+0,5 s</button></div>
     <p class="small muted" id="osNote" style="margin:0"></p>
-    <label class="row small"><input type="checkbox" id="trkAuto"> Ligar automaticamente as legendas em português, quando existirem</label>
-    <label class="row small"><input type="checkbox" id="osAutoOn"> Procurar sozinho ao abrir filmes e episódios sem legendas em português</label>
-    <details><summary class="small" style="cursor:pointer;padding:8px 0">Mais opções: procurar, ficheiro, aspeto</summary>
-      <h3>Procurar online (OpenSubtitles)</h3>
-      <div class="row"><input type="text" id="osQuery" placeholder="Título (ex.: Duna 2021, ou The Office S02E03)" style="flex:1;min-width:220px"><button class="btn" id="osGo">🔎 Procurar</button></div>
-      <div class="trklist" id="osRes"></div>
-      <h3>Ficheiro ou endereço</h3>
-      <div class="row"><input type="url" id="trkUrl" placeholder="Endereço de um ficheiro .srt ou .vtt" style="flex:1;min-width:220px"><button class="btn" id="trkUrlGo">Carregar</button></div>
-      <div class="row"><label class="btn" style="display:inline-flex;align-items:center">Escolher ficheiro .srt / .vtt<input type="file" id="trkFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" hidden></label></div>
-      <h3>Aspeto das legendas</h3><div id="trkStyle" class="trkStyle"></div>
-      <details><summary class="small muted" style="cursor:pointer">Conta OpenSubtitles (só é preciso configurar uma vez)</summary>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          <input type="text" id="osKey" placeholder="Chave da API (API key)" autocomplete="off">
-          <input type="text" id="osUser" placeholder="Utilizador" autocomplete="off"><input type="password" id="osPass" placeholder="Palavra-passe" autocomplete="off">
-          <div class="row"><button class="btn" id="osSave">Guardar</button><span class="small muted">Cria conta grátis em opensubtitles.com e gera a chave em opensubtitles.com/consumers.</span></div>
-        </div>
-      </details>
-    </details>
   </div>
   <p class="small muted" id="trkNote" style="margin:0"></p>
 </div></div>
@@ -2917,7 +2919,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v382";
+const APP_VERSION = "v383";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
