@@ -2639,6 +2639,9 @@ const orgKindNow = () => tvKind === "free" ? "free" : tvKind === "fav" ? "fav" :
 const ORG = {tab:"grp", grp:"", sel:new Set(), selCtx:"", q:""};
 const orgNorm = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const orgMatch = t => !ORG.q || orgNorm(t).includes(orgNorm(ORG.q));
+/* v354: pesquisar «|PT|» ou «PT» também apanha as categorias desse país (o prefixo já não está no nome) */
+const orgCtryHit = n => { const q = String(ORG.q || "").replace(/[|\s]/g, "").toUpperCase(); if(!q) return false; return (q === "PT" && isPtGroup(n)) || channels.some(c => c.group === n && String(c.ctry || "").toUpperCase() === q); };
+const orgMatchG = n => orgMatch(n) || orgCtryHit(n);
 const orgSource = kind => kind === "free" ? freeChans : kind === "intl" ? intlChans : channels.filter(c => c.kind === kind);
 function orgMove(arr, name, how){
   const i = arr.indexOf(name); if(i < 0) return;
@@ -2696,8 +2699,8 @@ function orgRender(){
     $("orgGrp").hidden = true;
     const hid = new Set((TVORG.grpHide || {})[kind] || []);
     const sc = kind + "|grp"; if(ORG.selCtx !== sc){ ORG.sel = new Set(); ORG.selCtx = sc; }
-    const gAll = orgGroupList(kind, names, true), gVis = gAll.filter(orgMatch);
-    $("orgList").innerHTML = orgBulk() + gAll.map((n, i) => [n, i]).filter(([n]) => orgMatch(n)).map(([n, i]) => `<div class="orgrow${hid.has(n) ? " off" : ""}"><input type="checkbox" class="orgsel" data-i="${i}"${ORG.sel.has(n) ? " checked" : ""} aria-label="Selecionar ${esc(n)}">${orgPosInput(i, names.length)}<span class="nm">${esc(n)} <span class="muted small">(${src.filter(c => c.group === n).length})</span></span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hid.has(n) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") || `<p class="muted small">Sem categorias. Carrega primeiro a lista.</p>`;
+    const gAll = orgGroupList(kind, names, true), gVis = gAll.filter(orgMatchG);
+    $("orgList").innerHTML = orgBulk() + gAll.map((n, i) => [n, i]).filter(([n]) => orgMatchG(n)).map(([n, i]) => `<div class="orgrow${hid.has(n) ? " off" : ""}"><input type="checkbox" class="orgsel" data-i="${i}"${ORG.sel.has(n) ? " checked" : ""} aria-label="Selecionar ${esc(n)}">${orgPosInput(i, names.length)}<span class="nm">${esc(n)} <span class="muted small">(${src.filter(c => c.group === n).length})</span></span>${btn("top", "⤒", i, "Pôr no topo")}${btn("up", "▲", i, "Subir")}${btn("dn", "▼", i, "Descer")}${btn("hide", hid.has(n) ? "👁 Mostrar" : "🚫 Ocultar", i, "Ocultar ou mostrar")}</div>`).join("") || `<p class="muted small">Sem categorias. Carrega primeiro a lista.</p>`;
     const list = gAll;
     orgWirePos((i, v) => { TVORG.grp = TVORG.grp || {}; const arr = TVORG.grp[kind] = orgGroupList(kind, names, true); orgMoveTo(arr, list[i], v); orgSave(); orgRender(); orgRefreshMain(); });
     $("orgList").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
@@ -2906,7 +2909,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v353";
+const APP_VERSION = "v354";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
