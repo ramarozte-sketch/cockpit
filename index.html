@@ -173,6 +173,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .slot canvas.mirb{position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;display:none}
 .slot:not(.mirroring) canvas.mirb{display:none!important}
 .slot.mirroring video{opacity:0;pointer-events:none}
+/* v386: legendas externas desenhadas por cima do slot (também com a imagem em andamento, que cobre o vídeo) */
+.subov{position:absolute;left:0;right:0;bottom:7%;text-align:center;color:#fff;font-size:clamp(15px,3.4vw,34px);line-height:1.25;text-shadow:0 2px 4px #000,0 0 8px #000;pointer-events:none;white-space:pre-line;z-index:6;padding:0 6%}
 #btnMirror.on,#hMirror.on,#tMirror.on{background:var(--accent);color:var(--accent-ink);opacity:1!important}
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
@@ -2919,7 +2921,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v385";
+const APP_VERSION = "v386";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11678,7 +11680,7 @@ const TRK = {ext:[null,null], autoDone:[false,false]};
 const trkIsPt = t => /(^|[^a-z])(pt|por|portugu[eê]s|portuguese|pt-pt|pt-br)([^a-z]|$)/i.test(String(t || ""));
 const trkName = (t, i) => (t.name && t.name !== t.lang ? t.name : "") + (t.lang ? (t.name && t.name !== t.lang ? " · " : "") + t.lang : "") || ("Faixa " + (i+1));
 function trkReset(slot){ trkClearExt(slot); TRK.autoDone[slot] = false; }
-function trkClearExt(slot){ const e = TRK.ext[slot]; if(!e) return; try{ e.el.remove(); URL.revokeObjectURL(e.url); }catch(x){} TRK.ext[slot] = null; }
+function trkClearExt(slot){ const e = TRK.ext[slot]; if(!e) return; try{ e.el.remove(); URL.revokeObjectURL(e.url); }catch(x){} TRK.ext[slot] = null; try{ const o = slotBox(slot).querySelector(".subov"); if(o) o.textContent = ""; }catch(x){} }
 function trkAudioList(slot){
   const h = hlsInst[slot], v = $("vid"+slot);
   if(h && h.audioTracks && h.audioTracks.length > 0) return {kind:"hls", items:h.audioTracks.map((t,i)=>({i, name:trkName(t,i), on:h.audioTrack === i}))};
@@ -11767,7 +11769,10 @@ function trkAddExt(slot, text, label){
   const v = $("vid"+slot); trkSubsOff(slot); trkClearExt(slot);
   const url = URL.createObjectURL(new Blob([srtToVtt(text)], {type:"text/vtt"}));
   const el = document.createElement("track"); el.kind = "subtitles"; el.label = label; el.srclang = "pt"; el.src = url; el.default = true;
-  v.appendChild(el); el.track._ext = true; el.track.mode = "showing";
+  v.appendChild(el); el.track._ext = true; el.track.mode = "hidden";
+  /* v386: o texto sai num sobreposto no slot, porque a imagem em andamento tapa o vídeo */
+  try{ const box = slotBox(slot); let ov = box.querySelector(".subov"); if(!ov){ ov = document.createElement("div"); ov.className = "subov"; box.appendChild(ov); }
+    const tr = el.track; tr.addEventListener("cuechange", () => { ov.textContent = Array.from(tr.activeCues || []).map(c => String(c.text || "").replace(/<[^>]+>/g, "")).join("\n"); }); }catch(x){}
   TRK.ext[slot] = {el, url, label, track:el.track, off:0};
   $("trkOff").textContent = "0 s";
 }
