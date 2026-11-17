@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v361";
+const APP_VERSION = "v362";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3312,6 +3312,8 @@ function playChannel(c, slot=tvTarget, auto=false){
   const playId = ++playSeq[slot]; trkReset(slot);
   const fail = async (stage, extra) => {
     if(playId !== playSeq[slot]) return;
+    /* v362: 458 = a conta ainda tem a ligação anterior aberta; repetir ou trocar de alternativa só volta a bater no 458 */
+    if(Date.now() - (window.__last458 || 0) < 25000){ stopSlot(slot); try{ toast("Conta IPTV: ligação anterior ainda aberta (458). Espera 20 s e carrega o canal de novo."); }catch(e){} return; }
     stopSlot(slot);
     if(c.free && /manifestLoadError|manifestParsingError|network|CORS|HTTP 40[13]/i.test(String(extra||""))){
       autoTried[slot].add(c.url);
@@ -14669,7 +14671,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     if(!window.mpegts || window.mpegts.__dbg) return; const M = window.mpegts, cp = M.createPlayer;
     M.createPlayer = function(ds, cf){ const p = cp.apply(this, arguments); try{ const am = p.attachMediaElement.bind(p); let slot = -1;
       p.attachMediaElement = m => { slot = slotOf(m); ev(slot, "abrir .ts", {rota:route(ds.url), url:red(ds.url)}); return am(m); };
-      p.on(M.Events.ERROR, (t, d, info) => ev(slot, "erro .ts", {tipo:t, det:d, info:scrub(info && (info.msg || info.code) || "")})); }catch(e){} return p; };
+      p.on(M.Events.ERROR, (t, d, info) => { const m = info && (info.msg || info.code) || ""; if(/458/.test(String(m))) window.__last458 = Date.now(); ev(slot, "erro .ts", {tipo:t, det:d, info:scrub(m)}); }); }catch(e){} return p; };
     M.__dbg = true;
   };
   setInterval(wrapTs, 2000);
