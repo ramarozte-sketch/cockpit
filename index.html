@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v406";
+const APP_VERSION = "v407";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5314,7 +5314,7 @@ function mp4aRun(slot, st, src, onNone){
         if(st.aq.length > 400) st.aq.splice(0, st.aq.length - 400);
         st.drain();
       }
-    }catch(e){ if(alive()){ st.err = "mp4: " + (e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err}); }catch(e2){} if(/429/.test(String(st.err))) window.__last429 = Date.now(); none(st.err); } }
+    }catch(e){ if(alive()){ st.err = "mp4: " + (e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err}); }catch(e2){} if(/429/.test(String(st.err))){ window.__last429 = Date.now(); const k = st.r429 = (st.r429 || 0) + 1; /* v407: 429 = o fornecedor limitou os pedidos; espera e repete o leitor do som (até 2 vezes) em vez de desistir */ if(k <= 2){ try{ window.__dbgEv && window.__dbgEv(slot, "som por software: 429, espera e repete", {vez:k}); }catch(e3){} setTimeout(() => { if(alive()) mp4aRun(slot, st, src, onNone); }, 8000 * k); return; } } none(st.err); } }
   })();
 }
 /* Leitura contínua de um ficheiro (filmes na imagem em andamento): UMA ligação aberta (Range bytes=N-) lida aos poucos,
