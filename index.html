@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v372";
+const APP_VERSION = "v373";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3565,7 +3565,7 @@ function playChannel(c, slot=tvTarget, auto=false){
           h.loadSource(src === "direct" ? directUrl(m3u) : (cfg.proxy2 ? px2 : px)(m3u)); h.attachMedia(v);
         };
         /* v339: troca pedida com o filme a dar (sem som → versão HLS): o servidor ainda conta a ligação do ficheiro (conta de 1 ligação → 458). Dá 1,5 s para ela fechar */
-        if(code === 0){ try{ window.__connCloseAt = Date.now(); window.__dbgEv && window.__dbgEv(slot, "filme sem som: passa à versão HLS após fechar a ligação do ficheiro", {espera_ms:1500}); }catch(e){} setTimeout(() => { if(playId === playSeq[slot]) go("proxy"); }, 1500); }
+        if(code === 0){ try{ window.__connCloseAt = Date.now(); window.__dbgEv && window.__dbgEv(slot, "filme sem som: passa à versão HLS após fechar a ligação do ficheiro", {espera_ms:1500}); }catch(e){} /* v373: após 429 no ficheiro, espera 10 s antes do HLS (senão o HLS apanha 458 com a ligação ainda aberta) */ const esp = (Date.now() - (window.__last429 || 0) < 20000) ? 10000 : 1500; setTimeout(() => { if(playId === playSeq[slot]) go("proxy"); }, esp); }
         else go("proxy");
         return;
       }
@@ -5285,7 +5285,7 @@ function mp4aRun(slot, st, src, onNone){
         if(st.aq.length > 400) st.aq.splice(0, st.aq.length - 400);
         st.drain();
       }
-    }catch(e){ if(alive()){ st.err = "mp4: " + (e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err}); }catch(e2){} none(st.err); } }
+    }catch(e){ if(alive()){ st.err = "mp4: " + (e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err}); }catch(e2){} if(/429/.test(String(st.err))) window.__last429 = Date.now(); none(st.err); } }
   })();
 }
 /* Leitura contínua de um ficheiro (filmes na imagem em andamento): UMA ligação aberta (Range bytes=N-) lida aos poucos,
