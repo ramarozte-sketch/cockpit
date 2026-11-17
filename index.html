@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v398";
+const APP_VERSION = "v399";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3316,7 +3316,7 @@ function playChannel(c, slot=tvTarget, auto=false){
   }
   radioStop();
   stopSlot(slot);
-  const live = c.kind==="live"; let fileViaHls = null;
+  const live = c.kind==="live"; let fileViaHls = null; let toHls = false;   /* v399: depois de passar ao HLS, nenhum arranque pendente do ficheiro pode voltar a abri-lo */
   const isTs = /\.ts(\?|$)/i.test(c.url);
   const fext = fileExt(c.url), isFlv = fext === "flv", isDash = fext === "mpd", isFileTs = !live && /^(ts|m2ts|mts)$/.test(fext);
   const isHls = /\.m3u8(\?|$)/i.test(c.url) || (live && !isTs && !FILE_EXT(c.url) && !isDash);
@@ -3531,12 +3531,12 @@ function playChannel(c, slot=tvTarget, auto=false){
     // Filmes e episódios (ficheiro direto): 1.º proxy → 2.º proxy → versão HLS (.m3u8) do mesmo ficheiro, se o painel a oferecer.
     let stage = DIRECT_VIDEO() ? -1 : 0, triedDirect = DIRECT_VIDEO();
     const hlsPattern = /\/(movie|series)\/.+\.(mkv|mp4|avi|mov|m4v|ts|flv|webm|wmv|mpe?g|3gp)(\?|$)/i;
-    fileViaHls = () => { if(stage >= 2 || !hlsPattern.test(c.url) || !(window.Hls && Hls.isSupported())) return false; stage = 1; triedDirect = true; v.onerror && v.onerror(); return true; };
+    fileViaHls = () => { if(stage >= 2 || !hlsPattern.test(c.url) || !(window.Hls && Hls.isSupported())) return false; stage = 1; triedDirect = true; toHls = true; v.onerror && v.onerror(); return true; };
     /* v248: a conta só aceita 1 ligação: um filme aberto logo a seguir a um canal ficava sem dados (Scary Movie, log de 6/11).
        Espera até 1 s desde o último fecho e, se em 10 s o servidor não mandar nada, pede o ficheiro outra vez (uma vez). */
     { const src1 = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
       const gapF = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
-      const setF = () => { if(playId !== playSeq[slot]) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
+      const setF = () => { if(playId !== playSeq[slot] || toHls) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
       if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
@@ -5693,6 +5693,8 @@ function stopSlot(slot){
   if(tsInst[slot]){ try{ tsInst[slot].destroy(); }catch(e){} tsInst[slot]=null; }
   if(dashInst[slot]){ try{ dashInst[slot].reset(); }catch(e){} dashInst[slot]=null; }
   v.onerror=null; v.removeAttribute("src"); v.load();
+  /* v399: o leitor do som AC-3 por software tem a sua própria ligação ao ficheiro: fecha-a também */
+  try{ const ma = window.__mka && window.__mka[slot]; if(ma){ ma.dead = true; try{ ma.abort && ma.abort.abort(); }catch(e){} try{ ma.clock && ma.clock.close(); }catch(e){} window.__mka[slot] = null; } }catch(e){}
   if(typeof stopMirror==="function") stopMirror(slot);
 }
 let mpegtsLoading = null;
