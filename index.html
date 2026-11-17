@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v411";
+const APP_VERSION = "v412";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5645,6 +5645,8 @@ function audioWatch(slot, c, playId, viaHls){
     if(ticks === 1) dbgS("iniciada", {pausado:v.paused, mudo:v.muted, vol:v.volume, pronto:v.readyState});
     if(playId !== playSeq[slot] || ++ticks > 24){ if(playId === playSeq[slot]) dbgS("terminou sem decidir", {}); clearInterval(audioWatchT[slot]); return; }
     if(window.__sa && window.__sa.on(slot)){ dbgS("parada: outro leitor de som ativo", {}); if(window.__sa.n(slot) > 0) clearInterval(audioWatchT[slot]); return; }
+    /* v412: em andamento a imagem vem do leitor de imagem e o elemento de vídeo não reproduz; a decisão não pode depender dele */
+    if(mirrorOn && c.kind !== "live" && ticks >= 2 && v.readyState < 3){ clearInterval(audioWatchT[slot]); dbgS("em andamento: som por software sem esperar pelo elemento", {}); try{ window.__mkaStart && window.__mkaStart(slot, c, playId); }catch(e){} return; }
     if(!noAudioNow(v)) { dbgS("sem decisão: o som já sai do carro", {pausado:v.paused, mudo:v.muted, vol:v.volume, pronto:v.readyState, tempo:+v.currentTime.toFixed(1), bytesAudio:v.webkitAudioDecodedByteCount}); if(typeof v.webkitAudioDecodedByteCount === "number" && v.webkitAudioDecodedByteCount > 0) clearInterval(audioWatchT[slot]); return; }
     /* num dispositivo com hardware, o pipeline Dolby pode levar 2–4 s a inicializar */
     if(HW.eac3 && eac3Mode() === "hw" && ticks < 8) return;   /* v406: até ~4 s; se o som não sair, passa já ao descodificador por software */
