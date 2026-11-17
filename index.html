@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v413";
+const APP_VERSION = "v414";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5274,7 +5274,9 @@ function mp4aRun(slot, st, src, onNone){
         if(guard <= 3 || guard % 20 === 0){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice lido", {pedido:guard, de:a, bytes:u8 ? u8.byteLength : 0, ms:Math.round(performance.now() - tR)}); }catch(e){} }
         if(!u8 || !u8.byteLength) break;
         const buf = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength); buf.fileStart = a;
-        const nx = file.appendBuffer(buf); pos = nx || a + buf.byteLength;
+        const nx = file.appendBuffer(buf);
+        /* v414: se a biblioteca pede de novo o início de um bloco incompleto, continua a partir do que acabou de receber (antes repetia o mesmo pedido) */
+        pos = (nx && nx > a) ? nx : a + buf.byteLength;
       }
       try{ window.__dbgEv && window.__dbgEv(slot, "som: fim da leitura do índice", {encontrado:!!info, erro:perr || "", pedidos:guard}); }catch(e){}
       RR.reset(); if(!alive()) return;
