@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v356";
+const APP_VERSION = "v357";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5114,7 +5114,9 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       let use = null, vOff = 0, usedName = "";
       for(const [name, mk, off] of cands){ let bytes = null, ok = false; try{ bytes = mk(); ok = await MSEF.probeInit(bytes, mime); }catch(e){} if(!alive()) return; if(ok){ use = bytes; vOff = off; usedName = name; break; } }
       if(!use){ EV("filme num só leitor (MSE): cabeçalho de vídeo rejeitado", {caixas:MSEF.boxDump(ib).slice(0, 400)}); giveUp("nenhum segmento inicial aceite"); return; }
-      const aAdd = editShift(at) + uOff + vOff;   /* o som toca quando o relógio do vídeo chega a cts + aAdd */
+      let aAdd = editShift(at) + uOff + vOff;   /* o som toca quando o relógio do vídeo chega a cts + aAdd */
+      /* v357: acerto ao vivo (−/+ no leitor): guarda por filme e aplica aos blocos seguintes */
+      window.__mseAcerto = {slot, alive: () => !st.mseOff, ms: () => Math.round(uOff * 1000), adj(ms){ uOff = Math.round((uOff * 1000 + ms)) / 1000; aAdd = editShift(at) + uOff + vOff; try{ localStorage.setItem(aoffKey(c.name), String(uOff)); }catch(e){} st.aq = []; try{ EV("filme num só leitor (MSE): acerto do som", {acertoSom_ms: Math.round(uOff * 1000)}); }catch(e){} }};
       EV("filme num só leitor (MSE): pronto", {video:vt.codec, som:at.codec, inicial:usedName, desvioVideo_s:+vOff.toFixed(3), acertoSom_ms:Math.round(uOff * 1000), ms:Math.round(performance.now() - t0)});
       st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec};
       try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
@@ -13960,7 +13962,7 @@ body.pfull #vSeek.on{display:flex}
   try{
   const b2 = $("cinebar2"); if(!b2) return;
   const w = document.createElement("div"); w.id = "vSeek";
-  w.innerHTML = '<span id="vSeekC">0:00</span><input type="range" id="vSeekR" min="0" max="1000" step="1" value="0" aria-label="Posição no vídeo"><span id="vSeekD">0:00</span>';
+  w.innerHTML = '<span id="vSeekC">0:00</span><input type="range" id="vSeekR" min="0" max="1000" step="1" value="0" aria-label="Posição no vídeo"><span id="vSeekD">0:00</span><span id="vAcBox" style="display:none;align-items:center;gap:6px;min-width:0"><button id="vAcM" class="btn" aria-label="Som mais cedo 100 ms">−</button><span id="vAcT" style="min-width:86px">Som 0 ms</span><button id="vAcP" class="btn" aria-label="Som mais tarde 100 ms">+</button></span>';
   b2.insertBefore(w, b2.firstChild);
   const R = $("vSeekR"); let drag = false;
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
@@ -13969,9 +13971,14 @@ body.pfull #vSeek.on{display:flex}
   setInterval(() => {
     const v = vod(); w.classList.toggle("on", !!v);
     document.body.classList.toggle("mirOn", !!(typeof mirrorOn !== "undefined" && mirrorOn));
+    const ac = window.__mseAcerto, acOn = !!(v && ac && ac.alive && ac.alive() && ac.slot === tvTarget);
+    const box = $("vAcBox"); if(box) box.style.display = acOn ? "flex" : "none";
+    if(acOn){ $("vAcT").textContent = "Som " + ac.ms() + " ms"; }
     if(!v || drag) return;
     R.value = String(Math.round(v.currentTime / v.duration * 1000)); $("vSeekC").textContent = fmt(v.currentTime); $("vSeekD").textContent = "-" + fmt(v.duration - v.currentTime);
   }, 500);
+  const acAdj = d => { const ac = window.__mseAcerto; if(ac && ac.alive && ac.alive()){ ac.adj(d); try{ toast("Som " + ac.ms() + " ms (guardado para este filme)"); }catch(e){} } };
+  $("vAcM") && ($("vAcM").onclick = () => acAdj(-100)); $("vAcP") && ($("vAcP").onclick = () => acAdj(100));
   const keep = () => { try{ window.__ctlPeek ? window.__ctlPeek() : document.body.classList.add("ctlOn"); }catch(e){} };
   R.addEventListener("input", () => { const v = vod(); if(!v) return; drag = true; keep(); $("vSeekC").textContent = fmt(R.value / 1000 * v.duration); });
   R.addEventListener("change", () => { const v = vod(); drag = false; if(!v) return; try{ v.currentTime = R.value / 1000 * v.duration; }catch(e){} });
