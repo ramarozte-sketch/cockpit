@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v408";
+const APP_VERSION = "v409";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3599,6 +3599,12 @@ function playChannel(c, slot=tvTarget, auto=false){
   audioWatch(slot, c, playId, () => fileViaHls && fileViaHls());
   if(!live && /\.mkv(\?|$)/i.test(c.url) && window.__libav) setTimeout(() => { try{ window.__libav().catch(() => {}); }catch(e){} }, 200);   /* aquece o descodificador Dolby: se o som for AC-3 já está pronto */
   lastPlayed[slot] = c; LS.set("last"+slot, {url:c.url, name:c.name});
+  /* v409 (diagnóstico): de 5 em 5 s, quantas ligações ao ficheiro estão abertas (elemento de vídeo, imagem em andamento, som) */
+  if(!live && /\.(mkv|mp4|m4v|mov)(\?|$)/i.test(c.url)){ const pid = playId; const tk = setInterval(() => { try{
+    if(pid !== playSeq[slot]){ clearInterval(tk); return; }
+    const vv = $("vid" + slot), m = MIR[slot], ma = window.__mka && window.__mka[slot], aberta = x => !!(x && x.abort && !x.abort.signal.aborted);
+    window.__dbgEv && window.__dbgEv(slot, "ligações ao ficheiro", {elemento: !!(vv && vv.currentSrc && !/^blob:/.test(vv.currentSrc) && vv.networkState === 2), imagem: aberta(m), som: aberta(ma)});
+  }catch(e){} }, 5000); }
   if(mirrorOn) startMirror(slot);
   updateCinemaBar(); keepAwake(true);
   epgSlot[slot] = c; renderEpgBox(slot); osAutoPlay(slot, c);
