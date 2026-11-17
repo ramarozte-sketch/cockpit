@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v364";
+const APP_VERSION = "v365";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5122,7 +5122,7 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       /* v357: acerto ao vivo (−/+ no leitor): guarda por filme e aplica aos blocos seguintes */
       window.__mseAcerto = {slot, alive: () => !st.mseOff, ms: () => Math.round(uOff * 1000), adj(ms){ uOff = Math.round((uOff * 1000 + ms)) / 1000; aAdd = editShift(at) + uOff + vOff; try{ localStorage.setItem(aoffKey(c.name), String(uOff)); }catch(e){} try{ EV("filme num só leitor (MSE): acerto do som", {acertoSom_ms: Math.round(uOff * 1000)}); }catch(e){} }};
       EV("filme num só leitor (MSE): pronto", {video:vt.codec, som:at.codec, inicial:usedName, desvioVideo_s:+vOff.toFixed(3), acertoSom_ms:Math.round(uOff * 1000), ms:Math.round(performance.now() - t0)});
-      st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v364: imagem em andamento também no caminho de um só leitor (MSE): o modo de imagem copia o vídeo deste elemento */ try{ if(mirrorOn && playId === playSeq[slot]) startMirror(slot); }catch(e){}
+      st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v365: no caminho MSE a imagem em andamento não corre (o modo de imagem leria o ficheiro outra vez e mostrava o erro do WebCodecs sobre o vídeo, que ficava escondido) */ try{ stopMirror(slot); }catch(e){}
       try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
       /* 2) fonte de vídeo */
       ms = new MediaSource(); blobUrl = URL.createObjectURL(ms);
