@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v423";
+const APP_VERSION = "v424";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15537,7 +15537,11 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         /* a mistura Dolby para estéreo baixa o volume para não saturar: recupera ~4 dB com um limitador suave */
         this.agc = this.ctx.createGain(); this.agc.gain.value = 1; this.boost = this.ctx.createGain(); this.boost.gain.value = 1.5; this.env = 0; this.gA = 1; this.lastLog = 0; this.pk = 0;
         try{ const cp = this.ctx.createDynamicsCompressor(); cp.threshold.value = -8; cp.knee.value = 6; cp.ratio.value = 6; cp.attack.value = 0.004; cp.release.value = 0.2; this.g.connect(this.agc); this.agc.connect(this.boost); this.boost.connect(cp); cp.connect(this.ctx.destination); }
-        catch(e){ this.g.connect(this.ctx.destination); } }
+        catch(e){ this.g.connect(this.ctx.destination); }
+        /* v424: medição na saída real (depois do ganho e do compressor, em paralelo: não altera o som) */
+        try{ const an = this.ctx.createAnalyser(); an.fftSize = 2048; this.cp = this.cp || null; (this.cp || this.boost).connect(an); this.an = an; const buf = new Float32Array(2048);
+          this.anT = setInterval(() => { try{ an.getFloatTimeDomainData(buf); let sum = 0, pk = 0; for(let i = 0; i < buf.length; i++){ const x = buf[i]; sum += x * x; if(Math.abs(x) > pk) pk = Math.abs(x); }
+            const rms = Math.sqrt(sum / buf.length); window.__dbgEv && window.__dbgEv(0, "som: saída real", {rmsDb:+(20 * Math.log10(rms + 1e-9)).toFixed(1), picoDb:+(20 * Math.log10(pk + 1e-9)).toFixed(1), ctx:this.ctx.state, vol:this.g ? +this.g.gain.value.toFixed(2) : null}); }catch(e2){} }, 5000); }catch(e){} }
       if(this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); }
     push(planes, sr, t){
       const v = this.v; this._ensure(sr); const c = this.ctx;
