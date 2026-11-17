@@ -1716,6 +1716,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
           <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
+          <label class="f">Uma ligação de cada vez (filmes)<select id="setUmaLig"><option value="off">Desligada (por defeito)</option><option value="on">Ligada: imagem e som revezam-se</option></select></label>
           <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
           <h3 class="setsubh">Indicador de fps</h3>
@@ -2926,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v409";
+const APP_VERSION = "v410";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5329,7 +5330,7 @@ function mp4aRun(slot, st, src, onNone){
 function rangeReader(src, st){
   const R = {pos:-1, rd:null, eof:false, ctl:null};
   R.reset = () => { try{ R.ctl && R.ctl.abort(); }catch(e){} R.rd = null; R.pos = -1; };
-  R.read = async (a, max) => {
+  const readOne = async (a, max) => {
     try{
       if(!R.rd || R.pos !== a){
         R.reset(); R.ctl = new AbortController(); st.abort = R.ctl; R.eof = false;
@@ -5346,6 +5347,15 @@ function rangeReader(src, st){
       if(parts.length === 1) return parts[0];
       const out = new Uint8Array(n); let k = 0; for(const x of parts){ out.set(x, k); k += x.length; } return out;
     }catch(e){ R.rd = null; R.pos = -1; throw e; }
+  };
+  /* v410: com «Uma ligação de cada vez» ligado, as leituras (imagem e som) revezam-se e cada uma fecha a sua ligação ao acabar */
+  R.read = async (a, max) => {
+    if(!(cfg && cfg.umaLigacao)) return readOne(a, max);
+    const prev = window.__rrQ || Promise.resolve(); let libera; const minha = new Promise(r => libera = r);
+    window.__rrQ = prev.then(() => minha);
+    await prev;
+    try{ return await readOne(a, Math.max(max || 0, 1 << 20)); }
+    finally{ try{ R.rd && R.rd.cancel(); }catch(e){} R.rd = null; libera(); }
   };
   return R;
 }
@@ -15683,6 +15693,7 @@ window.__sa = {
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = (cfg.decodeMode === "software" || location.protocol === "http:") ? "software" : "webcodecs";
       const mf = $("setMseFilm"); if(mf) mf.value = cfg.mseFilm === false ? "off" : "on";
+      const ul = $("setUmaLig"); if(ul) ul.value = cfg.umaLigacao ? "on" : "off";
       const sm = $("setSmooth"); if(sm) sm.checked = cfg.smoothClock !== false;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
@@ -15700,6 +15711,7 @@ window.__sa = {
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
   bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
+  bind("setUmaLig", e => { cfg.umaLigacao = e.target.value === "on"; saveCfg(); toast(cfg.umaLigacao ? "Filmes: imagem e som revezam-se numa só ligação. Reabre o filme." : "Filmes: leitores em paralelo (por defeito). Reabre o filme."); });
   bind("setMseFilm", e => { cfg.mseFilm = e.target.value !== "off"; saveCfg(); toast(cfg.mseFilm ? "Filmes com som Dolby: um só leitor. Reabre o filme." : "Filmes com som Dolby: leitor do carro + som à parte. Reabre o filme."); });
   bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg();
     /* v328: reinicia o espelho de cada ecrã para usar o motor escolhido (antes ficava o motor antigo) */
