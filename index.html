@@ -2926,7 +2926,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v401";
+const APP_VERSION = "v402";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3297,6 +3297,8 @@ function playChannel(c, slot=tvTarget, auto=false){
     window.__hlsP.then(() => { if(playChannel.__wait === tk) playChannel(c, slot, auto); });
     return;
   }
+  /* v402: depois de um 458 a conta está ocupada: as trocas automáticas de canal param 30 s (as escolhas manuais continuam) */
+  if(auto && Date.now() - (window.__auto458 || 0) < 30000){ try{ window.__dbgEv && window.__dbgEv(slot, "troca automática suspensa (conta ocupada, 458)", {}); }catch(e){} return; }
   if(!auto) autoTried[slot].clear();
   const v = $("vid"+slot);
   if(hlsInst[slot]){ hlsInst[slot].destroy(); hlsInst[slot]=null; }
@@ -3571,6 +3573,7 @@ function playChannel(c, slot=tvTarget, auto=false){
           h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => trkAuto(slot)); h.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => trkAuto(slot));
           h.on(Hls.Events.ERROR, (ev, d) => {
             if(!d.fatal || playId !== playSeq[slot]) return;
+            if((d.response && d.response.code) === 458) window.__auto458 = Date.now();   /* v402: a conta está ocupada: as retentativas automáticas param um pouco */
             if((d.response && d.response.code) === 458 && n458 < 2){ n458++; h.destroy(); setTimeout(() => { if(playId !== playSeq[slot]) return; go(src); }, 6000); return; }
             /* v363: 429 = o fornecedor limitou os pedidos; espera 8 s e repete a mesma rota (até 2 vezes) antes de dar o filme como falhado */
             if((d.response && d.response.code) === 429 && n429 < 2){ n429++; h.destroy(); setTimeout(() => { if(playId !== playSeq[slot]) return; go(src); }, 8000); return; }
