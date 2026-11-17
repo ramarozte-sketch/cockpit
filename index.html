@@ -2925,7 +2925,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v388";
+const APP_VERSION = "v389";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16176,6 +16176,9 @@ html.nightUi body.pfull #nightDim{opacity:0}
 <style>
 /* ===== v254: Media — quadro de animações ao ritmo da música (rádio online ou microfone/colunas do carro) + robô dançarino ===== */
 #visPanel .visTop{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+#visPanel .visDd>summary{cursor:pointer;list-style:none;font-size:18px;font-weight:700;padding:4px 0;display:flex;justify-content:space-between;align-items:center}
+#visPanel .visDd>summary::-webkit-details-marker{display:none}
+#visPanel .visDd>summary::after{content:"▾";opacity:.6}#visPanel .visDd[open]>summary::after{content:"▴"}
 #visPanel .visTop h2{margin:0}
 #visPanel .visSty,#visPanel .visSrc{display:flex;flex-wrap:wrap;gap:8px}
 #visPanel .visSty button,#visPanel .visSrc button{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line,#ffffff22);background:#ffffff10;color:inherit;font:600 15px/1 system-ui,sans-serif;cursor:pointer}
@@ -16210,10 +16213,11 @@ html.half #visKar .k1{font-size:19px}
     const STY = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"],["tunel","🌀 Túnel"],["fogo","🎆 Fogo de artifício"],["aurora","🌌 Aurora"],["coelho","🐰 Coelho"],["polvo","🐙 Polvo"],["fantasma","👻 Fantasma"]];
     const SRC = [["radio","📻 Rádio / Amp"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
     const box = document.createElement("div"); box.className = "panel"; box.id = "visPanel";
-    box.innerHTML = '<div class="visTop"><h2>Animações</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
+    box.innerHTML = '<details class="visDd"><summary class="visSum">Animações</summary><div class="visTop"><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
       '<div class="visSty" role="group" aria-label="Estilo">' + STY.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
       '<div class="visSrc" role="group" aria-label="Som" style="margin-top:8px">' + SRC.map(s => '<button type="button" data-src="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
       '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button><button type="button" class="visFs" id="visParty" style="right:66px" aria-label="Modo festa">🎉</button><div id="visBpm"></div><div id="visKar"><div class="k1"></div><div class="k2"></div></div><div id="visBig"><b></b><small></small></div></div>';
+    box.innerHTML += '</details>';
     rp.after(box);
     const S = {on:LS.get("visOn", true), sty:LS.get("visSty", "robo"), src:LS.get("visSrc", "radio"), an:null, ctx:null, mic:null, data:null, wave:null, raf:0, t0:performance.now(), avgB:0.2, beat:0, lastBeat:0, parts:[], stars:[], blink:0, hint:"", corsTried:new WeakSet(), corsBad:new Set()};
     const $v = id => document.getElementById(id), cv0 = $v("visCv"), g0 = cv0.getContext("2d"), wrap = $v("visWrap");
