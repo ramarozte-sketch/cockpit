@@ -2915,7 +2915,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v355";
+const APP_VERSION = "v356";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5022,6 +5022,8 @@ const MSEF = (() => {
     tv.src = URL.createObjectURL(tm); setTimeout(() => fin(false), 4000); });
   return {boxDump, cleanInit, findBox, synthInit, probeInit};
 })();
+/* v356: chave única do acerto de som por filme (partilhada com teste-mse.html) */
+function aoffKey(n){ return "mse_aoff_" + String(n || "").replace(/^\s*(\|[A-Za-z]{2}\||[A-Za-z]{2}\s*[-:])\s*/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); }
 function mp4MseRun(slot, st, src, c, playId, onFail){
   const v = $("vid" + slot), sleep = ms => new Promise(r => setTimeout(r, ms));
   const EV = (e, d) => { try{ window.__dbgEv && window.__dbgEv(slot, e, d || {}); }catch(_){} };
@@ -5099,7 +5101,8 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       if(!alive()) return;
       /* listas de edições: tempo de apresentação = cts + desvio */
       const editShift = t => { let empty = 0, mt = 0; for(const e of (t.edits || [])){ if(e.media_time < 0) empty += e.segment_duration; else { mt = e.media_time; break; } } return empty / (info.timescale || 1000) - mt / t.timescale; };
-      let uOff = 0; try{ uOff = parseFloat(localStorage.getItem("mse_aoff_" + c.name)) || 0; }catch(e){}
+      /* v356: o acerto é guardado com o mesmo nome normalizado que a página de teste usa (sem |XX|, sem acentos, minúsculas) */
+      let uOff = 0; try{ const kk = aoffKey(c.name); let sv = localStorage.getItem(kk); if(sv === null) sv = localStorage.getItem("mse_aoff_" + c.name); uOff = parseFloat(sv) || 0; }catch(e){}
       f.setExtractionOptions(at.id, null, {nbSamples:50});
       f.setSegmentOptions(vt.id, null, {nbSamples:60});
       const ib = new Uint8Array(f.initializeSegmentation()[0].buffer);

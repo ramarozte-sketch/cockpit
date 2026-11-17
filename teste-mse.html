@@ -122,7 +122,8 @@ function resyncAudio() { srcs.forEach(x => { try { x.stop(); } catch (e) {} }); 
 
 const fmtT = t => { t = Math.max(0, t | 0); return (t / 3600 | 0) + ":" + String(t / 60 % 60 | 0).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
 window.__aAdj = (parseFloat((/[?&]aoff=(-?[\d.]+)/.exec(location.search) || [])[1]) || 0) / 1000;
-const setAdj = d => { window.__aAdj = Math.round((window.__aAdj + d) * 1000) / 1000; try { if (window.__film) localStorage.setItem("mse_aoff_" + window.__film, String(window.__aAdj)); } catch (e) {} document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; pend = null; resyncAudio(); L("acerto do som:", Math.round(window.__aAdj * 1000), "ms"); };
+const aoffKey = n => "mse_aoff_" + String(n || "").replace(/^\s*(\|[A-Za-z]{2}\||[A-Za-z]{2}\s*[-:])\s*/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const setAdj = d => { window.__aAdj = Math.round((window.__aAdj + d) * 1000) / 1000; try { if (window.__film) localStorage.setItem(aoffKey(window.__film), String(window.__aAdj)); } catch (e) {} document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; pend = null; resyncAudio(); L("acerto do som:", Math.round(window.__aAdj * 1000), "ms"); };
 [["am2", -0.25], ["am", -0.05], ["ap", 0.05], ["ap2", 0.25]].forEach(([id, d]) => document.getElementById(id).onclick = () => setAdj(d));
 document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms";
 { const ps = document.getElementById("pos"), pt = document.getElementById("posT"), vv = document.getElementById("v"); let drag = false;
@@ -154,7 +155,7 @@ document.getElementById("go").onclick = async () => {
       ? (list || []).find(x => /Forgotten Island/i.test(x.name || "") && !/^\s*EN\b/i.test(x.name || "") && x.kind === "movie")
       : (list || []).find(x => /^\s*EN\s*-\s*Forgotten Island/i.test(x.name || "") && x.kind === "movie") || (list || []).find(x => /Forgotten Island/i.test(x.name || "") && x.kind === "movie");
     if (!it) { L("não encontrei o filme na lista guardada (IndexedDB 'channels')"); return; }
-    window.__film = it.name; try { const sv = localStorage.getItem("mse_aoff_" + it.name); if (sv !== null && !/[?&]aoff=/.test(location.search)) { window.__aAdj = parseFloat(sv) || 0; document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; L("acerto do som guardado para este filme:", Math.round(window.__aAdj * 1000), "ms"); } } catch (e) {}
+    window.__film = it.name; try { let sv = localStorage.getItem(aoffKey(it.name)); if (sv === null) sv = localStorage.getItem("mse_aoff_" + it.name); if (sv !== null && !/[?&]aoff=/.test(location.search)) { window.__aAdj = parseFloat(sv) || 0; document.getElementById("aoT").textContent = Math.round(window.__aAdj * 1000) + " ms"; L("acerto do som guardado para este filme:", Math.round(window.__aAdj * 1000), "ms"); } } catch (e) {}
     const url = urlFor(it.url);
     L("filme:", it.name, "· via proxy:", url !== it.url);
     await run(url);
