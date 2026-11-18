@@ -1713,11 +1713,11 @@ body.layout-atv .rail{display:none}
           <h2>Imagem e descodificação</h2>
           <p class="small muted setsub" style="margin:0">Motor da imagem em andamento, filmes com som Dolby e indicador de fps.</p>
           <h3 class="setsubh">Descodificação de vídeo</h3>
-          <p class="small muted" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
-          <label class="f">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
+          <p class="small muted" id="decHttpNote" style="margin:0;display:none">Página em http: a imagem em andamento é sempre descodificada por software (h264soft.js). A escolha do motor só existe com a página em https.</p>
+          <p class="small muted decHttpHide" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
+          <label class="f decHttpHide">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
           <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
-          <label class="f">Uma ligação de cada vez (filmes)<select id="setUmaLig"><option value="off">Desligada (por defeito)</option><option value="on">Ligada: imagem e som revezam-se</option></select></label>
-          <div class="row" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
+          <div class="row decHttpHide" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
           <h3 class="setsubh">Indicador de fps</h3>
           <p class="small muted" style="margin:0">Etiqueta no ecrã com o estado do andamento e as imagens por segundo. Desligada por defeito (o log continua a registar).</p>
@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v441";
+const APP_VERSION = "v442";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15551,7 +15551,7 @@ async function probeHardwareEac3(){
 function eac3Mode(){
   const m = cfg.eac3Mode || "auto";
   if(m === "sw") return "sw";
-  if(m === "hw") return "hw";
+  /* v442: a escolha «sempre por hardware» saiu (no Tesla não há Dolby por hardware e ficava sem som); um valor antigo «hw» vale como automático */
   return HW.eac3 ? "hw" : "sw";
 }
 probeHardwareEac3();
@@ -15821,7 +15821,7 @@ window.__sa = {
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = (cfg.decodeMode === "software" || location.protocol === "http:") ? "software" : "webcodecs";
       const mf = $("setMseFilm"); if(mf) mf.value = cfg.mseFilm === false ? "off" : "on";
-      const ul = $("setUmaLig"); if(ul) ul.value = cfg.umaLigacao ? "on" : "off";
+
       const sm = $("setSmooth"); if(sm) sm.checked = cfg.smoothClock !== false;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
       const th = $("setTvHome"); if(th) th.value = (cfg.tvHome === "classic") ? "classic" : "android";
@@ -15829,6 +15829,8 @@ window.__sa = {
     }catch(e){}
   };
   const bind = (id, fn) => { const el = $(id); if(!el || el._v282) return; el._v282 = 1; el.addEventListener("change", fn); };
+  /* v442: em http a escolha do motor não tem efeito (sem WebCodecs): esconde-a */
+  try{ if(location.protocol === "http:"){ document.querySelectorAll(".decHttpHide").forEach(e => { e.style.display = "none"; }); const n = document.getElementById("decHttpNote"); if(n) n.style.display = "block"; } }catch(e){}
   window.__useSoft = () => location.protocol === "http:" || !!(cfg && cfg.decodeMode === "software");  /* v392: em HTTP (sem WebCodecs) usa sempre o software */
   /* v321: relógio suavizado (no carro já vem ligado; no telemóvel só se a opção estiver marcada) */
   /* v322: ligado por defeito (é o mesmo código que já corre no carro); desligar nas Definições se houver problemas */
@@ -15839,7 +15841,6 @@ window.__sa = {
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
   bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
-  bind("setUmaLig", e => { cfg.umaLigacao = e.target.value === "on"; saveCfg(); toast(cfg.umaLigacao ? "Filmes: imagem e som revezam-se numa só ligação. Reabre o filme." : "Filmes: leitores em paralelo (por defeito). Reabre o filme."); });
   bind("setMseFilm", e => { cfg.mseFilm = e.target.value !== "off"; saveCfg(); toast(cfg.mseFilm ? "Filmes com som Dolby: um só leitor. Reabre o filme." : "Filmes com som Dolby: leitor do carro + som à parte. Reabre o filme."); });
   bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg();
     /* v328: reinicia o espelho de cada ecrã para usar o motor escolhido (antes ficava o motor antigo) */
@@ -15995,12 +15996,12 @@ window.__sa = {
   setTimeout(() => { try{
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim()))); if(!card) return;
     const l1 = document.createElement("label"); l1.className = "f";
-    l1.innerHTML = 'Voz nos filmes e canais Dolby (AC-3)<select id="setDolbyVoice"><option value="0">Normal (mistura-padrão)</option><option value="1">Realçada (recomendado)</option><option value="2">Máxima (diálogos muito baixos)</option></select>';
+    l1.innerHTML = 'Voz nos filmes e canais 5.1<select id="setDolbyVoice"><option value="0">Normal (mistura-padrão)</option><option value="1">Realçada (recomendado)</option><option value="2">Máxima (diálogos muito baixos)</option></select>';
     const l2 = document.createElement("label"); l2.className = "f";
     l2.innerHTML = 'Amplificação do som do browser<select id="setAmp"><option value="100">Desligada (100 %)</option><option value="150">150 %</option><option value="200">200 %</option><option value="300">300 %</option><option value="400">400 %</option></select>';
     card.appendChild(l1); card.appendChild(l2);
     const s1 = $("setDolbyVoice"), s2 = $("setAmp");
-    s1.value = String(cfg.dolbyVoice == null ? 1 : cfg.dolbyVoice); s1.onchange = () => { cfg.dolbyVoice = +s1.value; saveCfg(); toast("Voz Dolby: " + s1.options[s1.selectedIndex].text.split(" (")[0]); };
+    s1.value = String(cfg.dolbyVoice == null ? 1 : cfg.dolbyVoice); s1.onchange = () => { cfg.dolbyVoice = +s1.value; saveCfg(); toast("Voz 5.1: " + s1.options[s1.selectedIndex].text.split(" (")[0]); };
     s2.value = String(pct()); if(s2.value !== String(pct())) s2.value = "100";
     s2.onchange = () => { cfg.ampPct = +s2.value; saveCfg(); A.refresh();
       if(cfg.ampPct <= 100){ toast("Amplificação desligada"); return; }
@@ -16195,7 +16196,7 @@ setTimeout(() => { try{
   const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2")||{}).textContent||"").trim())));
   if(!card) return;
   const l = document.createElement("label"); l.className = "f";
-  l.innerHTML = 'Som Dolby (AC-3 / E-AC-3)<select id="setEac3"><option value="auto">Automático (hardware quando existir, senão software)</option><option value="hw">Sempre por hardware (se falhar, fica só imagem)</option><option value="sw">Sempre por software (libav — compatível com tudo)</option></select>';
+  l.innerHTML = 'Som Dolby (AC-3 / E-AC-3)<select id="setEac3"><option value="auto">Automático (hardware quando existir, senão software)</option><option value="sw">Sempre por software (libav — compatível com tudo)</option></select>';
   card.appendChild(l);
   const sel = document.getElementById("setEac3"), info = document.createElement("p");
   info.className = "small muted"; info.style.margin = "4px 0 0"; card.appendChild(info);
@@ -16203,11 +16204,11 @@ setTimeout(() => { try{
     info.textContent = HW.eac3
       ? "Este dispositivo tem descodificador E-AC3 (" + HW.why + "). Modo atual: " + (cfg.eac3Mode || "auto") + "."
       : "Este dispositivo não tem descodificador E-AC3 — o Cockpit usa o libav (software)."; };
-  sel.value = cfg.eac3Mode || "auto";
+  sel.value = cfg.eac3Mode === "sw" ? "sw" : "auto";
   sel.onchange = () => { cfg.eac3Mode = sel.value; saveCfg(); paint();
     try{ const c = lastPlayed[tvTarget]; if(c && c.kind === "live") window.__oneConn(c, tvTarget); }catch(e){} };
   paint();
-  const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ sel.value = cfg.eac3Mode || "auto"; paint(); }catch(e){} return r; };
+  const _fs = window.fillSettings; if(typeof _fs === "function") window.fillSettings = function(){ const r = _fs.apply(this, arguments); try{ sel.value = cfg.eac3Mode === "sw" ? "sw" : "auto"; paint(); }catch(e){} return r; };
 }catch(e){} }, 0);
 </script>
 <style>
