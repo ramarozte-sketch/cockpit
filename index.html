@@ -2928,7 +2928,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v446";
+const APP_VERSION = "v447";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3166,7 +3166,7 @@ function tvScopeSearch(q, sc){
   const words = q.split(" ").filter(Boolean);
   for(let i = 0; i < channels.length; i++){ const c = channels[i]; if(!c || !kinds.includes(c.kind)) continue; const b = out[c.kind]; if(b.length >= cap) continue;
     const n = nm[i]; if(!words.every(w => n.includes(w))) continue; if(window.__parHide && window.__parHide(c)) continue; b.push(c); }
-  if(sc === "all"){ const extra = (freeChans || []).filter(c => words.every(w => norm(c.name || "").includes(w))); out.live = out.live.concat(extra); }
+  if(kinds.includes("live")){ const extra = (freeChans || []).filter(c => words.every(w => norm(c.name || "").includes(w))); out.live = out.live.concat(extra); }
   return kinds.flatMap(k => out[k]);
 }
 function syncTvScope(){ document.querySelectorAll("#tvScope .tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.sc === tvScope))); }
@@ -13258,7 +13258,7 @@ function renderMaint(){
   try{ const tb = sec.querySelector("#tMirror"); if(tb){ tb.onclick = toggleMirror; syncMirrorBtns(); } }catch(e){}
   $("v-tv").parentNode.insertBefore(sec, $("v-tv"));
   const srch = document.createElement("div"); srch.id = "ahSrch"; srch.hidden = true;
-  srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX">✕ Fechar</button></div><div class="res" id="ahSrRes"></div></div>';
+  srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX">✕ Fechar</button></div><div class="top" id="ahSrK"><button class="ahBtn" data-sk="all">🔎 Tudo</button><button class="ahBtn" data-sk="live">📺 Canais</button><button class="ahBtn" data-sk="movie">🎬 Filmes</button><button class="ahBtn" data-sk="series">🍿 Séries</button></div><div class="small" id="ahSrN" style="opacity:.7"></div><div class="res" id="ahSrRes"></div></div>';
   document.body.appendChild(srch);
 
   /* botão para voltar ao Início a partir da lista */
@@ -13447,12 +13447,19 @@ function renderMaint(){
   function runSearch(){
     const q = nz($("ahSrIn").value).split(/\s+/).filter(Boolean), res = $("ahSrRes");
     if(!q.length){ res.innerHTML = '<p class="ahEmpty">Escreve para pesquisar.</p>'; found = []; return; }
-    found = uniq([...channels, ...freeChans].filter(c => c && q.every(w => nz(c.name).includes(w)) && !(window.__parHide && window.__parHide(c)))).slice(0, 80);
+    /* v447: base completa (inclui categorias ocultas), escolhida nos botões Tudo / Canais / Filmes / Séries; nomes já preparados (rápido em ~340 mil títulos) */
+    const sk = LS.get("ahSrK", "all") || "all"; let all;
+    try{ all = typeof tvScopeSearch === "function" ? tvScopeSearch(norm($("ahSrIn").value || ""), sk) : null; }catch(e){ all = null; }
+    if(!all) all = [...channels, ...freeChans].filter(c => c && (sk === "all" || c.kind === sk) && q.every(w => nz(c.name).includes(w)) && !(window.__parHide && window.__parHide(c)));
+    all = uniq(all); found = all.slice(0, 150);
+    $("ahSrN").textContent = all.length ? all.length + (all.length > found.length ? " (mostra " + found.length + ")" : "") + " resultados na base completa, incluindo categorias ocultas" : "";
     const ic = c => c.kind === "movie" ? "🎬" : c.kind === "series" ? "🍿" : "📺";
     res.innerHTML = found.length ? found.map((c, i) => '<button class="ahBtn" data-i="' + i + '">' + ic(c) + ' <b>' + sx(c.name) + '</b><small> ' + sx(c.group || "") + '</small></button>').join("") : '<p class="ahEmpty">Sem resultados.</p>';
   }
   let st = 0; $("ahSrIn").addEventListener("input", () => { clearTimeout(st); st = setTimeout(runSearch, 180); });
   $("ahSrX").onclick = () => { srch.hidden = true; };
+  const skSync = () => { const k = LS.get("ahSrK", "all") || "all"; srch.querySelectorAll("[data-sk]").forEach(b => { const on = b.dataset.sk === k; b.classList.toggle("pri", on); b.setAttribute("aria-pressed", String(on)); }); };
+  skSync(); srch.querySelectorAll("[data-sk]").forEach(b => b.onclick = () => { LS.set("ahSrK", b.dataset.sk); skSync(); runSearch(); try{ $("ahSrIn").focus(); }catch(e){} });
   $("ahSrRes").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if(!b) return; const c = found[+b.dataset.i]; srch.hidden = true; watch(c); });
 
   /* Definições → TV e IPTV */
