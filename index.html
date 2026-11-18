@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v433";
+const APP_VERSION = "v434";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5329,6 +5329,7 @@ function mp4aRun(slot, st, src, onNone){
     try{
       if(!(await loadMirLibs()) || !window.MP4Box){ if(alive()) none("mp4box em falta"); return; }
       const file = MP4Box.createFile(); let info = null, perr = ""; file.onReady = i => { info = i; }; file.onError = e => { perr = String(e); };
+      /* v434: o temporizador não recomeça a leitura enquanto o índice descarrega (sem andamento recomeçava a cada 10 s e o índice de 5,8 MB nunca chegava) */ st.probing = true;
       /* v432: carrega o descodificador (libav) ao mesmo tempo que o índice */ const libP = window.__libav ? window.__libav().catch(() => null) : null; const tIdx = performance.now();
       /* v415: primeiro o índice no fim do ficheiro (pedidos pequenos); se não houver, a leitura do início como antes */
       try{ const tm = await mp4TailMoov(src, st.abort && st.abort.signal); if(tm && tm.erro){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: nada", tm); }catch(e6){} } if(tm && tm.bytes && alive()){
@@ -5350,7 +5351,7 @@ function mp4aRun(slot, st, src, onNone){
         /* v414: se a biblioteca pede de novo o início de um bloco incompleto, continua a partir do que acabou de receber (antes repetia o mesmo pedido) */
         pos = (nx && nx > a) ? nx : a + buf.byteLength;
       }
-      st.probing = false; try{ window.__dbgEv && window.__dbgEv(slot, "som: fim da leitura do índice", {encontrado:!!info, erro:perr || "", pedidos:guard}); }catch(e){}
+      st.probing = false; st.t0 = performance.now(); st.lastOut = 0; try{ window.__dbgEv && window.__dbgEv(slot, "som: fim da leitura do índice", {encontrado:!!info, erro:perr || "", pedidos:guard}); }catch(e){}
       RR.reset(); if(!alive()) return;
       if(!info){ none(perr || "índice (moov) não encontrado"); return; }
       const ats = info.audioTracks || [];
@@ -5613,13 +5614,19 @@ function syncMirror(){
   try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); if(typeof mediaLockUi === "function") mediaLockUi(); if(typeof tvLockUi === "function") tvLockUi(); streamGuard(); }catch(e){}
 }
 function syncMirrorBtns(){ for(const id of ["btnMirror", "hMirror", "tMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } } }
-function toggleMirror(){
+function toggleMirror(ev){
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
+  /* v434: regista cada mudança e de onde veio (botão, telemóvel ligado, outro separador) */
+  try{ const src = ev && ev.currentTarget && ev.currentTarget.id ? "botão " + ev.currentTarget.id : (typeof ev === "string" ? ev : "outro"); window.__dbgEv && window.__dbgEv(typeof tvTarget !== "undefined" ? tvTarget : 0, "andamento: " + (mirrorOn ? "ligado" : "desligado"), {origem:src}); }catch(e){}
   if(mirrorOn && !WC_OK) toast("Imagem em andamento ligada, mas este browser não suporta o descodificador — a imagem só aparece parado.", true);
   else if(mirrorOn && !WC_NATIVE) toast("Imagem em andamento ligada (descodificação por software, página em http). Prefere canais HD/SD 720p.");
   else toast(mirrorOn ? "Imagem em andamento ligada (WebCodecs, experimental). Funciona com H.264 e, se o descodificador do carro o suportar, HEVC/H.265." : "Imagem em andamento desligada.");
 }
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
+/* v434: o telemóvel tinha vários separadores do Cockpit abertos: cada um guardava o seu estado do Andamento e um separador
+   desligava-o no armazenamento dos outros (o botão aparecia sem azul ao reabrir). Agora todos acompanham a mudança. */
+window.addEventListener("storage", e => { try{ if(e.key !== "ck_mirror") return; const nv = JSON.parse(e.newValue || "false") === true; if(nv === mirrorOn) return; mirrorOn = nv; syncMirror(); window.__dbgEv && window.__dbgEv(typeof tvTarget !== "undefined" ? tvTarget : 0, "andamento: " + (nv ? "ligado" : "desligado"), {origem:"outro separador"}); }catch(x){} });
+document.addEventListener("visibilitychange", () => { try{ if(document.hidden) return; const nv = LS.get("mirror", false) === true; if(nv !== mirrorOn){ mirrorOn = nv; syncMirror(); } else syncMirrorBtns(); }catch(x){} });
 if($("hMirror")){ $("hMirror").onclick = toggleMirror; try{ syncMirrorBtns(); }catch(e){} }
 const fmtSec = ms => (ms/1000).toFixed(2).replace(".",",")+"s";
 function fmtDelay(){ const b=$("mirDelVal"); if(b) b.textContent=fmtSec(mirDelFor(tvTarget)); }
@@ -5724,7 +5731,7 @@ function audioWatch(slot, c, playId, viaHls){
     /* v411 (diagnóstico): em que condição a vigia do som para ou decide */
     const dbgS = (m, extra) => { if(c.kind === "live") return; try{ window.__dbgEv && window.__dbgEv(slot, "som: vigia " + m, extra || {}); }catch(e){} };
     if(ticks === 1) dbgS("iniciada", {pausado:v.paused, mudo:v.muted, vol:v.volume, pronto:v.readyState});
-    if(playId !== playSeq[slot] || ++ticks > 24){ if(playId === playSeq[slot]) dbgS("terminou sem decidir", {}); clearInterval(audioWatchT[slot]); return; }
+    if(playId !== playSeq[slot] || ++ticks > (c.kind === "live" ? 24 : 60)){ /* v434: filmes 30 s (o filme pode levar 10 s a começar) */ if(playId === playSeq[slot]) dbgS("terminou sem decidir", {}); clearInterval(audioWatchT[slot]); return; }
     if(window.__sa && window.__sa.on(slot)){ dbgS("parada: outro leitor de som ativo", {}); if(window.__sa.n(slot) > 0) clearInterval(audioWatchT[slot]); return; }
     /* v412: em andamento a imagem vem do leitor de imagem e o elemento de vídeo não reproduz; a decisão não pode depender dele */
     if(mirrorOn && c.kind !== "live" && ticks >= 2 && v.readyState < 3){ clearInterval(audioWatchT[slot]); dbgS("em andamento: som por software sem esperar pelo elemento", {}); try{ window.__mkaStart && window.__mkaStart(slot, c, playId); }catch(e){} return; }
@@ -17591,7 +17598,7 @@ html.nightUi #ambient{filter:brightness(.75)}
           else if(c === "play"){ if(window.__wheelAct) window.__wheelAct("toggle"); else { const v = vidT(); v.paused ? v.play().catch(() => {}) : v.pause(); } }
           else if(c === "vu") vol(0.1); else if(c === "vd") vol(-0.1);
           else if(c === "mute"){ const v = document.getElementById("vid" + audioSlot); v.muted = !v.muted; tx({t:"toast", m:v.muted ? "Sem som" : "Com som"}); }
-          else if(c === "mirror"){ if(typeof toggleMirror === "function") toggleMirror(); }
+          else if(c === "mirror"){ if(typeof toggleMirror === "function") toggleMirror("telemóvel ligado"); }
           else if(c === "full"){ if(window.__ah) window.__ah.pass = Date.now() + 3000; show("tv"); setCinema(true); window.__goFull && window.__goFull(); }
           else if(c === "gfull"){ if(currentView === "games" && typeof gmFullSet === "function") gmFullSet(!gmIsFull()); else tx({t:"toast", m:"Abre um jogo primeiro."}); }
           else if(c === "home"){ setCinema(false); show("tvinicio"); }
