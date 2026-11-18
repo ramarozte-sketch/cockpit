@@ -1171,7 +1171,7 @@ body.layout-atv .rail{display:none}
             <div class="cinename" id="chName">Escolhe um canal</div>
             <div class="cineepg" id="chEpg"></div>
             <button class="btn" id="chPrev" data-testid="tv-prev" aria-label="Canal anterior">◀ Anterior</button>
-            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chMute" aria-label="Silenciar ou repor o som">🔊 Som</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🎧 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button><button class="btn av" id="mirDelMinus" data-testid="tv-av-minus" title="Ajuste fino: adiantar a imagem (−0,25s)">A/V −</button><span id="mirDelVal" data-testid="tv-av-val" class="small muted avval">0,0s</span><button class="btn av" id="mirDelPlus" data-testid="tv-av-plus" title="Ajuste fino: atrasar a imagem (+0,25s)">A/V +</button>
+            <button class="btn" id="chGuide" data-testid="tv-guide" aria-label="Guia de programação">📅 Guia</button><button class="btn" id="chMute" aria-label="Silenciar ou repor o som">🔊 Som</button><button class="btn" id="chTracks" data-testid="tv-tracks" aria-label="Áudio">🎧 Áudio</button><button class="btn" id="chSubs" data-testid="tv-subs" aria-label="Legendas">💬 Legendas</button><button class="btn" id="btnMirror" aria-pressed="false" data-testid="tv-mirror-toggle" title="Mostra a imagem num canvas para contornar a limitação de vídeo em andamento.">🖼 Andamento</button>
             <button class="btn" id="chAspect" data-testid="tv-aspect" aria-label="Formato da imagem">▭ Ajustar</button><button class="btn" id="chNext" data-testid="tv-next" aria-label="Canal seguinte">Seguinte ▶</button>
           </div>
           <div class="cinebar" id="cinebar2">
@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v430";
+const APP_VERSION = "v431";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
