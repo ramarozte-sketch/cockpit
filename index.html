@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v436";
+const APP_VERSION = "v437";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3538,6 +3538,8 @@ function playChannel(c, slot=tvTarget, auto=false){
     /* v248: a conta só aceita 1 ligação: um filme aberto logo a seguir a um canal ficava sem dados (Scary Movie, log de 6/11).
        Espera até 1 s desde o último fecho e, se em 10 s o servidor não mandar nada, pede o ficheiro outra vez (uma vez). */
     { const src1 = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
+      /* v437: o ficheiro é pedido com CORS (a mesma e única ligação) para o som passar pela mistura 5.1 → estéreo (as vozes do canal central); se o servidor recusar, volta ao pedido normal */
+      try{ let hst = ""; try{ hst = new URL(src1, location.href).host; }catch(e){} if(window.__TESLA && /^https?:/i.test(src1) && !(window.__corsNo && window.__corsNo[hst])) v.crossOrigin = "anonymous"; else v.removeAttribute("crossorigin"); v.__corsRetry = 0; }catch(e){}
       const gapF = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
       const setF = () => { if(playId !== playSeq[slot] || toHls) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
       if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
@@ -3553,6 +3555,11 @@ function playChannel(c, slot=tvTarget, auto=false){
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
       const code = v.error ? v.error.code : 0;
+      /* v437: o pedido com CORS falhou antes de haver dados: repete uma vez sem CORS (fica como antes, sem a mistura 5.1) */
+      if(v.crossOrigin && v.readyState === 0 && !v.__corsRetry && (code === 4 || code === 2) && (v.currentSrc || v.getAttribute("src"))){ v.__corsRetry = 1; const s0 = v.currentSrc || v.getAttribute("src");
+        if(code === 4){ try{ (window.__corsNo = window.__corsNo || {})[new URL(s0, location.href).host] = 1; }catch(e){} }
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme: pedido com CORS falhou, repete sem CORS", {code}); }catch(e){}
+        v.removeAttribute("crossorigin"); setTimeout(() => { if(playId !== playSeq[slot]) return; v.src = s0; v.load(); v.play().catch(()=>{}); }, code === 2 ? 1500 : 300); return; }
       if(code === 2 && fRe < 4 && v.currentSrc){ fRe++; const src0 = v.currentSrc; try{ window.__dbgEv && window.__dbgEv(slot, "filme: ligação caiu a meio, retoma no mesmo ponto", {em_s:Math.round(fT), vez:fRe}); }catch(e){}
         setTimeout(() => { if(playId !== playSeq[slot]) return; fResume(); v.src = src0; v.load(); v.play().catch(()=>{}); }, 2000 + 1500 * fRe); return; }
       /* v393: formato que o browser não lê (ex.: HEVC): não vale a pena tentar outra vez nem por HLS */
@@ -15895,7 +15902,31 @@ window.__sa = {
   const proxBase = () => [window.PHONE_PROXY && window.PHONE_PROXY.base, cfg.proxy2, cfg.proxy].filter(Boolean).map(x => String(x).replace(/\/+$/, ""));
   const proxied = v => { v = String(v || ""); return proxBase().some(b => v.indexOf(b) === 0); };
   const same = el => { const u = el.currentSrc || el.src || ""; if(!u) return false; if(/^(blob:|data:)/i.test(u)) return true; try{ return new URL(u, location.href).origin === location.origin; }catch(e){ return false; } };
-  const safe = el => same(el);
+  const safe = el => same(el) || (el.crossOrigin === "anonymous" && !el.error && !!(el.currentSrc || el.src));
+  /* v437: no Tesla o som dos filmes e canais passa sempre pela mistura 5.1 → estéreo (mesmo sem amplificação): o leitor do carro deixava as vozes (canal central) de fora */
+  const mixWant = el => !!window.__TESLA && /^vid[01]$/.test(el && el.id || "");
+  const mix51 = (c, el, src) => {
+    const pre = c.createGain(); pre.channelCount = 6; pre.channelCountMode = "explicit"; pre.channelInterpretation = "speakers";
+    const sp = c.createChannelSplitter(6), mg = c.createChannelMerger(2), G = {};
+    src.connect(pre); pre.connect(sp);
+    [[0, [0]], [1, [1]], [2, [0, 1]], [4, [0]], [5, [1]]].forEach(([ch, outs]) => { const g = c.createGain(); sp.connect(g, ch); outs.forEach(o => g.connect(mg, 0, o)); G[ch] = g; });
+    const an = [0, 1, 2, 4].map(ch => { const a = c.createAnalyser(); a.fftSize = 2048; sp.connect(a, ch); return a; }), buf = new Float32Array(2048);
+    const dB = a => { a.getFloatTimeDomainData(buf); let e = 0; for(let i = 0; i < buf.length; i++) e += buf[i] * buf[i]; return +(10 * Math.log10(e / buf.length + 1e-12)).toFixed(1); };
+    const M = el._mix = {multi:false, src:el.currentSrc, logged:0};
+    const set = () => { const k = cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, vc = k === 0 ? 0.7 : k === 2 ? 1.5 : 1.0, t = c.currentTime;
+      const v = M.multi ? {0:0.62, 1:0.62, 2:vc, 4:0.35, 5:0.35} : {0:1, 1:1, 2:vc, 4:0.35, 5:0.35};
+      for(const ch in G){ try{ G[ch].gain.setTargetAtTime(v[ch], t, 0.05); }catch(e){ G[ch].gain.value = v[ch]; } } };
+    set();
+    const tick = setInterval(() => { try{
+      if(!el.isConnected){ clearInterval(tick); return; }
+      if(el.currentSrc !== M.src){ M.src = el.currentSrc; M.multi = false; M.logged = 0; set(); }
+      if(el.paused || el.muted) return;
+      const d = an.map(dB), fr = Math.max(d[0], d[1]);
+      if(!M.multi && fr > -70 && (d[2] > -70 || d[3] > -70)){ M.multi = true; set();
+        dbg(el, "som 5.1 do leitor: mistura com vozes ligada", {dB_L_R_C_Ls:d, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); M.logged = 1; }
+      else if(M.logged < 2 && fr > -70 && Date.now() - (M.at || (M.at = Date.now())) > 6000){ M.logged = 2; if(!M.multi) dbg(el, "som do leitor: estéreo (sem canal central)", {dB_L_R_C_Ls:d}); }
+      set(); }catch(e){} }, 1000);
+    return mg; };
   /* v282: sampleRate do contexto = taxa do canal (evita som lento/grave em canais a 44,1 kHz no Tesla) */
   const chanSrOf = el => { try{ if(el && el._chanSr) return +el._chanSr; const id = el && el.id; const slot = id === "vid1" ? 1 : id === "vid0" ? 0 : -1; if(slot >= 0 && window.__chanSr && window.__chanSr[slot]) return +window.__chanSr[slot]; if(A.chanSr) return +A.chanSr; }catch(e){} return 0; };
   const ctx = (wantSr) => {
@@ -15924,8 +15955,8 @@ window.__sa = {
   const apply = el => {
     try{
       if(!(el instanceof HTMLMediaElement) || el._noAmp) return;
-      if(el._amp){ level(el._amp.g, A.ctx); return; }
-      if(pct() <= 100 || el._ampBusy || !(el.currentSrc || el.src)) return;
+      if(el._amp){ level(el._amp.g, A.ctx); try{ if(A.ctx && A.ctx.state === "suspended") A.ctx.resume().catch(() => {}); }catch(e){} return; }
+      if((pct() <= 100 && !mixWant(el)) || el._ampBusy || !(el.currentSrc || el.src)) return;
       if(!safe(el)){
         /* ficheiro direto de outro site: o browser não deixa amplificar sem estragar o som; fica como está */
         if(!el._ampNote && !el.paused){ el._ampNote = 1; dbg(el, "amplificação: ficheiro direto, não aplicada", {}); }
@@ -15939,20 +15970,22 @@ window.__sa = {
       }
       el._ampBusy = true;
       c.resume().catch(() => {}).then(() => { el._ampBusy = false;
-        if(c.state !== "running" || el._amp || pct() <= 100 || !safe(el)) return;
+        if(c.state !== "running" || el._amp || (pct() <= 100 && !mixWant(el)) || !safe(el)) return;
         if(wantSr && Math.abs(c.sampleRate - wantSr) > 50){ dbg(el, "amplificação ignorada: canal a " + wantSr + " Hz", {ctxHz:c.sampleRate}); return; }
         const src = c.createMediaElementSource(el), g = c.createGain(), cp = c.createDynamicsCompressor();
         /* v284: com 200 % o som do canal já passa de -11 dBFS; o compressor antigo (limiar -6 dB, 12:1, ataque 3 ms) comprimia cada pico de graves e dava um som grave «bombeado» e enlameado.
            Agora é só um limitador de segurança: actua apenas perto de 0 dBFS (limiar -1 dB, 20:1, joelho zero), por isso a dinâmica dos graves fica intacta. */
         cp.threshold.value = -1; cp.knee.value = 0; cp.ratio.value = 20; cp.attack.value = 0.002; cp.release.value = 0.12;
-        src.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; A.used++; level(g, c);
-        dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors", taxaCtx:c.sampleRate, taxaCanal:wantSr || null}); });
+        let head = src; if(mixWant(el)){ try{ head = mix51(c, el, src); }catch(e){ head = src; dbg(el, "mistura 5.1: erro", {erro:String(e && e.message || e)}); } }
+        try{ c.destination.channelCount = 2; c.destination.channelInterpretation = "speakers"; }catch(e){}
+        head.connect(g); g.connect(cp); cp.connect(c.destination); el._amp = {g}; A.used++; level(g, c);
+        dbg(el, "amplificação ligada", {pct:pct(), el:el.id, fonte:/^blob:/.test(el.currentSrc) ? "blob" : "cors", taxaCtx:c.sampleRate, taxaCanal:wantSr || null, mistura51:head !== src, saidaMaxCanais:c.destination.maxChannelCount}); });
     }catch(e){ el._ampBusy = false; }
   };
   const all = () => document.querySelectorAll("video,audio");
   A.refresh = () => { all().forEach(apply); };
   ["playing", "loadeddata"].forEach(ev => document.addEventListener(ev, e => apply(e.target), true));
-  document.addEventListener("pointerdown", () => { if(pct() > 100){ const c = ctx(); if(c && c.state === "suspended") c.resume().catch(() => {}); } }, true);
+  document.addEventListener("pointerdown", () => { if(pct() > 100 || window.__TESLA){ const c = ctx(); if(c && c.state === "suspended") c.resume().catch(() => {}); } }, true);
   setTimeout(() => { try{
     const card = [...document.querySelectorAll("#v-settings .setcard")].find(e => ((t => t === "Reprodução" || t === "TV e IPTV")(((e.querySelector("h2") || {}).textContent || "").trim()))); if(!card) return;
     const l1 = document.createElement("label"); l1.className = "f";
