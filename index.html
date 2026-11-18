@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v426";
+const APP_VERSION = "v427";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5301,6 +5301,7 @@ function mp4aRun(slot, st, src, onNone){
       try{ const tm = await mp4TailMoov(src); if(tm && tm.erro){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: nada", tm); }catch(e6){} } if(tm && tm.bytes && alive()){ const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
       let pos = 0, guard = 0; st.probing = true; /* v419: enquanto procura o índice, o temporizador não mata o leitor */
       while(alive() && !info && !perr && guard++ < 300){
+        /* v427: pausa entre pedidos do índice (rajadas dão 429 do fornecedor) */ if(guard > 1) await new Promise(r => setTimeout(r, 900));
         const a = pos, tR = performance.now(); const u8 = await RR.read(a, 1 << 20);
         /* v413 (diagnóstico): cada leitura do índice do som, com o tempo que demora */
         if(guard <= 3 || guard % 20 === 0){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice lido", {pedido:guard, de:a, bytes:u8 ? u8.byteLength : 0, ms:Math.round(performance.now() - tR)}); }catch(e){} }
