@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v440";
+const APP_VERSION = "v441";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -10866,7 +10866,7 @@ $("btnDelNote").onclick = e => { if(!curNote) return; const b=e.currentTarget; i
 /* ---------- Rede ---------- */
 function renderNet(){
   const c = navigator.connection || {};
-  const rows = [["Ligação", navigator.onLine?"Online":"Offline"], ["Tipo estimado", c.effectiveType||"desconhecido"], ["Débito estimado", c.downlink?c.downlink+" Mbit/s":"—"], ["Latência estimada", c.rtt!=null?c.rtt+" ms":"—"], ["Poupança de dados", c.saveData?"Ligada":"Desligada"], ["Browser", navigator.userAgent.match(/Chrom(e|ium)\/[\d.]+/)?.[0]||"—"]];
+  const rows = [["Ligação", navigator.onLine?"Online":"Offline"], /* v441: «4g» é só a classe de velocidade estimada, não o meio; o meio (Wi-Fi / dados) só existe em connection.type, que o browser do Tesla (Linux) não dá */ ["Meio", ({wifi:"Wi-Fi", cellular:"Dados móveis", ethernet:"Cabo", bluetooth:"Bluetooth", wimax:"WiMAX", none:"Sem rede", other:"Outro"})[c.type] || "o browser não indica"], ["Velocidade estimada (classe)", c.effectiveType ? c.effectiveType + " (velocidade, não é rede móvel)" : "desconhecida"], ["Débito estimado", c.downlink?c.downlink+" Mbit/s":"—"], ["Latência estimada", c.rtt!=null?c.rtt+" ms":"—"], ["Poupança de dados", c.saveData?"Ligada":"Desligada"], ["Browser", navigator.userAgent.match(/Chrom(e|ium)\/[\d.]+/)?.[0]||"—"]];
   $("netInfo").innerHTML = rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
 }
 function netChip(){ setChip("chipNet", navigator.onLine?"ok":"bad", navigator.onLine?"Online":"Offline"); if(currentView==="net") renderNet(); }
@@ -14975,7 +14975,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- relatório --- */
   const report = async () => {
     /* v315: o tipo vem da estimativa do browser (não é o meio: Wi-Fi ou dados); o débito medido pelos pedidos de vídeo é o que conta */
-    let nc = {}; try{ const n = navigator.connection; if(n) nc = {tipo:n.effectiveType, nota:"estimativa do browser (não indica Wi-Fi ou dados)", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
+    let nc = {}; try{ const n = navigator.connection; if(n) nc = {meio:n.type || "o browser não indica", classeVelocidade:n.effectiveType, nota:"classeVelocidade é a estimativa de velocidade do browser (4g = rápida), não o meio", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
     const env = {hevcCaps:window.__hevcCaps || "por medir", lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
