@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v439";
+const APP_VERSION = "v440";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4325,7 +4325,8 @@ function present(slot){
   if(st.decoder && st.decoder.pump) st.decoder.pump(audioOk ? st.masterUs : null);
   try{ if(st.rafLast){ const g = pn - st.rafLast; if(g > 0 && g < 500){ st.rafN = (st.rafN || 0) + 1; st.rafSum = (st.rafSum || 0) + g; } } st.rafLast = pn; }catch(e){}
   try{ const S2 = st.stat; if(S2 && pn - S2.at > 10000){ const sec = (pn - S2.at) / 1000, dq = st.decoder && st.decoder.d ? st.decoder.d.decodeQueueSize : null;
-      window.__motorUsado = st.soft ? "h264soft" : "webcodecs";
+      /* v440: a etiqueta vem do descodificador que está mesmo a trabalhar (o caminho .mkv não marcava st.soft e dizia «webcodecs» com o software a descodificar) */
+      window.__motorUsado = (st.soft || (typeof SoftVideoDecoder === "function" && st.decoder instanceof SoftVideoDecoder)) ? "h264soft" : "webcodecs";
       if(window.__dbgEv) window.__dbgEv(slot, "andamento: imagem", {motor:window.__motorUsado, fps:+(S2.shown / sec).toFixed(1), descodificadas:(st.frames || 0) - S2.f0, saltadas:S2.skip, paragens:S2.stalls, maiorIntervalo_ms:Math.round(S2.maxGap), desvio_imagem_som_ms:Math.round(S2.av || 0), fila:q.length, filaCheia:st.ovf || 0, noDescodificador:dq, porEntregar:st.decoder && st.decoder.pending ? st.decoder.pending.length : null, relogioParede:!!st.wall, relogioAtrasoMax_ms:Math.round(st.ctMaxStale || 0), erro:st.err || "", software:st.decoder && st.decoder.info ? st.decoder.info() : null, ecraHz:st.rafN ? Math.round(1000 * st.rafN / st.rafSum) : null, placaGrafica:!!(__BMR[slot] && __BMR[slot].on), placaDesligada:__BMR[slot] ? (__BMR[slot].offs || 0) + "× (" + (__BMR[slot].why || "-") + ")" : null, relogioSuave:st.smT != null});
       st.rafN = 0; st.rafSum = 0; st.ctMaxStale = 0;
       st.stat = {at:pn, shown:0, skip:0, stalls:0, maxGap:0, last:0, errs:0, f0:st.frames || 0}; } }catch(e){}
