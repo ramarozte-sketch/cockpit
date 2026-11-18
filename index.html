@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v429";
+const APP_VERSION = "v430";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -14195,9 +14195,11 @@ body.pfull #vSeek.on{display:flex}
   const vid = () => $("vid" + tvTarget);
   const vod = () => { try{ const c = lastPlayed[tvTarget], v = vid(); return c && (c.kind === "movie" || c.kind === "episode") && v && isFinite(v.duration) && v.duration > 0 ? v : null; }catch(e){ return null; } };
   setInterval(() => {
-    const v = vod(); w.classList.toggle("on", !!v);
+    const v = vod();
     document.body.classList.toggle("mirOn", !!(typeof mirrorOn !== "undefined" && mirrorOn));
-    const ac = window.__mseAcerto, acOn = !!(v && ac && ac.alive && ac.alive() && ac.slot === tvTarget);
+    /* v430: com som por software (em andamento o elemento de vídeo pode não ter duração) os botões do acerto aparecem na mesma */
+    const ac = window.__mseAcerto, acOn = !!(ac && ac.alive && ac.alive() && ac.slot === tvTarget && (v || ac.soft));
+    w.classList.toggle("on", !!v || acOn);
     const box = $("vAcBox"); if(box) box.style.display = acOn ? "flex" : "none";
     if(acOn){ $("vAcT").textContent = "Som " + ac.ms() + " ms"; }
     if(!v || drag) return;
@@ -15573,7 +15575,8 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         if(this.agc) this.agc.gain.value = this.gA;
         const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {decMs:window.__dolDec ? Math.round(window.__dolDec.ms) : null, decBlocos:window.__dolDec ? window.__dolDec.n : null, rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
-      const anchor = c.currentTime + (t - v.currentTime), n = planes[0].length, dur = n / sr;
+      /* v430: acerto do som do filme (segundos; positivo = som mais tarde), escolhido nos botões junto à barra do tempo */
+      const anchor = c.currentTime + (t + (this.aoff || 0) - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
       let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < 0.08) ? this.endCtx : anchor;
       /* v248: no arranque de um filme o descodificador Dolby (WASM) demora a aquecer e a imagem avança sem som: os primeiros ~5 s eram deitados fora.
@@ -15626,6 +15629,11 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const v = $("vid" + slot), src = v.currentSrc || v.src, isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || ""); if(!src || !(/\.mkv(\?|$)/i.test(c.url) || (isMp4 && window.__TESLA && typeof mp4aRun === "function" && !(window.__mkaNo && window.__mkaNo[slot] === playId))) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
       const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
+      /* v430: acerto do som também no som por software (os botões «−0,1 s / +0,1 s» só apareciam no caminho MSE); guardado por filme */
+      try{ let off = 0; try{ off = parseFloat(localStorage.getItem(aoffKey(c.name))) || 0; }catch(e){} st.aoff = off;
+        window.__mseAcerto = {slot, soft:true, alive: () => window.__mka[slot] === st && playId === playSeq[slot] && !st.mse, ms: () => Math.round(st.aoff * 1000),
+          adj(ms){ st.aoff = Math.max(-5, Math.min(5, Math.round(st.aoff * 1000 + ms) / 1000)); try{ localStorage.setItem(aoffKey(c.name), String(st.aoff)); }catch(e){} if(st.clock && !st.mse) st.clock.aoff = st.aoff; try{ window.__dbgEv && window.__dbgEv(slot, "som: acerto", {ms:Math.round(st.aoff * 1000)}); }catch(e){} }};
+        const sync = setInterval(() => { if(window.__mka[slot] !== st){ clearInterval(sync); return; } if(st.clock && !st.mse) st.clock.aoff = st.aoff; }, 300); }catch(e){}
       if(isMp4){ const onNone = () => { (window.__mkaNo = window.__mkaNo || [])[slot] = playId; const f = window.__mkaFallback && window.__mkaFallback[slot]; if(f && playId === playSeq[slot]) f(); };
         /* v351: um só leitor (MSE) quando possível; se não for aplicável ou falhar, o caminho antigo (leitor do carro + som à parte) */
         /* v374: o MSE também com a imagem em andamento (a cópia de fotogramas é feita a partir do vídeo MSE) */ let useMse = false; try{ useMse = !mirrorOn && cfg.mseFilm !== false && (location.protocol !== "http:" || window.__mseHttpOk === playId) && typeof mp4MseRun === "function" && !!window.MediaSource && !hlsInst[slot] && !(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000); }catch(e){}
