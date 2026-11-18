@@ -2550,7 +2550,11 @@ Current car state: ${carSummary()}. Local time: ${new Date().toLocaleString("pt-
   return true;
 }
 function logVoice(t, me){ const d=document.createElement("div"); d.textContent=t; if(me) d.className="me"; const l=$("voiceLog"); l.appendChild(d); l.scrollTop=l.scrollHeight; }
-function speak(t){ if(!cfg.speak) return; try{ if(!("speechSynthesis" in window) || !speechSynthesis.getVoices().length){ if(window.__ttsOnline) window.__ttsOnline(t, 1); return; } }catch(e){} if(!("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+let speakLast = {t:"", at:0};
+function speak(t){ if(!cfg.speak) return;
+  /* v451: a mesma frase pedida duas vezes seguidas (ex.: instrução da navegação) fala uma só vez */
+  try{ const now = Date.now(); if(t && t === speakLast.t && now - speakLast.at < 4000) return; speakLast = {t, at:now}; }catch(e){}
+  try{ if(!("speechSynthesis" in window) || !speechSynthesis.getVoices().length){ if(window.__ttsOnline) window.__ttsOnline(t, 1); return; } }catch(e){} if(!("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
 function renderCmdList(){ $("cmdList").innerHTML = VOICE.map(c=>`<div class="cmd"><b>“${esc(c.d[L()])}”</b></div>`).join(""); }
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2966,7 +2970,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v450";
+const APP_VERSION = "v451";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -17375,10 +17379,14 @@ select option,select optgroup{background:#fff;color:#111}
       const next = (viaPx) => {
         const t = ttsQ.shift(); if(!t){ onEnd && onEnd(); return; }
         const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
+        try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); ttsA.removeAttribute("src"); } }catch(e){}   /* v451: nunca duas vozes ao mesmo tempo */
         const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
-        a.onended = () => next(viaPx);
-        a.onerror = () => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
-        a.play().catch(() => { if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } });
+        /* v451: o erro do áudio e a recusa do play() chegavam os dois e cada um lançava a voz pelo proxy: duas vozes desfasadas (eco na navegação). Agora a troca acontece uma só vez */
+        let moved = false; const fallback = () => { if(moved || ttsA !== a) return; moved = true; try{ a.onended = a.onerror = null; a.pause(); }catch(e){}
+          if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };
+        a.onended = () => { if(ttsA === a && !moved) next(viaPx); };
+        a.onerror = fallback;   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
+        a.play().catch(e => { if(e && e.name === "AbortError") return; fallback(); });
       };
       next(LS.get("ttsViaPx", false));
     };
