@@ -786,6 +786,19 @@ body.layout-atv .rail{display:none}
 .tvside .tvcatrow #btnOrg{flex:none;width:48px;padding:0;font-size:18px;border-radius:12px}
 .tvside #tvList{border-radius:14px}
 .tvside #tvList .item{border-radius:12px}
+
+/* v449: elenco com fotografias e ficha do ator */
+.mvcast{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:thin}
+.mvactor{flex:none;width:104px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px 10px;border-radius:14px;border:1px solid transparent;background:color-mix(in srgb,var(--fg) 7%,transparent);color:inherit;cursor:pointer;font:inherit}
+.mvactor:hover,.mvactor:focus-visible{border-color:var(--accent);outline:none}
+.mvactor img,.mvactor .ph{width:88px;height:116px;border-radius:10px;object-fit:cover;background:color-mix(in srgb,var(--fg) 10%,transparent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;opacity:1;color:var(--muted)}
+.mvactor b{font-size:12.5px;font-weight:600;text-align:center;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#acDlg{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
+#acDlg[hidden]{display:none}
+.acbox{width:min(560px,92vw);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:22px;align-items:stretch}
+.acbox h2{margin:6px 0 0;text-align:center}.acbox #acLine{text-align:center}.acbox p{margin:6px 0;line-height:1.5}
+.acpic{align-self:center;width:170px;height:226px;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--fg) 10%,transparent);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--muted)}
+.acpic img{width:100%;height:100%;object-fit:cover}
 </style>
 </head>
 <body>
@@ -2951,7 +2964,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v448";
+const APP_VERSION = "v449";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3272,12 +3285,68 @@ function renderTvList(pre){
     const dur = i.duration || (i.episode_run_time ? i.episode_run_time + " min" : "");
     $$("mvMeta").innerHTML = (rt ? '<b class="mvrate">⭐ ' + rt.toFixed(1) + '/10</b> ' : "") + esc([y, dur, i.genre, i.country, i.age].filter(Boolean).join(" · ") || c.group || "");
     $$("mvPlot").textContent = i.plot || i.description || "Sem sinopse disponível para este título.";
-    $$("mvCrew").innerHTML = (i.director ? "<div><b>Realização:</b> " + esc(i.director) + "</div>" : "") + (i.cast || i.actors ? "<div><b>Elenco:</b> " + esc(i.cast || i.actors) + "</div>" : "");
+    $$("mvCrew").innerHTML = (i.director ? "<div><b>Realização:</b> " + esc(i.director) + "</div>" : "") + (i.cast || i.actors ? "<div><b>Elenco:</b></div>" : "");
+    try{ if(i.cast || i.actors) window.__mvCast && window.__mvCast($$("mvCrew"), String(i.cast || i.actors), () => my === tk); }catch(e){}
     trailer = i.youtube_trailer || i.trailer || "";
     const img = i.movie_image || i.cover || (Array.isArray(i.backdrop_path) ? i.backdrop_path[0] : "") || c.logo;
     if(img) $$("mvPoster").innerHTML = '<img src="' + esc(imgSrc(img)) + '" alt="" onerror="this.remove()">';
   }
   window.showMovieInfo = open;
+  /* v449: elenco com fotografia (como na app Android) e ficha de cada ator: foto, nascimento, idade, altura e biografia (Wikipédia em português,
+     senão em inglês; datas, altura e foto da Wikidata). Guardado no aparelho para abrir logo da segunda vez. */
+  const AC = (() => { try{ return LS.get("actores", {}) || {}; }catch(e){ return {}; } })();
+  const acSave = () => { try{ const k = Object.keys(AC); if(k.length > 400) k.slice(0, k.length - 400).forEach(x => delete AC[x]); LS.set("actores", AC); }catch(e){} };
+  const acPend = new Map();
+  async function actorInfo(name){
+    if(AC[name]) return AC[name].extract ? AC[name] : null;
+    if(acPend.has(name)) return acPend.get(name);
+    const p = (async () => {
+      let out = {};
+      for(const lang of ["pt", "en"]){
+        try{ const r = await fetch("https://" + lang + ".wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(name.replace(/ /g, "_")), {headers:{"Api-User-Agent":"Cockpit/1.0 (uso pessoal)"}});
+          if(!r.ok) continue; const j = await r.json(); if(j.type === "disambiguation" || !j.extract) continue;
+          out = {extract:j.extract, thumb:(j.thumbnail && j.thumbnail.source) || "", qid:j.wikibase_item || "", url:(j.content_urls && j.content_urls.desktop && j.content_urls.desktop.page) || "", lang}; break; }catch(e){}
+      }
+      if(out.qid && /^Q\d+$/.test(out.qid)){
+        try{ const r = await fetch("https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&origin=*&entity=" + out.qid); const cl = (await r.json()).claims || {};
+          const v = p => { const a = cl[p]; return a && a[0] && a[0].mainsnak && a[0].mainsnak.datavalue ? a[0].mainsnak.datavalue.value : null; };
+          const b = v("P569"), d = v("P570"), h = v("P2048"), ph = v("P18");
+          if(b && b.time) out.birth = b.time; if(d && d.time) out.death = d.time;
+          if(h && h.amount){ const m = parseFloat(String(h.amount).replace("+", "")), cm = Math.round(/Q174728$/.test(h.unit || "") ? m : m*100); if(cm > 50 && cm < 260) out.height = cm; }
+          if(typeof ph === "string" && ph) out.photo = "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(ph.replace(/ /g, "_")) + "?width=400";
+        }catch(e){}
+      }
+      AC[name] = out; acSave(); acPend.delete(name); return out.extract ? out : null;
+    })();
+    acPend.set(name, p); return p;
+  }
+  const acPhoto = j => j ? (j.thumb || j.photo || "") : "";
+  const ymd = t => { const m = /([+-]?\d{4,})-(\d{2})-(\d{2})/.exec(t || ""); return m ? [+m[1].replace("+", ""), +m[2], +m[3]] : null; };
+  const acLine = j => { const out = [], b = ymd(j.birth), d = ymd(j.death);
+    if(b){ const now = new Date(), ref = d || [now.getFullYear(), now.getMonth() + 1, now.getDate()], age = ref[0] - b[0] - ((ref[1] < b[1] || (ref[1] === b[1] && ref[2] < b[2])) ? 1 : 0);
+      out.push("Nascimento: " + String(b[2]).padStart(2, "0") + "/" + String(b[1]).padStart(2, "0") + "/" + b[0]); out.push((d ? "Faleceu aos " : "Idade: ") + age + " anos"); }
+    if(j.height) out.push("Altura: " + (j.height/100).toFixed(2).replace(".", ",") + " m");
+    return out.join(" · "); };
+  window.__mvCast = (box, cast, alive) => {
+    const names = cast.split(",").map(x => x.trim()).filter(Boolean).slice(0, 10); if(!names.length) return;
+    const row = document.createElement("div"); row.className = "mvcast";
+    names.forEach(nm => { const b = document.createElement("button"); b.className = "mvactor"; b.type = "button"; b.innerHTML = '<span class="ph">' + esc(nm.split(" ").map(w => w[0] || "").slice(0, 2).join("").toUpperCase()) + '</span><b>' + esc(nm) + '</b>';
+      b.onclick = () => showActor(nm); row.appendChild(b);
+      actorInfo(nm).then(j => { if(!alive() || !j) return; const u = acPhoto(j); if(!u) return; const im = new Image(); im.alt = ""; im.referrerPolicy = "no-referrer"; im.onload = () => { const ph = b.querySelector(".ph"); if(ph) ph.replaceWith(im); }; im.src = u; }); });
+    box.appendChild(row);
+  };
+  function showActor(name){
+    let d = document.getElementById("acDlg");
+    if(!d){ d = document.createElement("div"); d.id = "acDlg"; d.className = "overlay"; d.innerHTML = '<div class="panel acbox" role="dialog" aria-label="Ator"><div class="acpic" id="acPic"></div><h2 id="acName"></h2><div class="small muted" id="acLine"></div><p id="acBio"></p><div class="row" style="justify-content:space-between;align-items:center"><span class="small muted" id="acSrc">Fonte: Wikipédia e Wikidata</span><button class="btn primary" id="acX">Fechar</button></div></div>';
+      document.body.appendChild(d); d.addEventListener("click", e => { if(e.target === d) d.hidden = true; }); d.querySelector("#acX").onclick = () => { d.hidden = true; }; }
+    const tk2 = (d._tk = (d._tk || 0) + 1);
+    d.querySelector("#acName").textContent = name; d.querySelector("#acLine").textContent = ""; d.querySelector("#acBio").textContent = "A carregar…"; d.querySelector("#acPic").innerHTML = '<span>' + esc(name.split(" ").map(w => w[0] || "").slice(0, 2).join("").toUpperCase()) + '</span>';
+    d.hidden = false; try{ d.querySelector("#acX").focus(); }catch(e){}
+    actorInfo(name).then(j => { if(d._tk !== tk2) return;
+      if(!j){ d.querySelector("#acBio").textContent = "Sem informação disponível sobre este ator."; return; }
+      d.querySelector("#acLine").textContent = acLine(j); d.querySelector("#acBio").textContent = j.extract;
+      const u = acPhoto(j); if(u) d.querySelector("#acPic").innerHTML = '<img src="' + esc(u) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">'; });
+  }
   /* pressão longa (toque ou rato) ou menu de contexto num item da lista */
   const L = $("tvList"); let timer = 0, sx = 0, sy = 0, fired = 0;
   const item = e => { const b = e.target.closest && e.target.closest("[data-play]"); if(!b) return null; const c = (window.__tvShown || [])[+b.dataset.play]; return c && (c.kind === "movie" || c.kind === "series") ? c : null; };
