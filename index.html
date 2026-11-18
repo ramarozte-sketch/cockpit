@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v434";
+const APP_VERSION = "v435";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5625,6 +5625,16 @@ function toggleMirror(ev){
 if($("btnMirror")) $("btnMirror").onclick = toggleMirror;
 /* v434: o telemóvel tinha vários separadores do Cockpit abertos: cada um guardava o seu estado do Andamento e um separador
    desligava-o no armazenamento dos outros (o botão aparecia sem azul ao reabrir). Agora todos acompanham a mudança. */
+/* v435: verifica se o servidor tem uma versão mais nova (contorna a cache do browser do carro) e avisa; não recarrega sozinha durante a reprodução */
+(function(){
+  const cur = parseInt((/APP_VERSION = "v(\d+)"/.exec(document.documentElement.innerHTML) || [])[1] || "0", 10);
+  const check = async () => { try{
+    const r = await fetch(location.origin + location.pathname + "?vchk=" + Date.now(), {cache:"no-store"}); if(!r.ok) return;
+    const t = await r.text(); const nv = parseInt((/APP_VERSION = "v(\d+)"/.exec(t) || [])[1] || "0", 10);
+    if(nv > cur){ try{ toast("Há uma versão nova (v" + nv + "). Recarrega a página quando não estiveres a ver filme ou canal.", false); }catch(e){} window.__versaoNova = nv; window.__dbgEv && window.__dbgEv(0, "versão nova no servidor", {atual:cur, nova:nv}); }
+  }catch(e){} };
+  setTimeout(check, 4000); setInterval(check, 10 * 60 * 1000);
+})();
 window.addEventListener("storage", e => { try{ if(e.key !== "ck_mirror") return; const nv = JSON.parse(e.newValue || "false") === true; if(nv === mirrorOn) return; mirrorOn = nv; syncMirror(); window.__dbgEv && window.__dbgEv(typeof tvTarget !== "undefined" ? tvTarget : 0, "andamento: " + (nv ? "ligado" : "desligado"), {origem:"outro separador"}); }catch(x){} });
 document.addEventListener("visibilitychange", () => { try{ if(document.hidden) return; const nv = LS.get("mirror", false) === true; if(nv !== mirrorOn){ mirrorOn = nv; syncMirror(); } else syncMirrorBtns(); }catch(x){} });
 if($("hMirror")){ $("hMirror").onclick = toggleMirror; try{ syncMirrorBtns(); }catch(e){} }
