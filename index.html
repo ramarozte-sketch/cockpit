@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v432";
+const APP_VERSION = "v433";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4864,8 +4864,16 @@ function mkvRun(slot, st, src, audio){
   (async () => {
     try{
       /* 1) cabeçalho: EBML, Segment, SeekHead, Info, Tracks */
-      let hb = await get(0, 1 << 18); if(!alive()) return;
-      let p = 0; const e0 = mkvHead(hb, 0); if(!e0 || e0.id !== 0x1A45DFA3) throw new Error("não é um ficheiro Matroska");
+      /* v433: logo a seguir a fechar a ligação anterior o servidor responde 458/429 (uma página de erro, não o filme):
+         antes isto dava «não é um ficheiro Matroska» e o som só voltava ~20 s depois; agora repete o cabeçalho até 4 vezes */
+      let hb = null, e0 = null;
+      for(let k = 0; k < 5; k++){
+        if(k){ try{ window.__dbgEv && window.__dbgEv(slot, (audio ? "som" : "imagem") + " mkv: cabeçalho recusado, repete", {vez:k}); }catch(e){} await sleep(1500 * k); if(!alive()) return; }
+        try{ hb = await get(0, 1 << 18); }catch(e){ if(/Range/.test(String(e.message))) throw e; hb = null; }
+        if(!alive()) return;
+        e0 = hb && mkvHead(hb, 0); if(e0 && e0.id === 0x1A45DFA3) break;
+      }
+      let p = 0; if(!e0 || e0.id !== 0x1A45DFA3) throw new Error("não é um ficheiro Matroska");
       p = e0.hl + e0.size; const sg = mkvHead(hb, p); if(!sg || sg.id !== MKV.SEG) throw new Error("sem Segment");
       const seg = p + sg.hl; let scale = 1000000, dur = 0, trk = null, cuesAt = -1, tracksAt = -1, first = -1;
       const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
