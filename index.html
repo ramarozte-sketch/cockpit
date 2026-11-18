@@ -1225,7 +1225,7 @@ body.layout-atv .rail{display:none}
             <button class="tab" data-rt="fav" aria-selected="false">★ Favoritas</button>
           </div></div>
         <form id="radioForm" class="row" style="flex-wrap:nowrap"><input type="search" id="radioQ" placeholder="Procurar rádio (ex.: Comercial, TSF, Antena 3)"><button class="btn">Procurar</button></form>
-        <div class="radionow" id="radioNow" hidden><span class="aico">📻</span><b id="rnName" style="flex:1;min-width:0"></b><button class="btn" id="rnFav">☆</button><button class="btn primary" id="rnStop">■ Parar</button></div>
+        <div class="radionow" id="radioNow" hidden><span class="aico">📻</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><b id="rnName"></b><span class="small muted" id="rnTrack" hidden></span></span><button class="btn" id="rnFav">☆</button><button class="btn primary" id="rnStop">■ Parar</button></div>
         <div class="radiogrid" id="radioGrid"><p class="muted small" style="margin:0">A carregar rádios…</p></div>
         <p class="small muted" style="margin:0">As rádios são só som, por isso funcionam com o carro em andamento. Diretório: radio-browser.info.</p>
       </div>
@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v444";
+const APP_VERSION = "v445";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6673,8 +6673,9 @@ async function stCharge(){
 }
 async function stDrive(){
   const [from, to] = stRange();
-  const dr = await stGet("drives"); const d = (dr.results || []).filter(x => num(x.odometer_distance, 0) > 0.05).sort((a, b) => a.started_at - b.started_at);
+  const [dr, chg] = await Promise.all([stGet("drives"), stGet("charges").catch(() => ({results:[]}))]); const d = (dr.results || []).filter(x => num(x.odometer_distance, 0) > 0.05).sort((a, b) => a.started_at - b.started_at);
   if(!d.length) return `<p class="muted">Sem viagens neste período.</p>`;
+  const costHtml = stTripCost(d, (chg.results || []).filter(c => num(c.energy_added, 0) > 0.05));
   const B = stBuckets(from, to), rows = {}; let km = 0, e = 0, secs = 0, ap = 0, used = 0, tw = 0, tsum = 0;
   d.forEach(x => { const k = num(x.odometer_distance, 0), b = B.keyOf(x.started_at); km += k; e += num(x.energy_used, 0); secs += Math.max(0, x.ended_at - x.started_at); ap += num(x.autopilot_distance, 0);
     used += num(x.starting_battery, 0) - num(x.ending_battery, 0); (rows[b] = rows[b] || {})["km"] = (rows[b]["km"] || 0) + k;
@@ -6697,6 +6698,7 @@ async function stDrive(){
     <div class="tablewrap" style="max-height:320px;overflow:auto"><table class="ctable"><thead><tr><th>Data</th><th>Percurso</th><th>Distância</th><th>Consumo</th></tr></thead><tbody>${[...d].reverse().slice(0, 60).map(mk).join("")}</tbody></table></div>
     <h3 style="margin:10px 0 4px">Distância ${B.gran === "day" ? "por dia" : B.gran === "week" ? "por semana" : "por mês"}</h3>
     ${stBarChart(B, rows, null, v => stN(v, 0) + " km", ["km"], "")}
+    ${costHtml}
     <h3 style="margin:10px 0 4px">Consumo conforme a temperatura</h3>
     <div class="tablewrap"><table class="ctable"><thead><tr><th>Temperatura exterior</th><th>Viagens</th><th>Distância</th><th>Consumo</th></tr></thead><tbody>${tb}</tbody></table></div>
     <h3 style="margin:10px 0 4px">Recordes</h3>
@@ -6759,6 +6761,33 @@ const stRenderMap = () => {
     setTimeout(() => m.invalidateSize(), 80);
   });
 };
+/* v445: custo das viagens por mês: a energia gasta a conduzir em cada mês, ao preço médio dos carregamentos desse mês
+   (casa, Supercharger, trabalho, outros: a mesma divisão e os mesmos preços do separador Carregamento) */
+function stTripCost(drives, charges){
+  const mk = t => { const x = new Date(t*1000); return x.getFullYear() + "-" + String(x.getMonth()+1).padStart(2, "0"); };
+  const pl = stPlaces(charges), M = {}, all = {e:0, c:0};
+  charges.forEach(c => { const cost = chargeCost(c), e = num(c.energy_added, 0); if(!isFinite(cost) || e <= 0) return; const k = stKind(c, pl), m = M[mk(c.started_at)] = M[mk(c.started_at)] || {ce:0, cc:0, mix:{}};
+    m.ce += e; m.cc += cost; m.mix[k] = (m.mix[k] || {e:0, c:0}); m.mix[k].e += e; m.mix[k].c += cost; all.e += e; all.c += cost; });
+  const avg = all.e > 0 ? all.c/all.e : tarIn();
+  const R = {};
+  drives.forEach(x => { const k = mk(x.started_at), r = R[k] = R[k] || {km:0, kwh:0}; r.km += num(x.odometer_distance, 0); r.kwh += num(x.energy_used, 0); });
+  const keys = Object.keys(R).sort(); if(!keys.length) return "";
+  const f = stFuel(), rowsBar = {}; let tk = 0, tc = 0, tg = 0, tkwh = 0, est = false;
+  const lines = keys.map(k => { const r = R[k], m = M[k], pk = m && m.ce > 0 ? m.cc/m.ce : avg; if(!(m && m.ce > 0)) est = true;
+    const cost = r.kwh*pk, gas = r.km/100*f.cons*f.price; tk += r.km; tc += cost; tg += gas; tkwh += r.kwh;
+    const rb = rowsBar[k] = {}; if(m && m.ce > 0) for(const s in m.mix) rb[s] = r.kwh*(m.mix[s].e/m.ce)*(m.mix[s].c/m.mix[s].e); else rb.other = cost;
+    const [y, mo] = k.split("-").map(Number), lab = new Date(y, mo - 1, 1).toLocaleDateString("pt-PT", {month:"long", year:"numeric"});
+    const mixTxt = m && m.ce > 0 ? Object.keys(m.mix).sort((a, b) => m.mix[b].e - m.mix[a].e).map(s => ST_NAME[s] + " " + Math.round(m.mix[s].e/m.ce*100) + " %").join(" · ") : "sem carregamentos: preço médio";
+    return `<tr><td>${esc(lab)}</td><td>${stN(r.km, 0)} km</td><td>${stN(r.kwh, 0)} kWh</td><td>${stN(pk, 3)} €/kWh</td><td><b>${eur(cost)}</b></td><td>${r.km > 0 ? eur(cost/r.km*100) : "—"}</td><td>${eur(gas - cost)}</td><td class="loc small muted">${esc(mixTxt)}</td></tr>`; });
+  const B = {gran:"month", keys, labelOf:k => { const [y, mo] = k.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString("pt-PT", {month:"short", year:"2-digit"}); }};
+  const cols = ["home", "sc", "work", "other"].filter(c => keys.some(k => rowsBar[k][c] > 0));
+  return `
+    <h3 style="margin:10px 0 4px">Custo das viagens por mês</h3>
+    <div class="stats">${stStat("Custo a conduzir", eur(tc), stN(tkwh, 0) + " kWh")}${stStat("Por 100 km", tk > 0 ? eur(tc/tk*100) : "--")}${stStat("Poupança vs. gasolina", eur(tg - tc), "gasolina: " + eur(tg))}</div>
+    ${stBarChart(B, rowsBar, null, v => eur(v), cols, "")}
+    <div class="tablewrap"><table class="ctable"><thead><tr><th>Mês</th><th>Distância</th><th>Energia</th><th>Preço</th><th>Custo</th><th>Por 100 km</th><th>Poupança</th><th>Origem da energia</th></tr></thead><tbody>${lines.reverse().join("")}</tbody></table></div>
+    <p class="small muted" style="margin:6px 0 0">Energia gasta nas viagens × preço médio dos carregamentos desse mês (casa ${eur(tarIn())}/kWh${isFinite(tarSc()) ? ", Supercharger " + eur(tarSc()) + "/kWh" : ""}, ou o custo que a Tessie tem de cada carga). As cores são casa, Supercharger, trabalho e outros.${est ? " Meses sem carregamentos usam o preço médio do período." : ""} A gasolina usa o preço e o consumo dos ajustes do separador Carregamento. O solar entra como carga em casa.</p>`;
+}
 /* v443: mapa com os percursos de todas as viagens do período (Tessie /path, separado por viagem).
    v444: «Mapa de calor» (as estradas mais usadas ficam mais intensas) e cada viagem no mapa com a velocidade e a bateria ao longo do caminho */
 const stTripPt = x => { if(typeof x === "string"){ const a = x.split(","); const la = +a[0], lo = +a[1]; return isFinite(la) && isFinite(lo) ? [la, lo] : null; }
@@ -6951,7 +6980,7 @@ function renderRadios(list, empty){
 function radioStop(){
   podStop();
   const a = $("radioAud"); if(radioHls){ radioHls.destroy(); radioHls = null; }
-  a.pause(); a.removeAttribute("src"); a.removeAttribute("crossorigin"); a.load(); radioCur = null; $("radioNow").hidden = true;
+  a.pause(); a.removeAttribute("src"); a.removeAttribute("crossorigin"); a.load(); radioCur = null; $("radioNow").hidden = true; rnStopPoll();
   document.querySelectorAll(".rcard.on").forEach(x=>x.classList.remove("on"));
 }
 function playRadio(st){
@@ -6967,7 +6996,45 @@ function playRadio(st){
   $("rnName").textContent = st.name; $("radioNow").hidden = false; radioUpdFav();
   document.querySelectorAll(".rcard").forEach((x)=>x.classList.toggle("on", x.querySelector("b")?.textContent === st.name));
   rbGet("/json/url/" + st.id).catch(()=>{}); // conta o clique no diretório
+  rnStartPoll(st);
   LS.set("radioLast", st); keepAwake(true); return true;
+}
+/* v445: música a tocar na rádio (artista e título). 1) metadados ICY lidos pelo proxy (cabeçalho Icy-MetaData pedido ao servidor da rádio);
+   2) sem proxy: a página de estado do Icecast (status-json.xsl, que aceita pedidos de outros sites). Lê só o princípio do fluxo e pára. */
+let rnT = null, rnLast = "";
+function rnStopPoll(){ clearTimeout(rnT); rnT = null; rnLast = ""; const t = $("rnTrack"); if(t){ t.hidden = true; t.textContent = ""; } }
+function rnShow(st, title){
+  if(radioCur !== st) return; title = String(title || "").replace(/\s+/g, " ").trim();
+  if(!title || /^(-|\s|unknown|desconhecido)$/i.test(title) || title.toLowerCase() === String(st.name || "").toLowerCase()) return;
+  const t = $("rnTrack"); if(!t) return; t.textContent = "🎵 " + title; t.hidden = false;
+  if(title !== rnLast){ rnLast = title; try{ if("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({title, artist:st.name, artwork:st.logo ? [{src:st.logo}] : []}); }catch(e){} }
+}
+async function rnIcy(url){
+  const ac = new AbortController(), to = setTimeout(() => ac.abort(), 8000);
+  try{
+    const r = await fetch(px(url), {headers:{"X-Fwd-Icy-MetaData":"1"}, signal:ac.signal}); if(!r.ok || !r.body) return null;
+    const rd = r.body.getReader(), pat = [83,116,114,101,97,109,84,105,116,108,101,61,39]; /* StreamTitle=' */
+    let buf = new Uint8Array(0), got = 0;
+    while(got < 200000){ const {value, done} = await rd.read(); if(done || !value) break; got += value.length;
+      const nb = new Uint8Array(buf.length + value.length); nb.set(buf); nb.set(value, buf.length); buf = nb.length > 70000 ? nb.slice(nb.length - 70000) : nb;
+      for(let i = 0; i + pat.length < buf.length; i++){ let ok = true; for(let j = 0; j < pat.length; j++) if(buf[i + j] !== pat[j]){ ok = false; break; } if(!ok) continue;
+        let e = i + pat.length; while(e + 1 < buf.length && !(buf[e] === 39 && buf[e + 1] === 59)) e++; if(e + 1 >= buf.length) break;
+        const raw = buf.slice(i + pat.length, e); let s = new TextDecoder("utf-8").decode(raw); if(s.includes("\ufffd")) s = new TextDecoder("latin1").decode(raw);
+        try{ rd.cancel(); }catch(x){} return s; } }
+    try{ rd.cancel(); }catch(x){} return null;
+  }catch(e){ return null; } finally{ clearTimeout(to); }
+}
+async function rnIcecast(url){
+  try{ const u = new URL(url), r = await fetch(u.origin + "/status-json.xsl", {cache:"no-store"}); if(!r.ok) return null; const j = await r.json(); let src = j && j.icestats && j.icestats.source; if(!src) return null; if(!Array.isArray(src)) src = [src];
+    const s = src.find(x => x.listenurl && new URL(x.listenurl, u).pathname === u.pathname) || (src.length === 1 ? src[0] : null); if(!s) return null;
+    return s.title ? (s.artist ? s.artist + " - " + s.title : s.title) : (s.yp_currently_playing || null); }catch(e){ return null; }
+}
+function rnStartPoll(st){
+  rnStopPoll(); if(!st || st.hls) return;
+  const tick = async () => { if(radioCur !== st) return;
+    if(!document.hidden){ let t = HASPX() ? await rnIcy(st.url) : null; if(!t) t = await rnIcecast(st.url); if(radioCur !== st) return; if(t) rnShow(st, t); else if(!rnLast){ st._noMeta = (st._noMeta || 0) + 1; } }
+    if(radioCur === st && (st._noMeta || 0) < 3) rnT = setTimeout(tick, 30000);   /* rádios sem informação: desiste ao fim de 3 tentativas */ };
+  rnT = setTimeout(tick, 2500);
 }
 async function playRadioByName(name){
   const q = norm(name); if(!q) return false;
