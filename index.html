@@ -796,7 +796,9 @@ body.layout-atv .rail{display:none}
 #acDlg{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
 #acDlg[hidden]{display:none}
 .acbox{width:min(560px,92vw);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:22px;align-items:stretch}
-.acbox h2{margin:6px 0 0;text-align:center}.acbox #acLine{text-align:center}.acbox p{margin:6px 0;line-height:1.5}
+.acbox h2{margin:6px 0 0;text-align:center}.acbox #acLine{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:6px}
+.acfact{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--fg) 6%,transparent);text-align:left}
+.acfact .ic{font-size:22px}.acfact small{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.acfact b{display:block;font-size:15px;color:var(--fg)}.acfact i{display:block;font-style:normal;font-size:12px;color:var(--muted)}.acbox p{margin:6px 0;line-height:1.5}
 .acpic{align-self:center;width:170px;height:226px;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--fg) 10%,transparent);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--muted)}
 .acpic img{width:100%;height:100%;object-fit:cover}
 </style>
@@ -2964,7 +2966,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v449";
+const APP_VERSION = "v450";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3298,7 +3300,7 @@ function renderTvList(pre){
   const acSave = () => { try{ const k = Object.keys(AC); if(k.length > 400) k.slice(0, k.length - 400).forEach(x => delete AC[x]); LS.set("actores", AC); }catch(e){} };
   const acPend = new Map();
   async function actorInfo(name){
-    if(AC[name]) return AC[name].extract ? AC[name] : null;
+    if(AC[name] && (AC[name].v >= 2 || !AC[name].qid)) return AC[name].extract ? AC[name] : null;   /* v450: fichas antigas (sem cônjuge) voltam a ser pedidas */
     if(acPend.has(name)) return acPend.get(name);
     const p = (async () => {
       let out = {};
@@ -3314,19 +3316,27 @@ function renderTvList(pre){
           if(b && b.time) out.birth = b.time; if(d && d.time) out.death = d.time;
           if(h && h.amount){ const m = parseFloat(String(h.amount).replace("+", "")), cm = Math.round(/Q174728$/.test(h.unit || "") ? m : m*100); if(cm > 50 && cm < 260) out.height = cm; }
           if(typeof ph === "string" && ph) out.photo = "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(ph.replace(/ /g, "_")) + "?width=400";
+          /* v450: cônjuges (P26), com os anos de início e fim do casamento */
+          const yr = q => { const t = q && q[0] && q[0].datavalue && q[0].datavalue.value && q[0].datavalue.value.time; const m = /([+-]?\d{4})/.exec(t || ""); return m ? +m[1].replace("+", "") : null; };
+          const sp = (cl.P26 || []).map(c => ({id:c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value && c.mainsnak.datavalue.value.id, from:yr(c.qualifiers && c.qualifiers.P580), to:yr(c.qualifiers && c.qualifiers.P582)})).filter(x => x.id).slice(0, 6);
+          if(sp.length){ try{ const r2 = await fetch("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=labels&languages=pt|en&ids=" + sp.map(x => x.id).join("|")); const en = (await r2.json()).entities || {};
+            out.spouses = sp.map(x => { const l = en[x.id] && en[x.id].labels; return {name:(l && ((l.pt && l.pt.value) || (l.en && l.en.value))) || "", from:x.from, to:x.to}; }).filter(x => x.name); }catch(e){} }
         }catch(e){}
       }
-      AC[name] = out; acSave(); acPend.delete(name); return out.extract ? out : null;
+      out.v = 2; AC[name] = out; acSave(); acPend.delete(name); return out.extract ? out : null;
     })();
     acPend.set(name, p); return p;
   }
   const acPhoto = j => j ? (j.thumb || j.photo || "") : "";
   const ymd = t => { const m = /([+-]?\d{4,})-(\d{2})-(\d{2})/.exec(t || ""); return m ? [+m[1].replace("+", ""), +m[2], +m[3]] : null; };
-  const acLine = j => { const out = [], b = ymd(j.birth), d = ymd(j.death);
+  /* v450: ficha em blocos: idade (e nascimento), altura e cônjuge(s), cada um com o seu rótulo */
+  const acFacts = j => { const out = [], b = ymd(j.birth), d = ymd(j.death), dt = x => String(x[2]).padStart(2, "0") + "/" + String(x[1]).padStart(2, "0") + "/" + x[0];
     if(b){ const now = new Date(), ref = d || [now.getFullYear(), now.getMonth() + 1, now.getDate()], age = ref[0] - b[0] - ((ref[1] < b[1] || (ref[1] === b[1] && ref[2] < b[2])) ? 1 : 0);
-      out.push("Nascimento: " + String(b[2]).padStart(2, "0") + "/" + String(b[1]).padStart(2, "0") + "/" + b[0]); out.push((d ? "Faleceu aos " : "Idade: ") + age + " anos"); }
-    if(j.height) out.push("Altura: " + (j.height/100).toFixed(2).replace(".", ",") + " m");
-    return out.join(" · "); };
+      out.push(["🎂", d ? "Faleceu aos" : "Idade", age + " anos", "nasceu a " + dt(b) + (d ? " · morreu a " + dt(d) : "")]); }
+    if(j.height){ const h = j.height; out.push(["📏", "Altura", (h/100).toFixed(2).replace(".", ",") + " m", ""]); }
+    (j.spouses || []).forEach((x, i) => { const per = x.from || x.to ? (x.from || "?") + (x.to ? "–" + x.to : " – atual") : (i === (j.spouses.length - 1) ? "" : ""); out.push(["💍", x.to ? "Foi casado(a) com" : "Cônjuge", x.name, per]); });
+    return out; };
+  const acLine = j => acFacts(j).map(f => f[1] + ": " + f[2]).join(" · ");
   window.__mvCast = (box, cast, alive) => {
     const names = cast.split(",").map(x => x.trim()).filter(Boolean).slice(0, 10); if(!names.length) return;
     const row = document.createElement("div"); row.className = "mvcast";
@@ -3344,7 +3354,7 @@ function renderTvList(pre){
     d.hidden = false; try{ d.querySelector("#acX").focus(); }catch(e){}
     actorInfo(name).then(j => { if(d._tk !== tk2) return;
       if(!j){ d.querySelector("#acBio").textContent = "Sem informação disponível sobre este ator."; return; }
-      d.querySelector("#acLine").textContent = acLine(j); d.querySelector("#acBio").textContent = j.extract;
+      d.querySelector("#acLine").innerHTML = acFacts(j).map(f => '<div class="acfact"><span class="ic">' + f[0] + '</span><div><small>' + esc(f[1]) + '</small><b>' + esc(f[2]) + '</b>' + (f[3] ? '<i>' + esc(f[3]) + '</i>' : "") + '</div></div>').join(""); d.querySelector("#acBio").textContent = j.extract;
       const u = acPhoto(j); if(u) d.querySelector("#acPic").innerHTML = '<img src="' + esc(u) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">'; });
   }
   /* pressão longa (toque ou rato) ou menu de contexto num item da lista */
