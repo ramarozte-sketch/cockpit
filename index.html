@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v442";
+const APP_VERSION = "v443";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6541,7 +6541,7 @@ async function loadEnergy(){
 $("chargeMore").onclick = () => { EN_OPEN = !EN_OPEN; renderChargeRows(); };
 $("enRefresh").onclick = ()=>{ growattFetch(true).then(renderSolar).catch(e=>{ $("pvUpdated").textContent = "Growatt: "+e.message; }); loadState().then(renderLiveCharge); loadEnergy(); };
 /* ---------- Estatísticas (equivalente ao «Estatísticas de carregamento» da app Tesla, mais condução, paragens e bateria; dados da Tessie) ---------- */
-const ST = {period:"12m", tab:"charge", metric:"kwh", cache:new Map(), cf:"", ct:"", loaded:false, seq:0, map:null, mapLayer:null, sel:-1};
+const ST = {period:"12m", tab:"charge", metric:"kwh", cache:new Map(), cf:"", ct:"", loaded:false, seq:0, map:null, tmap:null, mapLayer:null, sel:-1};
 const ST_PERIODS = [["7d","7 dias"],["31d","31 dias"],["3m","3 meses"],["12m","12 meses"],["all","Total"],["custom","Personalizado"]];
 const ST_TABS = [["charge","⚡ Carregamento"],["drive","🚗 Condução"],["idle","🅿 Parado"],["batt","🔋 Bateria"]];
 const ST_COL = {home:"#2ecc71", sc:"#e74c3c", work:"#3498db", other:"#a66bff"};
@@ -6690,6 +6690,8 @@ async function stDrive(){
       ${stStat("Energia usada", stN(e) + " kWh")}${stStat("Consumo médio", km ? Math.round(e*1000/km) + " Wh/km" : "--")}${stStat("Velocidade média", secs ? stN(km/(secs/3600), 0) + " km/h" : "--")}
       ${stStat("Autopilot", km ? stN(ap/km*100, 0) + " %" : "--", stN(ap, 0) + " km")}${stStat("Temperatura média", tw ? stN(tsum/tw, 0) + " °C" : "--")}${stStat("Bateria por viagem", stN(used/d.length, 1) + " %")}
     </div>
+    <h3 style="margin:10px 0 4px">Mapa das viagens</h3>
+    <div id="stTrips" class="stmap" style="height:360px"></div><p class="small muted" id="stTripsNote" style="margin:0 0 6px">A carregar os percursos…</p>
     <h3 style="margin:10px 0 4px">Distância ${B.gran === "day" ? "por dia" : B.gran === "week" ? "por semana" : "por mês"}</h3>
     ${stBarChart(B, rows, null, v => stN(v, 0) + " km", ["km"], "")}
     <h3 style="margin:10px 0 4px">Consumo conforme a temperatura</h3>
@@ -6754,6 +6756,32 @@ const stRenderMap = () => {
     setTimeout(() => m.invalidateSize(), 80);
   });
 };
+/* v443: mapa com os percursos de todas as viagens do período (Tessie /path, separado por viagem) */
+async function stRenderTrips(){
+  const el = $("stTrips"), note = $("stTripsNote"); if(!el) return;
+  const seq = ST.seq;
+  let res; try{ res = await stGet("path", {separate:true, simplify:true}); }catch(e){ if(note) note.textContent = "Não consegui obter os percursos da Tessie (" + e.message + ")."; el.hidden = true; return; }
+  if(seq !== ST.seq || !$("stTrips")) return;
+  const pt = x => { if(typeof x === "string"){ const a = x.split(","); const la = +a[0], lo = +a[1]; return isFinite(la) && isFinite(lo) ? [la, lo] : null; }
+    if(x && isFinite(+x.latitude) && isFinite(+x.longitude)) return [+x.latitude, +x.longitude]; if(Array.isArray(x) && x.length >= 2 && !Array.isArray(x[0]) && isFinite(+x[0])) return [+x[0], +x[1]]; return null; };
+  const r = (res && res.results) || [];
+  /* separado: lista de viagens (cada uma lista de pontos); senão uma lista só de pontos */
+  const segs = (r.length && Array.isArray(r[0]) && (Array.isArray(r[0][0]) || typeof r[0][0] === "string" || (r[0][0] && typeof r[0][0] === "object")) ? r : [r]).map(s => (Array.isArray(s) ? s : (s && (s.path || s.points)) || []).map(pt).filter(Boolean)).filter(s => s.length >= 2);
+  if(!segs.length){ el.hidden = true; if(note) note.textContent = "Sem percursos neste período."; return; }
+  const LF = await loadLeaflet(); if(seq !== ST.seq || !$("stTrips")) return;
+  if(!LF){ el.innerHTML = '<p class="small muted" style="padding:12px">Não consegui carregar o mapa.</p>'; return; }
+  if(ST.tmap){ try{ ST.tmap.remove(); }catch(e){} ST.tmap = null; }
+  const m = ST.tmap = LF.map(el, {zoomControl:true, attributionControl:true, scrollWheelZoom:false, preferCanvas:true});
+  LF.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:18, attribution:'© OpenStreetMap'}).addTo(m);
+  el.classList.toggle("mapdark", nvDark());
+  let n = 0; const all = [];
+  segs.forEach((s, i) => { const f = segs.length > 1 ? i/(segs.length - 1) : 1;   /* mais antigas mais claras, mais recentes mais fortes */
+    LF.polyline(s, {color:"#3e8ef7", weight:3, opacity:0.35 + 0.6*f}).addTo(m); n += s.length; all.push(s[0], s[s.length - 1]);
+    if(i === segs.length - 1){ LF.circleMarker(s[s.length - 1], {radius:6, color:"#fff", weight:2, fillColor:"#2ecc71", fillOpacity:1}).bindPopup("Fim da última viagem").addTo(m); } });
+  try{ m.fitBounds(LF.latLngBounds(segs.flat()), {padding:[20, 20], maxZoom:14}); }catch(e){}
+  setTimeout(() => m.invalidateSize(), 80);
+  if(note) note.textContent = segs.length + " percursos · " + n.toLocaleString("pt-PT") + " pontos (simplificados pela Tessie). As viagens mais recentes têm a linha mais forte; o ponto verde é o fim da última.";
+}
 function stBind(){
   const body = $("stBody");
   body.querySelectorAll("#stMetric .tab").forEach(b => b.onclick = () => { ST.metric = b.dataset.m; stLoad(false); });
@@ -6764,6 +6792,7 @@ function stBind(){
   const h = $("stSetHome"), w = $("stSetWork"), c = $("stClrWork");
   if(h) h.onclick = () => setPos("home"); if(w) w.onclick = () => setPos("work"); if(c) c.onclick = () => { cfg.workLat = ""; cfg.workLon = ""; saveCfg(); stLoad(false); };
   stRenderMap();
+  if($("stTrips")) stRenderTrips();
 }
 async function stLoad(force){
   const body = $("stBody"), seq = ++ST.seq;
