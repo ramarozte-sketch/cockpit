@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v431";
+const APP_VERSION = "v432";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5261,7 +5261,24 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
 /* v429: o índice (moov) encontra-se como no MSE (mp4MseRun): saltando de caixa em caixa no topo do ficheiro.
    Cada salto lê só 16 bytes (tamanho + tipo); o mdat é saltado sem ser lido. Não precisa do tamanho do ficheiro
    (que o browser não consegue ler) nem de Range em sufixo (que o servidor recusa). São 3 a 4 pedidos pequenos. */
+/* v432: índice (ftyp + moov) guardado no aparelho por filme (IndexedDB, últimos 8 filmes): ao reabrir, o som Dolby arranca sem descarregar o índice outra vez */
+const MoovCache = (() => {
+  let dbp = null; const db = () => dbp || (dbp = new Promise(res => { try{ const r = indexedDB.open("cockpit-moov", 1); r.onupgradeneeded = () => r.result.createObjectStore("m"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }catch(e){ res(null); } }));
+  const key = src => String(src).replace(/^https?:\/\/[^/]+/, "").replace(/\?.*$/, "");
+  const tx = async (mode, fn) => { const d = await db(); if(!d) return null; return new Promise(res => { try{ const t = d.transaction("m", mode), o = t.objectStore("m"), r = fn(o); t.oncomplete = () => res(r && r.result); t.onerror = () => res(null); }catch(e){ res(null); } }); };
+  return {
+    async get(src){ const v = await tx("readonly", o => o.get(key(src))); if(v){ tx("readwrite", o => o.put(Object.assign(v, {usado:Date.now()}), key(src))); } return v || null; },
+    async put(src, v){ await tx("readwrite", o => o.put(Object.assign({}, v, {usado:Date.now()}), key(src)));
+      try{ const all = await tx("readonly", o => o.getAllKeys()); if(all && all.length > 8){ const vals = await tx("readonly", o => o.getAll()); const ord = all.map((k, i) => [k, (vals[i] || {}).usado || 0]).sort((a, b) => a[1] - b[1]); for(const [k] of ord.slice(0, all.length - 8)) await tx("readwrite", o => o.delete(k)); } }catch(e){} }
+  };
+})();
 async function mp4TailMoov(src, signal){
+  try{ const c = await MoovCache.get(src); if(c && c.bytes && c.ftyp){ return {at:c.at, sz:c.sz, bytes:new Uint8Array(c.bytes), ftyp:new Uint8Array(c.ftyp), ftypLen:c.ftypLen, caixas:c.caixas, guardado:true}; } }catch(e){}
+  const r = await mp4TailMoovNet(src, signal);
+  if(r && r.bytes && !r.erro){ try{ MoovCache.put(src, {at:r.at, sz:r.sz, bytes:r.bytes.slice().buffer, ftyp:r.ftyp.slice().buffer, ftypLen:r.ftypLen, caixas:r.caixas}); }catch(e){} }
+  return r;
+}
+async function mp4TailMoovNet(src, signal){
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const fr = async (x, y) => { let last = null;
     for(let t = 0; t < 3; t++){
@@ -5278,7 +5295,7 @@ async function mp4TailMoov(src, signal){
     throw last; };
   let p = 0, ftypLen = 0, moovAt = -1, moovLen = 0; const caixas = [];
   for(let i = 0; i < 30 && moovAt < 0; i++){
-    if(i) await sleep(400);
+    if(i) await sleep(150); /* v432: 150 ms (antes 400): são pedidos de 16 bytes */
     const h = await fr(p, p + 15), dv = new DataView(h.buffer); let sz = dv.getUint32(0); const ty = String.fromCharCode(h[4], h[5], h[6], h[7]);
     if(sz === 1) sz = Number(dv.getBigUint64(8));
     caixas.push(ty + ":" + sz);
@@ -5290,8 +5307,8 @@ async function mp4TailMoov(src, signal){
   }
   if(moovAt < 0) return {erro:"moov não encontrado", caixas};
   if(moovLen > (64 << 20)) return {erro:"moov demasiado grande", caixas};
-  await sleep(400); const ftyp = await fr(0, ftypLen - 1);
-  await sleep(400); const moov = await fr(moovAt, moovAt + moovLen - 1);
+  await sleep(150); const ftyp = await fr(0, ftypLen - 1);
+  await sleep(150); const moov = await fr(moovAt, moovAt + moovLen - 1);
   return {at:moovAt, sz:moovLen, bytes:moov, ftyp, ftypLen, caixas};
 }
 function mp4aRun(slot, st, src, onNone){
@@ -5304,6 +5321,7 @@ function mp4aRun(slot, st, src, onNone){
     try{
       if(!(await loadMirLibs()) || !window.MP4Box){ if(alive()) none("mp4box em falta"); return; }
       const file = MP4Box.createFile(); let info = null, perr = ""; file.onReady = i => { info = i; }; file.onError = e => { perr = String(e); };
+      /* v432: carrega o descodificador (libav) ao mesmo tempo que o índice */ const libP = window.__libav ? window.__libav().catch(() => null) : null; const tIdx = performance.now();
       /* v415: primeiro o índice no fim do ficheiro (pedidos pequenos); se não houver, a leitura do início como antes */
       try{ const tm = await mp4TailMoov(src, st.abort && st.abort.signal); if(tm && tm.erro){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: nada", tm); }catch(e6){} } if(tm && tm.bytes && alive()){
         /* v429: como o MSE: ftyp no início, um cabeçalho mdat no lugar dos dados (não lidos) e o moov na posição real */
@@ -5311,7 +5329,7 @@ function mp4aRun(slot, st, src, onNone){
         if(tm.at > tm.ftypLen){ const gap = tm.at - tm.ftypLen, hd = new ArrayBuffer(gap > 0xFFFFFFFF ? 16 : 8), dv = new DataView(hd);
           if(gap > 0xFFFFFFFF){ dv.setUint32(0, 1); dv.setUint32(4, 0x6d646174); dv.setBigUint64(8, BigInt(gap)); } else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
           hd.fileStart = tm.ftypLen; file.appendBuffer(hd); }
-        const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info, caixas:tm.caixas, erro:perr || ""}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
+        const bm = tm.bytes.slice().buffer; bm.fileStart = tm.at; file.appendBuffer(bm); try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim do ficheiro", {em:tm.at, bytes:tm.sz, encontrado:!!info, caixas:tm.caixas, erro:perr || "", guardado:!!tm.guardado, ms:Math.round(performance.now() - tIdx)}); }catch(e4){} } }catch(e){ try{ window.__dbgEv && window.__dbgEv(slot, "som: índice no fim: erro", {erro:String(e && e.message || e)}); }catch(e5){} }
       let pos = 0, guard = 0; st.probing = true; /* v419: enquanto procura o índice, o temporizador não mata o leitor */
       while(alive() && !info && !perr && guard++ < 300){
         /* v427: pausa entre pedidos do índice (rajadas dão 429 do fornecedor) */ if(guard > 1) await new Promise(r => setTimeout(r, 900));
@@ -5334,7 +5352,7 @@ function mp4aRun(slot, st, src, onNone){
       const trak = file.getTrackById(at.id), S = (trak && trak.samples) || [];
       if(!S.length){ none("sem tabela de amostras (ficheiro fragmentado)"); return; }
       const isE = /^ec-3/i.test(at.codec), cod = isE ? "eac3" : "ac3";
-      const L = await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(cod); await window.__dolbyStereo(L, st.ldec);
+      const L = (libP && await libP) || await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(cod); await window.__dolbyStereo(L, st.ldec);
       if(!alive()) return;
       st.clock = new window.__PcmClock(v); st.el = v; st.mkvInfo = {codec:at.codec};
       try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:at.codec, contentor:"mp4", amostras:S.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
