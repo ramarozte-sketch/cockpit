@@ -765,6 +765,27 @@ body.layout-atv .rail{display:none}
 .stcol{justify-content:flex-start}.stlabs{display:flex;gap:2px;font-size:11px;color:var(--muted)}.stlabs span{flex:1;min-width:3px;overflow:visible;white-space:nowrap}
 .stdetail{margin-top:6px;min-height:20px}.stdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .stmap{height:300px;border-radius:12px;margin:10px 0;overflow:hidden}tr.sttrip{cursor:pointer}tr.sttrip:hover td,tr.sttrip:focus td,tr.sttrip.on td{background:color-mix(in srgb,var(--accent) 18%,transparent)}tr.sttrip:focus{outline:2px solid var(--accent);outline-offset:-2px}.stleg{display:inline-block;width:18px;height:4px;border-radius:2px;margin:0 4px 2px 8px;vertical-align:middle}.stline{width:100%;height:auto;color:var(--muted)}
+
+/* v448: menu Explorar (TV) mais leve e uniforme */
+.tvside{display:flex;flex-direction:column;gap:12px;min-height:0}
+.tvside .tvkinds{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.tvside .tvkinds::-webkit-scrollbar{display:none}
+.tvside .tvkinds .tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:8px 2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-radius:14px;border:1px solid transparent;background:color-mix(in srgb,var(--fg) 6%,transparent);color:var(--muted);font-size:12px;font-weight:600;line-height:1.1}
+.tvside .tvkinds .tab i{font-style:normal;font-size:20px;line-height:1}
+.tvside .tvkinds .tab[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:color-mix(in srgb,var(--accent) 60%,transparent);color:var(--fg)}
+.tvside .tvfind{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:16px;background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.tvside .tvsearch{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+.tvside .tvsearch:focus-within{border-color:var(--accent)}
+.tvside .tvsearch input{flex:1;min-width:0;border:0;background:transparent;padding:12px 0;font-size:16px;outline:none;box-shadow:none}
+.tvside .tvscope{display:flex;flex-wrap:wrap;align-items:center;gap:4px;justify-content:space-between}
+.tvside .tvscope .lbl{font-size:12px;color:var(--muted);margin-right:4px}
+.tvside .tvscope .tab{flex:1 1 auto;padding:5px 6px;min-height:0;border-radius:999px;font-size:12.5px;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.tvside .tvscope .tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.tvside .tvcatrow{display:flex;gap:8px}
+.tvside .tvcatrow select{flex:1;min-width:0;border-radius:12px}
+.tvside .tvcatrow #btnOrg{flex:none;width:48px;padding:0;font-size:18px;border-radius:12px}
+.tvside #tvList{border-radius:14px}
+.tvside #tvList .item{border-radius:12px}
 </style>
 </head>
 <body>
@@ -1146,20 +1167,22 @@ body.layout-atv .rail{display:none}
       <div class="banner" id="tvEmpty" hidden>Ainda não há lista. Em Definições, coloca o link M3U ou os dados Xtream do teu fornecedor IPTV. Esta app não fornece canais nem subscrições.</div>
       <div class="banner" id="tvLock" hidden>🔒 TV bloqueada: o carro está em andamento. Volta a funcionar quando parares em P. (Rádio e podcasts continuam disponíveis.)</div>
       <div class="tvwrap">
-        <div class="panel">
-          <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
-            <button class="tab" data-kind="free" aria-selected="false">📡 Abertos PT</button>
-            <button class="tab" data-kind="intl" aria-selected="false">🌍 Internacional</button>
-            <button class="tab" data-kind="live" aria-selected="true">Canais</button>
-            <button class="tab" data-kind="movie" aria-selected="false">Filmes</button>
-            <button class="tab" data-kind="series" aria-selected="false">Séries</button>
-            <button class="tab" data-kind="fav" aria-selected="false">★ Favoritos</button>
+        <div class="panel tvside">
+          <!-- v448: menu Explorar mais leve: tipo numa só fila, pesquisa com «onde pesquisar» logo por baixo, categoria e organizar na mesma linha -->
+          <div class="tvkinds" role="tablist" aria-label="Tipo de conteúdo">
+            <button class="tab" data-kind="live" aria-selected="true"><i>📺</i>Canais</button>
+            <button class="tab" data-kind="movie" aria-selected="false"><i>🎬</i>Filmes</button>
+            <button class="tab" data-kind="series" aria-selected="false"><i>🍿</i>Séries</button>
+            <button class="tab" data-kind="fav" aria-selected="false" title="Favoritos"><i>★</i>Favs</button>
+            <button class="tab" data-kind="free" aria-selected="false" title="Canais abertos portugueses"><i>📡</i>Abertos</button>
+            <button class="tab" data-kind="intl" aria-selected="false" title="Canais internacionais gratuitos"><i>🌍</i>Mundo</button>
           </div>
-          <select id="tvGroup" aria-label="Categoria"></select>
+          <div class="tvfind">
+            <label class="tvsearch"><span aria-hidden="true">🔎</span><input type="search" id="tvSearch" placeholder="Procurar canal, filme ou série" aria-label="Procurar"></label>
+            <div class="tvscope" id="tvScope" role="tablist" aria-label="Onde pesquisar"><button class="tab" data-sc="">esta lista</button><button class="tab" data-sc="all">tudo</button><button class="tab" data-sc="live">canais</button><button class="tab" data-sc="movie">filmes</button><button class="tab" data-sc="series">séries</button></div>
+          </div>
+          <div class="tvcatrow"><select id="tvGroup" aria-label="Categoria"></select><button class="btn" id="btnOrg" title="Organizar categorias e canais" aria-label="Organizar categorias e canais">⚙</button></div>
           <div id="freeTools" hidden style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button class="btn" id="btnHealth">🩺 Testar canais</button><label class="small muted" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="hideDead" checked> esconder em baixo</label><span class="small muted" id="healthMsg"></span></div>
-          <input type="search" id="tvSearch" placeholder="Procurar canal ou título" aria-label="Procurar">
-          <div class="tabs" id="tvScope" role="tablist" aria-label="Onde pesquisar"><button class="tab" data-sc="">Nesta lista</button><button class="tab" data-sc="all">🔎 Tudo</button><button class="tab" data-sc="live">Canais</button><button class="tab" data-sc="movie">Filmes</button><button class="tab" data-sc="series">Séries</button></div>
-          <button class="btn" id="btnOrg">⚙ Organizar categorias e canais</button>
           <div class="list" id="tvList"></div>
           <p class="small muted" id="tvCount" style="margin:0"></p>
         </div>
@@ -2928,7 +2951,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v447";
+const APP_VERSION = "v448";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
