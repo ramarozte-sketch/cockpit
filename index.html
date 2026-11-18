@@ -764,7 +764,7 @@ body.layout-atv .rail{display:none}
 .stcol i{display:block;width:100%}.stbar.on{outline:2px solid var(--accent);outline-offset:1px}
 .stcol{justify-content:flex-start}.stlabs{display:flex;gap:2px;font-size:11px;color:var(--muted)}.stlabs span{flex:1;min-width:3px;overflow:visible;white-space:nowrap}
 .stdetail{margin-top:6px;min-height:20px}.stdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-.stmap{height:300px;border-radius:12px;margin:10px 0;overflow:hidden}.stline{width:100%;height:auto;color:var(--muted)}
+.stmap{height:300px;border-radius:12px;margin:10px 0;overflow:hidden}tr.sttrip{cursor:pointer}tr.sttrip:hover td,tr.sttrip:focus td,tr.sttrip.on td{background:color-mix(in srgb,var(--accent) 18%,transparent)}tr.sttrip:focus{outline:2px solid var(--accent);outline-offset:-2px}.stleg{display:inline-block;width:18px;height:4px;border-radius:2px;margin:0 4px 2px 8px;vertical-align:middle}.stline{width:100%;height:auto;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v443";
+const APP_VERSION = "v444";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6541,7 +6541,7 @@ async function loadEnergy(){
 $("chargeMore").onclick = () => { EN_OPEN = !EN_OPEN; renderChargeRows(); };
 $("enRefresh").onclick = ()=>{ growattFetch(true).then(renderSolar).catch(e=>{ $("pvUpdated").textContent = "Growatt: "+e.message; }); loadState().then(renderLiveCharge); loadEnergy(); };
 /* ---------- Estatísticas (equivalente ao «Estatísticas de carregamento» da app Tesla, mais condução, paragens e bateria; dados da Tessie) ---------- */
-const ST = {period:"12m", tab:"charge", metric:"kwh", cache:new Map(), cf:"", ct:"", loaded:false, seq:0, map:null, tmap:null, mapLayer:null, sel:-1};
+const ST = {period:"12m", tab:"charge", metric:"kwh", cache:new Map(), cf:"", ct:"", loaded:false, seq:0, map:null, tmap:null, tmode:"lines", tsegs:null, tlayer:null, tLF:null, mapLayer:null, sel:-1};
 const ST_PERIODS = [["7d","7 dias"],["31d","31 dias"],["3m","3 meses"],["12m","12 meses"],["all","Total"],["custom","Personalizado"]];
 const ST_TABS = [["charge","⚡ Carregamento"],["drive","🚗 Condução"],["idle","🅿 Parado"],["batt","🔋 Bateria"]];
 const ST_COL = {home:"#2ecc71", sc:"#e74c3c", work:"#3498db", other:"#a66bff"};
@@ -6683,7 +6683,7 @@ async function stDrive(){
   const eff = x => num(x.energy_used, 0)*1000/num(x.odometer_distance, 1), long10 = d.filter(x => x.odometer_distance >= 10 && num(x.energy_used, 0) > 0);
   const best = [...long10].sort((a, b) => eff(a) - eff(b))[0], worst = [...long10].sort((a, b) => eff(b) - eff(a))[0];
   const tb = [["< 5 °C", -99, 5], ["5–15 °C", 5, 15], ["15–25 °C", 15, 25], ["> 25 °C", 25, 99]].map(([l, a, b]) => { const s = d.filter(x => isFinite(num(x.average_outside_temperature, NaN)) && x.average_outside_temperature >= a && x.average_outside_temperature < b); const k = s.reduce((t, x) => t + x.odometer_distance, 0), en = s.reduce((t, x) => t + num(x.energy_used, 0), 0); return `<tr><td>${l}</td><td>${s.length}</td><td>${stN(k, 0)} km</td><td>${k > 5 ? Math.round(en*1000/k) + " Wh/km" : "—"}</td></tr>`; }).join("");
-  const mk = x => `<tr><td>${stDate(x.started_at)}</td><td class="loc">${esc(x.starting_location || "—")} → ${esc(x.ending_location || "—")}</td><td>${stN(x.odometer_distance, 1)} km</td><td>${Math.round(eff(x))} Wh/km</td></tr>`;
+  const mk = x => `<tr class="sttrip" tabindex="0" data-a="${x.started_at}" data-b="${x.ended_at}"><td>${stDate(x.started_at)}</td><td class="loc">${esc(x.starting_location || "—")} → ${esc(x.ending_location || "—")}</td><td>${stN(x.odometer_distance, 1)} km</td><td>${Math.round(eff(x))} Wh/km</td></tr>`;
   return `
     <div class="stats">
       ${stStat("Viagens", d.length)}${stStat("Distância", stN(km, 0) + " km")}${stStat("Tempo ao volante", stDur(secs))}
@@ -6691,7 +6691,10 @@ async function stDrive(){
       ${stStat("Autopilot", km ? stN(ap/km*100, 0) + " %" : "--", stN(ap, 0) + " km")}${stStat("Temperatura média", tw ? stN(tsum/tw, 0) + " °C" : "--")}${stStat("Bateria por viagem", stN(used/d.length, 1) + " %")}
     </div>
     <h3 style="margin:10px 0 4px">Mapa das viagens</h3>
+    <div class="tabs" id="stTripMode" role="tablist" aria-label="Mapa"><button class="tab" data-m="lines" aria-selected="${ST.tmode !== "heat"}">Percursos</button><button class="tab" data-m="heat" aria-selected="${ST.tmode === "heat"}">Mapa de calor</button><button class="tab" id="stTripAll" hidden>⟲ Ver todas</button></div>
     <div id="stTrips" class="stmap" style="height:360px"></div><p class="small muted" id="stTripsNote" style="margin:0 0 6px">A carregar os percursos…</p>
+    <h3 style="margin:10px 0 4px">Viagens <span class="small muted">(toca numa para a ver no mapa)</span></h3>
+    <div class="tablewrap" style="max-height:320px;overflow:auto"><table class="ctable"><thead><tr><th>Data</th><th>Percurso</th><th>Distância</th><th>Consumo</th></tr></thead><tbody>${[...d].reverse().slice(0, 60).map(mk).join("")}</tbody></table></div>
     <h3 style="margin:10px 0 4px">Distância ${B.gran === "day" ? "por dia" : B.gran === "week" ? "por semana" : "por mês"}</h3>
     ${stBarChart(B, rows, null, v => stN(v, 0) + " km", ["km"], "")}
     <h3 style="margin:10px 0 4px">Consumo conforme a temperatura</h3>
@@ -6756,17 +6759,18 @@ const stRenderMap = () => {
     setTimeout(() => m.invalidateSize(), 80);
   });
 };
-/* v443: mapa com os percursos de todas as viagens do período (Tessie /path, separado por viagem) */
+/* v443: mapa com os percursos de todas as viagens do período (Tessie /path, separado por viagem).
+   v444: «Mapa de calor» (as estradas mais usadas ficam mais intensas) e cada viagem no mapa com a velocidade e a bateria ao longo do caminho */
+const stTripPt = x => { if(typeof x === "string"){ const a = x.split(","); const la = +a[0], lo = +a[1]; return isFinite(la) && isFinite(lo) ? [la, lo] : null; }
+  if(x && isFinite(+x.latitude) && isFinite(+x.longitude)) return [+x.latitude, +x.longitude]; if(Array.isArray(x) && x.length >= 2 && !Array.isArray(x[0]) && isFinite(+x[0])) return [+x[0], +x[1]]; return null; };
+const stSpeedCol = v => v < 50 ? "#2ecc71" : v < 90 ? "#f1c40f" : v < 120 ? "#e67e22" : "#e74c3c";
 async function stRenderTrips(){
   const el = $("stTrips"), note = $("stTripsNote"); if(!el) return;
   const seq = ST.seq;
   let res; try{ res = await stGet("path", {separate:true, simplify:true}); }catch(e){ if(note) note.textContent = "Não consegui obter os percursos da Tessie (" + e.message + ")."; el.hidden = true; return; }
   if(seq !== ST.seq || !$("stTrips")) return;
-  const pt = x => { if(typeof x === "string"){ const a = x.split(","); const la = +a[0], lo = +a[1]; return isFinite(la) && isFinite(lo) ? [la, lo] : null; }
-    if(x && isFinite(+x.latitude) && isFinite(+x.longitude)) return [+x.latitude, +x.longitude]; if(Array.isArray(x) && x.length >= 2 && !Array.isArray(x[0]) && isFinite(+x[0])) return [+x[0], +x[1]]; return null; };
   const r = (res && res.results) || [];
-  /* separado: lista de viagens (cada uma lista de pontos); senão uma lista só de pontos */
-  const segs = (r.length && Array.isArray(r[0]) && (Array.isArray(r[0][0]) || typeof r[0][0] === "string" || (r[0][0] && typeof r[0][0] === "object")) ? r : [r]).map(s => (Array.isArray(s) ? s : (s && (s.path || s.points)) || []).map(pt).filter(Boolean)).filter(s => s.length >= 2);
+  const segs = (r.length && Array.isArray(r[0]) && (Array.isArray(r[0][0]) || typeof r[0][0] === "string" || (r[0][0] && typeof r[0][0] === "object")) ? r : [r]).map(s => (Array.isArray(s) ? s : (s && (s.path || s.points)) || []).map(stTripPt).filter(Boolean)).filter(s => s.length >= 2);
   if(!segs.length){ el.hidden = true; if(note) note.textContent = "Sem percursos neste período."; return; }
   const LF = await loadLeaflet(); if(seq !== ST.seq || !$("stTrips")) return;
   if(!LF){ el.innerHTML = '<p class="small muted" style="padding:12px">Não consegui carregar o mapa.</p>'; return; }
@@ -6774,13 +6778,48 @@ async function stRenderTrips(){
   const m = ST.tmap = LF.map(el, {zoomControl:true, attributionControl:true, scrollWheelZoom:false, preferCanvas:true});
   LF.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:18, attribution:'© OpenStreetMap'}).addTo(m);
   el.classList.toggle("mapdark", nvDark());
-  let n = 0; const all = [];
-  segs.forEach((s, i) => { const f = segs.length > 1 ? i/(segs.length - 1) : 1;   /* mais antigas mais claras, mais recentes mais fortes */
-    LF.polyline(s, {color:"#3e8ef7", weight:3, opacity:0.35 + 0.6*f}).addTo(m); n += s.length; all.push(s[0], s[s.length - 1]);
-    if(i === segs.length - 1){ LF.circleMarker(s[s.length - 1], {radius:6, color:"#fff", weight:2, fillColor:"#2ecc71", fillOpacity:1}).bindPopup("Fim da última viagem").addTo(m); } });
-  try{ m.fitBounds(LF.latLngBounds(segs.flat()), {padding:[20, 20], maxZoom:14}); }catch(e){}
+  ST.tLF = LF; ST.tsegs = segs; ST.tlayer = LF.layerGroup().addTo(m);
+  stDrawTrips(true);
   setTimeout(() => m.invalidateSize(), 80);
-  if(note) note.textContent = segs.length + " percursos · " + n.toLocaleString("pt-PT") + " pontos (simplificados pela Tessie). As viagens mais recentes têm a linha mais forte; o ponto verde é o fim da última.";
+}
+function stDrawTrips(fit){
+  const LF = ST.tLF, m = ST.tmap, segs = ST.tsegs || [], note = $("stTripsNote"); if(!LF || !m) return;
+  ST.tlayer.clearLayers(); const heat = ST.tmode === "heat"; let n = 0;
+  const all = $("stTripAll"); if(all) all.hidden = true;
+  document.querySelectorAll("tr.sttrip.on").forEach(x => x.classList.remove("on"));
+  segs.forEach((s, i) => { const f = segs.length > 1 ? i/(segs.length - 1) : 1; n += s.length;
+    if(heat) LF.polyline(s, {color:"#ff5a1f", weight:6, opacity:Math.max(0.06, Math.min(0.35, 4/segs.length)), lineCap:"round", lineJoin:"round"}).addTo(ST.tlayer);   /* cada passagem soma intensidade: as estradas repetidas ficam mais vivas */
+    else LF.polyline(s, {color:"#3e8ef7", weight:3, opacity:0.35 + 0.6*f}).addTo(ST.tlayer);
+    if(!heat && i === segs.length - 1) LF.circleMarker(s[s.length - 1], {radius:6, color:"#fff", weight:2, fillColor:"#2ecc71", fillOpacity:1}).bindPopup("Fim da última viagem").addTo(ST.tlayer); });
+  if(fit){ try{ m.fitBounds(LF.latLngBounds(segs.flat()), {padding:[20, 20], maxZoom:14}); }catch(e){} }
+  if(note) note.textContent = heat ? "Mapa de calor: " + segs.length + " percursos sobrepostos; quanto mais vezes passaste numa estrada, mais intensa fica." : segs.length + " percursos · " + n.toLocaleString("pt-PT") + " pontos. As viagens mais recentes têm a linha mais forte; o ponto verde é o fim da última.";
+}
+async function stShowTrip(tr){
+  const LF = ST.tLF, m = ST.tmap, note = $("stTripsNote"); if(!LF || !m){ toast("O mapa ainda está a carregar."); return; }
+  const a = +tr.dataset.a, b = +tr.dataset.b; if(!a || !b) return;
+  document.querySelectorAll("tr.sttrip.on").forEach(x => x.classList.toggle("on", x === tr)); tr.classList.add("on");
+  if(note) note.textContent = "A carregar esta viagem…";
+  try{ $("stTrips").scrollIntoView({behavior:"smooth", block:"center"}); }catch(e){}
+  let res; try{ res = await stGet("path", {from:a - 30, to:b + 30, details:true, simplify:false, noRange:true}); }catch(e){ if(note) note.textContent = "Não consegui obter esta viagem (" + e.message + ")."; return; }
+  let pts = ((res && res.results) || []).flat ? ((res && res.results) || []).flat() : (res && res.results) || [];
+  pts = pts.filter(x => x && typeof x === "object" && isFinite(+x.latitude) && isFinite(+x.longitude)).sort((x, y) => (x.timestamp || 0) - (y.timestamp || 0));
+  if(pts.length < 2){ const p2 = ((res && res.results) || []).flat().map(stTripPt).filter(Boolean); if(p2.length < 2){ if(note) note.textContent = "A Tessie não tem o percurso desta viagem."; return; } pts = p2.map(p => ({latitude:p[0], longitude:p[1]})); }
+  ST.tlayer.clearLayers();
+  let vmax = 0, vsum = 0, vn = 0;
+  for(let i = 1; i < pts.length; i++){ const p = pts[i - 1], q = pts[i], v = isFinite(+q.speed) ? +q.speed : NaN;   /* velocidade da Tessie em km/h (pedido com distance_format km) */
+    if(isFinite(v)){ vmax = Math.max(vmax, v); vsum += v; vn++; }
+    LF.polyline([[+p.latitude, +p.longitude], [+q.latitude, +q.longitude]], {color:isFinite(v) ? stSpeedCol(v) : "#3e8ef7", weight:5, opacity:0.9}).bindTooltip(
+      (isFinite(v) ? Math.round(v) + " km/h" : "") + (isFinite(+q.battery_level) ? " · bateria " + Math.round(q.battery_level) + " %" : "") + (q.timestamp ? " · " + new Date(q.timestamp*1000).toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"}) : ""), {sticky:true}).addTo(ST.tlayer); }
+  const p0 = pts[0], p1 = pts[pts.length - 1];
+  LF.circleMarker([+p0.latitude, +p0.longitude], {radius:7, color:"#fff", weight:2, fillColor:"#3e8ef7", fillOpacity:1}).bindPopup("Partida").addTo(ST.tlayer);
+  LF.circleMarker([+p1.latitude, +p1.longitude], {radius:7, color:"#fff", weight:2, fillColor:"#2ecc71", fillOpacity:1}).bindPopup("Chegada").addTo(ST.tlayer);
+  try{ m.fitBounds(LF.latLngBounds(pts.map(p => [+p.latitude, +p.longitude])), {padding:[24, 24], maxZoom:16}); }catch(e){}
+  const all = $("stTripAll"); if(all) all.hidden = false;
+  const b0 = isFinite(+p0.battery_level) ? Math.round(p0.battery_level) : null, b1 = isFinite(+p1.battery_level) ? Math.round(p1.battery_level) : null;
+  const row = tr.querySelectorAll("td");
+  if(note) note.innerHTML = esc((row[0] ? row[0].textContent : "") + " · " + (row[1] ? row[1].textContent : "") + " · " + (row[2] ? row[2].textContent : "") + " · " + stDur(b - a))
+    + (vn ? " · média " + Math.round(vsum/vn) + " km/h · máxima " + Math.round(vmax) + " km/h" : "") + (b0 != null && b1 != null ? " · bateria " + b0 + " % → " + b1 + " %" : "")
+    + '<br>Velocidade:<span class="stleg" style="background:#2ecc71"></span>&lt; 50<span class="stleg" style="background:#f1c40f"></span>50–90<span class="stleg" style="background:#e67e22"></span>90–120<span class="stleg" style="background:#e74c3c"></span>&gt; 120 km/h';
 }
 function stBind(){
   const body = $("stBody");
@@ -6793,6 +6832,9 @@ function stBind(){
   if(h) h.onclick = () => setPos("home"); if(w) w.onclick = () => setPos("work"); if(c) c.onclick = () => { cfg.workLat = ""; cfg.workLon = ""; saveCfg(); stLoad(false); };
   stRenderMap();
   if($("stTrips")) stRenderTrips();
+  body.querySelectorAll("#stTripMode .tab[data-m]").forEach(t => t.onclick = () => { ST.tmode = t.dataset.m; body.querySelectorAll("#stTripMode .tab[data-m]").forEach(x => x.setAttribute("aria-selected", String(x === t))); stDrawTrips(false); });
+  const ta = $("stTripAll"); if(ta) ta.onclick = () => stDrawTrips(true);
+  body.querySelectorAll("tr.sttrip").forEach(tr => { tr.onclick = () => stShowTrip(tr); tr.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); stShowTrip(tr); } }; });
 }
 async function stLoad(force){
   const body = $("stBody"), seq = ++ST.seq;
