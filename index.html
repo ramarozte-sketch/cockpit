@@ -2927,7 +2927,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v438";
+const APP_VERSION = "v439";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4904,7 +4904,7 @@ function mkvRun(slot, st, src, audio){
             const okc = x => /^A_(E?AC3|AAC)/.test(x.codec) && !(/^A_E?AC3/.test(x.codec) && window.HW && window.HW.eac3);
             const ispt = x => /^(pt|por)/i.test(x.lang || "") || /portug|\bpt\b/i.test(x.nome || "");
             const pk = snd.find(x => okc(x) && ispt(x)) || snd.find(okc);
-            window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)), cur:pk ? pk.n : null};
+            window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)), cur:pk ? (/^A_AAC/.test(pk.codec) ? (snd.find(x => /^A_AAC/.test(x.codec)) || pk).n : pk.n) : null, quer:pk ? pk.n : null}; /* v439: até o som por software sair, o menu mostra a faixa que se ouve (a do leitor do carro) */
             if(pk && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot], aac0 = /^A_AAC/.test(pk.codec);
               window.__dbgEv && window.__dbgEv(slot, "som por software desde o início", {faixa:pk.codec, idioma:pk.lang || pk.nome || "", de:snd.length});
               setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0, aac0, aac0, pk.n); }catch(e){} }, 800); } } }catch(e){} }
@@ -15628,14 +15628,15 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       /* v430: acerto do som do filme (segundos; positivo = som mais tarde), escolhido nos botões junto à barra do tempo */
       const anchor = c.currentTime + (t + (this.aoff || 0) - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
-      let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < 0.08) ? this.endCtx : anchor;
+      const tol = v !== (v.el || v) ? 0.25 : 0.08; /* v439: em andamento o relógio da imagem oscila centenas de ms; seguir cada oscilação dava saltos no som */
+      let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < tol) ? this.endCtx : anchor;
       /* v248: no arranque de um filme o descodificador Dolby (WASM) demora a aquecer e a imagem avança sem som: os primeiros ~5 s eram deitados fora.
          Uma vez, nos primeiros 20 s, recua a imagem até ao primeiro som pronto: começa já certo. */
       if(at + dur < c.currentTime + 0.01 && !this.sync0 && performance.now() - this.born < 20000){
         this.sync0 = true;
         try{ const el = v.el || v, sl = el.id === "vid1" ? 1 : 0, cc = typeof lastPlayed !== "undefined" && lastPlayed[sl];
-          const lag = el.currentTime - t;
-          if(cc && /^(movie|episode|vod)$/.test(cc.kind || "") && lag > 0.4 && lag < 15){ window.__dbgEv && window.__dbgEv(sl, "som Dolby atrasado no arranque: recua a imagem", {s:+lag.toFixed(1)}); el.currentTime = t; this.endT = -1; return; } }catch(e){}
+          const lag = el.currentTime - t, viaImg = v !== el && Math.abs(v.currentTime - el.currentTime) > 0.5; /* v439: em andamento o relógio é o da imagem: recuar o leitor do carro só pedia o ficheiro de novo */
+          if(cc && /^(movie|episode|vod)$/.test(cc.kind || "") && lag > 0.4 && lag < 15 && !viaImg){ window.__dbgEv && window.__dbgEv(sl, "som Dolby atrasado no arranque: recua a imagem", {s:+lag.toFixed(1)}); el.currentTime = t; this.endT = -1; return; } }catch(e){}
       }
       if(at + dur < c.currentTime + 0.01){ this.endT = -1; this.drops = (this.drops || 0) + 1; this.dropLate = (this.dropLate || 0) + 1; return; }
       /* o leitor enche o buffer de vídeo muito à frente (30-150 s em direto): o som desses pedaços tem de ficar agendado, não ser deitado fora */
@@ -15697,6 +15698,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         /* fila vazia e sem som há mais de 8 s com o filme a andar: a leitura do som parou (ligação perdida sem erro): recomeça-a no ponto atual */
         else if(nw - (st.rsAt || 0) > 15000 && window.__mka[slot] === st && (!st.aq || !st.aq.length) && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 8000 && !st.probing && !/sem faixa|não é um ficheiro|não aplicável/.test(String(st.err || ""))){ /* v436: sem faixa AC-3 não há o que recomeçar (antes repetia a cada 10 s) */ st.rsAt = nw; window.__dbgEv && window.__dbgEv(slot, "som por software: leitura parada, a recomeçar", {erro:st.err || "", descodificados:st.n}); setTimeout(() => { try{ if(playId === playSeq[slot]) window.__mkaStart(slot, c, playId, st.aac, st.keep, st.trackNum); }catch(e){} }, 50); } }catch(e){} try{ /* v438: se o som por software toca outra faixa (ex.: português) que não a do leitor do carro (a 1.ª), o leitor do carro não volta a falar quando o software engasga: ouvia-se inglês e português alternados */
           const mk0 = window.__mkaTracks && window.__mkaTracks[slot], other = st.trackNum != null && !!(mk0 && mk0.list && mk0.list.length > 1 && mk0.list[0].n !== st.trackNum);
+          if(st.lastOut && st.trackNum != null && mk0 && mk0.cur !== st.trackNum && mk0.quer === st.trackNum) mk0.cur = st.trackNum;
           if(other && !st.otherLogged && st.lastOut){ st.otherLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "som: faixa do software diferente da do leitor do carro: leitor do carro fica calado", {faixa:st.trackNum, doLeitor:mk0.list[0].n}); }catch(e){} }
           const live = (!!st.lastOut && performance.now() - st.lastOut < 3000) || v.paused || (other && !!st.lastOut); /* v422: volta aos 3 s da v420 (a alteração para 8 s estragou o som do MKV) */ if(st.lastOut && window.__mka[slot] === st && playId === playSeq[slot] && !!v._nat !== live){ if(live && v._want === undefined) v._want = v.muted; v._nat = live; v.muted = v._want !== undefined ? v._want : v.muted; if(window.__dbgEv) window.__dbgEv(slot, live ? "som do leitor do carro calado (só o som por software)" : "som do leitor do carro reposto (o som por software parou)", {}); } }catch(e){}
         const m0 = MIR[slot]; if(st.aac && !st.keep && !st.probing){ if(m0 && m0.wall) live0 = Date.now(); else if(Date.now() - live0 > 4000){ window.__mka[slot] = null; } } if(playId !== playSeq[slot] || window.__mka[slot] !== st){ clearInterval(t); try{ if(v._nat && !(window.__mka[slot] && window.__mka[slot] !== st && window.__mka[slot].lastOut)){ v._nat = false; v.muted = v._want !== undefined ? v._want : v.muted; } }catch(e){} if(window.__mka[slot] === st) window.__mka[slot] = null; try{ st.clock && st.clock.close(); }catch(e){} try{ st.abort && st.abort.abort(); }catch(e){} try{ v.removeEventListener("seeking", st.onSeek); }catch(e){} } }, 1000);
