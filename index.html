@@ -2970,7 +2970,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v452";
+const APP_VERSION = "v453";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15904,14 +15904,15 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         this.pk = Math.max(this.pk * 0.9, pk);
         if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
           this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
-        if(this.agc) this.agc.gain.value = this.gA;
+        if(this.agc) this.agc.gain.setTargetAtTime(this.gA, c.currentTime, 0.03); /* v509: alisa a nivelação em vez de saltar (estalos) */
         const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {decMs:window.__dolDec ? Math.round(window.__dolDec.ms) : null, decBlocos:window.__dolDec ? window.__dolDec.n : null, rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       /* v430: acerto do som do filme (segundos; positivo = som mais tarde), escolhido nos botões junto à barra do tempo */
       const anchor = c.currentTime + (t + (this.aoff || 0) - v.currentTime), n = planes[0].length, dur = n / sr;
       /* seguido ao anterior, salvo se o desvio passar de 80 ms (salto, pausa ou deriva) */
       const tol = v !== (v.el || v) ? 0.25 : 0.08; /* v439: em andamento o relógio da imagem oscila centenas de ms; seguir cada oscilação dava saltos no som */
-      let at = (this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < tol) ? this.endCtx : anchor;
+      const seamless = this.endT >= 0 && Math.abs(t - this.endT) < 0.03 && Math.abs(this.endCtx - (anchor)) < tol;
+      let at = seamless ? this.endCtx : anchor;
       /* v248: no arranque de um filme o descodificador Dolby (WASM) demora a aquecer e a imagem avança sem som: os primeiros ~5 s eram deitados fora.
          Uma vez, nos primeiros 20 s, recua a imagem até ao primeiro som pronto: começa já certo. */
       if(at + dur < c.currentTime + 0.01 && !this.sync0 && performance.now() - this.born < 20000){
@@ -15924,11 +15925,17 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       /* o leitor enche o buffer de vídeo muito à frente (30-150 s em direto): o som desses pedaços tem de ficar agendado, não ser deitado fora */
       if(at > c.currentTime + 300){ this.endT = -1; this.drops = (this.drops || 0) + 1; this.dropAhead = (this.dropAhead || 0) + 1; return; }
       const b = c.createBuffer(planes.length, n, sr); planes.forEach((p, i) => b.copyToChannel(p, i));
-      const s = c.createBufferSource(); s.buffer = b; s.connect(this.g);
+      const s = c.createBufferSource(); s.buffer = b;
       let skip = 0; if(at < c.currentTime){ skip = c.currentTime - at; at = c.currentTime; }
+      /* v509: estalos nos cortes. Onde o som não é contínuo (atraso, falta de pedaço, arranque), o pedaço entra com uma rampa de 6 ms
+         e o anterior sai com outra; um salto seco em PCM ouve-se como estalo */
+      const cut = !seamless || skip > 0, fg = c.createGain(); fg.gain.value = 1;
+      if(cut){ fg.gain.setValueAtTime(0, at); fg.gain.linearRampToValueAtTime(1, at + 0.006);
+        if(this.lastFg && this.endCtx > c.currentTime + 0.01){ this.lastFg.gain.setValueAtTime(1, this.endCtx - 0.006); this.lastFg.gain.linearRampToValueAtTime(0, this.endCtx); } }
+      s.connect(fg); fg.connect(this.g);
       try{ s.start(at, skip); }catch(e){ return; }
-      this.endCtx = at + dur - skip; this.endT = t + dur;
-      this.srcs.push(s); s.onended = () => { const i = this.srcs.indexOf(s); if(i >= 0) this.srcs.splice(i, 1); };
+      this.lastFg = fg; this.endCtx = at + dur - skip; this.endT = t + dur;
+      this.srcs.push(s); s.onended = () => { const i = this.srcs.indexOf(s); if(i >= 0) this.srcs.splice(i, 1); try{ fg.disconnect(); }catch(e){} };
     }
     reset(){ for(const s of this.srcs){ try{ s.stop(); }catch(e){} } this.srcs = []; this.endT = -1; }
     close(){ this.reset(); try{ this.ctx && this.ctx.close(); }catch(e){} this.ctx = null; }
