@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v473";
+const APP_VERSION = "v474";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4178,6 +4178,7 @@ class SoftVideoDecoder {
     { const mw = this.W.filter(W => W.fps > 0), tot = mw.length ? mw.reduce((m, W) => m + W.fps, 0) / mw.length * this.W.length : 0, sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && mw.length ? tot < sf * 1.6 : false;   /* v241: Workers que ainda não trabalharam contam com a média dos outros (antes, um só parado impedia o modo rápido) */
       try{ const ok = sf > 0 && mw.length > 0, nowT = performance.now(), fk = this._fk || (this._fk = {t:nowT, b:this.st.bSaltadas});
         if(nowT - fk.t > 2000){ const grow = this.st.bSaltadas - fk.b; fk.t = nowT; fk.b = this.st.bSaltadas;
+          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
           if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
