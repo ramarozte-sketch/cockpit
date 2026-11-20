@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v482";
+const APP_VERSION = "v483";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4224,8 +4224,10 @@ class SoftVideoDecoder {
           /* v479: 4K de 10 bits: se o conjunto não chega a 1,5× o ritmo do filme, a imagem sai a 1/4 (960×402) em vez de metade; volta a metade com folga (2,4×) */
           /* v482: HEVC até 1080p com muita folga (mais de 5× o ritmo): imagem inteira (ex.: 1920×800 em vez de 960×400); volta a metade abaixo de 2,5× */
           if(this.hevc && ok && !this.cfg.bob && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) <= 2.5e6){
-            if(!this.full && tot > sf * 5){ this._autoFull = true; this.setFull(true); try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: imagem inteira (há folga)", {imagensPorSeg:Math.round(tot), precisas:Math.round(sf)}); }catch(e){} }
-            else if(this.full && this._autoFull && tot < sf * 2.5){ this._autoFull = false; this.setFull(false); try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: volta a meia imagem", {imagensPorSeg:Math.round(tot), precisas:Math.round(sf)}); }catch(e){} } }
+            /* v483: folga real = soma dos Workers que trabalham (antes: média × todos, incluindo os parados — o dobro do real) */
+            const real = mw.reduce((m, W) => m + W.fps, 0);
+            if(!this.full && !this._fullNo && real > sf * 5){ this._autoFull = true; this.setFull(true); try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: imagem inteira (há folga)", {imagensPorSeg:Math.round(real), precisas:Math.round(sf)}); }catch(e){} }
+            else if(this.full && this._autoFull && real < sf * 3.5){ this._autoFull = false; this._fullNo = true; this.setFull(false); try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: volta a meia imagem", {imagensPorSeg:Math.round(real), precisas:Math.round(sf)}); }catch(e){} } }
           if(this.hevc && ok && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ const want = tot < sf * 1.5 ? 2 : tot > sf * 2.4 ? 0 : (this.q4 ? 2 : 0);
             if(want !== (this.q4 ? 2 : 0)){ this.q4 = want === 2; for(const W of this.W){ try{ W.w.postMessage({cmd:"c10s", s:want}); }catch(e){} } } }
           /* v481: 4K abaixo do ritmo do filme (com 15% de margem) em 5 medições seguidas (~10 s): avisa quem o abriu (passa à versão 1080p) */
@@ -5168,7 +5170,11 @@ function mkvRun(slot, st, src, audio){
       const block = (b, d, n, keyFlag) => {
         const tn = mkvVint(b, d, false); if(!tn) return;
         if(tn.v !== trk.num){ /* v480: em andamento, os blocos da faixa de som vão para o leitor de som (uma só descarga do ficheiro) */
-          if(!audio){ const A = window.__mka && window.__mka[slot]; if(A && A.feed && A.feedTrk === tn.v && A.feedSrc === window.__fileKey(src)){ try{ A.feed(b, d, n, tc); }catch(e){} } } return; }
+          if(!audio){ const A = window.__mka && window.__mka[slot];
+            if(A && A.feed && A.feedTrk === tn.v && A.feedSrc === window.__fileKey(src)){ try{ A.feed(b, d, n, tc); }catch(e){} }
+            else if(!st.feedDiag && tn.v !== trk.num){ st.feedDiag = (st.feedDiag || 0) + 1; if(st.feedDiag === 1) setTimeout(() => { try{ const A2 = window.__mka && window.__mka[slot]; if(A2 && A2.fedAt) return;
+              const tail = k => String(k || "").split("/").pop(); window.__dbgEv && window.__dbgEv(slot, "partilha da descarga não ligou", {temSom:!!A2, temEntrada:!!(A2 && A2.feed), faixaSom:A2 ? A2.feedTrk : null, faixaVista:tn.v, ficheiroImagem:tail(window.__fileKey(src)), ficheiroSom:A2 ? tail(A2.feedSrc) : null}); }catch(e){} }, 6000); } }
+          return; }
         const q = d + tn.len, rel = (b[q] << 24 >> 16) | b[q + 1], fl = b[q + 2];
         if(audio){ const ts = Math.round((tc + rel) * scale / 1000);
           /* v213: blocos com «lacing» (vários pacotes de som por bloco) eram metidos inteiros no descodificador e davam «dados inválidos» */
