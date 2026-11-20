@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v472";
+const APP_VERSION = "v473";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -18447,40 +18447,6 @@ html.nightUi #ambient{filter:brightness(.75)}
 })();
 </script>
 <script>
-/* v464: barra de posição dos filmes: uma só, dentro de #cinebar2, para aparecer e desaparecer com os botões do visor */
-(function(){
-  const st = document.createElement("style");
-  st.textContent = ".mvseek{display:flex;align-items:center;gap:12px;background:rgba(10,16,24,.72);padding:8px 14px;border-radius:12px;color:#fff;font:600 14px system-ui}.mvseek[hidden]{display:none}.mvseek input{flex:1;accent-color:#ffd23f;height:28px}.mvseek input:disabled{opacity:.4}.mvt{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}#cinebar2 .mvseek{flex:1 0 100%;order:-1}";
-  document.head.appendChild(st);
-  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
-  const full = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || !!(document.getElementById("v-tv") && document.getElementById("v-tv").classList.contains("cinema"));
-  const cb = document.getElementById("cinebar2"); if(!cb) return;
-  const d = document.createElement("div"); d.className = "mvseek"; d.hidden = true;
-  d.innerHTML = '<span class="mvt">0:00</span><input type="range" min="0" max="1000" value="0" aria-label="Posição do filme"><span class="mvt mvd">--:--</span>';
-  cb.prepend(d);
-  const inp = d.querySelector("input"), tEl = d.querySelector(".mvt"), dEl = d.querySelector(".mvd");
-  const durOf = (v, url) => isFinite(v.duration) && v.duration > 0 ? v.duration : ((window.__tsDurMap || {})[url] || 0);
-  let cur = null; // {slot, v, url}
-  inp.addEventListener("change", () => {
-    if(!cur) return; const dur = durOf(cur.v, cur.url); if(!(dur > 0)) return;
-    const t = inp.value / 1000 * dur; const antes = cur.pos;
-    window.__dbgEv && window.__dbgEv(cur.slot, "barra: salto", {de:Math.round(antes), para:Math.round(t), dur:Math.round(dur), duracaoReal: isFinite(cur.v.duration), valor: +inp.value});
-    if(window.__tsMovieArgs && window.__tsMovieArgs[cur.slot]) window.__tsSeekRestart(cur.slot, t);
-    else { try{ cur.v.currentTime = t; }catch(e){ window.__dbgEv && window.__dbgEv(cur.slot, "barra: salto recusado", {msg:String(e.message || e)}); } }
-  });
-  setInterval(() => {
-    let pick = null; let lp = null;
-    if(full()) [0, 1].forEach(slot => { if(pick) return; const v = document.getElementById("vid" + slot); let l = null; try{ l = lastPlayed[slot]; }catch(e){}
-      if(v && l && l.kind !== "live" && (v.currentSrc || v.src) && !/\.ts(\?|$)/i.test(l.url || "") && l.ext !== "ts") { pick = {slot, v, url: l.url}; } });
-    if(!pick){ d.hidden = true; cur = null; return; }
-    cur = pick; d.hidden = false;
-    const dur = durOf(pick.v, pick.url), known = dur > 0;
-    const base = (window.__tsBase && window.__tsBase[pick.slot]) || 0; cur.pos = base + pick.v.currentTime;
-    inp.disabled = !known;
-    tEl.textContent = fmt(cur.pos); dEl.textContent = known ? fmt(dur) : "--:--";
-    if(known && document.activeElement !== inp) inp.value = Math.round(cur.pos / dur * 1000);
-  }, 400);
-})();
 </script>
 </body>
 </html>
