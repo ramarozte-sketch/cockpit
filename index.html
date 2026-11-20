@@ -5496,7 +5496,9 @@ function mp4aRun(slot, st, src, onNone){
       if(!info){ none(perr || "índice (moov) não encontrado"); return; }
       const ats = info.audioTracks || [];
       try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mp4: faixas de som", {faixas:ats.map(t => ({n:t.id, codec:t.codec, lang:t.language || "", canais:t.audio && t.audio.channel_count}))}); }catch(e){}
-      const dol = ats.filter(t => /^(ec-3|ac-3)/i.test(t.codec || "")), at = dol.find(t => /^(pt|por)/i.test(t.language || "")) || dol[0];
+      const dol = ats.filter(t => /^(ec-3|ac-3)/i.test(t.codec || "")), at = (st.trackNum != null && dol.find(t => t.id === st.trackNum)) || dol.find(t => /^(pt|por)/i.test(t.language || "")) || dol.find(t => /^(en|eng)/i.test(t.language || "")) || dol[0];   /* v458: escolha manual (botão «Áudio»), senão português, senão inglês */
+      /* v458: lista de faixas para o botão «Áudio», igual à do MKV */
+      try{ const mk0 = window.__mkaTracks && window.__mkaTracks[slot]; if(at && dol.length > 1 && !(mk0 && mk0.seq === playSeq[slot])){ window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:dol.map(t => ({n:t.id, nome:"", lang:t.language || "", codec:(/^ec-3/i.test(t.codec || "") ? "A_EAC3" : "A_AC3")})), cur:at.id}; } else if(at && mk0 && mk0.seq === playSeq[slot]) mk0.cur = at.id; }catch(e){}
       if(!at){ none("sem faixa AC-3/E-AC-3"); return; }
       const trak = file.getTrackById(at.id), S = (trak && trak.samples) || [];
       if(!S.length){ none("sem tabela de amostras (ficheiro fragmentado)"); return; }
