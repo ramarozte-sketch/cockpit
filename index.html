@@ -2981,7 +2981,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v507";
+const APP_VERSION = "v508";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15840,6 +15840,12 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 #v-settings .setcard.fold > .setsub{margin-top:-4px !important}
 #v-settings .setcard.fold{gap:6px;padding-bottom:12px}
 #setFoldBar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+#v-media .mpanel > .mhead h2{cursor:pointer;user-select:none;-webkit-user-select:none}
+#v-media .mpanel > .mhead h2::after{content:"";display:inline-block;margin-left:10px;vertical-align:middle;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);opacity:.55;transition:transform .2s}
+#v-media .mpanel.mfold > .mhead h2::after{transform:rotate(-45deg)}
+#v-media .mpanel.mfold > :not(.mhead){display:none !important}
+#v-media .mpanel.mfold{padding-bottom:12px}
+#mFoldBar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
 </style>
 <script>
 (function(){
@@ -15880,6 +15886,31 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   window.__setOpen = el => { const c = el && el.closest && el.closest(".setcard"); if(c && c.classList.contains("fold")) set(c, false); };
   V.addEventListener("focusin", e => { if(!e.target.closest(".setcard > h2")) window.__setOpen(e.target); });
   }catch(e){ console.log("cartões", e); }
+})();
+</script>
+<script>
+/* Media: painéis (Rádio, YouTube, Vídeo por link, Favoritos) encolhem e expandem ao tocar no título; lembra a escolha */
+(function(){
+  try{
+  const V = document.getElementById("v-media"); if(!V) return;
+  const panels = () => [...V.querySelectorAll(":scope > .panel, :scope > .grid2 > .panel")];
+  const headOf = p => { const h = p.querySelector(":scope > h2, :scope > .row > h2"); return h ? (h.matches(":scope > h2") ? h : h.parentElement) : null; };
+  const keyOf = p => { const h = p.querySelector(":scope > h2, :scope > .row > h2"); return h ? (p.id || h.textContent.trim().slice(0, 40)) : ""; };
+  let st = {}; try{ st = JSON.parse(localStorage.getItem("ck_mediaFold") || "{}") || {}; }catch(e){ st = {}; }
+  const save = () => { try{ localStorage.setItem("ck_mediaFold", JSON.stringify(st)); }catch(e){} };
+  const apply = p => { const k = keyOf(p), hd = headOf(p); if(!k || !hd) return; p.classList.add("mpanel"); hd.classList.add("mhead"); const f = !!st[k]; p.classList.toggle("mfold", f); const h = hd.querySelector("h2"); if(h){ h.setAttribute("role", "button"); h.setAttribute("aria-expanded", f ? "false" : "true"); h.tabIndex = 0; } };
+  const set = (p, fold) => { const k = keyOf(p); if(!k) return; st[k] = fold ? 1 : 0; apply(p); save(); };
+  V.addEventListener("click", e => { const hd = e.target.closest(".mpanel > .mhead"); if(!hd || !V.contains(hd)) return; if(e.target.closest("button, input, select, textarea, a, form, .tabs, .tab")) return; const p = hd.parentElement; set(p, !p.classList.contains("mfold")); });
+  V.addEventListener("keydown", e => { if(e.key !== "Enter" && e.key !== " ") return; const h = e.target.closest && e.target.closest(".mpanel > .mhead h2"); if(!h) return; e.preventDefault(); h.closest(".mpanel > .mhead").click(); });
+  const t = V.querySelector("h1");
+  if(t){ const b = document.createElement("div"); b.id = "mFoldBar";
+    b.innerHTML = '<button class="btn" type="button" id="mFoldAll">Encolher tudo</button><button class="btn" type="button" id="mOpenAll">Expandir tudo</button>';
+    t.after(b);
+    b.querySelector("#mFoldAll").onclick = () => { panels().forEach(p => { const k = keyOf(p); if(k) st[k] = 1; apply(p); }); save(); };
+    b.querySelector("#mOpenAll").onclick = () => { panels().forEach(p => { const k = keyOf(p); if(k) st[k] = 0; apply(p); }); save(); };
+  }
+  panels().forEach(apply);
+  }catch(e){ console.log("media cartões", e); }
 })();
 </script>
 <script>
