@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v485";
+const APP_VERSION = "v486";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4073,6 +4073,27 @@ function __hvccAnnex(c){
     for(let a = 0; a < na; a++){ if(o + 3 > c.length) return null; const n = (c[o + 1] << 8) | c[o + 2]; o += 3;
       for(let k = 0; k < n; k++){ if(o + 2 > c.length) return null; const l = (c[o] << 8) | c[o + 1]; o += 2; if(o + l > c.length) return null; out.push(0, 0, 0, 1); for(let i = 0; i < l; i++) out.push(c[o + i]); o += l; } }
     return out.length ? {ls, ps:new Uint8Array(out)} : null; }catch(e){ return null; } }
+/* v486: som por software para lá do Dolby — DTS (núcleo), Dolby TrueHD/MLP, FLAC e PCM nos filmes .mkv */
+window.__swAud = /^A_(E?AC3|AAC|DTS|TRUEHD|MLP|FLAC|PCM)/;
+window.__swAudDec = function(trk){
+  const c = String(trk && trk.codec || ""), sr = Math.round(trk.sr || 48000), ch = trk.ch || 2, bits = trk.bits || 16;
+  const lay = ch === 1 ? 4 : ch === 2 ? 3 : ch === 6 ? 0x3F : ch === 8 ? 0x63F : 0;
+  if(/^A_DTS/.test(c)) return {name:"dca", label:"DTS"};
+  if(/^A_TRUEHD/.test(c)) return {name:"truehd", label:"Dolby TrueHD"};
+  if(/^A_MLP/.test(c)) return {name:"mlp", label:"MLP"};
+  if(/^A_FLAC/.test(c)) return {name:"flac", label:"FLAC", par:{codec_type:1, sample_rate:sr, channels:ch, extradata:trk.priv || null}};
+  if(/^A_PCM/.test(c)){ const be = /BIG/.test(c), fl = /FLOAT/.test(c);
+    const name = fl ? "pcm_f32le" : be ? (bits === 24 ? "pcm_s24be" : "pcm_s16be") : bits === 24 ? "pcm_s24le" : bits === 32 ? "pcm_s32le" : "pcm_s16le";
+    return {name, label:"PCM", par:{codec_type:1, sample_rate:sr, channels:ch, ...(lay ? {channel_layoutmask:lay} : {})}}; }
+  return null; };
+/* imagem de som do FFmpeg (planar ou intercalada, inteiros ou vírgula flutuante) → um Float32Array por canal */
+window.__pcmPlanes = function(fo){
+  const d = fo && fo.data; if(!d) return null; const f = fo.format, sc = (f === 1 || f === 6) ? 1 / 32768 : (f === 2 || f === 7) ? 1 / 2147483648 : (f === 0 || f === 5) ? -1 : 1;
+  const cv = a => { if(sc === 1 && a instanceof Float32Array) return a; const o = new Float32Array(a.length); if(sc === -1) for(let i = 0; i < a.length; i++) o[i] = (a[i] - 128) / 128; else for(let i = 0; i < a.length; i++) o[i] = a[i] * sc; return o; };
+  if(Array.isArray(d)) return d.length ? d.map(cv) : null;
+  const ch = fo.channels || fo.ch_layout_nb_channels || 2, n = Math.floor(d.length / ch); if(!n) return null;
+  const P = []; for(let c = 0; c < ch; c++){ const o = new Float32Array(n); for(let i = 0, k = c; i < n; i++, k += ch) o[i] = sc === -1 ? (d[k] - 128) / 128 : d[k] * sc; P.push(o); }
+  return P; };
 /* v485: uma amostra com prefixo de tamanho cuja 1.ª NAL tem 256–511 bytes começa por 00 00 01 xx — era tomada por Annex B e ia crua
    ao FFmpeg («Invalid NAL unit», imagem perdida → «Could not find ref» → quadrados cinzentos). Só é Annex B se os tamanhos não baterem certo. */
 function __lpFits(d, ls){ let o = 0; while(o + ls <= d.length){ let l = 0; for(let i = 0; i < ls; i++) l = l * 256 + d[o + i]; o += ls; if(l <= 0 || o + l > d.length) return false; o += l; } return o === d.length; }
@@ -5087,8 +5108,9 @@ function mkvRun(slot, st, src, audio){
       const seg = p + sg.hl; let scale = 1000000, dur = 0, trk = null, cuesAt = -1, tracksAt = -1, first = -1;
       const readTracks = (b, a, z, base) => mkvKids(b, a, z, (id, d, n) => { if(id !== MKV.TRACK) return; const t = {}; mkvKids(b, d, d + n, (i2, d2, n2) => {
           if(i2 === MKV.TNUM) t.num = mkvUint(b, d2, n2); else if(i2 === MKV.TTYPE) t.type = mkvUint(b, d2, n2); else if(i2 === MKV.CODEC) t.codec = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, "");
-          else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); }); });
-        (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || "", lang:t.lang || "", nome:t.nome || ""});
+          else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); });
+          else if(i2 === 0xE1) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === 0xB5) t.sr = mkvFloat(b, d3, n3); else if(i3 === 0x9F) t.ch = mkvUint(b, d3, n3); else if(i3 === 0x6264) t.bits = mkvUint(b, d3, n3); }); });
+        (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || "", lang:t.lang || "", nome:t.nome || "", ...(t.type === 2 && t.ch ? {canais:t.ch} : {}), ...(t.type === 2 && t.sr ? {taxa:t.sr} : {})});
         if(audio ? (t.type === 2 && (st.trackNum != null ? t.num === st.trackNum : (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "")) && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
@@ -5099,14 +5121,16 @@ function mkvRun(slot, st, src, audio){
       });
       if(!trk && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17); const th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) readTracks(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
       if(!audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{ window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas", {faixas:st.tl.slice(0, 12)});
-          const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); }
+          const snd = st.tl.filter(x => x.tipo === "som"); if(snd.length && !snd.some(x => /^A_(AAC|OPUS|VORBIS|FLAC|MPEG|PCM|E?AC3|DTS|TRUEHD|MLP)/.test(x.codec))){ toast("Este filme só tem som " + snd.map(x => x.codec.replace(/^A_/, "")).join(" / ") + ", que o Tesla não toca. Procura outra versão do filme (AAC ou AC-3).", true); window.__dbgEv && window.__dbgEv(slot, "filme sem som tocável", {codecs:snd.map(x => x.codec)}); }
           /* v205: no Tesla os filmes .mkv não dão som pelo leitor do carro (o contador de bytes sobe mas não se ouve; visto com E-AC3 e com AAC): toca o som por software logo no arranque.
              v207: escolhe a faixa portuguesa (se houver) e guarda a lista para o botão 🎚 Áudio */
           if(window.__TESLA && snd.length){
-            const okc = x => /^A_(E?AC3|AAC)/.test(x.codec) && !(/^A_E?AC3/.test(x.codec) && window.HW && window.HW.eac3);
+            const okc = x => window.__swAud.test(x.codec) && !(/^A_E?AC3/.test(x.codec) && window.HW && window.HW.eac3);
             const ispt = x => /^(pt|por)/i.test(x.lang || "") || /portug|\bpt\b/i.test(x.nome || "");
-            const pk = snd.find(x => okc(x) && ispt(x)) || snd.find(okc);
-            window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)), cur:pk ? (/^A_AAC/.test(pk.codec) ? (snd.find(x => /^A_AAC/.test(x.codec)) || pk).n : pk.n) : null, quer:pk ? pk.n : null}; /* v439: até o som por software sair, o menu mostra a faixa que se ouve (a do leitor do carro) */
+            /* v486: DTS/TrueHD/FLAC/PCM também por software; à mesma língua prefere-se o mais leve para o processador (AC-3/AAC, depois FLAC/PCM, DTS e por fim TrueHD) */
+            const rk = x => /^A_(E?AC3|AAC)/.test(x.codec) ? 0 : /^A_(FLAC|PCM)/.test(x.codec) ? 1 : /^A_DTS/.test(x.codec) ? 2 : 3, best = a => a.slice().sort((x, y) => rk(x) - rk(y))[0];
+            const pk = best(snd.filter(x => okc(x) && ispt(x))) || best(snd.filter(okc));
+            window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => window.__swAud.test(x.codec)), cur:pk ? (/^A_AAC/.test(pk.codec) ? (snd.find(x => /^A_AAC/.test(x.codec)) || pk).n : pk.n) : null, quer:pk ? pk.n : null}; /* v439: até o som por software sair, o menu mostra a faixa que se ouve (a do leitor do carro) */
             if(pk && !(window.__mka && window.__mka[slot]) && window.__mkaStart){ const c0 = lastPlayed[slot], pid0 = playSeq[slot], aac0 = /^A_AAC/.test(pk.codec);
               window.__dbgEv && window.__dbgEv(slot, "som por software desde o início", {faixa:pk.codec, idioma:pk.lang || pk.nome || "", de:snd.length});
               setTimeout(() => { try{ if(pid0 === playSeq[slot] && !(window.__mka && window.__mka[slot])) window.__mkaStart(slot, c0, pid0, aac0, aac0, pk.n); }catch(e){} }, 800); } } }catch(e){} }
@@ -5114,23 +5138,25 @@ function mkvRun(slot, st, src, audio){
       if(audio && st.tl && !st.tlLogged){ st.tlLogged = 1; try{
         const snd = st.tl.filter(x => x.tipo === "som"), mk0 = window.__mkaTracks && window.__mkaTracks[slot];
         window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas de som", {faixas:snd.slice(0, 12)});
-        if(!(mk0 && mk0.seq === playSeq[slot])){ window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)), cur:trk ? trk.num : null}; }
+        if(!(mk0 && mk0.seq === playSeq[slot])){ window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:snd.filter(x => window.__swAud.test(x.codec)), cur:trk ? trk.num : null}; }
         else if(trk) mk0.cur = trk.num;
-        const nOk = snd.filter(x => /^A_(E?AC3|AAC)/.test(x.codec)).length; if(nOk > 1) toast("🎚 Este filme tem " + nOk + " faixas de som — escolhe no botão Áudio.");
+        const nOk = snd.filter(x => window.__swAud.test(x.codec)).length; if(nOk > 1) toast("🎚 Este filme tem " + nOk + " faixas de som — escolhe no botão Áudio.");
       }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
-        const L = await window.__libav(); st.L = L; if(st.trackNum != null) st.aac = /^A_AAC/.test(trk.codec || ""); st.ldec = await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
+        const L = await window.__libav(); st.L = L; if(st.trackNum != null) st.aac = /^A_AAC/.test(trk.codec || ""); st.xc = st.aac ? null : window.__swAudDec(trk); st.ldec = st.xc ? await L.ff_init_decoder(st.xc.name, st.xc.par ? {codecpar:st.xc.par} : undefined) : await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
+        /* v486: DTS-HD MA: só o núcleo DTS (o sem perdas pesa muito ao processador do carro e o som sai em estéreo de qualquer forma) */
+        if(st.xc && st.xc.name === "dca"){ try{ await L.av_opt_set(st.ldec[1], "core_only", "1", 1); }catch(e){} }
         /* AAC: o relógio é o do espelho quando o <video> está parado (em andamento); senão o do próprio <video> */
         st.clock = new window.__PcmClock(st.aac ? {get currentTime(){ const m = MIR[slot]; return m && m.wall && m.masterUs != null ? m.masterUs / 1e6 : v.currentTime; }, get paused(){ const m = MIR[slot]; return m && m.wall ? false : v.paused; }, get seeking(){ return v.seeking; }, get readyState(){ const m = MIR[slot]; return m && m.wall ? 4 : v.readyState; }, get muted(){ return window.__wantMuted ? window.__wantMuted(v) : v.muted; }, get volume(){ return v.volume; }, id:v.id, el:v} : v); st.el = v; st.aq = []; st.n = 0;
         if(st.aac && trk.priv && trk.priv.length >= 2){ const o = trk.priv[0] >> 3, fi = ((trk.priv[0] & 7) << 1) | (trk.priv[1] >> 7), ch = (trk.priv[1] >> 3) & 15; st.adts = {prof:Math.max(0, Math.min(3, (o === 5 || o === 29 ? 2 : o) - 1)), fi, ch}; }
         else if(st.aac) throw new Error("AAC sem configuração");
-        st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, asc:trk.priv ? Array.from(trk.priv.slice(0, 8)).map(x => x.toString(16).padStart(2, "0")).join("") : null, aot:trk.priv ? trk.priv[0] >> 3 : null, canaisDaFaixa:st.adts ? st.adts.ch : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
-        toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
+        st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, asc:trk.priv ? Array.from(trk.priv.slice(0, 8)).map(x => x.toString(16).padStart(2, "0")).join("") : null, aot:trk.priv ? trk.priv[0] >> 3 : null, canaisDaFaixa:st.adts ? st.adts.ch : (trk.ch || null), descodificador:st.xc ? st.xc.name : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
+        toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : st.xc ? "Som " + st.xc.label + " por software…" : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
         const drain = async () => { if(st.abusy) return; st.abusy = true; st.busyAt = performance.now(); try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
-              const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
+              const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : st.xc ? [x.data] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               st.pk = (st.pk || 0) + 1; const out = await Promise.race([L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]); let t = x.ts / 1e6; st.lastDec = performance.now(); if(!out.length){ st.vazios = (st.vazios || 0) + 1; if(!st.vzLog || st.vzLog.length < 3) (st.vzLog = st.vzLog || []).push({len:fr[0].length, b:Array.from(fr[0].subarray(0, 12)).map(x => x.toString(16).padStart(2, "0")).join("")}); }
-              for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
+              for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = window.__pcmPlanes(fo); if(!pl || !pl.length) continue;
                 /* v211: de 8 em 8 s regista a energia de cada canal à saída do descodificador (5.1: L R C LFE Ls Rs): mostra se as vozes (centro) existem e a taxa de amostragem real */
                 try{ const nw = performance.now(); if(!st.chLogAt || nw - st.chLogAt > 8000){ st.chLogAt = nw; const db = pl.map(a => { let e2 = 0, k = 0; for(let i = 0; i < a.length; i += 3){ e2 += a[i] * a[i]; k++; } return +(10 * Math.log10(e2 / Math.max(1, k) + 1e-12)).toFixed(1); });
                     window.__dbgEv && window.__dbgEv(slot, "som: energia por canal (dB)", {canais:pl.length, taxa:sr, dB:db, fmt:fo.format}); } }catch(e){}
@@ -5427,7 +5453,7 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
             const x = st.aq.shift(), frs = window.__ac3Frames(x.data); if(!frs.length) continue; const [, cc, pkt, frm] = st.ldec;
             const out = await Promise.race([L.ff_decode_multi(cc, pkt, frm, frs.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]);
             let t = x.ts / 1e6; st.lastDec = performance.now();
-            for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
+            for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = window.__pcmPlanes(fo); if(!pl || !pl.length) continue;
               pl = window.__downmix(pl); if(st.clock) st.clock.push(pl, sr, t); st.lastOut = performance.now(); t += pl[0].length / sr; st.n++; } } }
         catch(e){ st.err = String(e.message || e); EV("som por software: erro", {erro:st.err, fila:st.aq.length}); if(/parado/.test(st.err)){ try{ st.ldec = await L.ff_init_decoder(cod); }catch(e3){} } }
         st.abusy = false; };
@@ -5591,12 +5617,12 @@ function mp4aRun(slot, st, src, onNone){
       const L = (libP && await libP) || await window.__libav(); st.L = L; st.ldec = await L.ff_init_decoder(cod); await window.__dolbyStereo(L, st.ldec);
       if(!alive()) return;
       st.clock = new window.__PcmClock(v); st.el = v; st.mkvInfo = {codec:at.codec};
-      try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:at.codec, contentor:"mp4", amostras:S.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
+      try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:at.codec, contentor:"mp4", faixa:at.id, lingua:at.language || "", canais:at.audio && at.audio.channel_count, escolha:(st.trackNum != null && at.id === st.trackNum) ? "manual" : /^(pt|por)/i.test(at.language || "") ? "português" : /^(en|eng)/i.test(at.language || "") ? "inglês" : "primeira", deTotal:dol.length, amostras:S.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
       toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…");
       const drain = async () => { if(st.abusy) return; st.abusy = true; st.busyAt = performance.now(); try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;
             const x = st.aq.shift(), fr = window.__ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
             st.pk = (st.pk || 0) + 1; const out = await Promise.race([L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]); let t = x.ts / 1e6; st.lastDec = performance.now(); if(!out.length) st.vazios = (st.vazios || 0) + 1;
-            for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = Array.isArray(fo.data) ? fo.data : null; if(!pl || !pl.length) continue;
+            for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = window.__pcmPlanes(fo); if(!pl || !pl.length) continue;
               try{ const nw = performance.now(); if(!st.chLogAt || nw - st.chLogAt > 8000){ st.chLogAt = nw; const db = pl.map(a => { let e2 = 0, k = 0; for(let i = 0; i < a.length; i += 3){ e2 += a[i] * a[i]; k++; } return +(10 * Math.log10(e2 / Math.max(1, k) + 1e-12)).toFixed(1); });
                   window.__dbgEv && window.__dbgEv(slot, "som: energia por canal (dB)", {canais:pl.length, taxa:sr, dB:db, fmt:fo.format}); } }catch(e){}
               pl = window.__downmix(pl); st.clock.push(pl, sr, t); st.lastOut = performance.now(); t += pl[0].length / sr; st.n++; } } }catch(e){ st.err = String(e.message || e); try{ window.__dbgEv && window.__dbgEv(slot, "som por software: erro", {erro:st.err, fila:st.aq.length}); }catch(e2){} if(/parado/.test(st.err)){ try{ st.ldec = await L.ff_init_decoder(cod); }catch(e3){} } } st.abusy = false; };
@@ -12240,7 +12266,7 @@ async function mkvProbeTracks(slot){
     if(!list.length && tracksAt > 0){ const tb = await get(tracksAt, 1 << 17), th = mkvHead(tb, 0); if(th && th.id === MKV.TRACKS) rd(tb, th.hl, Math.min(tb.length, th.hl + th.size)); }
     if(playSeq[slot] !== seq) return false;
     window.__dbgEv && window.__dbgEv(slot, "ficheiro mkv: faixas de som (lidas para o botão Áudio)", {faixas:list.slice(0, 12)});
-    const ok = list.filter(x => /^A_(E?AC3|AAC)/.test(x.codec));
+    const ok = list.filter(x => window.__swAud.test(x.codec));
     window.__mkaTracks = window.__mkaTracks || [null, null];
     window.__mkaTracks[slot] = {seq, list:ok, cur:ok.length ? ok[0].n : null, nativa:true};
     return ok.length > 1;
