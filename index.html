@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v458";
+const APP_VERSION = "v459";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3526,12 +3526,16 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(isTs && live){ tryTs(); }
   else if(isFlv || isFileTs){
     const src = DIRECT_VIDEO() ? directUrl(c.url) : px(c.url);
-    loadMpegts().then(ok => {
+    loadMpegts().then(async ok => {
       if(playId !== playSeq[slot]) return;
       if(!ok || !mpegts.isSupported()) return fail("vídeo", "formato ." + fext + " HINT:A biblioteca para ." + fext + " não carregou (sem rede?).");
-      const p = mpegts.createPlayer({type: isFlv ? "flv" : "mpegts", isLive:false, url:src}, Object.assign({enableWorker:true, lazyLoad:true}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {})); tsInst[slot] = p;
+      /* v459: AC-3/E-AC-3 que o browser não aceita no MSE: o som vem por software (ver __tsMovieSound) */
+      let sndA = null; if(isFileTs && window.__tsProbe && !(window.MediaSource && MediaSource.isTypeSupported('audio/mp4;codecs="ac-3"'))){ sndA = await window.__tsProbe(src); if(playId !== playSeq[slot]) return; }
+      const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
+      const p = mpegts.createPlayer(mcfg, Object.assign({enableWorker:true, lazyLoad:true}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {})); tsInst[slot] = p;
       p.attachMediaElement(v); p.load(); let bad = false;
       p.on(mpegts.Events.ERROR, () => { if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
+      if(sndA && window.__tsMovieSound) window.__tsMovieSound(slot, src, sndA, playId);
       v.play().catch(()=>{});
     });
   }
@@ -16037,6 +16041,47 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     return st;
   }
   function stop(slot){ const st = S[slot]; if(!st) return; delete S[slot]; st.on = false; clearInterval(st.poll); st.clock.close(); try{ if(st.dec && st.L) st.L.ff_free_decoder(st.dec[1], st.dec[2], st.dec[3]); }catch(e){} }
+  /* v459: filme .ts com AC-3/E-AC-3 que o browser não aceita no MSE: o mpegts.js toca só a imagem (hasAudio:false)
+     e o som é lido do mesmo ficheiro (PES de áudio) e descodificado por software. Só toca do início (sem acompanhar saltos). */
+  window.__tsProbe = async url => {
+    try{ const r = await fetch(url); const rd = r.body.getReader(); let buf = new Uint8Array(0);
+      while(buf.length < 3000000){ const x = await rd.read(); if(x.done) break; const m = new Uint8Array(buf.length + x.value.length); m.set(buf); m.set(x.value, buf.length); buf = m; }
+      try{ rd.cancel(); }catch(e){}
+      const L = pmtAudio(buf); return (L && L.find(t => t.kind === "ac3" || t.kind === "eac3")) || null;
+    }catch(e){ return null; } };
+  window.__tsMovieSound = (slot, url, a, playId) => {
+    const v = $("vid" + slot); if(!v) return;
+    const ctl = new AbortController(), st = {clock:new PcmClock(v), q:[], init:null, dec:null, L:null, on:true, busy:false};
+    const alive = () => st.on && playId === playSeq[slot];
+    const stopIt = () => { if(!st.on) return; st.on = false; try{ ctl.abort(); }catch(e){} try{ st.clock.close(); }catch(e){} try{ if(st.dec && st.L) st.L.ff_free_decoder(st.dec[1], st.dec[2], st.dec[3]); }catch(e){} };
+    const poll = setInterval(() => { if(!alive()){ clearInterval(poll); stopIt(); } }, 1000);
+    const dbg = (e, o) => { try{ window.__dbgEv && window.__dbgEv(slot, e, o); }catch(x){} };
+    const pump = async () => {
+      if(st.busy || !st.dec || !alive()) return; st.busy = true;
+      try{ while(st.q.length && alive()){
+          const x = st.q.shift(), fr = ac3Frames(x.data); if(!fr.length) continue;
+          const [, c, pkt, frame] = st.dec; const out = await st.L.ff_decode_multi(c, pkt, frame, fr.map(f => ({data:f})), false);
+          let t = x.pts / 90000 - st.init;
+          for(const f of out){ const sr = f.sample_rate || 48000, planes = Array.isArray(f.data) ? f.data.map(q => q instanceof Float32Array ? q : Float32Array.from(q)) : null;
+            if(!planes || !planes.length) continue; const pl = downmix(planes); st.clock.push(pl, sr, t); t += pl[0].length / sr; }
+        } }catch(e){ dbg("som Dolby do filme: erro", {msg:String(e.message || e).slice(0, 120)}); }
+      finally{ st.busy = false; } };
+    libav().then(async L => { if(!alive()) return; st.L = L; st.dec = await L.ff_init_decoder(a.kind === "eac3" ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.dec); dbg("som Dolby do filme: descodificador pronto", {codec:a.kind}); pump(); })
+      .catch(e => { dbg("som Dolby do filme: falhou", {msg:String(e.message || e).slice(0, 120)}); stopIt(); });
+    let cur = null;
+    const closePes = () => { const c = cur; cur = null; if(!c) return; let L = 0; c.forEach(x => L += x.length); const b = new Uint8Array(L); let k = 0; c.forEach(x => { b.set(x, k); k += x.length; });
+      if(!(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80))) return;
+      const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
+      if(st.init == null) st.init = pts / 90000;
+      st.q.push({pts, data:b.subarray(9 + b[8])}); if(st.q.length > 600) st.q.splice(0, st.q.length - 600); };
+    const feedTs = d => { for(let o = 0; o + 188 <= d.length; o += 188){ if(d[o] !== 0x47) continue; const pid = ((d[o + 1] & 0x1f) << 8) | d[o + 2]; if(pid !== a.pid) continue;
+        const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) continue; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; if(p >= o + 188) continue;
+        if(d[o + 1] & 0x40){ closePes(); cur = []; } if(cur) cur.push(d.slice(p, o + 188)); } pump(); };
+    (async () => { try{ const r = await fetch(url, {signal:ctl.signal}); const rd = r.body.getReader(); let carry = new Uint8Array(0);
+        while(alive()){ const x = await rd.read(); if(x.done) break; let d = x.value; if(carry.length){ const m = new Uint8Array(carry.length + d.length); m.set(carry); m.set(d, carry.length); d = m; }
+          const n = Math.floor(d.length / 188) * 188; carry = d.slice(n); feedTs(d.subarray(0, n)); }
+      }catch(e){ if(e.name !== "AbortError") dbg("som Dolby do filme: leitura falhou", {msg:String(e.message || e).slice(0, 120)}); } })();
+  };
   /* PES de áudio */
   function feed(st, d){
     const pidOf = o => ((d[o + 1] & 0x1f) << 8) | d[o + 2];
