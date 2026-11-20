@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v467";
+const APP_VERSION = "v468";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3530,6 +3530,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(playId !== playSeq[slot]) return;
       if(!ok || !mpegts.isSupported()) return fail("vídeo", "formato ." + fext + " HINT:A biblioteca para ." + fext + " não carregou (sem rede?).");
       /* v459: AC-3/E-AC-3 que o browser não aceita no MSE: o som vem por software (ver __tsMovieSound) */
+      window.__tsBase = window.__tsBase || []; window.__tsBase[slot] = 0; if(window.__tsMovieArgs) window.__tsMovieArgs[slot] = null;
       let sndA = null; if(isFileTs && window.__tsProbe && !(window.MediaSource && MediaSource.isTypeSupported('audio/mp4;codecs="ac-3"'))){ sndA = await window.__tsProbe(src); if(playId !== playSeq[slot]) return; }
       const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
       const mopts = Object.assign({enableWorker:true, lazyLoad:true}, sndA && window.__TsPmtLoader ? {customLoader:window.__TsPmtLoader} : {}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {});
@@ -16077,13 +16078,13 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   const crcT = (() => { const t = new Uint32Array(256); for(let i = 0; i < 256; i++){ let c = i << 24; for(let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04C11DB7) : (c << 1); t[i] = c >>> 0; } return t; })();
   const crc32m = (b, s, e) => { let c = 0xFFFFFFFF; for(let i = s; i < e; i++) c = ((c << 8) ^ crcT[((c >>> 24) ^ b[i]) & 0xFF]) >>> 0; return c >>> 0; };
   class TsPmtLoader {
-    constructor(seekHandler, config){ this._config = config || {}; this._ctl = null; this._status = 0; this._pmtPid = -1; this._carry = new Uint8Array(0); this._total = 0; this._aligned = true; this._wd = setInterval(() => this._watch(), 2000); }
+    constructor(seekHandler, config){ this._config = config || {}; this._startAt = window.__tsStartAt || 0; window.__tsStartAt = 0; this._ctl = null; this._status = 0; this._pmtPid = -1; this._carry = new Uint8Array(0); this._total = 0; this._aligned = true; this._wd = setInterval(() => this._watch(), 2000); }
     static isSupported(){ return typeof fetch === "function" && typeof ReadableStream !== "undefined"; }
     get status(){ return this._status; }
     get type(){ return "tsPmtFetch"; }
     isWorking(){ return this._status === 1 || this._status === 2; }
     open(ds, range){
-      const from = range && range.from > 0 ? range.from : 0; const ctl = this._ctl = new AbortController(); this._ds = ds; this._last = Date.now();
+      let from = range && range.from > 0 ? range.from : 0; if(from === 0 && this._startAt){ from = this._startAt; this._startAt = 0; } const ctl = this._ctl = new AbortController(); this._ds = ds; this._last = Date.now();
       this._status = 1; this._total = from; this._carry = new Uint8Array(0); this._aligned = from === 0; this._pmtPid = -1;
       const headers = from > 0 ? {Range:"bytes=" + from + "-"} : {};
       (async () => { try{ const r = await fetch(ds.url, {headers, signal:ctl.signal});
@@ -16123,11 +16124,28 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     }
   }
   window.__TsPmtLoader = TsPmtLoader;
-  window.__tsMovieSound = (slot, url, a, playId, startSec) => {
+  /* v468: o mpegts.js não consegue saltar num .ts sem duração conhecida: o salto reabre o leitor no byte estimado e o tempo do vídeo volta a contar a partir do ponto */
+  window.__tsBase = window.__tsBase || [];
+  window.__tsSeekRestart = (slot, t) => {
+    const a = window.__tsMovieArgs && window.__tsMovieArgs[slot]; const v = $("vid" + slot);
+    if(!a || !v || !window.mpegts || !window.__TsPmtLoader) return;
+    const sz = window.__tsSizeBy && window.__tsSizeBy.url === a.url ? window.__tsSizeBy.size : 0, dur = (window.__tsDurMap || {})[a.url] || 0;
+    if(!sz || !(dur > 0)) return;
+    const off = Math.max(0, Math.floor(t / dur * sz / 188) * 188);
+    try{ window.__tsSnd && window.__tsSnd[slot] && window.__tsSnd[slot].stop(); }catch(e){}
+    try{ tsInst[slot] && tsInst[slot].destroy(); }catch(e){}
+    window.__tsStartAt = off;
+    const p = mpegts.createPlayer({type:"mpegts", isLive:false, url:a.url, hasAudio:false}, {enableWorker:true, lazyLoad:true, customLoader:window.__TsPmtLoader});
+    tsInst[slot] = p; p.attachMediaElement(v); p.load(); v.play().catch(()=>{});
+    window.__tsBase[slot] = t;
+    window.__tsMovieSound(slot, a.url, a.a, a.playId, 0, off);
+    try{ window.__dbgEv && window.__dbgEv(slot, "barra: reinício no ponto", {para: Math.round(t), byte: off}); }catch(e){}
+  };
+  window.__tsMovieSound = (slot, url, a, playId, startSec, offIn) => {
     const v = $("vid" + slot); if(!v) return;
     startSec = startSec || 0;
     /* v463: posição: o som recomeça a partir do ponto (salto na barra); o byte inicial é estimado pelo tamanho do ficheiro */
-    let off = 0; if(startSec > 0){ const sz = window.__tsSizeBy && window.__tsSizeBy.url === url ? window.__tsSizeBy.size : 0; const dur = isFinite(v.duration) && v.duration > 0 ? v.duration : ((window.__tsDurMap || {})[url] || 0);
+    let off = 0; if(offIn != null){ off = offIn; } else if(startSec > 0){ const sz = window.__tsSizeBy && window.__tsSizeBy.url === url ? window.__tsSizeBy.size : 0; const dur = isFinite(v.duration) && v.duration > 0 ? v.duration : ((window.__tsDurMap || {})[url] || 0);
       if(!sz || !(dur > 0)) return; off = Math.max(0, Math.floor(startSec / dur * sz / 188) * 188); }
     window.__tsMovieArgs = window.__tsMovieArgs || []; window.__tsMovieArgs[slot] = {url, a, playId};
     window.__tsSnd = window.__tsSnd || []; if(window.__tsSnd[slot]) window.__tsSnd[slot].stop();
@@ -18433,9 +18451,10 @@ html.nightUi #ambient{filter:brightness(.75)}
   let cur = null; // {slot, v, url}
   inp.addEventListener("change", () => {
     if(!cur) return; const dur = durOf(cur.v, cur.url); if(!(dur > 0)) return;
-    const t = inp.value / 1000 * dur; const antes = cur.v.currentTime; try{ cur.v.currentTime = t; }catch(e){ window.__dbgEv && window.__dbgEv(cur.slot, "barra: salto recusado", {msg:String(e.message || e)}); }
+    const t = inp.value / 1000 * dur; const antes = cur.pos;
     window.__dbgEv && window.__dbgEv(cur.slot, "barra: salto", {de:Math.round(antes), para:Math.round(t), dur:Math.round(dur), duracaoReal: isFinite(cur.v.duration), valor: +inp.value});
-    const a = window.__tsMovieArgs && window.__tsMovieArgs[cur.slot]; if(a && window.__tsMovieSound) window.__tsMovieSound(cur.slot, a.url, a.a, a.playId, t);
+    if(window.__tsMovieArgs && window.__tsMovieArgs[cur.slot]) window.__tsSeekRestart(cur.slot, t);
+    else { try{ cur.v.currentTime = t; }catch(e){ window.__dbgEv && window.__dbgEv(cur.slot, "barra: salto recusado", {msg:String(e.message || e)}); } }
   });
   setInterval(() => {
     let pick = null; let lp = null;
@@ -18444,9 +18463,10 @@ html.nightUi #ambient{filter:brightness(.75)}
     if(!pick){ d.hidden = true; cur = null; return; }
     cur = pick; d.hidden = false;
     const dur = durOf(pick.v, pick.url), known = dur > 0;
+    const base = (window.__tsBase && window.__tsBase[pick.slot]) || 0; cur.pos = base + pick.v.currentTime;
     inp.disabled = !known;
-    tEl.textContent = fmt(pick.v.currentTime); dEl.textContent = known ? fmt(dur) : "--:--";
-    if(known && document.activeElement !== inp) inp.value = Math.round(pick.v.currentTime / dur * 1000);
+    tEl.textContent = fmt(cur.pos); dEl.textContent = known ? fmt(dur) : "--:--";
+    if(known && document.activeElement !== inp) inp.value = Math.round(cur.pos / dur * 1000);
   }, 400);
 })();
 </script>
