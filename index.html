@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v486";
+const APP_VERSION = "v487";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4173,7 +4173,8 @@ class SoftVideoDecoder {
   /* v214: quantas imagens prontas se aceitam antes de parar de descodificar à frente (tem de ficar abaixo do tecto da fila, senão as das Workers em curso perdem-se) */
   /* v216: Bob por software (1080i → 2 quadros de 960×540 por imagem, 50/s): liga/desliga em todos os Workers */
   setBob(on){ on = !!on; if(!this.cfg || !!this.cfg.bob === on) return; this.cfg.bob = on; for(const W of this.W) try{ W.w.postMessage({cmd:"bob", on}); }catch(e){} }
-  bkLimit(){ if(this.cfg && this.cfg.bob && this.px) return Math.max(36, Math.min(84, Math.floor(200e6 / this.px) - 8)); const cap = this.px ? Math.max(12, Math.min(90, Math.floor(200e6 / this.px))) : 48; return Math.max(24, Math.min(60, cap - 12)); }
+  /* v487: filmes: mais memória para imagens prontas (até 300 MB / 140 imagens), para o GOP seguinte começar noutro Worker antes de tempo (GOPs de ~8 s num processador lento) */
+  bkLimit(){ if(this.cfg && this.cfg.bob && this.px) return Math.max(36, Math.min(84, Math.floor(200e6 / this.px) - 8)); const B = this.film ? 300e6 : 200e6, cap = this.px ? Math.max(12, Math.min(this.film ? 152 : 90, Math.floor(B / this.px))) : 48; return Math.max(24, Math.min(this.film ? 140 : 60, cap - 12)); }
   headTs(){
     if(this.pending.length) return this.pending[0].ts;
     for(const W of this.W) if(W.q.length) return W.q[0].ts;
@@ -4198,7 +4199,7 @@ class SoftVideoDecoder {
     /* nunca pede mais antecedência do que a fila deixa ter (limite de imagens prontas): senão os Workers param à espera e as imagens chegam tarde */
     /* v239: um Worker mais lento que a origem (H.265: ~25 imagens/s para 50) só enche a fila ao ritmo dele, não ao da origem: a antecedência pode ser maior (antes ficava em 1,1 s e os GOPs de 2 s chegavam tarde → saltos) */
     const room = Math.max(600000, Math.round((this.bkLimit() - 4) / Math.min(fs, fw) * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000;
-    return Math.max(minLead, Math.min(4500000, room, Math.round((n / fw - n / fs) * 1e6 + 600000)));
+    return Math.max(minLead, Math.min(this.film ? 10000000 : 4500000, room, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
     if(masterUs == null || this.state !== "configured") return;
@@ -4308,7 +4309,7 @@ function mirPushFrame(st, frame){
   if(i > 0 && q[i - 1].timestamp === ts){ try{ frame.close(); }catch(e){} return; }
   q.splice(i, 0, frame);
   const px = (frame.displayWidth || frame.codedWidth || 1280) * (frame.displayHeight || frame.codedHeight || 720) * 4;
-  const cap = frame.bmp ? Math.max(12, Math.min(90, Math.floor(200e6 / px))) : 12;
+  const cap = frame.bmp ? Math.max(12, Math.min(st.film ? 152 : 90, Math.floor((st.film ? 300e6 : 200e6) / px))) : 12;
   while(q.length > cap){ const o = frame.bmp ? q.pop() : q.shift(); try{ o.close(); }catch(e){} st.ovf = (st.ovf || 0) + 1; }
 }
 
@@ -5087,7 +5088,7 @@ function mkvRun(slot, st, src, audio){
     error: e => { st.err = "decoder: " + e.message; },
     backlog: () => (st.q || []).length
   });
-  st.decoder = decoder;
+  st.decoder = decoder; if(!audio && !WC_NATIVE){ decoder.film = true; st.film = true; }
   const get = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
     const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; } return new Uint8Array(await r.arrayBuffer()); };
   const RR = rangeReader(src, st);
@@ -5226,7 +5227,8 @@ function mkvRun(slot, st, src, audio){
         if(audio && st.fedAt){ if(performance.now() - st.fedAt < 4000){ if(st.drain) st.drain(); await sleep(150); continue; }
           st.fedAt = 0; window.__dbgEv && window.__dbgEv(slot, "som do filme: volta a ler o ficheiro por si", {}); seekTo(ct()); }
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, ct() * 1e6);
-        if(lastTs > master + (audio ? 9e6 : 12e6)){ if(audio && st.drain) st.drain(); await sleep(150); continue; }
+        if(lastTs > master + (audio ? 9e6 : 16e6)){   /* v487: imagem lê até 16 s à frente (era 12 s): o GOP seguinte tem de estar lido para começar noutro Worker */
+         if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
         try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
@@ -16093,7 +16095,13 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__mka = window.__mka || [null, null];
   window.__mkaStart = (slot, c, playId, aac, keep, trackNum) => {
     try{
-      const v = $("vid" + slot), src = v.currentSrc || v.src, isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || ""); if(!src || !(/\.mkv(\?|$)/i.test(c.url) || (isMp4 && window.__TESLA && typeof mp4aRun === "function" && !(window.__mkaNo && window.__mkaNo[slot] === playId))) || typeof mkvRun !== "function") return false;
+      const v = $("vid" + slot), src = v.currentSrc || v.src, isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
+      /* v487: ao trocar de versão do filme (4K → 1080p) o leitor do carro ainda tinha o ficheiro antigo: o som lia o filme errado (mais uma descarga ao fornecedor). Espera que o leitor passe ao ficheiro novo. */
+      if(src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url)){
+        const W0 = window.__mkaWait = window.__mkaWait || {}, n = W0[playId] = (W0[playId] || 0) + 1;
+        if(n === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: à espera do ficheiro novo", {leitor:String(window.__fileKey(src)).split("/").pop(), filme:String(window.__fileKey(c.url)).split("/").pop()}); }catch(e){} }
+        if(n <= 40) setTimeout(() => { try{ if(playId === playSeq[slot] && lastPlayed[slot] === c) window.__mkaStart(slot, c, playId, aac, keep, trackNum); }catch(e){} }, 500);
+        return true; } if(!src || !(/\.mkv(\?|$)/i.test(c.url) || (isMp4 && window.__TESLA && typeof mp4aRun === "function" && !(window.__mkaNo && window.__mkaNo[slot] === playId))) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
       const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
       /* v430: acerto do som também no som por software (os botões «−0,1 s / +0,1 s» só apareciam no caminho MSE); guardado por filme */
