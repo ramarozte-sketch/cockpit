@@ -17314,17 +17314,21 @@ html.half #visKar .k1{font-size:19px}
 #visBig b{display:block;font:900 clamp(32px,7vw,84px)/1.05 system-ui,sans-serif;color:#fff;text-shadow:0 0 24px hsl(200 100% 60% / .8),0 4px 0 #0006;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #visBig small{display:block;margin-top:8px;font:700 clamp(18px,3vw,32px)/1.1 system-ui,sans-serif;color:#ffd27a}
 #visWrap.party #visKar{top:auto;bottom:60px}
+.visGrp{margin-top:8px}.visGl{display:block;font:700 13px system-ui,sans-serif;color:var(--muted,#9aa);letter-spacing:.04em;text-transform:uppercase;margin:0 0 4px}
 </style>
 <script>
 (function(){
   if(window.ANDROID) return;
   try{
     const media = document.getElementById("v-media"), rp = document.getElementById("radioPanel"); if(!media || !rp) return;
-    const STY = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"],["tunel","🌀 Túnel"],["fogo","🎆 Fogo de artifício"],["aurora","🌌 Aurora"],["coelho","🐰 Coelho"],["polvo","🐙 Polvo"],["fantasma","👻 Fantasma"]];
+    const AVA = [["robo","🤖 Robô"],["gato","🐱 Gato DJ"],["pinguim","🐧 Pinguim"],["dino","🦖 Dinossauro"],["coelho","🐰 Coelho"],["polvo","🐙 Polvo"],["fantasma","👻 Fantasma"]];
+    const FX = [["barras","📊 Barras"],["ondas","〰️ Ondas"],["circulo","⭕ Círculo"],["estrelas","✨ Estrelas"],["luzes","🪩 Discoteca"],["tunel","🌀 Túnel"],["fogo","🎆 Fogo de artifício"],["aurora","🌌 Aurora"]];
+    const STY = AVA.concat(FX);
     const SRC = [["radio","📻 Rádio / Amp"],["mic","🎤 Colunas do carro"],["auto","🎵 Ritmo simulado"]];
     const box = document.createElement("div"); box.className = "panel"; box.id = "visPanel";
     box.innerHTML = '<details class="visDd"><summary class="visSum">Animações</summary><div class="visTop"><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="visOn"> Ligado</label></div>' +
-      '<div class="visSty" role="group" aria-label="Estilo">' + STY.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
+      '<div class="visGrp"><span class="visGl">Avatares</span><div class="visSty" role="group" aria-label="Avatares">' + AVA.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div></div>' +
+      '<div class="visGrp"><span class="visGl">Efeitos visuais</span><div class="visSty" role="group" aria-label="Efeitos visuais">' + FX.map(s => '<button type="button" data-s="' + s[0] + '">' + s[1] + '</button>').join("") + '</div></div>' +
       '<div class="visSrc" role="group" aria-label="Som" style="margin-top:8px">' + SRC.map(s => '<button type="button" data-src="' + s[0] + '">' + s[1] + '</button>').join("") + '</div>' +
       '<div id="visWrap" hidden><canvas id="visCv"></canvas><div class="visHint" id="visHint"></div><button type="button" class="visFs" id="visFs" aria-label="Ecrã total">⛶</button><button type="button" class="visFs" id="visParty" style="right:66px" aria-label="Modo festa">🎉</button><div id="visBpm"></div><div id="visKar"><div class="k1"></div><div class="k2"></div></div><div id="visBig"><b></b><small></small></div></div>';
     box.innerHTML += '</details>';
