@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v487";
+const APP_VERSION = "v488";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3682,8 +3682,14 @@ function playChannel(c, slot=tvTarget, auto=false){
       /* v437: o ficheiro é pedido com CORS (a mesma e única ligação) para o som passar pela mistura 5.1 → estéreo (as vozes do canal central); se o servidor recusar, volta ao pedido normal */
       try{ let hst = ""; try{ hst = new URL(src1, location.href).host; }catch(e){} if(window.__TESLA && /^https?:/i.test(src1) && !(window.__corsNo && window.__corsNo[hst])) v.crossOrigin = "anonymous"; else v.removeAttribute("crossorigin"); v.__corsRetry = 0; }catch(e){}
       const gapF = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
-      const setF = () => { if(playId !== playSeq[slot] || toHls) return; v.src = src1; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
-      if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else v.src = src1;
+      /* v488: .mkv no Tesla com o carro parado: a imagem por MSE a partir da nossa leitura (uma só descarga para imagem e som); se falhar, volta ao endereço direto */
+      v._mkvMse = null; const co0 = v.crossOrigin;
+      const useMse = window.__TESLA && !live && /\.mkv(\?|$)/i.test(c.url) && cfg.mkvMse !== false && !mirrorOn && !!window.MediaSource && !(window.__mkvMseNo && window.__mkvMseNo[c.url]);
+      const goSrc = () => { if(useMse && window.__mkvMse(slot, c, playId, v, src1, why => { if(playId !== playSeq[slot]) return; (window.__mkvMseNo = window.__mkvMseNo || {})[c.url] = String(why || "1");
+          const t = v.currentTime > 1 ? v.currentTime : 0; try{ if(co0) v.crossOrigin = co0; v.src = src1; v.load(); if(t){ const go = () => { v.removeEventListener("loadedmetadata", go); try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); } v.play().catch(() => {}); }catch(e){} })) return true;
+        v.src = src1; return false; };
+      const setF = () => { if(playId !== playSeq[slot] || toHls) return; if(goSrc()) return; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
+      if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else goSrc();
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
         try{ window.__dbgEv && window.__dbgEv(slot, "filme sem dados do servidor: pede outra vez", {}); }catch(e){}
@@ -3695,6 +3701,7 @@ function playChannel(c, slot=tvTarget, auto=false){
     const fResume = () => { if(fT < 3) return; const t = fT; const go = () => { v.removeEventListener("loadedmetadata", go); if(playId !== playSeq[slot]) return; try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); };
     v.onerror = () => {
       if(playId !== playSeq[slot]) return;
+      if(v._mkvMse && /^blob:/.test(v.currentSrc || "")){ try{ v._mkvMse.fail("erro do leitor do carro (" + (v.error ? v.error.code + " " + (v.error.message || "") : "?") + ")"); }catch(e){} return; }
       const code = v.error ? v.error.code : 0;
       /* v437: o pedido com CORS falhou antes de haver dados: repete uma vez sem CORS (fica como antes, sem a mistura 5.1) */
       if(v.crossOrigin && v.readyState === 0 && !v.__corsRetry && (code === 4 || code === 2) && (v.currentSrc || v.getAttribute("src"))){ v.__corsRetry = 1; const s0 = v.currentSrc || v.getAttribute("src");
@@ -5077,18 +5084,136 @@ function mkvLaced(b, a, z, mode){
     for(let i = 1; i < cnt - 1; i++){ const v = mkvVint(b, p, false); p += v.len; const bias = Math.pow(2, 7 * v.len - 1) - 1; prev = prev + (v.v - bias); sizes.push(prev); tot += prev; } sizes.push(z - p - tot); }
   const out = []; for(const sz of sizes){ if(sz < 0 || p + sz > z) break; out.push(b.slice(p, p + sz)); p += sz; } return out;
 }
+/* v488: filmes .mkv com o carro parado (Tesla): uma só descarga. O nosso leitor lê o ficheiro, a imagem vai para o leitor do carro
+   por MSE (fMP4, sem voltar a descodificar: continua a ser o hardware) e o som segue para o som por software pela mesma descarga.
+   Antes o leitor do carro descarregava o filme e o som descarregava-o outra vez (o dobro do débito: quedas de ligação nos 4K). */
+const MkvFmp4 = (() => {
+  const u32 = n => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], u16 = n => [(n >> 8) & 255, n & 255];
+  const str = s => [...s].map(c => c.charCodeAt(0));
+  const box = (t, ...parts) => { let n = 8; for(const p of parts) n += p.length; const o = new Uint8Array(n); o.set(u32(n), 0); o.set(str(t), 4); let k = 8; for(const p of parts){ o.set(p, k); k += p.length; } return o; };
+  const full = (t, v, f, ...parts) => box(t, new Uint8Array([v, (f >> 16) & 255, (f >> 8) & 255, f & 255]), ...parts);
+  const A = a => new Uint8Array(a);
+  const TS = 90000;   /* escala de tempo da faixa (µs × 0,09) */
+  function init(o){
+    const { hevc, priv, w, h, durUs } = o, dur = Math.max(0, Math.round((durUs || 0) / 1000));
+    const mat = [0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000].flatMap(u32);
+    const mvhd = full("mvhd", 0, 0, A([...u32(0), ...u32(0), ...u32(1000), ...u32(dur), ...u32(0x10000), ...u16(0x100), 0, 0, ...u32(0), ...u32(0), ...mat, ...new Array(24).fill(0), ...u32(2)]));
+    const tkhd = full("tkhd", 0, 3, A([...u32(0), ...u32(0), ...u32(1), ...u32(0), ...u32(dur), ...u32(0), ...u32(0), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...mat, ...u32(w << 16), ...u32(h << 16)]));
+    const mdhd = full("mdhd", 0, 0, A([...u32(0), ...u32(0), ...u32(TS), ...u32(0), ...u16(0x55c4), ...u16(0)]));
+    const hdlr = full("hdlr", 0, 0, A([...u32(0), ...str("vide"), ...u32(0), ...u32(0), ...u32(0), ...str("VideoHandler"), 0]));
+    const se = box(hevc ? "hvc1" : "avc1", A([0, 0, 0, 0, 0, 0, ...u16(1), ...u16(0), ...u16(0), ...u32(0), ...u32(0), ...u32(0), ...u16(w), ...u16(h), ...u32(0x480000), ...u32(0x480000), ...u32(0), ...u16(1), ...new Array(32).fill(0), ...u16(0x18), ...u16(0xffff)]), box(hevc ? "hvcC" : "avcC", priv));
+    const stbl = box("stbl", full("stsd", 0, 0, A(u32(1)), se), full("stts", 0, 0, A(u32(0))), full("stsc", 0, 0, A(u32(0))), full("stsz", 0, 0, A([...u32(0), ...u32(0)])), full("stco", 0, 0, A(u32(0))));
+    const minf = box("minf", full("vmhd", 0, 1, A([0, 0, 0, 0, 0, 0, 0, 0])), box("dinf", full("dref", 0, 0, A(u32(1)), full("url ", 0, 1))), stbl);
+    const trak = box("trak", tkhd, box("mdia", mdhd, hdlr, minf));
+    const mvex = box("mvex", full("trex", 0, 0, A([...u32(1), ...u32(1), ...u32(0), ...u32(0), ...u32(0)])));
+    const ftyp = box("ftyp", A([...str("iso6"), ...u32(1), ...str("iso6"), ...str("isom"), ...str("mp41"), ...str(hevc ? "hvc1" : "avc1")]));
+    const moov = box("moov", mvhd, trak, mvex);
+    const out = new Uint8Array(ftyp.length + moov.length); out.set(ftyp); out.set(moov, ftyp.length); return out;
+  }
+  /* um fragmento: amostras por ordem de descodificação, cada uma {data, dts, pts, dur, key} em unidades de 90 kHz */
+  function frag(seq, S){
+    const n = S.length, trunLen = 12 + 4 + 4 + n * 16;
+    const mfhd = full("mfhd", 0, 0, A(u32(seq)));
+    const tfhd = full("tfhd", 0, 0x020000, A(u32(1)));
+    const b = S[0].dts, hi = Math.floor(b / 4294967296), lo = b >>> 0;
+    const tfdt = full("tfdt", 1, 0, A([...u32(hi), ...u32(lo)]));
+    const tr = new Uint8Array(trunLen - 12 + 4); /* conteúdo da trun (sem o cabeçalho de 12) */
+    const dv = new DataView(tr.buffer); let k = 0; dv.setUint32(k, n); k += 4; const doAt = k; k += 4;
+    let mdatLen = 8; for(const s of S) mdatLen += s.data.length;
+    for(const s of S){ dv.setUint32(k, s.dur); dv.setUint32(k + 4, s.data.length); dv.setUint32(k + 8, s.key ? 0x02000000 : 0x01010000); dv.setInt32(k + 12, s.pts - s.dts); k += 16; }
+    const trun = full("trun", 1, 0x000f01, tr.subarray(0, k));
+    const traf = box("traf", tfhd, tfdt, trun);
+    const moof = box("moof", mfhd, traf);
+    /* posição dos dados: do início do moof até depois do cabeçalho do mdat */
+    const off = moof.length + 8; const mv = new DataView(moof.buffer, moof.byteOffset);
+    /* trun dentro do moof: procura-a para escrever data_offset */
+    let p = 8; while(p + 8 <= moof.length){ const sz = mv.getUint32(p), t = String.fromCharCode(moof[p + 4], moof[p + 5], moof[p + 6], moof[p + 7]); if(t === "traf"){ p += 8; continue; } if(t === "trun"){ mv.setInt32(p + 12 + 4, off); break; } p += sz; }
+    const out = new Uint8Array(moof.length + mdatLen); out.set(moof); const ov = new DataView(out.buffer); ov.setUint32(moof.length, mdatLen); out.set(str("mdat"), moof.length + 4);
+    let q = moof.length + 8; for(const s of S){ out.set(s.data, q); q += s.data.length; }
+    return out;
+  }
+  return { init, frag, TS };
+})();
+/* recebe as amostras do leitor MKV (ordem de descodificação, tempo de apresentação em µs) e entrega fragmentos fMP4 */
+class MkvMseRemux {
+  constructor(append, M){ this.append = append; this.M = M; this.seq = 1; this.reset(); }
+  reset(){ if(this.M) this.M.eos = false; this.pend = []; this.heap = []; this.n = 0; this.fd = 0; this.p0 = null; this.lastDts = null; this.prevPts = null; }
+  configure(){}
+  decode(c){
+    const pts = Math.round(c.timestamp * MkvFmp4.TS / 1e6), R = 8;
+    if(this.prevPts != null){ const d = pts - this.prevPts; if(d > 0 && (!this.fd || d < this.fd)) this.fd = d; } this.prevPts = pts;
+    if(this.p0 == null){ if(c.type !== "key") return; this.p0 = pts; }
+    /* DTS: o (i−R)-ésimo menor PTS (como o FFmpeg: reordenação até R imagens); as primeiras R ficam antes do 1.º PTS */
+    this.heap.push(pts); this.heap.sort((a, b) => a - b);
+    let dts; const fd = this.fd || 3754;
+    if(this.n < R) dts = this.p0 - (R - this.n) * fd; else dts = this.heap.shift();
+    if(this.lastDts != null && dts <= this.lastDts) dts = this.lastDts + 1;
+    if(dts > pts) dts = pts;
+    if(this.lastDts != null && dts <= this.lastDts){ dts = this.lastDts + 1; }
+    this.lastDts = dts; this.n++;
+    this.pend.push({data:c.data, pts, dts, key:c.type === "key", dur:0});
+    /* fragmento a cada ~1 s (guarda a última: a duração dela só se sabe com a seguinte) */
+    const P = this.pend; if(P.length > 2 && P[P.length - 1].dts - P[0].dts >= MkvFmp4.TS) this.flush(false);
+  }
+  flush(all){
+    const P = this.pend; if(!P.length) return; const k = all ? P.length : P.length - 1; if(k <= 0) return;
+    const S = P.slice(0, k); for(let i = 0; i < S.length; i++){ const nx = i + 1 < P.length ? P[i + 1].dts : S[i].dts + (this.fd || 3754); S[i].dur = Math.max(1, nx - S[i].dts); }
+    this.pend = P.slice(k); this.append(MkvFmp4.frag(this.seq++, S));
+  }
+}
+/* liga um MediaSource ao <video> e devolve o objeto que o mkvRun usa (st.mse) */
+window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
+  try{
+    if(!window.MediaSource || !c || !/\.mkv(\?|$)/i.test(c.url)) return false;
+    const ms = new MediaSource(), M = {v, src:src1, ms, sb:null, q:[], dead:false, failed:false, appended:0, t0:performance.now(), playId, slot};
+    M.alive = () => !M.dead && !M.failed && playId === playSeq[slot] && v._mkvMse === M;
+    M.fail = why => { if(M.failed || M.dead) return; M.failed = true; try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: falhou, volta ao leitor do carro", {motivo:String(why || "").slice(0, 160), bytes:M.appended}); }catch(e){} try{ v._mkvMse = null; }catch(e){} try{ onFail && onFail(why); }catch(e){} };
+    M.pump = () => { const sb = M.sb; if(!sb || sb.updating || !M.q.length || M.dead || M.failed) return;
+      const b = M.q[0];
+      try{ sb.appendBuffer(b); M.q.shift(); M.appended += b.length; }
+      catch(e){ if(e && e.name === "QuotaExceededError"){ M.trim(true); setTimeout(M.pump, 500); } else M.fail("appendBuffer: " + (e && e.message || e)); } };
+    M.trim = hard => { const sb = M.sb; if(!sb || sb.updating) return; try{ const t = v.currentTime, br = sb.buffered; if(br.length && br.start(0) < t - (hard ? 5 : 30)) sb.remove(0, Math.max(0, t - (hard ? 5 : 30))); }catch(e){} };
+    M.push = b => { if(!M.alive()) return; M.q.push(b); M.pump(); };
+    M.qBytes = () => M.q.reduce((n, b) => n + b.length, 0);
+    M.end = () => { M.eos = true; try{ if(M.sb && !M.sb.updating && !M.q.length && ms.readyState === "open") ms.endOfStream(); }catch(e){} };
+    M.start = (codec, initSeg, durS) => { try{
+        const mime = 'video/mp4; codecs="' + codec + '"';
+        if(!MediaSource.isTypeSupported(mime)){ M.fail("o leitor não aceita " + codec + " por MSE"); return false; }
+        const sb = M.sb = ms.addSourceBuffer(mime);
+        sb.addEventListener("updateend", () => { if(M.alive()){ if(M.q.length) M.pump(); else if(M.eos && ms.readyState === "open"){ try{ ms.endOfStream(); }catch(e){} } } });
+        sb.addEventListener("error", () => M.fail("SourceBuffer: erro"));
+        if(durS > 0) try{ ms.duration = durS; }catch(e){}
+        M.push(initSeg);
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: uma só descarga (imagem pelo leitor do carro, som pela mesma ligação)", {codec, duracao_s:Math.round(durS)}); }catch(e){}
+        return true; }catch(e){ M.fail("addSourceBuffer: " + (e && e.message || e)); return false; } };
+    v._mkvMse = M;
+    ms.addEventListener("sourceopen", () => {
+      if(!M.alive()) return;
+      try{ URL.revokeObjectURL(M.url); }catch(e){}
+      const st = {mse:M, movie:true}; M.st = st;
+      try{ mkvRun(slot, st, src1, false); }catch(e){ M.fail("mkvRun: " + (e && e.message || e)); }
+      /* salvaguarda: sem imagem ao fim de 25 s, volta ao leitor do carro */
+      setTimeout(() => { try{ if(M.alive() && !(v.readyState >= 2 || v.currentTime > 0.2)) M.fail("sem imagem em 25 s" + (st.err ? " (" + st.err + ")" : "")); }catch(e){} }, 25000);
+    }, {once:true});
+    const tick = setInterval(() => { if(!M.alive()){ clearInterval(tick); try{ M.st && M.st.abort && M.st.abort.abort(); }catch(e){} return; } M.trim(false); }, 10000);
+    M.url = URL.createObjectURL(ms);
+    try{ v.removeAttribute("crossorigin"); }catch(e){}
+    v.src = M.url; try{ v.load(); v.play().catch(() => {}); }catch(e){}
+    return true;
+  }catch(e){ return false; }
+};
 function mkvRun(slot, st, src, audio){
-  const alive = () => audio ? (window.__mka && window.__mka[slot] === st) : MIR[slot] === st;
+  const alive = () => audio ? (window.__mka && window.__mka[slot] === st) : st.mse ? st.mse.alive() : MIR[slot] === st;
   const v = $("vid" + slot), ct = () => st.aac && st.clock ? st.clock.v.currentTime : v.currentTime, sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
   st.q = []; st.marks = []; st.lastFrame = 0; st.err = null;
-  const decoder = audio ? {reset(){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }, decode(){}} : new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
+  const decoder = audio ? {reset(){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }, decode(){}} : st.mse ? new MkvMseRemux(b => st.mse.push(b), st.mse) : new (WC_NATIVE ? PacedDecoder : SoftVideoDecoder)({
     output: frame => { if(!alive()){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1;
       if(!WC_NATIVE){ mirPushFrame(st, frame); startPresent(slot); return; }   /* software: vários Workers, as imagens chegam fora de ordem */
       st.q.push(frame); while(st.q.length > 12){ const o = st.q.shift(); try{ o.close(); }catch(e){} } startPresent(slot); },
     error: e => { st.err = "decoder: " + e.message; },
     backlog: () => (st.q || []).length
   });
-  st.decoder = decoder; if(!audio && !WC_NATIVE){ decoder.film = true; st.film = true; }
+  st.decoder = decoder; if(!audio && !WC_NATIVE && !st.mse){ decoder.film = true; st.film = true; }
   const get = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
     const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; } return new Uint8Array(await r.arrayBuffer()); };
   const RR = rangeReader(src, st);
@@ -5167,6 +5292,9 @@ function mkvRun(slot, st, src, audio){
       if(!audio){
       const isAvc = /^V_MPEG4\/ISO\/AVC/.test(trk.codec), isHevc = /^V_MPEGH\/ISO\/HEVC/.test(trk.codec);
       if(!(isAvc || isHevc) || !trk.priv) throw new Error("vídeo " + trk.codec + " (só H.264 e HEVC)");
+      if(st.mse){ const hx = x => x.toString(16).padStart(2, "0"), mc = isAvc ? "avc1." + hx(trk.priv[1]) + hx(trk.priv[2]) + hx(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1"), durS = dur ? dur * scale / 1e9 : 0;
+        if(!st.mse.start(mc, MkvFmp4.init({hevc:isHevc, priv:trk.priv, w:trk.w || 1920, h:trk.h || 1080, durUs:durS * 1e6}), durS)) return; }
+      else {
       const h2 = x => x.toString(16).padStart(2, "0");
       const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
       st.cfg = {codec, description:trk.priv, codedWidth:trk.w, codedHeight:trk.h, optimizeForLatency:true};
@@ -5180,6 +5308,7 @@ function mkvRun(slot, st, src, audio){
       const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
       if(!sup || !sup.supported){ st.err = codec + " não suportado"; toast("Este filme usa " + (isHevc ? "HEVC/H.265" : codec) + " e o descodificador deste browser não o mostra em andamento.", true); return; }
       decoder.configure(st.cfg);
+      }
       }
       /* 2) índice (Cues) para saltar no filme */
       let cues = [];
@@ -5216,20 +5345,20 @@ function mkvRun(slot, st, src, audio){
           if(fl & 0x06){ try{ pk = mkvLaced(b, q + 3, d + n, (fl >> 1) & 3); }catch(e){ pk = []; } st.laced = (st.laced || 0) + 1; }
           if(!st.pkLog || st.pkLog.length < 8) (st.pkLog = st.pkLog || []).push({len:pk.length ? pk[0].length : 0, n:pk.length, fl, b:pk.length ? Array.from(pk[0].subarray(0, 6)).map(x => x.toString(16).padStart(2, "0")).join("") : ""});
           if(ts <= (st.aLast != null ? st.aLast : -1)) return;   /* v480: já recebido (troca entre leitura própria e partilhada) */
-          const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); st.aLast = ts; if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : st.fedAt ? 1200 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
+          const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); st.aLast = ts; if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : (st.fedAt || st.xc) ? 20000 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
         if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
         const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
         try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
       if(audio){ st.feedTrk = trk.num; st.feedSrc = window.__fileKey(src); st.feed = (fb, fd, fn, ftc) => { if(!alive()) return; if(!st.fedAt){ try{ RR.reset(); }catch(e){} window.__dbgEv && window.__dbgEv(slot, "som do filme: lido da descarga da imagem (uma ligação a menos)", {}); } st.fedAt = performance.now(); const t0 = tc; tc = ftc; try{ block(fb, fd, fn, null); } finally { tc = t0; } }; }
-      while(alive() && (audio || mirrorOn)){
-        if(audio && st.fedAt){ if(performance.now() - st.fedAt < 4000){ if(st.drain) st.drain(); await sleep(150); continue; }
+      while(alive() && (audio || mirrorOn || st.mse)){
+        if(audio && st.fedAt){ const vm = v._mkvMse; if(performance.now() - st.fedAt < 4000 || (vm && vm.alive && vm.alive() && window.__fileKey(vm.src) === st.feedSrc)){   /* v488: com a imagem por MSE o som vem sempre da mesma descarga (a leitura da imagem faz pausas longas quando vai à frente) */ if(st.drain) st.drain(); await sleep(150); continue; }
           st.fedAt = 0; window.__dbgEv && window.__dbgEv(slot, "som do filme: volta a ler o ficheiro por si", {}); seekTo(ct()); }
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, ct() * 1e6);
-        if(lastTs > master + (audio ? 9e6 : 16e6)){   /* v487: imagem lê até 16 s à frente (era 12 s): o GOP seguinte tem de estar lido para começar noutro Worker */
+        if(lastTs > master + (audio ? 9e6 : st.mse ? 30e6 : 16e6) || (st.mse && st.mse.qBytes() > 24e6)){   /* v487: imagem lê até 16 s à frente (era 12 s): o GOP seguinte tem de estar lido para começar noutro Worker */
          if(audio && st.drain) st.drain(); await sleep(150); continue; }
-        if(st.size && pos >= st.size){ await sleep(1000); continue; }
+        if(st.size && pos >= st.size){ if(st.mse && !st.mse.eos){ try{ decoder.flush(true); }catch(e){} st.mse.end(); } await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
         try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
         if(!alive()) return; if(g !== gen) continue;
@@ -5255,9 +5384,9 @@ function mkvRun(slot, st, src, audio){
           p2 = ds + h.size;
         }
         if(!skipped){ pendAt = bStart + p2; pend = b.slice(p2); }
-        startPresent(slot);
+        if(!st.mse) startPresent(slot);
       }
-    }catch(e){ if(alive()){ st.err = "mkv: " + (e.message || e); toast((audio ? "Som Dolby: " : "Imagem em andamento: ") + st.err, true); } }
+    }catch(e){ if(alive()){ st.err = "mkv: " + (e.message || e); if(st.mse) st.mse.fail(st.err); else toast((audio ? "Som Dolby: " : "Imagem em andamento: ") + st.err, true); } }
   })();
 }
 /* v341: filmes .mp4 com som AC-3/E-AC-3 (o leitor do carro não o toca): lê o índice do ficheiro com o mp4box, vai buscar as
@@ -16095,7 +16224,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__mka = window.__mka || [null, null];
   window.__mkaStart = (slot, c, playId, aac, keep, trackNum) => {
     try{
-      const v = $("vid" + slot), src = v.currentSrc || v.src, isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
+      const v = $("vid" + slot), M0 = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null, src = M0 ? M0.src : (v.currentSrc || v.src), isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
       /* v487: ao trocar de versão do filme (4K → 1080p) o leitor do carro ainda tinha o ficheiro antigo: o som lia o filme errado (mais uma descarga ao fornecedor). Espera que o leitor passe ao ficheiro novo. */
       if(src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url)){
         const W0 = window.__mkaWait = window.__mkaWait || {}, n = W0[playId] = (W0[playId] || 0) + 1;
