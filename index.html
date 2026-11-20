@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v492";
+const APP_VERSION = "v493";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5168,8 +5168,11 @@ window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
   try{
     if(!window.MediaSource || !c || !/\.mkv(\?|$)/i.test(c.url)) return false;
     const ms = new MediaSource(), M = {v, src:src1, ms, sb:null, q:[], dead:false, failed:false, appended:0, t0:performance.now(), playId, slot};
-    M.alive = () => !M.dead && !M.failed && playId === playSeq[slot] && v._mkvMse === M;
-    M.fail = why => { if(M.failed || M.dead) return; M.failed = true; try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: falhou, volta ao leitor do carro", {motivo:String(why || "").slice(0, 160), bytes:M.appended}); }catch(e){} try{ v._mkvMse = null; }catch(e){} try{ onFail && onFail(why); }catch(e){} };
+    M.alive = () => !M.dead && !M.failed && playId === playSeq[slot] && v._mkvMse === M && ms.readyState !== "closed";
+    M.fail = why => { if(M.failed || M.dead) return; M.failed = true;
+      /* v493: o filme anterior ainda a acabar de escrever quando o seguinte já abriu: não é uma falha (e não marca o filme como «sem MSE») */
+      if(playId !== playSeq[slot] || v.currentSrc !== M.url){ M.dead = true; if(playId !== playSeq[slot]) return; try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: o leitor do carro mudou de fonte", {fonte:/^blob:/.test(v.currentSrc || "") ? "outro blob" : String(v.currentSrc || "(nenhuma)").slice(-40)}); }catch(e){} return; }
+      try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: falhou, volta ao leitor do carro", {motivo:String(why || "").slice(0, 160), bytes:M.appended, ms:ms.readyState}); }catch(e){} try{ v._mkvMse = null; }catch(e){} try{ onFail && onFail(why); }catch(e){} };
     M.pump = () => { const sb = M.sb; if(!sb || sb.updating || !M.q.length || M.dead || M.failed) return;
       const b = M.q[0];
       try{ sb.appendBuffer(b); M.q.shift(); M.appended += b.length; }
@@ -5219,6 +5222,8 @@ function mirMseTap(slot, st, M){
   M.tap = {decode(c){ if(!alive()){ M.tap = null; return; } decoder.decode({type:c.type, timestamp:c.timestamp, data:st.hv ? __lpAnnex(c.data, st.hv, c.type === "key") : c.data}); startPresent(slot); },
     reset(){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null; }};
   try{ window.__dbgEv && window.__dbgEv(slot, "andamento: imagem da mesma descarga do leitor do carro (MSE)", {hevc:!!T.hevc, w:T.w, h:T.h}); }catch(e){}
+  /* v493: 4K por software em andamento não chega ao ritmo (telemóvel ~9 imagens/s, Tesla 3–5): passa logo à versão 1080p, sem 10 s de imagem parada */
+  if(T.hevc && (T.w || 0) * (T.h || 0) > 2.5e6){ setTimeout(() => { try{ if(alive()) window.__h4kTo1080(slot, lastPlayed[slot], {motivo:"4K em andamento: logo à partida"}); }catch(e){} }, 1200); }
   if(T.hevc){ const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(alive() && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 20000); }
   try{ M.reseek && M.reseek(); }catch(e){}   /* volta a ler a partir do ponto atual (a leitura ia até 30 s à frente) */
   return true;
@@ -5333,6 +5338,7 @@ function mkvRun(slot, st, src, audio){
         st.cfg = {codec:"hevc", hevc:true, codedWidth:trk.w, codedHeight:trk.h};
         try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software", {w:trk.w, h:trk.h, contentor:"mkv"}); }catch(e){}
         decoder.onSlow = info => { if(alive()) window.__h4kTo1080(slot, lastPlayed[slot], info); };
+        if((trk.w || 0) * (trk.h || 0) > 2.5e6) setTimeout(() => { try{ if(alive()) window.__h4kTo1080(slot, lastPlayed[slot], {motivo:"4K em andamento: logo à partida"}); }catch(e){} }, 1200);   /* v493 */
         /* salvaguarda: sem imagem ao fim de 15 s, volta à regra antiga (outra versão do filme) */
         const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(alive() && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 15000); }
       const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
