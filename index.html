@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v468";
+const APP_VERSION = "v469";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16089,10 +16089,11 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const headers = from > 0 ? {Range:"bytes=" + from + "-"} : {};
       (async () => { try{ const r = await fetch(ds.url, {headers, signal:ctl.signal});
           if(ctl !== this._ctl) return;
+          try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: pedido", {from, http:r.status}); }catch(e){}
           if(!(r.ok || r.status === 206)) throw new Error("HTTP " + r.status);
           if(from === 0 && this.onContentLengthKnown){ const cl = +r.headers.get("content-length"); if(cl) this.onContentLengthKnown(cl); }
           this._status = 2; const rd = r.body.getReader();
-          while(true){ const x = await rd.read(); if(ctl !== this._ctl) return; if(x.done) break; this._last = Date.now(); this._push(x.value); }
+          let nb = 0, first = true; while(true){ const x = await rd.read(); if(ctl !== this._ctl) return; if(x.done) break; this._last = Date.now(); nb += x.value.length; if(first){ first = false; try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: primeiros dados", {from, bytes:x.value.length}); }catch(e){} } this._push(x.value); }
           if(this._carry.length) this._emit(this._carry); this._carry = new Uint8Array(0);
           this._status = 4; if(this.onComplete) this.onComplete(from, this._total - 1);
         }catch(e){ if(ctl !== this._ctl) return; if(e.name === "AbortError"){ this._status = 0; return; } this._status = 3; if(this.onError) this.onError(3, {code:-1, msg:String(e.message || e)}); } })();
@@ -16112,7 +16113,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         let p = o + 4; if(afc & 2) p += 1 + b[o + 4]; if(p >= o + 188) continue; const pe = o + 188;
         if(pid === 0 && this._pmtPid < 0){ const sec = p + 1 + b[p]; if(sec + 8 > pe || b[sec] !== 0) continue; const sl = ((b[sec + 1] & 0xf) << 8) | b[sec + 2]; const end = Math.min(sec + 3 + sl - 4, pe);
           for(let i = sec + 8; i + 4 <= end; i += 4){ const prog = (b[i] << 8) | b[i + 1]; if(prog){ this._pmtPid = ((b[i + 2] & 0x1f) << 8) | b[i + 3]; break; } } }
-        else if(this._pmtPid >= 0 && pid === this._pmtPid) this._patchPmt(b, p, pe);
+        else if(this._pmtPid >= 0 && pid === this._pmtPid){ this._patchPmt(b, p, pe); if(!this._pmtOk){ this._pmtOk = true; try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: PMT lida", {pid:this._pmtPid, total:this._total}); }catch(e){} } }
       } }
     _patchPmt(b, p, pe){
       const sec = p + 1 + b[p]; if(sec + 12 > pe || b[sec] !== 2) return; const sl = ((b[sec + 1] & 0xf) << 8) | b[sec + 2]; const end = sec + 3 + sl; if(end > pe) return;
