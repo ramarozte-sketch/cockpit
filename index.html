@@ -1757,6 +1757,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" id="decHttpNote" style="margin:0;display:none">Página em http: a imagem em andamento é sempre descodificada por software (h264soft.js). A escolha do motor só existe com a página em https.</p>
           <p class="small muted decHttpHide" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f decHttpHide">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
+          <label class="f">Andamento automático<select id="setAutoMir"><option value="on">Liga a imagem em andamento quando o carro anda (por defeito)</option><option value="off">Só pelo botão Andamento</option></select></label>
           <label class="f">Filmes .mp4 (som por software)<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
           <div class="row decHttpHide" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
@@ -2203,6 +2204,11 @@ function driveSet(st){
   try{ tvDriveSync(); }catch(e){}
   try{ streamGuard(); }catch(e){}
   try{ if(typeof currentView !== "undefined" && currentView === "games") renderGames(); if(typeof dkLockCheck === "function") dkLockCheck(); }catch(e){}
+  /* v503: o Tesla congela o leitor de vídeo com o carro a andar (só o som continua). Com o modo Andamento desligado a imagem ficava parada (log de 20/11 18:40):
+     liga-o sozinho quando o carro começa a andar e desliga-o ao parar, se fui eu a ligá-lo. Opção nas Definições («Andamento automático»). */
+  try{ if(cfg.autoMirror !== false && typeof toggleMirror === "function"){
+      if(st === "moving" && !mirrorOn){ window.__mirAuto = true; toggleMirror("automático: o carro começou a andar"); }
+      else if(st !== "moving" && mirrorOn && window.__mirAuto){ window.__mirAuto = false; toggleMirror("automático: o carro parou"); } } }catch(e){}
 }
 function driveUpdate(fresh){
   const now = Date.now();
@@ -2975,7 +2981,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v502";
+const APP_VERSION = "v503";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6119,6 +6125,7 @@ function syncMirror(){
 }
 function syncMirrorBtns(){ for(const id of ["btnMirror", "hMirror", "tMirror"]){ const b = $(id); if(b){ b.setAttribute("aria-pressed", mirrorOn?"true":"false"); b.classList.toggle("on", mirrorOn); } } }
 function toggleMirror(ev){
+  if(typeof ev !== "string") window.__mirAuto = false;
   mirrorOn = !mirrorOn; LS.set("mirror", mirrorOn); syncMirror();
   /* v434: regista cada mudança e de onde veio (botão, telemóvel ligado, outro separador) */
   try{ const src = ev && ev.currentTarget && ev.currentTarget.id ? "botão " + ev.currentTarget.id : (typeof ev === "string" ? ev : "outro"); window.__dbgEv && window.__dbgEv(typeof tvTarget !== "undefined" ? tvTarget : 0, "andamento: " + (mirrorOn ? "ligado" : "desligado"), {origem:src}); }catch(e){}
@@ -16671,6 +16678,7 @@ window.__sa = {
       const fp = $("setShowFps"); if(fp) fp.checked = !!cfg.showFps;
       const dm = $("setDecode"); if(dm) dm.value = (cfg.decodeMode === "software" || location.protocol === "http:") ? "software" : "webcodecs";
       const mf = $("setMseFilm"); if(mf) mf.value = cfg.mseFilm === false ? "off" : "on";
+      const am = $("setAutoMir"); if(am) am.value = cfg.autoMirror === false ? "off" : "on";
 
       const sm = $("setSmooth"); if(sm) sm.checked = cfg.smoothClock !== false;
       const an = $("setCardAnim"); if(an) an.value = cfg.tvHomeAnim || "suave";
@@ -16691,6 +16699,7 @@ window.__sa = {
   bind("setShowFps", e => { cfg.showFps = !!e.target.checked; saveCfg(); });
   /* v311: escolha do motor de descodificação (o caminho WebCodecs ainda não reproduz canais) */
   bind("setSmooth", e => { cfg.smoothClock = !!e.target.checked; saveCfg(); toast(cfg.smoothClock ? "Relógio suavizado ligado (compara com um registo)." : "Relógio suavizado desligado."); });
+  bind("setAutoMir", e => { cfg.autoMirror = e.target.value !== "off"; saveCfg(); });
   bind("setMseFilm", e => { cfg.mseFilm = e.target.value !== "off"; saveCfg(); toast(cfg.mseFilm ? "Filmes com som Dolby: um só leitor. Reabre o filme." : "Filmes com som Dolby: leitor do carro + som à parte. Reabre o filme."); });
   bind("setDecode", e => { cfg.decodeMode = e.target.value === "software" ? "software" : "webcodecs"; saveCfg();
     /* v328: reinicia o espelho de cada ecrã para usar o motor escolhido (antes ficava o motor antigo) */
