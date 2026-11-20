@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v463";
+const APP_VERSION = "v464";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -18395,7 +18395,7 @@ html.nightUi #ambient{filter:brightness(.75)}
 /* v463: barra de posição dos filmes em ecrã total (em «Andamento» o vídeo espelhado tapa a barra nativa) */
 (function(){
   const st = document.createElement("style");
-  st.textContent = ".mvseek{position:absolute;left:14px;right:14px;bottom:14px;z-index:9;display:flex;align-items:center;gap:12px;background:rgba(10,16,24,.72);padding:8px 14px;border-radius:12px;color:#fff;font:600 14px system-ui}.mvseek[hidden]{display:none}.mvseek input{flex:1;accent-color:#ffd23f;height:28px}.mvt{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}";
+  st.textContent = ".mvseek{position:absolute;left:14px;right:14px;bottom:96px;z-index:9;display:flex;align-items:center;gap:12px;background:rgba(10,16,24,.72);padding:8px 14px;border-radius:12px;color:#fff;font:600 14px system-ui}.mvseek[hidden]{display:none}.mvseek input{flex:1;accent-color:#ffd23f;height:28px}.mvt{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}";
   document.head.appendChild(st);
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
   const full = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || !!(document.getElementById("v-tv") && document.getElementById("v-tv").classList.contains("cinema"));
@@ -18415,10 +18415,12 @@ html.nightUi #ambient{filter:brightness(.75)}
   });
   setInterval(() => { bars.forEach(b => {
       const v = document.getElementById("vid" + b.slot); let lp = null; try{ lp = lastPlayed[b.slot]; }catch(e){}
-      const show = full() && !!lp && lp.kind !== "live" && !!v && isFinite(v.duration) && v.duration > 0;
+      const show = full() && !!lp && lp.kind !== "live" && !!v;
       b.d.hidden = !show; if(!show) return;
-      b.tEl.textContent = fmt(v.currentTime); b.dEl.textContent = fmt(v.duration);
-      if(document.activeElement !== b.inp) b.inp.value = Math.round(v.currentTime / v.duration * 1000);
+      const known = isFinite(v.duration) && v.duration > 0;
+      b.inp.disabled = !known;
+      b.tEl.textContent = fmt(v.currentTime); b.dEl.textContent = known ? fmt(v.duration) : "--:--";
+      if(known && document.activeElement !== b.inp) b.inp.value = Math.round(v.currentTime / v.duration * 1000);
     }); }, 400);
 })();
 </script>
