@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v488";
+const APP_VERSION = "v489";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5320,7 +5320,7 @@ function mkvRun(slot, st, src, audio){
       let pos = 0, pend = new Uint8Array(0), pendAt = 0, tc = 0, lastTs = 0, resync = false, gen = 0;
       const seekTo = t => {
         gen++; try{ st.abort && st.abort.abort(); }catch(e){}
-        if(audio){ st.aq = []; st.aLast = -1; try{ st.clock && st.clock.reset(); st.clock && st.clock.rearm && st.clock.rearm(); }catch(e){} }
+        if(audio){ st.aq = []; st.aLast = -1; st.fbuf = null; try{ st.clock && st.clock.reset(); st.clock && st.clock.rearm && st.clock.rearm(); }catch(e){} }
         for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null;
         let at = first > 0 ? first : seg; resync = false;
         if(cues.length){ let c = cues[0]; for(const x of cues){ if(x.t <= t + 0.05) c = x; else break; } at = c.pos; lastTs = c.t * 1e6; }
@@ -5351,12 +5351,25 @@ function mkvRun(slot, st, src, audio){
         try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
-      if(audio){ st.feedTrk = trk.num; st.feedSrc = window.__fileKey(src); st.feed = (fb, fd, fn, ftc) => { if(!alive()) return; if(!st.fedAt){ try{ RR.reset(); }catch(e){} window.__dbgEv && window.__dbgEv(slot, "som do filme: lido da descarga da imagem (uma ligação a menos)", {}); } st.fedAt = performance.now(); const t0 = tc; tc = ftc; try{ block(fb, fd, fn, null); } finally { tc = t0; } }; }
+      if(audio){ st.feedTrk = trk.num; st.feedSrc = window.__fileKey(src);
+        /* v489: a leitura da imagem vai 12–30 s à frente: ao ligar a meio, o som só recebia blocos do futuro e ficava calado até lá chegar (12 s no log de 20/11 14:02).
+           Os blocos partilhados ficam guardados até a leitura própria do som chegar ao primeiro deles; só então se fecha a ligação do som. */
+        const fts = (fb, fd, ftc) => { const tn = mkvVint(fb, fd, false); if(!tn) return null; const q = fd + tn.len; return Math.round((ftc + ((fb[q] << 24 >> 16) | fb[q + 1])) * scale / 1000); };
+        st.fbSwitch = () => { try{ RR.reset(); }catch(e){} window.__dbgEv && window.__dbgEv(slot, "som do filme: lido da descarga da imagem (uma ligação a menos)", {}); st.fedAt = performance.now();
+          const F = st.fbuf; st.fbuf = null; if(F){ const t0 = tc; try{ for(const [bb, tcc] of F.b){ tc = tcc; block(bb, 0, bb.length, null); } } finally { tc = t0; } } };
+        st.feed = (fb, fd, fn, ftc) => { if(!alive()) return;
+          if(!st.fedAt){ const ts = fts(fb, fd, ftc), own = st.aLast != null && st.aLast >= 0 ? st.aLast : -1;
+            if(ts != null && (own < 0 || ts > own + 1500000) && !(st.fbuf && st.fbuf.give)){
+              const F = st.fbuf = st.fbuf || {b:[], t0:ts}; F.b.push([fb.slice(fd, fd + fn), ftc]); if(F.b.length > 6000){ F.b.splice(0, 1000); F.t0 = fts(F.b[0][0], 0, F.b[0][1]); }
+              if(!(own >= 0 && own >= F.t0 - 500000)){ if(!st.fbLog){ st.fbLog = 1; try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: a imagem vai à frente, o som lê até lá antes de partilhar", {avanco_s:+((F.t0 - Math.max(0, own)) / 1e6).toFixed(1)}); }catch(e){} } return; }
+              F.give = true; }
+            st.fbSwitch(); }
+          st.fedAt = performance.now(); const t0 = tc; tc = ftc; try{ block(fb, fd, fn, null); } finally { tc = t0; } }; }
       while(alive() && (audio || mirrorOn || st.mse)){
         if(audio && st.fedAt){ const vm = v._mkvMse; if(performance.now() - st.fedAt < 4000 || (vm && vm.alive && vm.alive() && window.__fileKey(vm.src) === st.feedSrc)){   /* v488: com a imagem por MSE o som vem sempre da mesma descarga (a leitura da imagem faz pausas longas quando vai à frente) */ if(st.drain) st.drain(); await sleep(150); continue; }
           st.fedAt = 0; window.__dbgEv && window.__dbgEv(slot, "som do filme: volta a ler o ficheiro por si", {}); seekTo(ct()); }
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, ct() * 1e6);
-        if(lastTs > master + (audio ? 9e6 : st.mse ? 30e6 : 16e6) || (st.mse && st.mse.qBytes() > 24e6)){   /* v487: imagem lê até 16 s à frente (era 12 s): o GOP seguinte tem de estar lido para começar noutro Worker */
+        if(lastTs > Math.max(master + (audio ? 9e6 : st.mse ? 30e6 : 16e6), audio && st.fbuf ? st.fbuf.t0 + 1e6 : 0) || (st.mse && st.mse.qBytes() > 24e6)){   /* v487: imagem lê até 16 s à frente (era 12 s): o GOP seguinte tem de estar lido para começar noutro Worker */
          if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ if(st.mse && !st.mse.eos){ try{ decoder.flush(true); }catch(e){} st.mse.end(); } await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
@@ -5384,6 +5397,7 @@ function mkvRun(slot, st, src, audio){
           p2 = ds + h.size;
         }
         if(!skipped){ pendAt = bStart + p2; pend = b.slice(p2); }
+        if(audio && st.fbuf && !st.fedAt && st.aLast >= st.fbuf.t0 - 500000){ st.fbSwitch(); continue; }   /* v489: a leitura própria chegou aos blocos partilhados guardados */
         if(!st.mse) startPresent(slot);
       }
     }catch(e){ if(alive()){ st.err = "mkv: " + (e.message || e); if(st.mse) st.mse.fail(st.err); else toast((audio ? "Som Dolby: " : "Imagem em andamento: ") + st.err, true); } }
