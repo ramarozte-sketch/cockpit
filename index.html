@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v483";
+const APP_VERSION = "v484";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4085,7 +4085,7 @@ function __lpAnnex(d, hv, key){
 function __hevcInfo(u){
   for(let i = 0; i + 4 < u.length && i < 4000; i++){
     if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const t = (u[i + 3] >> 1) & 0x3f;
-      if(t < 32){ const nr = t < 16 && (t & 1) === 0; return {nr, idr:t === 19 || t === 20, ref:!nr}; }
+      if(t < 32){ const nr = t < 16 && (t & 1) === 0, tid = (u[i + 4] & 7) - 1; return {nr, idr:t === 19 || t === 20, ref:!nr, tid}; }
       i += 2; }
   }
   return {nr:false, idr:false, ref:true};
@@ -4124,6 +4124,7 @@ class SoftVideoDecoder {
       if(d.type === "frame" && d.ep !== undefined && d.ep !== W.ep){ try{ d.bmp.close(); }catch(x){} return; }   /* imagem de um canal/posição anterior */
       if(d.type === "ready" || (d.type === "error" && /^open/.test(d.msg || ""))){ try{ if(/gpu:/.test(d.msg || "") && !W.gl){ W.gl = 1; console.log("cor na placa gráfica", d.msg); window.__gpuMsg = d.msg; } }catch(x){} W.ver = d.ver || 1; if(W.ver < 2) this._legacy(); }
       if(d.type === "gpuoff"){ window.__gpuMsg = d.msg; return; }
+      if(d.type === "warn"){ this.st.ffAvisos = (this.st.ffAvisos || 0) + (d.n || 1); if((this._ffLog = (this._ffLog || 0) + 1) <= 30){ try{ window.__dbgEv && window.__dbgEv(0, "descodificador: aviso do FFmpeg", {msg:d.msg, vezes:d.n, imagem_s:d.ts ? +(d.ts / 1e6).toFixed(2) : null, worker:this.W.indexOf(W), hevc:!!this.hevc}); }catch(x){} } return; }
       if(d.type === "frame"){ const b = d.bmp; this.px = (d.w || 0) * (d.h || 0) * 4; this.output({timestamp:d.ts, lum:d.lum, displayWidth:d.w, displayHeight:d.h, codedWidth:d.w, codedHeight:d.h, bmp:b, close(){ try{ b.close(); }catch(x){} }}); }
       else if(d.type === "done"){ if(d.ep !== undefined && d.ep !== W.ep) return; W.inflight = Math.max(0, W.inflight - 1); W.fr++; W.ms += d.ms || 0;
         /* velocidade medida deste Worker (imagens/s só a descodificar), média móvel */
@@ -4139,6 +4140,8 @@ class SoftVideoDecoder {
     const data = new Uint8Array(ch.data), key = ch.type === "key";
     const annex = data.length > 4 && data[0] === 0 && data[1] === 0 && (data[2] === 1 || (data[2] === 0 && data[3] === 1));
     const ai = annex ? (this.hevc ? __hevcInfo(data) : __annexInfo(data)) : null;
+    /* v484: HEVC — uma imagem «não-referência» (_N) só é descartável na camada temporal mais alta; nas de baixo, as camadas de cima podem usá-la (descartá-la deixava quadrados cinzentos) */
+    if(ai && this.hevc && ai.tid >= 0){ if(ai.tid > (this.maxTid || 0)) this.maxTid = ai.tid; if(ai.nr && ai.tid < (this.maxTid || 0)){ ai.nr = false; ai.ref = true; } }
     const c = {data, ts:ch.timestamp, key, nr:!key && (ai ? ai.nr : __avcNonRef(data)), ref:ai ? ai.ref || key : !key ? !__avcNonRef(data) : true, open:key && !!ai && !ai.idr};
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
@@ -4195,7 +4198,8 @@ class SoftVideoDecoder {
       /* GOP já todo no passado: não vale a pena descodificar */
       if(closed && endTs < masterUs - 40000){ const g0 = p.splice(0, e); this._track(g0); this.st.gopsSaltados++; continue; }
       /* referências do GOP imediatamente anterior (v191 usava por engano as de dois GOPs antes: não serviam e só gastavam tempo) */
-      const R0 = this.curRefs, pre = p[0].open && R0 && R0.length && R0[0].ts < p[0].ts && p[0].ts - R0[0].ts < 6e6 ? R0 : null;
+      /* v484: em HEVC não se passam as referências do GOP anterior: as RASL desse GOP dependiam de outro mais antigo (cinzentas) e contaminavam as deste; o FFmpeg salta as RASL sozinho */
+      const R0 = this.curRefs, pre = !this.hevc && p[0].open && R0 && R0.length && R0[0].ts < p[0].ts && p[0].ts - R0[0].ts < 6e6 ? R0 : null;
       this.lead = this._lead((closed ? e : this.gopN || 50) + (pre ? pre.length : 0));
       if(p[0].ts > masterUs + this.lead) break;
       const W = this._free(); if(!W) break;
@@ -4233,7 +4237,7 @@ class SoftVideoDecoder {
           /* v481: 4K abaixo do ritmo do filme (com 15% de margem) em 5 medições seguidas (~10 s): avisa quem o abriu (passa à versão 1080p) */
           if(this.hevc && ok && this.onSlow && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ this._slowN = tot < sf * 1.15 ? (this._slowN || 0) + 1 : 0;
             if(this._slowN >= 5 && !this._slowFired){ this._slowFired = true; try{ this.onSlow({imagensPorSeg:Math.round(tot), precisas:Math.round(sf)}); }catch(e){} } }
-          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
+          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, ffAvisos:this.st.ffAvisos || 0, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
           if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
@@ -16781,6 +16785,9 @@ html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) .btn{order:2}
 html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chPrev.btn{order:1;width:72px;min-width:72px!important;padding-left:26px!important}
 html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn{order:1;font-size:0!important;word-spacing:0;justify-content:center!important;padding:0!important;width:72px;min-width:72px!important}
 html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn::after{content:"▶";font-size:22px}
+/* v484: botão Andamento no ecrã total com as mesmas cores dos outros sítios (azul desligado, amarelo ligado); a regra cinzenta da barra sobrepunha-se */
+body.pfull #v-tv.cinema .cinebar #btnMirror.mirBtn{background:#1d5fa8!important;color:#ffd23f!important;border-color:#1d5fa8!important}
+body.pfull #v-tv.cinema .cinebar #btnMirror.mirBtn.on{background:#ffd23f!important;color:#0b3d78!important;border-color:#ffd23f!important}
 /* cabeçalho: botão do ecrã inteiro do Tesla só com o ícone */
 html.half #teslaFs{font-size:0;padding:0 14px;min-height:48px;display:inline-flex;align-items:center}
 html.half #teslaFs::after{content:"⛶";font-size:24px}

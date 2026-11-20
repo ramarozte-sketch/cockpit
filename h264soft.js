@@ -10,7 +10,7 @@ async function H264Mod(binArg){
     fd_close: () => 0, fd_fdstat_get: () => 8, fd_fdstat_set_flags: () => 8, fd_prestat_get: () => 8, fd_prestat_dir_name: () => 8,
     fd_read: (fd, iov, n, out) => { dv().setUint32(out, 0, true); return 0; },
     fd_seek: () => 70, path_open: () => 44,
-    fd_write: (fd, iov, n, out) => { const d = dv(); let t = 0; for(let i = 0; i < n; i++) t += d.getUint32(iov + i * 8 + 4, true); d.setUint32(out, t, true); return 0; },
+    fd_write: (fd, iov, n, out) => { const d = dv(); let t = 0; for(let i = 0; i < n; i++){ const p = d.getUint32(iov + i * 8, true), l = d.getUint32(iov + i * 8 + 4, true); t += l; if(l && l < 400){ try{ __ffwarn(heap().subarray(p, p + l)); }catch(x){} } } d.setUint32(out, t, true); return 0; },
     proc_exit: c => { throw new Error("exit " + c); }
   };
   const { instance } = await WebAssembly.instantiate(bin, {wasi_snapshot_preview1: wasi});
@@ -26,6 +26,14 @@ async function H264Mod(binArg){
    v176: as mensagens são tratadas por ordem (fila), a conversão para ImageBitmap não pára a descodificação,
    e "drain" despeja as imagens que o FFmpeg retém no fim de um GOP (NAL de fim de sequência), para vários
    Workers poderem descodificar GOPs diferentes em paralelo. */
+/* v484: mensagens do FFmpeg (stderr): referências em falta («Could not find ref») dão os quadrados cinzentos; vão para o registo da página (no máximo 1 a cada 2 s) */
+let ffN = 0, ffAt = 0, ffTs = 0;
+function __ffwarn(u8){
+  let s = ""; for(let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  if(!/could not find ref|missing|error|invalid|corrupt/i.test(s)) return;
+  ffN++; const now = Date.now(); if(now - ffAt < 2000) return; ffAt = now;
+  try{ postMessage({type: "warn", msg: s.trim().slice(0, 120), n: ffN, ts: ffTs, ep}); }catch(x){} ffN = 0;
+}
 let M = null, M264 = null, MH = null, hevc = false, shift = 0, bob = false, half = 20000, prevTs = null, ready = null, chain = Promise.resolve(), extra = null, opened = false, ep = 0, autoS = -1, useGpu = false, fastOn = false, xts = null;   /* xts: ts da imagem «extra» (a chave do GOP seguinte, enviada só para soltar a última do GOP): a sua própria imagem não se emite, o GOP seguinte já a emite */
 function open(){
   let p = 0, n = 0;
@@ -212,6 +220,7 @@ async function handle(d){
   } else if(d.cmd === "decode"){
     if(d.ep !== undefined) ep = d.ep;
     if(d.xt) xts = d.ts;
+    ffTs = d.ts;
     if(hevc && d.key && !hdrPQ){ try{ if(seiHdr(new Uint8Array(d.data))) hdrPQ = true; }catch(x){} }
     const t0 = performance.now();
     send(new Uint8Array(d.data), d.ts, d.key);
