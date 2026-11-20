@@ -97,7 +97,7 @@ function gpuDraw(w, h, Y, ys, U, us, V, vs, cw, ch, s, full, mid){
 }
 /* v478: HEVC de 10 bits (filmes 4K/HDR): o FFmpeg descodifica, mas a conversão em C só aceita 8 bits e a imagem perdia-se.
    Converte aqui: 10 bits -> RGBA 8 bits (meia resolução com shift), BT.709 ou BT.2020; HDR10 (PQ) com mapeamento de tons para SDR. */
-let hdrPQ = false, c10buf = null, C10T = null;
+let hdrPQ = false, c10buf = null, C10T = null, c10s = 0;   /* c10s: redução extra pedida pela página quando o ritmo não chega (2 = 1/4) */
 function c10Tables(){
   if(C10T) return C10T;
   const m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875, pq = new Float32Array(1024), gm = new Uint8Array(4096);
@@ -118,7 +118,7 @@ function conv10(w, h, s){
   const B = M.HEAPU8.buffer, py = M._py(), pu = M._pu(), pv = M._pv(), ys = M._ys() >> 1, us = M._us() >> 1, vs = M._vs() >> 1;
   if((py | pu | pv) & 1) return null;
   const ch = M._ch(), Y = new Uint16Array(B, py, ys * (h - 1) + w), U = new Uint16Array(B, pu, us * (ch - 1) + M._cw()), V = new Uint16Array(B, pv, vs * (ch - 1) + M._cw());
-  const ow = (w >> s) & ~1, oh = (h >> s) & ~1, n = ow * oh * 4;
+  const ow = (w >> s) & ~1, oh = (h >> s) & ~1, n = ow * oh * 4, fy = 1 << s, fc = s ? 1 << (s - 1) : 0;
   if(!c10buf || c10buf.length !== n) c10buf = new Uint8ClampedArray(n);
   const o = c10buf, full = !!M._full(), pq = hdrPQ, b2020 = pq || M._mid() !== 1 && w > 1920;
   const yo = full ? 0 : 64, ys1 = full ? 1 / 1023 : 1 / 876, cs = full ? 1 / 1023 : 1 / 896;
@@ -126,9 +126,9 @@ function conv10(w, h, s){
   const T = pq ? c10Tables() : null, P = T && T.pq, G = T && T.gm;
   let w0 = 0;
   for(let j = 0; j < oh; j++){
-    const yr = (s ? 2 * j : j) * ys, cr0 = (s ? j : j >> 1) * us, vr0 = (s ? j : j >> 1) * vs;
+    const yr = j * fy * ys, cj = s ? j * fc : j >> 1, cr0 = cj * us, vr0 = cj * vs;
     for(let i = 0; i < ow; i++){
-      const y = (Y[yr + (s ? 2 * i : i)] - yo) * ys1, ci = s ? i : i >> 1, cb = (U[cr0 + ci] - 512) * cs, cr = (V[vr0 + ci] - 512) * cs;
+      const y = (Y[yr + i * fy] - yo) * ys1, ci = s ? i * fc : i >> 1, cb = (U[cr0 + ci] - 512) * cs, cr = (V[vr0 + ci] - 512) * cs;
       let r = y + kr * cr, g = y - kgb * cb - kgr * cr, b = y + kb * cb;
       if(pq){
         r = P[r <= 0 ? 0 : r >= 1 ? 1023 : (r * 1023 + 0.5) | 0]; g = P[g <= 0 ? 0 : g >= 1 ? 1023 : (g * 1023 + 0.5) | 0]; b = P[b <= 0 ? 0 : b >= 1 ? 1023 : (b * 1023 + 0.5) | 0];
@@ -165,7 +165,7 @@ function pull(nout){
         }catch(x){ G = false; gErr = "execução: " + String(x && x.message || x).slice(0, 60); postMessage({type: "gpuoff", msg: "gpu desligada: " + gErr}); }
       }
     }
-    if(k === 2){ const r10 = conv10(w, h, s); M._rel(); if(!r10){ continue; } n++; const e0 = ep;
+    if(k === 2){ const r10 = conv10(w, h, Math.max(s, c10s)); M._rel(); if(!r10){ continue; } n++; const e0 = ep;
       createImageBitmap(new ImageData(r10.px, r10.ow, r10.oh), {premultiplyAlpha: "none", colorSpaceConversion: "none"}).then(bmp => postMessage({type: "frame", ts, w: r10.ow, h: r10.oh, bmp, ep: e0}, [bmp]), () => {});
       continue; }
     if(!M._conv(s)) continue;
@@ -204,7 +204,7 @@ async function handle(d){
     opened = false;
     if(d.codec === "hevc"){ if(!MH){ const buf = await (await fetch(d.wasm)).arrayBuffer(); MH = await H264Mod(new Uint8Array(buf)); } M = MH; hevc = true; }
     else { M = M264; hevc = false; }
-    hdrPQ = false; shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = !!d.fast; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
+    hdrPQ = false; c10s = 0; shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = !!d.fast; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
     const r = open();
     postMessage({type: r === 0 ? "ready" : "error", msg: "open " + r + (useGpu ? " gpu:" + (gpuState()) : ""), ver: 2});
   } else if(d.cmd === "warm"){ /* so carrega o FFmpeg (compilar o WebAssembly demora): fica pronto para o proximo canal */
@@ -229,6 +229,7 @@ async function handle(d){
     postMessage({type: "drained", n, ep: d.ep});
   } else if(d.cmd === "fast"){ fastOn = !!d.on; if(opened) M._skip(fastOn ? 1 : 0);   /* v232: sem filtro de blocos nas imagens B (só quando o processador está apertado) */
   } else if(d.cmd === "shift"){ shift = d.shift | 0; autoS = -1;   /* v230: muda o tamanho de saída a meio (0 = inteiro, -1 = automático) */
+  } else if(d.cmd === "c10s"){ c10s = d.s | 0;
   } else if(d.cmd === "gpu"){ useGpu = !!d.on;
   } else if(d.cmd === "bob"){ bob = !!d.on; prevTs = null;
   } else if(d.cmd === "flush"){ xts = null; if(d.ep !== undefined) ep = d.ep; if(opened) M._dec_flush(); }

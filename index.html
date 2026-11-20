@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v478";
+const APP_VERSION = "v479";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4089,7 +4089,7 @@ class SoftVideoDecoder {
   setFast(on){ this.fast = !!on; this.st.rapido = this.fast ? 1 : 0; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:this.fast}); }catch(e){} } }
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
-    this.cfg = cfg; this.hevc = !!cfg.hevc; if(this.hevc) this.fast = true; this.close(); this.state = "configured";
+    this.cfg = cfg; this.hevc = !!cfg.hevc; if(this.hevc) this.fast = true; this.q4 = false; this.close(); this.state = "configured";
     /* v478: HEVC acima de 1080p (4K): no log, com 3-4 Workers o total descia (27/s) e com 2 dava 58/s — disputam o processador e a memória */
     if(this.hevc && (cfg.codedWidth || 0) * (cfg.codedHeight || 0) > 2.5e6 && !this._nW0){ this._nW0 = this.nW; this.nW = Math.min(this.nW, 2); }
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
@@ -4199,7 +4199,10 @@ class SoftVideoDecoder {
     { const mw = this.W.filter(W => W.fps > 0), tot = mw.length ? mw.reduce((m, W) => m + W.fps, 0) / mw.length * this.W.length : 0, sf = this._dts ? 1e6 / this._dts : 0, f = sf > 40 && mw.length ? tot < sf * 1.6 : false;   /* v241: Workers que ainda não trabalharam contam com a média dos outros (antes, um só parado impedia o modo rápido) */
       try{ const ok = sf > 0 && mw.length > 0, nowT = performance.now(), fk = this._fk || (this._fk = {t:nowT, b:this.st.bSaltadas});
         if(nowT - fk.t > 2000){ const grow = this.st.bSaltadas - fk.b; fk.t = nowT; fk.b = this.st.bSaltadas;
-          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
+          /* v479: 4K de 10 bits: se o conjunto não chega a 1,5× o ritmo do filme, a imagem sai a 1/4 (960×402) em vez de metade; volta a metade com folga (2,4×) */
+          if(this.hevc && ok && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ const want = tot < sf * 1.5 ? 2 : tot > sf * 2.4 ? 0 : (this.q4 ? 2 : 0);
+            if(want !== (this.q4 ? 2 : 0)){ this.q4 = want === 2; for(const W of this.W){ try{ W.w.postMessage({cmd:"c10s", s:want}); }catch(e){} } } }
+          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
           if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
