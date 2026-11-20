@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v462";
+const APP_VERSION = "v463";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16046,6 +16046,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
      e o som é lido do mesmo ficheiro (PES de áudio) e descodificado por software. Só toca do início (sem acompanhar saltos). */
   window.__tsProbe = async url => {
     try{ const r = await fetch(url); const rd = r.body.getReader(); let buf = new Uint8Array(0);
+      try{ const cl = +r.headers.get("content-length"); if(cl) window.__tsSizeBy = {url, size:cl}; }catch(e){}
       while(buf.length < 3000000){ const x = await rd.read(); if(x.done) break; const m = new Uint8Array(buf.length + x.value.length); m.set(buf); m.set(x.value, buf.length); buf = m; }
       try{ rd.cancel(); }catch(e){}
       const L = pmtAudio(buf); return (L && L.find(t => t.kind === "ac3" || t.kind === "eac3")) || null;
@@ -16097,9 +16098,16 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     }
   }
   window.__TsPmtLoader = TsPmtLoader;
-  window.__tsMovieSound = (slot, url, a, playId) => {
+  window.__tsMovieSound = (slot, url, a, playId, startSec) => {
     const v = $("vid" + slot); if(!v) return;
+    startSec = startSec || 0;
+    /* v463: posição: o som recomeça a partir do ponto (salto na barra); o byte inicial é estimado pelo tamanho do ficheiro */
+    let off = 0; if(startSec > 0){ const sz = window.__tsSizeBy && window.__tsSizeBy.url === url ? window.__tsSizeBy.size : 0; const dur = v.duration;
+      if(!sz || !(dur > 0)) return; off = Math.max(0, Math.floor(startSec / dur * sz / 188) * 188); }
+    window.__tsMovieArgs = window.__tsMovieArgs || []; window.__tsMovieArgs[slot] = {url, a, playId};
+    window.__tsSnd = window.__tsSnd || []; if(window.__tsSnd[slot]) window.__tsSnd[slot].stop();
     const ctl = new AbortController(), st = {clock:new PcmClock(v), q:[], init:null, dec:null, L:null, on:true, busy:false};
+    window.__tsSnd[slot] = {stop: () => stopIt()};
     const alive = () => st.on && playId === playSeq[slot];
     const stopIt = () => { if(!st.on) return; st.on = false; try{ ctl.abort(); }catch(e){} try{ st.clock.close(); }catch(e){} try{ if(st.dec && st.L) st.L.ff_free_decoder(st.dec[1], st.dec[2], st.dec[3]); }catch(e){} };
     const poll = setInterval(() => { if(!alive()){ clearInterval(poll); stopIt(); } }, 1000);
@@ -16122,12 +16130,12 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     const closePes = () => { const c = cur; cur = null; if(!c) return; let L = 0; c.forEach(x => L += x.length); const b = new Uint8Array(L); let k = 0; c.forEach(x => { b.set(x, k); k += x.length; });
       if(!(b.length > 14 && b[0] === 0 && b[1] === 0 && b[2] === 1 && (b[7] & 0x80))) return;
       const q = b.subarray(9, 14), pts = ((q[0] >> 1) & 7) * 1073741824 + q[1] * 4194304 + (q[2] >> 1) * 32768 + q[3] * 128 + (q[4] >> 1);
-      if(st.init == null) st.init = pts / 90000;
+      if(st.init == null) st.init = pts / 90000 - startSec;
       st.q.push({pts, data:b.subarray(9 + b[8])}); if(st.q.length > 600) st.q.splice(0, st.q.length - 600); };
     const feedTs = d => { for(let o = 0; o + 188 <= d.length; o += 188){ if(d[o] !== 0x47) continue; const pid = ((d[o + 1] & 0x1f) << 8) | d[o + 2]; if(pid !== a.pid) continue;
         const afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) continue; let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; if(p >= o + 188) continue;
         if(d[o + 1] & 0x40){ closePes(); cur = []; } if(cur) cur.push(d.slice(p, o + 188)); } pump(); };
-    (async () => { try{ const r = await fetch(url, {signal:ctl.signal}); const rd = r.body.getReader(); let carry = new Uint8Array(0);
+    (async () => { try{ const r = await fetch(url, {signal:ctl.signal, headers: off > 0 ? {Range:"bytes=" + off + "-"} : {}}); if(off > 0 && r.status !== 206){ dbg("som Dolby do filme: o servidor não aceita posição", {}); stopIt(); return; } const rd = r.body.getReader(); let carry = new Uint8Array(0);
         while(alive()){ while(alive() && st.q.length > 150) await new Promise(r => setTimeout(r, 300)); const x = await rd.read(); if(x.done) break; let d = x.value; if(carry.length){ const m = new Uint8Array(carry.length + d.length); m.set(carry); m.set(d, carry.length); d = m; }
           const n = Math.floor(d.length / 188) * 188; carry = d.slice(n); feedTs(d.subarray(0, n)); }
       }catch(e){ if(e.name !== "AbortError") dbg("som Dolby do filme: leitura falhou", {msg:String(e.message || e).slice(0, 120)}); } })();
@@ -18381,6 +18389,37 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(on && !b){ b = document.createElement("button"); b.className = "ahBtn ahStop"; b.textContent = "⏹ Parar"; b.onclick = e => { e.stopPropagation(); e.preventDefault(); stopTv(); try{ window.__ah && window.__ah.render && window.__ah.render(true); }catch(x){} }; h.appendChild(b); }
       else if(!on && b) b.remove(); }catch(e){} }, 1000);
   }catch(e){ console.log("parar canal", e); }
+})();
+</script>
+<script>
+/* v463: barra de posição dos filmes em ecrã total (em «Andamento» o vídeo espelhado tapa a barra nativa) */
+(function(){
+  const st = document.createElement("style");
+  st.textContent = ".mvseek{position:absolute;left:14px;right:14px;bottom:14px;z-index:9;display:flex;align-items:center;gap:12px;background:rgba(10,16,24,.72);padding:8px 14px;border-radius:12px;color:#fff;font:600 14px system-ui}.mvseek[hidden]{display:none}.mvseek input{flex:1;accent-color:#ffd23f;height:28px}.mvt{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}";
+  document.head.appendChild(st);
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
+  const full = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || !!(document.getElementById("v-tv") && document.getElementById("v-tv").classList.contains("cinema"));
+  const bars = [];
+  [0, 1].forEach(slot => {
+    const box = document.querySelector('.slot[data-slot="' + slot + '"]'); if(!box) return;
+    const d = document.createElement("div"); d.className = "mvseek"; d.hidden = true;
+    d.innerHTML = '<span class="mvt">0:00</span><input type="range" min="0" max="1000" value="0" aria-label="Posição do filme"><span class="mvt mvd">0:00</span>';
+    box.appendChild(d);
+    const inp = d.querySelector("input"), tEl = d.querySelector(".mvt"), dEl = d.querySelector(".mvd");
+    inp.addEventListener("change", () => {
+      const v = document.getElementById("vid" + slot); if(!v || !(v.duration > 0)) return;
+      const t = inp.value / 1000 * v.duration; try{ v.currentTime = t; }catch(e){}
+      const a = window.__tsMovieArgs && window.__tsMovieArgs[slot]; if(a && window.__tsMovieSound) window.__tsMovieSound(slot, a.url, a.a, a.playId, t);
+    });
+    bars.push({slot, d, inp, tEl, dEl});
+  });
+  setInterval(() => { bars.forEach(b => {
+      const v = document.getElementById("vid" + b.slot); let lp = null; try{ lp = lastPlayed[b.slot]; }catch(e){}
+      const show = full() && !!lp && lp.kind !== "live" && !!v && isFinite(v.duration) && v.duration > 0;
+      b.d.hidden = !show; if(!show) return;
+      b.tEl.textContent = fmt(v.currentTime); b.dEl.textContent = fmt(v.duration);
+      if(document.activeElement !== b.inp) b.inp.value = Math.round(v.currentTime / v.duration * 1000);
+    }); }, 400);
 })();
 </script>
 </body>
