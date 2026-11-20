@@ -95,6 +95,52 @@ function gpuDraw(w, h, Y, ys, U, us, V, vs, cw, ch, s, full, mid){
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   return true;
 }
+/* v478: HEVC de 10 bits (filmes 4K/HDR): o FFmpeg descodifica, mas a conversão em C só aceita 8 bits e a imagem perdia-se.
+   Converte aqui: 10 bits -> RGBA 8 bits (meia resolução com shift), BT.709 ou BT.2020; HDR10 (PQ) com mapeamento de tons para SDR. */
+let hdrPQ = false, c10buf = null, C10T = null;
+function c10Tables(){
+  if(C10T) return C10T;
+  const m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625, c3 = 18.6875, pq = new Float32Array(1024), gm = new Uint8Array(4096);
+  for(let i = 0; i < 1024; i++){ const e = Math.pow(i / 1023, 1 / m2); pq[i] = Math.pow(Math.max(e - c1, 0) / (c2 - c3 * e), 1 / m1) * 10000 / 100 * 0.6; }
+  /* tabela única: mapeamento de tons (curva ACES) + gama sRGB, indexada pela raiz quadrada do valor linear (precisão nas sombras) */
+  for(let i = 0; i < 4096; i++){ const x = (i / 1440) * (i / 1440), t = x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), v = Math.min(1, Math.max(0, t)); gm[i] = Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)); }
+  return C10T = {pq, gm};
+}
+function seiHdr(u){
+  for(let i = 0; i + 6 < u.length; i++){
+    if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const t = (u[i + 3] >> 1) & 63;
+      if(t === 39){ let p = i + 5, pt = 0; while(p < u.length && u[p] === 0xFF){ pt += 255; p++; } pt += u[p]; if(pt === 137 || pt === 144 || pt === 147) return true; }
+      else if(t < 32) return false;
+      i += 2; } }
+  return false;
+}
+function conv10(w, h, s){
+  const B = M.HEAPU8.buffer, py = M._py(), pu = M._pu(), pv = M._pv(), ys = M._ys() >> 1, us = M._us() >> 1, vs = M._vs() >> 1;
+  if((py | pu | pv) & 1) return null;
+  const ch = M._ch(), Y = new Uint16Array(B, py, ys * (h - 1) + w), U = new Uint16Array(B, pu, us * (ch - 1) + M._cw()), V = new Uint16Array(B, pv, vs * (ch - 1) + M._cw());
+  const ow = (w >> s) & ~1, oh = (h >> s) & ~1, n = ow * oh * 4;
+  if(!c10buf || c10buf.length !== n) c10buf = new Uint8ClampedArray(n);
+  const o = c10buf, full = !!M._full(), pq = hdrPQ, b2020 = pq || M._mid() !== 1 && w > 1920;
+  const yo = full ? 0 : 64, ys1 = full ? 1 / 1023 : 1 / 876, cs = full ? 1 / 1023 : 1 / 896;
+  const kr = b2020 ? 1.4746 : 1.5748, kgb = b2020 ? 0.16455 : 0.187324, kgr = b2020 ? 0.57135 : 0.468124, kb = b2020 ? 1.8814 : 1.8556;
+  const T = pq ? c10Tables() : null, P = T && T.pq, G = T && T.gm;
+  let w0 = 0;
+  for(let j = 0; j < oh; j++){
+    const yr = (s ? 2 * j : j) * ys, cr0 = (s ? j : j >> 1) * us, vr0 = (s ? j : j >> 1) * vs;
+    for(let i = 0; i < ow; i++){
+      const y = (Y[yr + (s ? 2 * i : i)] - yo) * ys1, ci = s ? i : i >> 1, cb = (U[cr0 + ci] - 512) * cs, cr = (V[vr0 + ci] - 512) * cs;
+      let r = y + kr * cr, g = y - kgb * cb - kgr * cr, b = y + kb * cb;
+      if(pq){
+        r = P[r <= 0 ? 0 : r >= 1 ? 1023 : (r * 1023 + 0.5) | 0]; g = P[g <= 0 ? 0 : g >= 1 ? 1023 : (g * 1023 + 0.5) | 0]; b = P[b <= 0 ? 0 : b >= 1 ? 1023 : (b * 1023 + 0.5) | 0];
+        const R = 1.6605 * r - 0.5876 * g - 0.0728 * b, Gg = -0.1246 * r + 1.1329 * g - 0.0083 * b, Bb = -0.0182 * r - 0.1006 * g + 1.1187 * b;
+        const iR = R > 0 ? (Math.sqrt(R) * 1440) | 0 : 0, iG = Gg > 0 ? (Math.sqrt(Gg) * 1440) | 0 : 0, iB = Bb > 0 ? (Math.sqrt(Bb) * 1440) | 0 : 0;
+        o[w0] = G[iR > 4095 ? 4095 : iR]; o[w0 + 1] = G[iG > 4095 ? 4095 : iG]; o[w0 + 2] = G[iB > 4095 ? 4095 : iB];
+      } else { o[w0] = r * 255; o[w0 + 1] = g * 255; o[w0 + 2] = b * 255; }
+      o[w0 + 3] = 255; w0 += 4;
+    }
+  }
+  return {px:o, ow, oh};
+}
 function pull(nout){
   let n = 0, k;
   /* v189: shift -1 = automatico (imagens com mais de 1280 de largura saem a metade do tamanho) */
@@ -105,7 +151,7 @@ function pull(nout){
     if(shift < 0 && autoS < 0) autoS = w > 1280 ? 1 : 0;
     const s = bob ? 0 : shift < 0 ? autoS : shift;
     /* v222: via placa gráfica (só YUV 4:2:0 de 8 bits, fora do «Bob») */
-    if(!bob && useGpu && k === 1){
+    if(!bob && useGpu && k === 1){  /* (10 bits: ver conv10) */
       if(G === null) gpuInit();
       if(G){
         try{
@@ -119,6 +165,9 @@ function pull(nout){
         }catch(x){ G = false; gErr = "execução: " + String(x && x.message || x).slice(0, 60); postMessage({type: "gpuoff", msg: "gpu desligada: " + gErr}); }
       }
     }
+    if(k === 2){ const r10 = conv10(w, h, s); M._rel(); if(!r10){ continue; } n++; const e0 = ep;
+      createImageBitmap(new ImageData(r10.px, r10.ow, r10.oh), {premultiplyAlpha: "none", colorSpaceConversion: "none"}).then(bmp => postMessage({type: "frame", ts, w: r10.ow, h: r10.oh, bmp, ep: e0}, [bmp]), () => {});
+      continue; }
     if(!M._conv(s)) continue;
     const ptr = M._dec_rgba(), ow = M._dec_w(), oh = M._dec_h();
     /* v216 «Bob» por software: o 1080i entrelaçado sai em dois quadros de 960x540 (1.º campo = linhas pares, 2.º = linhas ímpares, ordem TFF),
@@ -155,7 +204,7 @@ async function handle(d){
     opened = false;
     if(d.codec === "hevc"){ if(!MH){ const buf = await (await fetch(d.wasm)).arrayBuffer(); MH = await H264Mod(new Uint8Array(buf)); } M = MH; hevc = true; }
     else { M = M264; hevc = false; }
-    shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = !!d.fast; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
+    hdrPQ = false; shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = !!d.fast; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
     const r = open();
     postMessage({type: r === 0 ? "ready" : "error", msg: "open " + r + (useGpu ? " gpu:" + (gpuState()) : ""), ver: 2});
   } else if(d.cmd === "warm"){ /* so carrega o FFmpeg (compilar o WebAssembly demora): fica pronto para o proximo canal */
@@ -163,6 +212,7 @@ async function handle(d){
   } else if(d.cmd === "decode"){
     if(d.ep !== undefined) ep = d.ep;
     if(d.xt) xts = d.ts;
+    if(hevc && d.key && !hdrPQ){ try{ if(seiHdr(new Uint8Array(d.data))) hdrPQ = true; }catch(x){} }
     const t0 = performance.now();
     send(new Uint8Array(d.data), d.ts, d.key);
     const n = pull(!!d.nout);

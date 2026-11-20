@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v477";
+const APP_VERSION = "v478";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4090,6 +4090,8 @@ class SoftVideoDecoder {
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
     this.cfg = cfg; this.hevc = !!cfg.hevc; if(this.hevc) this.fast = true; this.close(); this.state = "configured";
+    /* v478: HEVC acima de 1080p (4K): no log, com 3-4 Workers o total descia (27/s) e com 2 dava 58/s — disputam o processador e a memória */
+    if(this.hevc && (cfg.codedWidth || 0) * (cfg.codedHeight || 0) > 2.5e6 && !this._nW0){ this._nW0 = this.nW; this.nW = Math.min(this.nW, 2); }
     for(let i = 0; i < this.nW; i++) this.W.push(this._mkWorker(cfg));
   }
   _mkWorker(cfg){
