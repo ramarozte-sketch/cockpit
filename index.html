@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v496";
+const APP_VERSION = "v497";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5268,7 +5268,8 @@ function mkvRun(slot, st, src, audio){
           else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); });
           else if(i2 === 0xE1) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === 0xB5) t.sr = mkvFloat(b, d3, n3); else if(i3 === 0x9F) t.ch = mkvUint(b, d3, n3); else if(i3 === 0x6264) t.bits = mkvUint(b, d3, n3); }); });
         (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || "", lang:t.lang || "", nome:t.nome || "", ...(t.type === 2 && t.ch ? {canais:t.ch} : {}), ...(t.type === 2 && t.sr ? {taxa:t.sr} : {})});
-        if(audio && t.type === 2 && st.trackNum == null && !st.anyA && window.__swAud.test(t.codec || "")) st.anyA = t;
+        if(audio && t.type === 2 && st.trackNum == null && window.__swAud.test(t.codec || "")){ const lr = x => /^(pt|por)/i.test(x.lang || "") || /portug|bra[sz]il/i.test(x.nome || "") ? 0 : /^(en|eng)/i.test(x.lang || "") || /english/i.test(x.nome || "") ? 1 : 2;
+          if(!st.anyA || lr(t) < lr(st.anyA)) st.anyA = t; }   /* v497: português, depois inglês (o Transformers abria em alemão) */
         if(audio ? (t.type === 2 && (st.trackNum != null ? t.num === st.trackNum : (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "")) && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
@@ -12412,7 +12413,12 @@ function openEngine(){ show("engine"); }
 /* ---------- Faixas de áudio e legendas ---------- */
 const TRK = {ext:[null,null], autoDone:[false,false]};
 const trkIsPt = t => /(^|[^a-z])(pt|por|portugu[eê]s|portuguese|pt-pt|pt-br)([^a-z]|$)/i.test(String(t || ""));
-const trkName = (t, i) => (t.name && t.name !== t.lang ? t.name : "") + (t.lang ? (t.name && t.name !== t.lang ? " · " : "") + t.lang : "") || ("Faixa " + (i+1));
+/* v497: bandeira do idioma nas faixas (som e legendas) */
+const langFlag = (lang, name) => { const l = String(lang || "").toLowerCase().split(/[-_]/)[0], n = String(name || "");
+  if(/bra[sz]il|\bpt-?br\b/i.test(n + " " + lang)) return "🇧🇷"; if(/latin|latino|m[eé]xic/i.test(n) && /^(es|spa)$/.test(l)) return "🇲🇽"; if(/\bvfq\b|qu[eé]bec|canad/i.test(n) && /^(fr|fre|fra|)$/.test(l)) return "🇨🇦";
+  const F = {pt:"🇵🇹",por:"🇵🇹",en:"🇬🇧",eng:"🇬🇧",fr:"🇫🇷",fre:"🇫🇷",fra:"🇫🇷",de:"🇩🇪",ger:"🇩🇪",deu:"🇩🇪",es:"🇪🇸",spa:"🇪🇸",it:"🇮🇹",ita:"🇮🇹",ja:"🇯🇵",jpn:"🇯🇵",pl:"🇵🇱",pol:"🇵🇱",ru:"🇷🇺",rus:"🇷🇺",hi:"🇮🇳",hin:"🇮🇳",ta:"🇮🇳",tam:"🇮🇳",te:"🇮🇳",tel:"🇮🇳",th:"🇹🇭",tha:"🇹🇭",tr:"🇹🇷",tur:"🇹🇷",nl:"🇳🇱",dut:"🇳🇱",nld:"🇳🇱",zh:"🇨🇳",chi:"🇨🇳",zho:"🇨🇳",ko:"🇰🇷",kor:"🇰🇷",ar:"🇸🇦",ara:"🇸🇦",sv:"🇸🇪",swe:"🇸🇪",da:"🇩🇰",dan:"🇩🇰",no:"🇳🇴",nor:"🇳🇴",nob:"🇳🇴",fi:"🇫🇮",fin:"🇫🇮",el:"🇬🇷",gre:"🇬🇷",ell:"🇬🇷",he:"🇮🇱",heb:"🇮🇱",cs:"🇨🇿",cze:"🇨🇿",ces:"🇨🇿",hu:"🇭🇺",hun:"🇭🇺",ro:"🇷🇴",rum:"🇷🇴",ron:"🇷🇴",uk:"🇺🇦",ukr:"🇺🇦",bg:"🇧🇬",bul:"🇧🇬",hr:"🇭🇷",hrv:"🇭🇷",sr:"🇷🇸",srp:"🇷🇸",id:"🇮🇩",ind:"🇮🇩",vi:"🇻🇳",vie:"🇻🇳",ms:"🇲🇾",may:"🇲🇾",fa:"🇮🇷",per:"🇮🇷"};
+  if(F[l]) return F[l]; if(/\bvff\b|fran[cç]/i.test(n)) return "🇫🇷"; if(/portug/i.test(n)) return "🇵🇹"; if(/english|\bvo\b/i.test(n)) return /\bvo\b/i.test(n) ? "" : "🇬🇧"; return ""; };
+const trkName = (t, i) => { const b = (t.name && t.name !== t.lang ? t.name : "") + (t.lang ? (t.name && t.name !== t.lang ? " · " : "") + t.lang : "") || ("Faixa " + (i+1)), f = langFlag(t.lang, t.name); return f ? f + " " + b : b; };
 function trkReset(slot){ trkClearExt(slot); TRK.autoDone[slot] = false; }
 function trkClearExt(slot){ const e = TRK.ext[slot]; if(!e) return; try{ e.el.remove(); URL.revokeObjectURL(e.url); }catch(x){} TRK.ext[slot] = null; try{ const o = slotBox(slot).querySelector(".subov"); if(o) o.textContent = ""; }catch(x){} }
 function trkAudioList(slot){
