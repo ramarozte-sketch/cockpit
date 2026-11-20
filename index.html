@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v498";
+const APP_VERSION = "v499";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15608,7 +15608,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
     const env = {hevcCaps:window.__hevcCaps || "por medir", lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
-      opcoes:{qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:window.__motorUsado === "h264soft" ? "software" : window.__motorUsado === "webcodecs" ? "webcodecs" : ((window.__useSoft && window.__useSoft()) ? "software (escolhido)" : "webcodecs (escolhido)"), motorEscolhido:(window.__useSoft && window.__useSoft()) ? "software" : "webcodecs", motorUsado:window.__motorUsado || "nenhum ainda"},
+      opcoes:{mp4UmSoLeitor:cfg.mseFilm !== false, qualidadeMax:cfg.maxRes || "1080", ligacaoDireta:!!cfg.directMode, modoAndamento:!!(typeof mirrorOn !== "undefined" && mirrorOn), passageiro:!!cfg.passenger, motorDescodificacao:window.__motorUsado === "h264soft" ? "software" : window.__motorUsado === "webcodecs" ? "webcodecs" : ((window.__useSoft && window.__useSoft()) ? "software (escolhido)" : "webcodecs (escolhido)"), motorEscolhido:(window.__useSoft && window.__useSoft()) ? "software" : "webcodecs", motorUsado:window.__motorUsado || "nenhum ainda"},
       conta:await account(), bw:+LS.get("bwEst", 0) || 0};
     const cur = [0, 1].map(s => DBG.cur[s]).filter(Boolean).map(a => Object.assign({}, a, {res:"a decorrer", t0:undefined})).concat([0, 1].map(s => DBG.watch[s]).filter(w => w && w.ev.length).map(w => Object.assign({}, w, {res:"em observação", t0:undefined, t00:undefined})));
     return JSON.parse(scrub(JSON.stringify({ambiente:env, tentativas:DBG.list.concat(cur)}, null, 1)));
@@ -16342,6 +16342,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       if(isMp4){ const onNone = () => { (window.__mkaNo = window.__mkaNo || [])[slot] = playId; const f = window.__mkaFallback && window.__mkaFallback[slot]; if(f && playId === playSeq[slot]) f(); };
         /* v351: um só leitor (MSE) quando possível; se não for aplicável ou falhar, o caminho antigo (leitor do carro + som à parte) */
         /* v374: o MSE também com a imagem em andamento (a cópia de fotogramas é feita a partir do vídeo MSE) */ let useMse = false; try{ useMse = cfg.mseFilm !== false && typeof mp4MseRun === "function" && !!window.MediaSource && !hlsInst[slot] && !(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000); }catch(e){}
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme mp4: caminho", {umSoLeitor:useMse, opcao:cfg.mseFilm === false ? "desligada nas Definições" : "ligada", mse:!!window.MediaSource, hls:!!hlsInst[slot], recusadoHaPouco:!!(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000)}); }catch(e){}
         if(useMse) mp4MseRun(slot, st, src, c, playId, () => mp4aRun(slot, st, src, onNone)); else mp4aRun(slot, st, src, onNone); }
       else mkvRun(slot, st, src, true);
       let live0 = Date.now(); const t = setInterval(() => { try{ const nw = performance.now(); if(nw - (st.wdAt || 0) > 5000 && window.__mka[slot] === st && st.aq && st.aq.length && !v.paused && v.readyState >= 2 && nw - (st.lastOut || st.t0 || (st.t0 = nw)) > 4000){ st.wdAt = nw; const cur = st.clock ? st.clock.v.currentTime : v.currentTime, h0 = st.aq[0].ts / 1e6;
