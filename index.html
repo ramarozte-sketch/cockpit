@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v459";
+const APP_VERSION = "v460";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3534,7 +3534,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
       const p = mpegts.createPlayer(mcfg, Object.assign({enableWorker:true, lazyLoad:true}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {})); tsInst[slot] = p;
       p.attachMediaElement(v); p.load(); let bad = false;
-      p.on(mpegts.Events.ERROR, () => { if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
+      p.on(mpegts.Events.ERROR, (t, d, info) => { try{ window.__dbgEv && window.__dbgEv(slot, "erro do leitor de .ts (filme)", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "").slice(0, 160), info:String(info && (info.msg || info.code) || "").slice(0, 200), somNoLeitor:!sndA}); }catch(e){} if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
       if(sndA && window.__tsMovieSound) window.__tsMovieSound(slot, src, sndA, playId);
       v.play().catch(()=>{});
     });
