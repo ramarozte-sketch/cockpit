@@ -2975,7 +2975,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v501";
+const APP_VERSION = "v502";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3539,8 +3539,12 @@ function playChannel(c, slot=tvTarget, auto=false){
         const tl = window.__tsTrackList && window.__tsTrackList[src];
         if(sndA && tl && tl.length > 1){ window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:tl.map(t => ({n:t.n, codec:"A_" + t.kind.toUpperCase(), nome:"Faixa " + t.n, lang:"", ts:t})), cur:sndA.n, quer:null, ts:true}; } }
       const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
+      /* v502: em andamento o fluxo do filme .ts é duplicado para o leitor da imagem (como nos canais); sem isto o andamento não tinha imagem */
+      const tapF = typeof mirrorOn !== "undefined" && mirrorOn && WC_OK && !window.ANDROID && !isFlv;
+      if(tapF) window.__tsTaps[slot] = {url:src, on:true, fn:b => { try{ window.__tsBytes = (window.__tsBytes || 0) + b.byteLength; }catch(e){} tsMirFeed(slot, b); }}; else if(window.__tsTaps[slot]) window.__tsTaps[slot].on = false;
       const mopts = Object.assign({enableWorker:true, lazyLoad:true}, sndA && window.__TsPmtLoader ? {customLoader:window.__TsPmtLoader} : {}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {});
-      const p = mpegts.createPlayer(mcfg, mopts); tsInst[slot] = p;
+      if(tapF) mopts.enableWorker = false;
+      const p = mpegts.createPlayer(mcfg, mopts); tsInst[slot] = p; p.__url = src;
       p.attachMediaElement(v); p.load(); let bad = false;
       p.on(mpegts.Events.ERROR, (t, d, info) => { try{ window.__dbgEv && window.__dbgEv(slot, "erro do leitor de .ts (filme)", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "").slice(0, 160), info:String(info && (info.msg || info.code) || "").slice(0, 200), somNoLeitor:!sndA}); }catch(e){} if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
       if(sndA && window.__tsMovieSound) window.__tsMovieSound(slot, src, sndA, playId);
@@ -4738,7 +4742,10 @@ function tsMirInit(slot){
   if(!tap || !tap.on || tap.url !== (tsInst[slot] && tsInst[slot].__url)){
     /* o canal foi aberto antes de ligar o modo: reabre-o (uma ligação de cada vez) para o fluxo passar pelo leitor da imagem */
     const c = lastPlayed[slot]; const st0 = MIR[slot] = MIR[slot] || {}; st0.err = "a reabrir o canal para a imagem em andamento…";
-    if(c && !st0.reopened){ st0.reopened = true; setTimeout(() => { try{ if(window.__oneConn) window.__oneConn(c, slot); else playChannel(c, slot); }catch(e){} }, 300); }
+    if(c && !st0.reopened){ st0.reopened = true;
+      /* v502: filme .ts: guarda a posição para reabrir no mesmo ponto */
+      try{ const v0 = $("vid" + slot); if(c.kind !== "live" && v0 && v0.currentTime > 5 && window.RES) window.RES.save(c, v0.currentTime, isFinite(v0.duration) && v0.duration > 0 ? v0.duration : v0.currentTime + 3600); }catch(e){}
+      setTimeout(() => { try{ if(window.__oneConn) window.__oneConn(c, slot); else playChannel(c, slot); }catch(e){} }, 300); }
     return;
   }
   const st = MIR[slot] = {q:[], marks:[], ranges:[], tsd:new TsVidDemux(), lastFrame:0, err:null, t0:performance.now()};
@@ -5059,6 +5066,10 @@ function mp4Init(slot){
     if(MIR[slot]!==st) return;
     const A4 = !isMkv && window.__mka && window.__mka[slot];
     if(A4 && A4.mse && !A4.mseOff){ const M4 = A4.mp4M; if(M4 && M4.alive() && M4.trk){ if(st.src === M4.src) return; if(mirMseTap(slot, st, M4)) return; } else { setTimeout(() => { try{ if(MIR[slot] === st && !st.src) st.onMeta(); }catch(e){} }, 500); return; } }
+    /* v502: .mp4 a tocar direto no leitor do carro (ex.: AAC com o carro parado): passa ao leitor único em vez de abrir uma 2.ª descarga para a imagem */
+    if(!isMkv && !A4 && window.__TESLA && cfg.mseFilm !== false && !/^blob:/.test(v.currentSrc || "") && window.__mkaStart && (st.mp4Try || 0) < 16){
+      if(!st.mp4Try){ try{ window.__dbgEv && window.__dbgEv(slot, "andamento: .mp4 passa ao leitor único", {}); }catch(e){} try{ window.__mkaStart(slot, c, playSeq[slot]); }catch(e){} }
+      st.mp4Try = (st.mp4Try || 0) + 1; setTimeout(() => { try{ if(MIR[slot] === st && !st.src) st.onMeta(); }catch(e){} }, 500); return; }
     if(!isMkv && /^blob:/.test(v.currentSrc || "") && !st.blobWait){ st.blobWait = 1; setTimeout(() => { try{ st.blobWait = 0; if(MIR[slot] === st && !st.src) st.onMeta(); }catch(e){} }, 500); return; }
     const M = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null;
     if(M && isMkv){ if(st.src === M.src) return; if(M.trk){ if(mirMseTap(slot, st, M)) return; } else { setTimeout(() => { try{ if(MIR[slot] === st && !st.src) st.onMeta(); }catch(e){} }, 500); return; } }
@@ -5211,7 +5222,14 @@ window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
     const tick = setInterval(() => { if(!M.alive()){ clearInterval(tick); try{ M.st && M.st.abort && M.st.abort.abort(); }catch(e){} return; } M.trim(false); }, 10000);
     M.url = URL.createObjectURL(ms);
     try{ v.removeAttribute("crossorigin"); }catch(e){}
-    v.src = M.url; try{ v.load(); v.play().catch(() => {}); }catch(e){}
+    /* v502: começa só quando o som por software já tem o bloco do ponto atual (antes arrancava, o som chegava 1,5–5 s depois e a imagem recuava: pausa de ~2,4 s) */
+    M.hold = true; const tH = performance.now();
+    const hold = setInterval(() => { try{ if(!M.alive()){ clearInterval(hold); M.hold = false; return; }
+        const A = window.__mka && window.__mka[slot], ct = v.currentTime, el = performance.now() - tH;
+        const ready = A && A.pid === playId && A.ldec && A.aq && A.aq.length && A.aq[0].ts / 1e6 <= ct + 1.5 && v.readyState >= 3;
+        if(ready || el > 7000 || (!A && el > 4000 && v.readyState >= 3) || (A && A.err && /sem faixa/.test(A.err))){ clearInterval(hold); M.hold = false; try{ v.play().catch(() => {}); }catch(e){}
+          try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: arranque", {esperou_ms:Math.round(el), comSom:!!ready}); }catch(e){} } }catch(e){ clearInterval(hold); M.hold = false; } }, 100);
+    v.src = M.url; try{ v.load(); }catch(e){}
     return true;
   }catch(e){ return false; }
 };
@@ -5322,7 +5340,7 @@ function mkvRun(slot, st, src, audio){
         else if(st.aac) throw new Error("AAC sem configuração");
         st.mkvInfo = {codec:trk.codec}; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: faixa", {codec:trk.codec, asc:trk.priv ? Array.from(trk.priv.slice(0, 8)).map(x => x.toString(16).padStart(2, "0")).join("") : null, aot:trk.priv ? trk.priv[0] >> 3 : null, canaisDaFaixa:st.adts ? st.adts.ch : (trk.ch || null), descodificador:st.xc ? st.xc.name : null, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice}); }catch(e){}
         toast(st.aac ? (st.keep ? "Som AAC por software…" : "Som AAC por software (o leitor do carro parou em andamento)…") : st.xc ? "Som " + st.xc.label + " por software…" : "Som Dolby (" + trk.codec.replace(/^A_/, "") + ") por software…");
-        const drain = async () => { if(st.abusy) return; st.abusy = true; st.busyAt = performance.now(); try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break;   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
+        const drain = async () => { if(st.abusy) return; st.abusy = true; st.busyAt = performance.now(); try{ while(st.aq.length && alive()){ if(st.aq[0].ts / 1e6 - ct() > 5) break; { const vh = v._mkvMse; if(vh && vh.hold) break; }   /* não agenda som com mais de 5 s de avanço (o relógio descartava-o e o som calava-se) */
               const x = st.aq.shift(), fr = st.aac ? [(() => { const n = x.data.length + 7, a = st.adts, o = new Uint8Array(n); o[0] = 0xFF; o[1] = 0xF1; o[2] = (a.prof << 6) | (a.fi << 2) | (a.ch >> 2); o[3] = ((a.ch & 3) << 6) | (n >> 11); o[4] = (n >> 3) & 0xFF; o[5] = ((n & 7) << 5) | 0x1F; o[6] = 0xFC; o.set(x.data, 7); return o; })()] : st.xc ? [x.data] : __ac3Frames(x.data); if(!fr.length) continue; const [, c, pkt, frm] = st.ldec;
               st.pk = (st.pk || 0) + 1; const out = await Promise.race([L.ff_decode_multi(c, pkt, frm, fr.map(d => ({data:d})), {ignoreErrors:true}), new Promise((_, rj) => setTimeout(() => rj(new Error("descodificador de som parado")), 6000))]); let t = x.ts / 1e6; st.lastDec = performance.now(); if(!out.length){ st.vazios = (st.vazios || 0) + 1; if(!st.vzLog || st.vzLog.length < 3) (st.vzLog = st.vzLog || []).push({len:fr[0].length, b:Array.from(fr[0].subarray(0, 12)).map(x => x.toString(16).padStart(2, "0")).join("")}); }
               for(const fo of out){ const sr = fo.sample_rate || 48000; let pl = window.__pcmPlanes(fo); if(!pl || !pl.length) continue;
@@ -5420,7 +5438,10 @@ function mkvRun(slot, st, src, audio){
          if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ if(st.mse && !st.mse.eos){ try{ decoder.flush(true); }catch(e){} st.mse.end(); } await sleep(1000); continue; }
         const g = gen, a = pos; let buf;
-        try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return; await sleep(2000); } continue; }
+        try{ buf = await RR.read(a, CH); if(!buf || !buf.length){ await sleep(1000); continue; } }catch(e){ if(e.name !== "AbortError"){ st.err = "rede: " + (e.message || e); if(/Range/.test(e.message)) return;
+            /* v502: o fornecedor a recusar (509/429/458): espera mais, a crescer, antes de voltar a pedir */
+            if(/HTTP (509|429|458)/.test(String(e.message))){ st.r509 = Math.min(6, (st.r509 || 0) + 1); try{ if(st.r509 === 1) window.__dbgEv && window.__dbgEv(slot, "filme: o fornecedor recusou (" + String(e.message).slice(-3) + "), volta a tentar", {}); }catch(x){} await sleep(2500 * st.r509); } else await sleep(2000); } continue; }
+        st.r509 = 0;
         if(!alive()) return; if(g !== gen) continue;
         st.segs = (st.segs || 0) + 1; pos = a + buf.length;
         /* junta ao que sobrou (contíguo) e analisa */
@@ -5611,7 +5632,8 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       if(!at){ giveUp("sem faixa de som que o software toque"); return; }
       const isAac = /^mp4a/i.test(at.codec);
       const mime = `video/mp4; codecs="${vt.codec}"`;
-      if(!/^avc[13]/i.test(vt.codec) || !MediaSource.isTypeSupported(mime)){ giveUp("vídeo " + vt.codec + " não suportado em MSE neste browser"); return; }
+      const vHevc = /^(hvc1|hev1)/i.test(vt.codec);   /* v502: também HEVC (o leitor do carro descodifica-o por hardware) */
+      if(!(/^avc[13]/i.test(vt.codec) || vHevc) || !MediaSource.isTypeSupported(mime)){ giveUp("vídeo " + vt.codec + " não suportado em MSE neste browser"); return; }
       const isE = /^ec-3/i.test(at.codec), cod = isAac ? "aac" : isE ? "eac3" : "ac3";
       /* AAC: configuração (AudioSpecificConfig) tirada do esds */
       let asc = null; if(isAac){ try{ const en = f.getTrackById(at.id).mdia.minf.stbl.stsd.entries[0]; const walk = d => { if(!d) return null; if(d.tag === 5 && d.data) return d.data; for(const x of (d.descs || [])){ const r = walk(x); if(r) return r; } return null; }; asc = walk(en.esds && en.esds.esd); }catch(e){} }
@@ -5628,8 +5650,8 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       const rawAvc1 = MSEF.findBox(rawMoov, "avc1"), rawAvcC = rawAvc1 && MSEF.findBox(rawAvc1.subarray(86), "avcC"), boxAvcC = MSEF.findBox(ib, "avcC");
       const ed = -editShift(vt), W = (vt.video && vt.video.width) || vt.track_width, H = (vt.video && vt.video.height) || vt.track_height;
       const cands = [["original", () => ib, 0], ["limpo", () => MSEF.cleanInit(ib), ed]];
-      if(rawAvcC) cands.push(["de raiz (avcC do ficheiro)", () => MSEF.synthInit(rawAvcC, vt.id, vt.timescale, W, H), ed]);
-      if(boxAvcC) cands.push(["de raiz (avcC do mp4box)", () => MSEF.synthInit(boxAvcC, vt.id, vt.timescale, W, H), ed]);
+      if(rawAvcC && !vHevc) cands.push(["de raiz (avcC do ficheiro)", () => MSEF.synthInit(rawAvcC, vt.id, vt.timescale, W, H), ed]);
+      if(boxAvcC && !vHevc) cands.push(["de raiz (avcC do mp4box)", () => MSEF.synthInit(boxAvcC, vt.id, vt.timescale, W, H), ed]);
       let use = null, vOff = 0, usedName = "";
       for(const [name, mk, off] of cands){ let bytes = null, ok = false; try{ bytes = mk(); ok = await MSEF.probeInit(bytes, mime); }catch(e){} if(!alive()) return; if(ok){ use = bytes; vOff = off; usedName = name; break; } }
       if(!use){ EV("filme num só leitor (MSE): cabeçalho de vídeo rejeitado", {caixas:MSEF.boxDump(ib).slice(0, 400)}); giveUp("nenhum segmento inicial aceite"); return; }
@@ -5638,7 +5660,7 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       window.__mseAcerto = {slot, alive: () => !st.mseOff, ms: () => Math.round(uOff * 1000), adj(ms){ uOff = Math.round((uOff * 1000 + ms)) / 1000; aAdd = editShift(at) + uOff + vOff; try{ localStorage.setItem(aoffKey(c.name), String(uOff)); }catch(e){} try{ EV("filme num só leitor (MSE): acerto do som", {acertoSom_ms: Math.round(uOff * 1000)}); }catch(e){} }};
       try{ let desc = null; for(const e of f.getTrackById(vt.id).mdia.minf.stbl.stsd.entries){ const b = e.avcC || e.hvcC; if(b){ const DS = window.DataStream || MP4Box.DataStream, ds = new DS(undefined, 0, DS.BIG_ENDIAN); b.write(ds); desc = new Uint8Array(ds.buffer, 8); break; } }
         const vShift = editShift(vt) + vOff;
-        st.mp4M = {src:"mp4:" + src, alive:() => alive(), trk:desc ? {hevc:false, codec:vt.codec, priv:desc, w:W, h:H} : null, tap:null, reseek:() => { if(alive()) seekReq = v.currentTime; },
+        st.mp4M = {src:"mp4:" + src, alive:() => alive(), trk:desc ? {hevc:vHevc, codec:vt.codec, priv:desc, w:W, h:H} : null, tap:null, reseek:() => { if(alive()) seekReq = v.currentTime; },
           feedSeg:u => { const T = st.mp4M.tap; if(!T) return; for(const x of fmp4Samples(u)) T.decode({type:x.key ? "key" : "delta", timestamp:Math.round((x.cts / vt.timescale + vShift) * 1e6), data:x.data.slice()}); }}; }catch(e){}
       EV("filme num só leitor (MSE): pronto", {video:vt.codec, som:at.codec, inicial:usedName, desvioVideo_s:+vOff.toFixed(3), acertoSom_ms:Math.round(uOff * 1000), ms:Math.round(performance.now() - t0)});
       st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v366: imagem em andamento no caminho MSE: copia os fotogramas do próprio elemento de vídeo (sem nova ligação ao ficheiro) */ try{ if(!mirrorOn) stopMirror(slot); }catch(e){}   /* v498: em andamento a imagem por software lê destes mesmos segmentos (mp4MseTap) */
