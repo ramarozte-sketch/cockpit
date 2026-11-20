@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v491";
+const APP_VERSION = "v492";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5263,6 +5263,7 @@ function mkvRun(slot, st, src, audio){
           else if(i2 === 0x22B59C) t.lang = String.fromCharCode(...b.subarray(d2, d2 + n2)).replace(/\0+$/, ""); else if(i2 === 0x536E) t.nome = new TextDecoder("utf-8").decode(b.subarray(d2, d2 + n2)); else if(i2 === MKV.CPRIV) t.priv = b.slice(d2, d2 + n2); else if(i2 === MKV.VIDEO) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === MKV.PW) t.w = mkvUint(b, d3, n3); if(i3 === MKV.PH) t.h = mkvUint(b, d3, n3); });
           else if(i2 === 0xE1) mkvKids(b, d2, d2 + n2, (i3, d3, n3) => { if(i3 === 0xB5) t.sr = mkvFloat(b, d3, n3); else if(i3 === 0x9F) t.ch = mkvUint(b, d3, n3); else if(i3 === 0x6264) t.bits = mkvUint(b, d3, n3); }); });
         (st.tl = st.tl || []).push({n:t.num, tipo:t.type === 1 ? "vídeo" : t.type === 2 ? "som" : "outro", codec:t.codec || "", lang:t.lang || "", nome:t.nome || "", ...(t.type === 2 && t.ch ? {canais:t.ch} : {}), ...(t.type === 2 && t.sr ? {taxa:t.sr} : {})});
+        if(audio && t.type === 2 && st.trackNum == null && !st.anyA && window.__swAud.test(t.codec || "")) st.anyA = t;
         if(audio ? (t.type === 2 && (st.trackNum != null ? t.num === st.trackNum : (st.aac ? /^A_AAC/ : /^A_E?AC3/).test(t.codec || "")) && !trk) : (t.type === 1 && !trk)) trk = t; });
       mkvKids(hb, seg, hb.length, (id, d, n, at) => {
         if(id === MKV.CLUSTER){ first = at; return false; }
@@ -5294,6 +5295,8 @@ function mkvRun(slot, st, src, audio){
         else if(trk) mk0.cur = trk.num;
         const nOk = snd.filter(x => window.__swAud.test(x.codec)).length; if(nOk > 1) toast("🎚 Este filme tem " + nOk + " faixas de som — escolhe no botão Áudio.");
       }catch(e){} }
+      /* v492: sem faixa Dolby (ex.: Astro Boy, só AAC): em vez de desistir («sem faixa AC-3»), usa a primeira faixa que o software toca */
+      if(!trk && audio && st.trackNum == null && st.anyA){ trk = st.anyA; st.trackNum = trk.num; st.keep = true; try{ window.__dbgEv && window.__dbgEv(slot, "som por software: sem faixa Dolby, usa outra", {codec:trk.codec, faixa:trk.num}); }catch(e){} }
       if(!trk) throw new Error(audio ? "sem faixa de som AC-3/E-AC-3" : "sem faixa de vídeo");
       if(audio){
         const L = await window.__libav(); st.L = L; if(st.trackNum != null) st.aac = /^A_AAC/.test(trk.codec || ""); st.xc = st.aac ? null : window.__swAudDec(trk); st.ldec = st.xc ? await L.ff_init_decoder(st.xc.name, st.xc.par ? {codecpar:st.xc.par} : undefined) : await L.ff_init_decoder(st.aac ? "aac" : /EAC3/.test(trk.codec) ? "eac3" : "ac3"); await window.__dolbyStereo(L, st.ldec);
@@ -16269,13 +16272,15 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     try{
       const v = $("vid" + slot), M0 = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null, src = M0 ? M0.src : (v.currentSrc || v.src), isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
       /* v487: ao trocar de versão do filme (4K → 1080p) o leitor do carro ainda tinha o ficheiro antigo: o som lia o filme errado (mais uma descarga ao fornecedor). Espera que o leitor passe ao ficheiro novo. */
-      if(src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url)){
+      /* v492: o leitor do carro ainda sem endereço (espera de 3 s pela ligação anterior): a vigia chamava aqui ao fim de 1 s, saía sem som e não voltava a tentar (Despicable Me 3 em andamento ficou sem som) */
+      if((!src && c.url) || (src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url))){
         const W0 = window.__mkaWait = window.__mkaWait || {}, n = W0[playId] = (W0[playId] || 0) + 1;
-        if(n === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: à espera do ficheiro novo", {leitor:String(window.__fileKey(src)).split("/").pop(), filme:String(window.__fileKey(c.url)).split("/").pop()}); }catch(e){} }
-        if(n <= 40) setTimeout(() => { try{ if(playId === playSeq[slot] && lastPlayed[slot] === c) window.__mkaStart(slot, c, playId, aac, keep, trackNum); }catch(e){} }, 500);
+        if(n === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: à espera do ficheiro novo", {leitor:src ? String(window.__fileKey(src)).split("/").pop() : "(ainda sem endereço)", filme:String(window.__fileKey(c.url)).split("/").pop()}); }catch(e){} }
+        if(n <= 40) setTimeout(() => { try{ const A = window.__mka && window.__mka[slot]; if(A && A.pid === playId && trackNum == null) return;   /* já arrancou por outro lado (faixa escolhida): não a substitui */
+            if(playId === playSeq[slot] && lastPlayed[slot] === c) window.__mkaStart(slot, c, playId, aac, keep, trackNum); }catch(e){} }, 500);
         return true; } if(!src || !(/\.mkv(\?|$)/i.test(c.url) || (isMp4 && window.__TESLA && typeof mp4aRun === "function" && !(window.__mkaNo && window.__mkaNo[slot] === playId))) || typeof mkvRun !== "function") return false;
       const old = window.__mka[slot]; if(old){ old.dead = true; try{ old.clock && old.clock.close(); }catch(e){} }
-      const st = window.__mka[slot] = {movie:true, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
+      const st = window.__mka[slot] = {movie:true, pid:playId, aac:!!aac, keep:!!keep, trackNum:trackNum == null ? null : trackNum};
       /* v430: acerto do som também no som por software (os botões «−0,1 s / +0,1 s» só apareciam no caminho MSE); guardado por filme */
       try{ let off = 0; try{ off = parseFloat(localStorage.getItem(aoffKey(c.name))) || 0; }catch(e){} st.aoff = off;
         window.__mseAcerto = {slot, soft:true, alive: () => window.__mka[slot] === st && playId === playSeq[slot] && !st.mse, ms: () => Math.round(st.aoff * 1000),
