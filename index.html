@@ -2981,7 +2981,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v509";
+const APP_VERSION = "v510";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -12720,13 +12720,14 @@ async function osLogin(){
 /* "|PT| Duna.Parte.Dois.2024.1080p.mkv" -> {title:"duna parte dois", year:"2024"}; "Show S02E03" -> série */
 function osParse(raw){
   /* v378: sem designação de país (PT, AR, EN…) na pesquisa: prefixo «|PT|», «PT -», «EN:» e siglas soltas em maiúsculas */
-  raw = String(raw || "").replace(/^\s*(\|[A-Za-z]{2,5}\||[A-Za-z]{2,5}\s*[-:])\s*/, "").replace(/\b(PT-?PT|PT-?BR|PT|AR|EN|BR|ES|FR|IT|DE)\b/g, " ").replace(/\b(multi|dual|dub|dublado|legendado|vost|leg|vo)\b/gi, " ");
+  raw = String(raw || "").replace(/^\s*user\s*\d+\s*[:\-]\s*/i, "").replace(/^\s*(\|[A-Za-z]{2,5}\||(?:PT-?PT|PT-?BR|PT|EN|FR|ES|IT|DE|BR|AR)\s*[-:])\s*/i, "")   /* v510: só códigos de idioma (antes «TRON:» perdia-se) */.replace(/\b(PT-?PT|PT-?BR|PT|AR|EN|BR|ES|FR|IT|DE)\b/g, " ").replace(/\b(multi|dual|dub|dublado|legendado|vost|leg|vo)\b/gi, " ");
   let t = String(raw || "").normalize("NFKD").replace(/\.(mkv|mp4|avi|mov|m4v|ts|m3u8)$/i, " ").replace(/\[[^\]]*\]|\([^)]*\)|\|[a-z]{2,3}\|/gi, " ").replace(/[._]+/g, " ");
   const se = t.match(/\bS(\d{1,2})\s?E(\d{1,3})\b/i) || t.match(/\b(\d{1,2})x(\d{2})\b/i);
   const ym = String(raw || "").match(/\b(19\d\d|20\d\d)\b/); /* v381: o ano lê-se antes de tirar os parênteses */
   t = t.replace(/\bS\d{1,2}\s?E\d{1,3}\b|\b\d{1,2}x\d{2}\b/i, " ").replace(/\b(19\d\d|20\d\d)\b.*$/, " ")
-    .replace(/\b(uhd|fhd|4k|hevc|h ?26[45]|x26[45]|hd|sd|1080p?|720p?|2160p?|bluray|brrip|webrip|web-?dl|hdrip|dvdrip|dublado|legendado|pt-?pt|pt-?br)\b.*$/i, " ")
+    .replace(/\b(uhd|fhd|4k|hevc|h ?26[45]|x26[45]|hd|sd|1080p?|720p?|2160p?|bluray|brrip|webrip|web-?dl|hdrip|dvdrip|dublado|legendado|pt-?pt|pt-?br)\b/gi, " ")   /* v510: tira só a etiqueta de qualidade (antes cortava tudo o que vinha depois, ex.: «-4K TRON: Ares» ficava só «user 1») */
     .replace(/[^\p{L}\p{N}' ]+/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  if(!t) t = String(raw || "").replace(/[^\p{L}\p{N}' ]+/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();   /* v510: sem título limpo, usa o nome tal como está, em vez de dar «escreve o título» */
   return {title:t, year:ym ? ym[1] : "", s:se ? +se[1] : 0, e:se ? +se[2] : 0};
 }
 /* v377: legendas em português SEM conta (a mesma forma da app Android): Cinemeta dá o código IMDb a partir do título; o addon aberto do OpenSubtitles (v3) dá as legendas desse código. */
