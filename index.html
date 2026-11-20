@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v493";
+const APP_VERSION = "v494";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5168,7 +5168,7 @@ window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
   try{
     if(!window.MediaSource || !c || !/\.mkv(\?|$)/i.test(c.url)) return false;
     const ms = new MediaSource(), M = {v, src:src1, ms, sb:null, q:[], dead:false, failed:false, appended:0, t0:performance.now(), playId, slot};
-    M.alive = () => !M.dead && !M.failed && playId === playSeq[slot] && v._mkvMse === M && ms.readyState !== "closed";
+    M.alive = () => !M.dead && !M.failed && playId === playSeq[slot] && v._mkvMse === M && (!M.opened || ms.readyState !== "closed");   /* v494: antes de abrir está «closed» (o som não via o MSE e lia por si: «cabeçalho recusado» no Astro Boy) */
     M.fail = why => { if(M.failed || M.dead) return; M.failed = true;
       /* v493: o filme anterior ainda a acabar de escrever quando o seguinte já abriu: não é uma falha (e não marca o filme como «sem MSE») */
       if(playId !== playSeq[slot] || v.currentSrc !== M.url){ M.dead = true; if(playId !== playSeq[slot]) return; try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: o leitor do carro mudou de fonte", {fonte:/^blob:/.test(v.currentSrc || "") ? "outro blob" : String(v.currentSrc || "(nenhuma)").slice(-40)}); }catch(e){} return; }
@@ -5192,7 +5192,7 @@ window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
         try{ window.__dbgEv && window.__dbgEv(slot, "filme mkv por MSE: uma só descarga (imagem pelo leitor do carro, som pela mesma ligação)", {codec, duracao_s:Math.round(durS)}); }catch(e){}
         return true; }catch(e){ M.fail("addSourceBuffer: " + (e && e.message || e)); return false; } };
     v._mkvMse = M;
-    ms.addEventListener("sourceopen", () => {
+    ms.addEventListener("sourceopen", () => { M.opened = true;
       if(!M.alive()) return;
       try{ URL.revokeObjectURL(M.url); }catch(e){}
       const st = {mse:M, movie:true}; M.st = st;
@@ -5245,7 +5245,7 @@ function mkvRun(slot, st, src, audio){
   /* v491: com a imagem por MSE, o som lê o cabeçalho, as faixas e o índice já lidos pela imagem (nenhum pedido próprio: o fornecedor recusava/atrasava a 2.ª ligação e o som demorava 10–20 s) */
   const mseOf = () => { const M = audio ? v._mkvMse : st.mse; return M && M.alive && M.alive() && window.__fileKey(M.src) === window.__fileKey(src) ? M : null; };
   const get = async (a, n, sig) => { const M = mseOf(), k = a + ":" + n;
-    if(audio && M){ for(let i = 0; i < 30 && !(M.gets && M.gets[k]) && M.alive(); i++) await sleep(100); if(M.gets && M.gets[k]){ if(M.size && !st.size) st.size = M.size; return M.gets[k].slice(); } }
+    if(audio && M){ for(let i = 0; i < 100 && !(M.gets && M.gets[k]) && M.alive(); i++) await sleep(100); if(M.gets && M.gets[k]){ if(M.size && !st.size) st.size = M.size; return M.gets[k].slice(); } }
     const out = await get0(a, n, sig); if(!audio && st.mse){ (st.mse.gets = st.mse.gets || {})[k] = out; st.mse.size = st.size; } return out; };
   const RR = rangeReader(src, st);
   (async () => {
@@ -5603,7 +5603,7 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       st.clock = new window.__PcmClock(v); st.clock.sync0 = true; st.el = v; st.mkvInfo = {codec:at.codec}; /* v366: imagem em andamento no caminho MSE: copia os fotogramas do próprio elemento de vídeo (sem nova ligação ao ficheiro) */ try{ if(mirrorOn) mseMirrorStart(slot, playId, () => !st.mseOff); else stopMirror(slot); }catch(e){}
       try{ toast("Som Dolby (" + (isE ? "E-AC-3" : "AC-3") + ") por software…"); }catch(e){}
       /* 2) fonte de vídeo */
-      ms = new MediaSource(); blobUrl = URL.createObjectURL(ms);
+      ms = new MediaSource(); blobUrl = URL.createObjectURL(ms); v._blobPid = playId;
       /* v372 (diagnóstico): quem chama v.load() durante o MSE (fecha a fonte de vídeo) */
       try{ if(!v.__loadWrapped){ v.__loadWrapped = 1; const _ld = HTMLMediaElement.prototype.load; v.load = function(){ try{ if(window.__mseOwner === v) EV("MSE: v.load() chamado", {pilha:(new Error()).stack.split("\n").slice(2, 5).map(x => x.trim()).join(" | ").slice(0, 400)}); }catch(e){} return _ld.apply(this, arguments); }; } window.__mseOwner = v; }catch(e){}
       await new Promise((res, rej) => { ms.addEventListener("sourceopen", res, {once:true}); v.src = blobUrl; setTimeout(() => rej(new Error("a fonte de vídeo não abriu")), 8000); });
@@ -16279,7 +16279,9 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       const v = $("vid" + slot), M0 = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null, src = M0 ? M0.src : (v.currentSrc || v.src), isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
       /* v487: ao trocar de versão do filme (4K → 1080p) o leitor do carro ainda tinha o ficheiro antigo: o som lia o filme errado (mais uma descarga ao fornecedor). Espera que o leitor passe ao ficheiro novo. */
       /* v492: o leitor do carro ainda sem endereço (espera de 3 s pela ligação anterior): a vigia chamava aqui ao fim de 1 s, saía sem som e não voltava a tentar (Despicable Me 3 em andamento ficou sem som) */
-      if((!src && c.url) || (src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url))){
+      /* v494: o «blob:» do filme anterior (descarga única) ainda era a fonte atual: o som de um .mp4 aberto a seguir saía sem tentar (Despicable Me 3 sem som) */
+      const staleBlob = !!src && /^blob:/.test(src) && !M0 && v._blobPid !== playId;
+      if((!src && c.url) || staleBlob || (src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url))){
         const W0 = window.__mkaWait = window.__mkaWait || {}, n = W0[playId] = (W0[playId] || 0) + 1;
         if(n === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: à espera do ficheiro novo", {leitor:src ? String(window.__fileKey(src)).split("/").pop() : "(ainda sem endereço)", filme:String(window.__fileKey(c.url)).split("/").pop()}); }catch(e){} }
         if(n <= 40) setTimeout(() => { try{ const A = window.__mka && window.__mka[slot]; if(A && A.pid === playId && trackNum == null) return;   /* já arrancou por outro lado (faixa escolhida): não a substitui */
