@@ -974,7 +974,7 @@ body.layout-atv .rail{display:none}
         <div class="hcard hnav">
           <div class="row"><h2>Navegação</h2><span class="spacer"></span><span class="small muted" id="hLoc"></span></div>
           <form id="hNavForm" class="row" style="flex-wrap:nowrap"><input type="text" id="hNavDest" placeholder="Para onde vamos?" autocomplete="off"><button class="btn primary">Ir</button></form>
-          <div class="row"><button class="btn" id="hWaze">Waze</button><button class="btn" id="hGmaps">Google Maps</button><button class="btn" id="hOpenApps">Mais apps</button></div>
+          <div class="row"><button class="btn" id="hWaze">Waze</button><button class="btn" id="hWazeCast" title="Mostra o Waze do telemóvel no ecrã do carro, pelo Cast (app Cockpit Cast)">📱 Waze do telemóvel</button><button class="btn" id="hGmaps">Google Maps</button><button class="btn" id="hOpenApps">Mais apps</button></div>
           <div class="hdests" id="hDests"></div>
         </div>
         <div class="hcard">
@@ -1381,7 +1381,7 @@ body.layout-atv .rail{display:none}
       <div class="panel">
         <h2>Ir para…</h2>
         <form id="navForm" class="row" style="flex-wrap:nowrap"><input type="text" id="navDest" placeholder="Morada, local ou empresa" autocomplete="off"><button class="btn primary">Enviar para o Tesla</button></form>
-        <div class="row"><button class="btn" id="navWaze">Abrir no Waze</button><button class="btn" id="navGmaps">Abrir no Google Maps</button></div>
+        <div class="row"><button class="btn" id="navWaze">Abrir no Waze</button><button class="btn" id="navWazeCast" title="Mostra o Waze do telemóvel no ecrã do carro, pelo Cast (app Cockpit Cast)">📱 Waze do telemóvel</button><button class="btn" id="navGmaps">Abrir no Google Maps</button></div>
         <p class="small muted" style="margin:0">“Enviar para o Tesla” põe o destino na navegação do próprio carro, através da Tessie. Também podes dizer: “leva-me ao Algarve Shopping” ou “navega para Faro no Waze”.</p>
         <div class="list" id="navRecent" style="max-height:none"></div>
       </div>
@@ -2981,7 +2981,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v511";
+const APP_VERSION = "v512";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15921,6 +15921,14 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
 })();
 </script>
 <script>
+
+/* v512: Waze do telemóvel no ecrã do carro, pelo Cast que já existe (app Cockpit Cast + janela «Cast do ecrã») */
+function wazeCast(){
+  try{ show("desktop"); }catch(e){}
+  toast("No telemóvel: abre o Waze e, na app Cockpit Cast, escreve o código que aparece no ecrã do carro.");
+  setTimeout(() => { try{ dkCast(); }catch(e){ toast("Não consegui abrir o Cast: " + e.message, true); } }, 400);
+}
+["hWazeCast","navWazeCast"].forEach(id => { const b = document.getElementById(id); if(b) b.addEventListener("click", wazeCast); });
 /* ===== Tesla: vídeo entrelaçado (1080i, ex.: Sport TV, Eurosport) por software =====
    O leitor de vídeo do Tesla (descodificação por hardware) não aceita vídeo 1080i: o som entra, a imagem nunca.
    Aqui o hls.js passa a tratar só do som (a faixa de vídeo é escondida da tabela PMT do pedaço) e a imagem é
