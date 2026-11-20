@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v490";
+const APP_VERSION = "v491";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5235,8 +5235,13 @@ function mkvRun(slot, st, src, audio){
     backlog: () => (st.q || []).length
   });
   st.decoder = decoder; if(!audio && !WC_NATIVE && !st.mse){ decoder.film = true; st.film = true; }
-  const get = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
+  const get0 = async (a, n, sig) => { const r = await fetch(src, {headers:{Range:"bytes=" + a + "-" + (a + n - 1)}, signal:sig}); if(r.status === 200){ try{ r.body && r.body.cancel(); }catch(e){} throw new Error("o servidor não aceita leitura parcial (Range)"); } if(!r.ok && r.status !== 206) throw new Error("HTTP " + r.status);
     const cr = r.headers.get("content-range"); if(cr){ const m = /\/(\d+)/.exec(cr); if(m) st.size = +m[1]; } return new Uint8Array(await r.arrayBuffer()); };
+  /* v491: com a imagem por MSE, o som lê o cabeçalho, as faixas e o índice já lidos pela imagem (nenhum pedido próprio: o fornecedor recusava/atrasava a 2.ª ligação e o som demorava 10–20 s) */
+  const mseOf = () => { const M = audio ? v._mkvMse : st.mse; return M && M.alive && M.alive() && window.__fileKey(M.src) === window.__fileKey(src) ? M : null; };
+  const get = async (a, n, sig) => { const M = mseOf(), k = a + ":" + n;
+    if(audio && M){ for(let i = 0; i < 30 && !(M.gets && M.gets[k]) && M.alive(); i++) await sleep(100); if(M.gets && M.gets[k]){ if(M.size && !st.size) st.size = M.size; return M.gets[k].slice(); } }
+    const out = await get0(a, n, sig); if(!audio && st.mse){ (st.mse.gets = st.mse.gets || {})[k] = out; st.mse.size = st.size; } return out; };
   const RR = rangeReader(src, st);
   (async () => {
     try{
@@ -5388,6 +5393,7 @@ function mkvRun(slot, st, src, audio){
               F.give = true; }
             st.fbSwitch(); }
           st.fedAt = performance.now(); const t0 = tc; tc = ftc; try{ block(fb, fd, fn, null); } finally { tc = t0; } }; }
+      if(audio){ const vm = mseOf(); if(vm){ st.fedAt = performance.now(); try{ RR.reset(); }catch(e){} try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: sem ligação própria (lê da descarga da imagem desde o início)", {}); }catch(e){} try{ vm.reseek && vm.reseek(); }catch(e){} } }
       while(alive() && (audio || mirrorOn || st.mse)){
         if(audio && st.fedAt){ const vm = v._mkvMse; if(performance.now() - st.fedAt < 4000 || (vm && vm.alive && vm.alive() && window.__fileKey(vm.src) === st.feedSrc)){   /* v488: com a imagem por MSE o som vem sempre da mesma descarga (a leitura da imagem faz pausas longas quando vai à frente) */ if(st.drain) st.drain(); await sleep(150); continue; }
           st.fedAt = 0; window.__dbgEv && window.__dbgEv(slot, "som do filme: volta a ler o ficheiro por si", {}); seekTo(ct()); }
