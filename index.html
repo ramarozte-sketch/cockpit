@@ -2981,7 +2981,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v504";
+const APP_VERSION = "v506";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3698,7 +3698,12 @@ function playChannel(c, slot=tvTarget, auto=false){
       /* v488: .mkv no Tesla com o carro parado: a imagem por MSE a partir da nossa leitura (uma só descarga para imagem e som); se falhar, volta ao endereço direto */
       v._mkvMse = null; const co0 = v.crossOrigin;
       const useMse = window.__TESLA && !live && /\.mkv(\?|$)/i.test(c.url) && cfg.mkvMse !== false && !!window.MediaSource && !(window.__mkvMseNo && window.__mkvMseNo[c.url]);
-      const goSrc = () => { if(useMse && window.__mkvMse(slot, c, playId, v, src1, why => { if(playId !== playSeq[slot]) return; (window.__mkvMseNo = window.__mkvMseNo || {})[c.url] = String(why || "1");
+      /* v505: .mp4 no Tesla: o leitor único (MSE) arranca logo, sem antes pôr o leitor do carro a descarregar o filme (Avatar 4K: 11 s a carregar no leitor do carro,
+         depois recomeçava tudo; e às vezes o fornecedor não mandava nada nos 10 s e acabava em «falhou»). Se o leitor único desistir, volta ao endereço direto. */
+      const useMp4 = window.__TESLA && !live && /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && cfg.mseFilm !== false && !!window.MediaSource && typeof mp4MseRun === "function" && !(window.__mseNo && window.__mseNo[c.url] && Date.now() - window.__mseNo[c.url] < 120000);
+      if(useMp4){ v._mp4Pre = {pid:playId, src:src1}; }
+      const goSrc = () => { if(useMp4 && window.__mkaStart){ try{ if(window.__mkaStart(slot, c, playId)) return true; }catch(e){} v._mp4Pre = null; }
+        if(useMse && window.__mkvMse(slot, c, playId, v, src1, why => { if(playId !== playSeq[slot]) return; (window.__mkvMseNo = window.__mkvMseNo || {})[c.url] = String(why || "1");
           const t = v.currentTime > 1 ? v.currentTime : 0; try{ if(co0) v.crossOrigin = co0; v.src = src1; v.load(); if(t){ const go = () => { v.removeEventListener("loadedmetadata", go); try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); } v.play().catch(() => {}); }catch(e){} })) return true;
         v.src = src1; return false; };
       const setF = () => { if(playId !== playSeq[slot] || toHls) return; if(goSrc()) return; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
@@ -5587,7 +5592,8 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
     cleanup(); try{ st.clock && st.clock.close(); }catch(e){} st.clock = null; st.aq = []; st.drain = null;
     (window.__mseNo = window.__mseNo || {})[c.url] = Date.now();
     if(!mine()) return;
-    if(!took){ try{ onFail(); }catch(e){} return; }
+    if(!took){ if(v._mp4Pre && v._mp4Pre.pid === playId){ v._mp4Pre = null; try{ v.src = src; v.load(); v.play().catch(() => {}); }catch(e){} }   /* v506: arranque direto pelo leitor único que nem começou: o leitor do carro abre o ficheiro */
+      try{ onFail(); }catch(e){} return; }
     window.__connCloseAt = Date.now();
     setTimeout(() => { if(!mine()) return;
       v.onerror = origErr; const t = lastCt;
@@ -6080,7 +6086,7 @@ function uhdSwitch(slot, force){
     if(!force && LS.get("hevcSoft", "1") !== "0") return false;   /* v238: por omissão o H.265 é descodificado por software; só passa para H.264 se falhar */
     if(WC_NATIVE || !c || c.kind !== "live" || !/UHD|4K/i.test(String(c.name).normalize("NFKD"))) return false;
     const sib = window.__h264Sib(c);
-    if(!sib){ toast("Em andamento, " + c.name + " (H.265) só funciona na página https. Não encontrei versão HD deste canal.", true); return false; }
+    if(!sib){ toast("Em andamento, " + c.name + " (H.265) está lento a descodificar por software e não encontrei versão HD deste canal.", true); return false; }
     try{ window.__dbgEv && window.__dbgEv(slot, "andamento: UHD (HEVC) não tem descodificador em http", {de:c.name, para:sib.name}); }catch(e){}
     toast(c.name + " é H.265: a abrir " + sib.name + " (imagem em andamento).");
     setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot); }catch(e){} }, 50);
@@ -13597,7 +13603,12 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
     const v = vsel(), h = hlsInst[tvTarget], o = $("vStats"); if(!v || !o) return;
     const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
     let buf = 0; try{ for(let i = 0; i < v.buffered.length; i++) if(v.buffered.start(i) <= v.currentTime && v.buffered.end(i) >= v.currentTime) buf = v.buffered.end(i) - v.currentTime; }catch(e){}
-    const L = [(v.videoWidth || 0) + "×" + (v.videoHeight || 0) + (h && h.levels && h.currentLevel >= 0 && h.levels[h.currentLevel] ? " · " + Math.round(h.levels[h.currentLevel].bitrate / 1e5) / 10 + " Mbps · " + (h.levels[h.currentLevel].videoCodec || "") : "")];
+    /* v505: débito real medido (bytes de vídeo + som descodificados por segundo); o declarado no HLS só quando existe (dava «0 Mbps ·» sem codec) */
+    const lv = h && h.levels && h.currentLevel >= 0 ? h.levels[h.currentLevel] : null, nowB = performance.now(), byt = (v.webkitVideoDecodedByteCount || 0) + (v.webkitAudioDecodedByteCount || 0);
+    if(stTick._bt && nowB - stTick._bt > 400 && byt >= stTick._bb){ const r = (byt - stTick._bb) * 8 / ((nowB - stTick._bt) / 1000); stTick._br = stTick._br == null ? r : stTick._br * 0.7 + r * 0.3; }
+    if(!stTick._bt || nowB - stTick._bt > 400){ stTick._bt = nowB; stTick._bb = byt; }
+    const mb = x => (Math.round(x / 1e5) / 10).toLocaleString("pt-PT") + " Mbps", codec = lv ? (lv.videoCodec || (lv.attrs && lv.attrs.CODECS) || "") : "";
+    const L = [(v.videoWidth || 0) + "×" + (v.videoHeight || 0) + (stTick._br > 0 ? " · " + mb(stTick._br) : "") + (lv && lv.bitrate > 0 ? " (declarado " + mb(lv.bitrate) + ")" : "") + (codec ? " · " + codec : "")];
     L.push("buffer " + buf.toFixed(1) + " s" + (q ? " · perdidos " + q.droppedVideoFrames + "/" + q.totalVideoFrames : "") + (h && h.latency ? " · atraso " + h.latency.toFixed(1) + " s" : "") + (h && h.bandwidthEstimate ? " · rede " + Math.round(h.bandwidthEstimate / 1e5) / 10 + " Mbps" : "") + (v.paused ? " · em pausa" : ""));
     /* v376: fps reais (fotogramas decodificados por segundo), som e MSE */
     try{
@@ -13606,7 +13617,10 @@ setInterval(()=>{ if(!document.hidden && currentView==="car") loadState(); }, 60
       const ma = window.__mseAcerto, mseOn = !!(ma && ma.alive && ma.alive());
       const motor = window.__motorUsado || "—";
       const vol = Math.round((v.volume || 0) * 100);
-      L.push("som: " + (v.muted ? "mudo" : vol + "%") + " · " + (mseOn ? "MSE (Dolby/PCM)" : "leitor do carro") + " · acerto " + (ma && ma.ms != null ? ma.ms : 0) + " ms · motor " + motor);
+      /* v505: «acerto» mostrava o texto da função (ms é uma função); o som indica se vem do software e com que codec */
+      const A = window.__mka && window.__mka[tvTarget], soft = !!(A && A.lastOut && performance.now() - A.lastOut < 3000), acMs = ma && typeof ma.ms === "function" ? ma.ms() : (ma && ma.ms) || 0;
+      const scod = soft ? String((A.mkvInfo && A.mkvInfo.codec) || "").replace(/^A_/, "") : "";
+      L.push("som: " + (v.muted && !soft ? "mudo" : vol + "%") + " · " + (soft ? "por software" + (scod ? " (" + scod + ")" : "") : "leitor do carro") + (mseOn ? " · acerto " + acMs + " ms" : "") + " · motor " + motor);
       const ranges = []; try{ for(let i = 0; i < v.buffered.length; i++) ranges.push(v.buffered.start(i).toFixed(1) + "–" + v.buffered.end(i).toFixed(1)); }catch(e){}
       if(ranges.length) L.push("intervalos: " + ranges.slice(0, 3).join(" · ") + " s");
       const mc = (window.__mirCopias && window.__mirCopias[tvTarget]) || null;
@@ -16371,12 +16385,12 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__mka = window.__mka || [null, null];
   window.__mkaStart = (slot, c, playId, aac, keep, trackNum) => {
     try{
-      const v = $("vid" + slot), M0 = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null, src = M0 ? M0.src : (v.currentSrc || v.src), isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
+      const v = $("vid" + slot), M0 = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null, P0 = v._mp4Pre && v._mp4Pre.pid === playId ? v._mp4Pre : null, src = M0 ? M0.src : P0 ? P0.src : (v.currentSrc || v.src), isMp4 = /\.(mp4|m4v|mov)(\?|$)/i.test(c.url) && !/^blob:/.test(src || "");
       /* v487: ao trocar de versão do filme (4K → 1080p) o leitor do carro ainda tinha o ficheiro antigo: o som lia o filme errado (mais uma descarga ao fornecedor). Espera que o leitor passe ao ficheiro novo. */
       /* v492: o leitor do carro ainda sem endereço (espera de 3 s pela ligação anterior): a vigia chamava aqui ao fim de 1 s, saía sem som e não voltava a tentar (Despicable Me 3 em andamento ficou sem som) */
       /* v494: o «blob:» do filme anterior (descarga única) ainda era a fonte atual: o som de um .mp4 aberto a seguir saía sem tentar (Despicable Me 3 sem som) */
-      const staleBlob = !!src && /^blob:/.test(src) && !M0 && v._blobPid !== playId;
-      if((!src && c.url) || staleBlob || (src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url))){
+      const staleBlob = !!src && /^blob:/.test(src) && !M0 && !P0 && v._blobPid !== playId;
+      if(!P0 && ((!src && c.url) || staleBlob || (src && c.url && !/^blob:/.test(src) && window.__fileKey(src) !== window.__fileKey(c.url)))){
         const W0 = window.__mkaWait = window.__mkaWait || {}, n = W0[playId] = (W0[playId] || 0) + 1;
         if(n === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "som do filme: à espera do ficheiro novo", {leitor:src ? String(window.__fileKey(src)).split("/").pop() : "(ainda sem endereço)", filme:String(window.__fileKey(c.url)).split("/").pop()}); }catch(e){} }
         if(n <= 40) setTimeout(() => { try{ const A = window.__mka && window.__mka[slot]; if(A && A.pid === playId && trackNum == null) return;   /* já arrancou por outro lado (faixa escolhida): não a substitui */
