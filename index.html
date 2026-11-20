@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v475";
+const APP_VERSION = "v476";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16118,7 +16118,10 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       if(!this._aligned){ let s = -1; for(let i = 0; i + 188 < buf.length; i++){ if(buf[i] === 0x47 && buf[i + 188] === 0x47){ s = i; break; } }
         if(s < 0){ this._carry = buf.slice(Math.max(0, buf.length - 376)); return; } buf = buf.subarray(s); this._aligned = true; }
       const n = Math.floor(buf.length / 188) * 188; this._carry = buf.slice(n); this._emit(buf.subarray(0, n)); }
-    _emit(b){ this._patch(b); const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); const start = this._total; this._total += b.byteLength; if(this.onDataArrival) this.onDataArrival(ab, start, this._total); }
+    _emit(b){ this._patch(b); const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); const start = this._total; this._total += b.byteLength;
+      /* v476: débito real do ficheiro (Mbps) a cada 5 s, para saber se a rede chega para o vídeo */
+      const now = Date.now(); if(!this._dt0){ this._dt0 = now; this._db0 = 0; } this._db0 += b.byteLength;
+      if(now - this._dt0 >= 5000){ try{ window.__dbgEv && window.__dbgEv(0, "filme .ts: débito", {mbps: Math.round(this._db0 * 8 / ((now - this._dt0) / 1000) / 1e5) / 10, bytes: this._db0, total: this._total}); }catch(e){} this._dt0 = now; this._db0 = 0; } if(this.onDataArrival) this.onDataArrival(ab, start, this._total); }
     _patch(b){ for(let o = 0; o + 188 <= b.length; o += 188){ if(b[o] !== 0x47) continue;
         const pid = ((b[o + 1] & 0x1f) << 8) | b[o + 2], pusi = !!(b[o + 1] & 0x40), afc = (b[o + 3] >> 4) & 3; if(!pusi || !(afc & 1)) continue;
         let p = o + 4; if(afc & 2) p += 1 + b[o + 4]; if(p >= o + 188) continue; const pe = o + 188;
