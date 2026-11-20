@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v479";
+const APP_VERSION = "v480";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5125,7 +5125,7 @@ function mkvRun(slot, st, src, audio){
       let pos = 0, pend = new Uint8Array(0), pendAt = 0, tc = 0, lastTs = 0, resync = false, gen = 0;
       const seekTo = t => {
         gen++; try{ st.abort && st.abort.abort(); }catch(e){}
-        if(audio){ st.aq = []; try{ st.clock && st.clock.reset(); }catch(e){} }
+        if(audio){ st.aq = []; st.aLast = -1; try{ st.clock && st.clock.reset(); st.clock && st.clock.rearm && st.clock.rearm(); }catch(e){} }
         for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null;
         let at = first > 0 ? first : seg; resync = false;
         if(cues.length){ let c = cues[0]; for(const x of cues){ if(x.t <= t + 0.05) c = x; else break; } at = c.pos; lastTs = c.t * 1e6; }
@@ -5136,20 +5136,26 @@ function mkvRun(slot, st, src, audio){
       v.addEventListener("seeking", st.onSeek);
       seekTo(ct());
       const block = (b, d, n, keyFlag) => {
-        const tn = mkvVint(b, d, false); if(!tn || tn.v !== trk.num) return;
+        const tn = mkvVint(b, d, false); if(!tn) return;
+        if(tn.v !== trk.num){ /* v480: em andamento, os blocos da faixa de som vão para o leitor de som (uma só descarga do ficheiro) */
+          if(!audio){ const A = window.__mka && window.__mka[slot]; if(A && A.feed && A.feedTrk === tn.v && A.feedSrc === src){ try{ A.feed(b, d, n, tc); }catch(e){} } } return; }
         const q = d + tn.len, rel = (b[q] << 24 >> 16) | b[q + 1], fl = b[q + 2];
         if(audio){ const ts = Math.round((tc + rel) * scale / 1000);
           /* v213: blocos com «lacing» (vários pacotes de som por bloco) eram metidos inteiros no descodificador e davam «dados inválidos» */
           let pk = [b.slice(q + 3, d + n)];
           if(fl & 0x06){ try{ pk = mkvLaced(b, q + 3, d + n, (fl >> 1) & 3); }catch(e){ pk = []; } st.laced = (st.laced || 0) + 1; }
           if(!st.pkLog || st.pkLog.length < 8) (st.pkLog = st.pkLog || []).push({len:pk.length ? pk[0].length : 0, n:pk.length, fl, b:pk.length ? Array.from(pk[0].subarray(0, 6)).map(x => x.toString(16).padStart(2, "0")).join("") : ""});
-          const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
+          if(ts <= (st.aLast != null ? st.aLast : -1)) return;   /* v480: já recebido (troca entre leitura própria e partilhada) */
+          const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); st.aLast = ts; if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : st.fedAt ? 1200 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
         if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
         const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
         try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
+      if(audio){ st.feedTrk = trk.num; st.feedSrc = src; st.feed = (fb, fd, fn, ftc) => { if(!alive()) return; if(!st.fedAt){ try{ RR.reset(); }catch(e){} window.__dbgEv && window.__dbgEv(slot, "som do filme: lido da descarga da imagem (uma ligação a menos)", {}); } st.fedAt = performance.now(); const t0 = tc; tc = ftc; try{ block(fb, fd, fn, null); } finally { tc = t0; } }; }
       while(alive() && (audio || mirrorOn)){
+        if(audio && st.fedAt){ if(performance.now() - st.fedAt < 4000){ if(st.drain) st.drain(); await sleep(150); continue; }
+          st.fedAt = 0; window.__dbgEv && window.__dbgEv(slot, "som do filme: volta a ler o ficheiro por si", {}); seekTo(ct()); }
         const master = Math.max(st.masterUs != null ? st.masterUs : 0, ct() * 1e6);
         if(lastTs > master + (audio ? 9e6 : 12e6)){ if(audio && st.drain) st.drain(); await sleep(150); continue; }
         if(st.size && pos >= st.size){ await sleep(1000); continue; }
@@ -15968,7 +15974,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         this.sync0 = true;
         try{ const el = v.el || v, sl = el.id === "vid1" ? 1 : 0, cc = typeof lastPlayed !== "undefined" && lastPlayed[sl];
           const lag = el.currentTime - t, viaImg = v !== el && Math.abs(v.currentTime - el.currentTime) > 0.5; /* v439: em andamento o relógio é o da imagem: recuar o leitor do carro só pedia o ficheiro de novo */
-          if(cc && /^(movie|episode|vod)$/.test(cc.kind || "") && lag > 0.4 && lag < 15 && !viaImg){ window.__dbgEv && window.__dbgEv(sl, "som Dolby atrasado no arranque: recua a imagem", {s:+lag.toFixed(1)}); el.currentTime = t; this.endT = -1; return; } }catch(e){}
+          if(cc && /^(movie|episode|vod)$/.test(cc.kind || "") && lag > 0.4 && lag < 15 && !viaImg){ window.__dbgEv && window.__dbgEv(sl, "som Dolby atrasado no arranque: recua a imagem", {s:+lag.toFixed(1)}); this.recAt = performance.now(); el.currentTime = t; this.endT = -1; return; } }catch(e){}
       }
       if(at + dur < c.currentTime + 0.01){ this.endT = -1; this.drops = (this.drops || 0) + 1; this.dropLate = (this.dropLate || 0) + 1; return; }
       /* o leitor enche o buffer de vídeo muito à frente (30-150 s em direto): o som desses pedaços tem de ficar agendado, não ser deitado fora */
@@ -15987,6 +15993,8 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       this.srcs.push(s); s.onended = () => { const i = this.srcs.indexOf(s); if(i >= 0) this.srcs.splice(i, 1); try{ fg.disconnect(); }catch(e){} };
     }
     reset(){ for(const s of this.srcs){ try{ s.stop(); }catch(e){} } this.srcs = []; this.endT = -1; }
+    /* v480: depois de um salto do utilizador, volta a permitir (uma vez) recuar a imagem até ao primeiro som pronto; o salto causado por esse recuo não conta */
+    rearm(){ if(performance.now() - (this.recAt || 0) > 3000){ this.sync0 = false; this.born = performance.now(); } }
     close(){ this.reset(); try{ this.ctx && this.ctx.close(); }catch(e){} this.ctx = null; }
   }
   window.__PcmClock = PcmClock;
