@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v474";
+const APP_VERSION = "v475";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3531,7 +3531,10 @@ function playChannel(c, slot=tvTarget, auto=false){
       if(!ok || !mpegts.isSupported()) return fail("vídeo", "formato ." + fext + " HINT:A biblioteca para ." + fext + " não carregou (sem rede?).");
       /* v459: AC-3/E-AC-3 que o browser não aceita no MSE: o som vem por software (ver __tsMovieSound) */
       window.__tsBase = window.__tsBase || []; window.__tsBase[slot] = 0; if(window.__tsMovieArgs) window.__tsMovieArgs[slot] = null;
-      let sndA = null; if(isFileTs && window.__tsProbe && !(window.MediaSource && MediaSource.isTypeSupported('audio/mp4;codecs="ac-3"'))){ sndA = await window.__tsProbe(src); if(playId !== playSeq[slot]) return; }
+      let sndA = null; if(isFileTs && window.__tsProbe && !(window.MediaSource && MediaSource.isTypeSupported('audio/mp4;codecs="ac-3"'))){ sndA = await window.__tsProbe(src); if(playId !== playSeq[slot]) return;
+        /* v475: lista de faixas do .ts para o botão Áudio (a escolhida toca por software) */
+        const tl = window.__tsTrackList && window.__tsTrackList[src];
+        if(sndA && tl && tl.length > 1){ window.__mkaTracks = window.__mkaTracks || [null, null]; window.__mkaTracks[slot] = {seq:playSeq[slot], list:tl.map(t => ({n:t.n, codec:"A_" + t.kind.toUpperCase(), nome:"Faixa " + t.n, lang:"", ts:t})), cur:sndA.n, quer:null, ts:true}; } }
       const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
       const mopts = Object.assign({enableWorker:true, lazyLoad:true}, sndA && window.__TsPmtLoader ? {customLoader:window.__TsPmtLoader} : {}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {});
       const p = mpegts.createPlayer(mcfg, mopts); tsInst[slot] = p;
@@ -12166,7 +12169,7 @@ async function mkvProbeTracks(slot){
 function trkSetAudio(slot, kind, i){
   /* filmes e episódios: trocar a faixa não pode mexer na posição (se o leitor recuar, repõe-na) */
   const v = $("vid"+slot), c = lastPlayed[slot], keep = c && c.kind !== "live" && v && isFinite(v.currentTime) ? v.currentTime : -1, seq = playSeq[slot];
-  if(kind === "mka"){ const mk = window.__mkaTracks[slot], t = mk && mk.list[i]; if(t){ if(mk.cur === t.n && !(window.__mka && window.__mka[slot])) return; mk.cur = t.n; mk.nativa = false; try{ window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], /^A_AAC/.test(t.codec), /^A_AAC/.test(t.codec), t.n); }catch(e){} } return; }
+  if(kind === "mka"){ const mk = window.__mkaTracks[slot], t = mk && mk.list[i]; if(t && mk.ts){ if(mk.cur === t.n) return; mk.cur = t.n; try{ window.__tsSwitchTrack && window.__tsSwitchTrack(slot, t.ts); }catch(e){} return; } if(t){ if(mk.cur === t.n && !(window.__mka && window.__mka[slot])) return; mk.cur = t.n; mk.nativa = false; try{ window.__mkaStart(slot, lastPlayed[slot], playSeq[slot], /^A_AAC/.test(t.codec), /^A_AAC/.test(t.codec), t.n); }catch(e){} } return; }
   if(kind === "hls") hlsInst[slot].audioTrack = i;
   else if(kind === "native") [...$("vid"+slot).audioTracks].forEach((t,k) => { t.enabled = k === i; });
   if(keep > 3){
@@ -16059,7 +16062,10 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         const b = tail ? tsPtsScan(tail, a) : a;
         if(a.min != null && b.max != null && b.max > a.min){ window.__tsDurMap = window.__tsDurMap || {}; window.__tsDurMap[url] = (b.max - a.min) / 90000; }
       }catch(e){}
-      const L = pmtAudio(buf); return (L && L.find(t => t.kind === "ac3" || t.kind === "eac3")) || null;
+      const L = pmtAudio(buf); const dl = L ? L.filter(t => t.kind === "ac3" || t.kind === "eac3") : [];
+      /* v475: todas as faixas AC-3/E-AC-3 do .ts ficam guardadas para o botão Áudio; a primeira toca por defeito */
+      window.__tsTrackList = window.__tsTrackList || {}; window.__tsTrackList[url] = dl.map((t, i) => Object.assign({}, t, {n: i + 1}));
+      return window.__tsTrackList[url][0] || null;
     }catch(e){ return null; } };
   /* v464: procura PES de áudio/vídeo com PTS num bloco de TS e devolve o menor e o maior PTS (em ticks de 90 kHz) */
   const tsPtsScan = (buf, acc) => { const o = {min: acc ? acc.min : null, max: acc ? acc.max : null};
@@ -16132,6 +16138,14 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   window.__TsPmtLoader = TsPmtLoader;
   /* v468: o mpegts.js não consegue saltar num .ts sem duração conhecida: o salto reabre o leitor no byte estimado e o tempo do vídeo volta a contar a partir do ponto */
   window.__tsBase = window.__tsBase || [];
+  /* v475: troca a faixa de som de um .ts: o som reinicia na posição atual; a imagem não muda */
+  window.__tsSwitchTrack = (slot, track) => {
+    const a = window.__tsMovieArgs && window.__tsMovieArgs[slot]; const v = $("vid" + slot);
+    if(!a || !v || !track) return;
+    try{ window.__dbgEv && window.__dbgEv(slot, "som do .ts: troca de faixa", {faixa: track.n, codec: track.kind}); }catch(e){}
+    try{ window.__tsSnd && window.__tsSnd[slot] && window.__tsSnd[slot].stop(); }catch(e){}
+    window.__tsMovieSound(slot, a.url, track, a.playId, v.currentTime || 0);
+  };
   window.__tsSeekRestart = (slot, t) => {
     const a = window.__tsMovieArgs && window.__tsMovieArgs[slot]; const v = $("vid" + slot);
     if(!a || !v || !window.mpegts || !window.__TsPmtLoader) return;
