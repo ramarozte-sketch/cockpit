@@ -1757,7 +1757,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" id="decHttpNote" style="margin:0;display:none">Página em http: a imagem em andamento é sempre descodificada por software (h264soft.js). A escolha do motor só existe com a página em https.</p>
           <p class="small muted decHttpHide" style="margin:0">Motor da imagem em andamento (espelho). WebCodecs é o padrão e usa o descodificador do browser. Software usa o h264soft.js, para comparar no mesmo canal.</p>
           <label class="f decHttpHide">Motor de descodificação<select id="setDecode"><option value="webcodecs">WebCodecs (por defeito)</option><option value="software">Software (h264soft.js)</option></select></label>
-          <label class="f">Filmes .mp4 com som Dolby<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
+          <label class="f">Filmes .mp4 (som por software)<select id="setMseFilm"><option value="on">Um só leitor, uma ligação (por defeito)</option><option value="off">Leitor do carro + som à parte (antigo)</option></select></label>
           <div class="row decHttpHide" style="gap:10px;margin-top:6px"><button class="btn" id="btnWcTest">🧪 Testar WebCodecs</button></div>
           <label class="row small" style="gap:10px;margin:8px 0"><input type="checkbox" id="setSmooth"> Relógio suavizado (por defeito ligado; é o mesmo que já corre no carro)</label>
           <h3 class="setsubh">Indicador de fps</h3>
@@ -1968,6 +1968,9 @@ const IDB = {
 };
 const cfg = Object.assign({osAuto:true, token:"", vin:"", lang:"pt-PT", speak:true, light:false, m3u:"", xs:"", xu:"", xp:"", epg:"", proxy:"", pkey:"", pinHash:"", pinSalt:"", stt:"auto", srBroken:false, ai:"auto", ui:"", ytKey:"", gClient:"", msClient:"", gwToken:"", gwPlant:"", gwUnit:"W", houseW:"", tarIn:"0.21", tarOut:"0.05", tarSc:"", phases:"1"}, LS.get("cfg", {}));
 const saveCfg = () => LS.set("cfg", cfg);
+/* v500: a opção «Filmes .mp4: leitor do carro + som à parte (antigo)» estava ligada de uma versão antiga e tirava os .mp4 da descarga única (v498: AAC e andamento).
+   Volta uma vez ao «um só leitor»; quem a quiser no antigo pode voltar a escolhê-lo nas Definições. */
+try{ if(cfg.mseFilmMig !== 500){ cfg.mseFilmMig = 500; if(cfg.mseFilm === false) cfg.mseFilm = true; saveCfg(); } }catch(e){}
 /* v280: «sem proxy» — a página https não pode pedir a um servidor http (o browser bloqueia); a versão http do Cockpit (InfinityFree) pode.
    As definições passam no endereço (#ckimp=…), só entre as duas páginas, sem passar por nenhum servidor intermédio. */
 const HTTP_MIRROR = "http://cockpit.page.gd/";
@@ -2972,7 +2975,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v499";
+const APP_VERSION = "v500";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
