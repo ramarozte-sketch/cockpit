@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v476";
+const APP_VERSION = "v477";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4044,6 +4044,22 @@ function svdWarm(n){
 }
 /* Annex B (00 00 01 + NAL): {nr: todas as fatias com nal_ref_idc = 0, idr: tem fatia IDR, ref: alguma fatia de referência} */
 /* v238: H.265 — tipo da primeira fatia: não-referência = tipo par abaixo de 16; IDR = 19/20 (CRA 21 e BLA 16–18 são GOP aberto) */
+/* v477: filmes HEVC (MKV/MP4) por software: as amostras vêm com prefixo de tamanho e os VPS/SPS/PPS no hvcC.
+   Convertem-se para Annex B (como nos canais .ts, que já funcionam) e os parâmetros vão à frente de cada imagem-chave. */
+function __hvccAnnex(c){
+  try{ if(!c || c.length < 23) return null; const ls = (c[21] & 3) + 1, na = c[22], out = []; let o = 23;
+    for(let a = 0; a < na; a++){ if(o + 3 > c.length) return null; const n = (c[o + 1] << 8) | c[o + 2]; o += 3;
+      for(let k = 0; k < n; k++){ if(o + 2 > c.length) return null; const l = (c[o] << 8) | c[o + 1]; o += 2; if(o + l > c.length) return null; out.push(0, 0, 0, 1); for(let i = 0; i < l; i++) out.push(c[o + i]); o += l; } }
+    return out.length ? {ls, ps:new Uint8Array(out)} : null; }catch(e){ return null; } }
+function __lpAnnex(d, hv, key){
+  const isA = d.length > 4 && d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1));
+  if(isA){ if(!key) return d; const r = new Uint8Array(hv.ps.length + d.length); r.set(hv.ps); r.set(d, hv.ps.length); return r; }
+  const parts = []; let o = 0, tot = key ? hv.ps.length : 0, ls = hv.ls;
+  while(o + ls <= d.length){ let l = 0; for(let i = 0; i < ls; i++) l = l * 256 + d[o + i]; o += ls; if(l <= 0 || o + l > d.length) break; parts.push([o, l]); tot += 4 + l; o += l; }
+  if(!parts.length) return d;
+  const r = new Uint8Array(tot); let w = 0; if(key){ r.set(hv.ps, 0); w = hv.ps.length; }
+  for(const [a, l] of parts){ r[w + 3] = 1; w += 4; r.set(d.subarray(a, a + l), w); w += l; }
+  return r; }
 function __hevcInfo(u){
   for(let i = 0; i + 4 < u.length && i < 4000; i++){
     if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const t = (u[i + 3] >> 1) & 0x3f;
@@ -5084,7 +5100,12 @@ function mkvRun(slot, st, src, audio){
       const h2 = x => x.toString(16).padStart(2, "0");
       const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
       st.cfg = {codec, description:trk.priv, codedWidth:trk.w, codedHeight:trk.h, optimizeForLatency:true};
-      if(!WC_NATIVE && isHevc){ st.err = "HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
+      if(!WC_NATIVE && isHevc){ st.hv = __hvccAnnex(trk.priv);
+        if(!st.hv){ st.err = "HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
+        st.cfg = {codec:"hevc", hevc:true, codedWidth:trk.w, codedHeight:trk.h};
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software", {w:trk.w, h:trk.h, contentor:"mkv"}); }catch(e){}
+        /* salvaguarda: sem imagem ao fim de 15 s, volta à regra antiga (outra versão do filme) */
+        const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(alive() && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 15000); }
       const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
       if(!sup || !sup.supported){ st.err = codec + " não suportado"; toast("Este filme usa " + (isHevc ? "HEVC/H.265" : codec) + " e o descodificador deste browser não o mostra em andamento.", true); return; }
       decoder.configure(st.cfg);
@@ -5120,7 +5141,7 @@ function mkvRun(slot, st, src, audio){
           const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
         if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
         const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
-        try{ decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:b.slice(q + 3, d + n)}); }catch(e){ st.err = "decode: " + e.message; }
+        try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
       while(alive() && (audio || mirrorOn)){
@@ -5608,11 +5629,15 @@ function mp4Run(slot, st, src){
     file.onError = e => { st.err = "mp4box: "+e; };
     file.onReady = info => {
       const vt = (info.videoTracks||[])[0]; if(!vt){ st.err="sem pista de vídeo"; return; }
-      if(/^(hvc1|hev1)/i.test(vt.codec) && !WC_NATIVE){ st.err="HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
       let desc=null; const trak=file.getTrackById(vt.id);
       for(const e of trak.mdia.minf.stbl.stsd.entries){ const b=e.avcC||e.hvcC; if(b){ const ds=new DS(undefined,0,DS.BIG_ENDIAN); b.write(ds); desc=new Uint8Array(ds.buffer,8); break; } }
       st.cfg = {codec:vt.codec, description:desc, codedWidth:vt.track_width||(vt.video&&vt.video.width), codedHeight:vt.track_height||(vt.video&&vt.video.height)};
-      if(/^(hvc1|hev1)/i.test(vt.codec)) VideoDecoder.isConfigSupported(st.cfg).then(r => { if(MIR[slot] === st && !(r && r.supported)){ st.err = "HEVC não suportado pelo WebCodecs deste browser"; /* v455: sem aviso vermelho; o registo continua */ } }).catch(() => {});
+      if(/^(hvc1|hev1)/i.test(vt.codec) && softFilm){ st.hv = __hvccAnnex(desc);
+        if(!st.hv){ st.err="HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
+        st.cfg = {codec:"hevc", hevc:true, codedWidth:st.cfg.codedWidth, codedHeight:st.cfg.codedHeight};
+        try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software", {w:st.cfg.codedWidth, h:st.cfg.codedHeight, contentor:"mp4"}); }catch(e){}
+        const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(MIR[slot] === st && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 15000); }
+      if(/^(hvc1|hev1)/i.test(vt.codec) && !st.hv && window.VideoDecoder) VideoDecoder.isConfigSupported(st.cfg).then(r => { if(MIR[slot] === st && !(r && r.supported)){ st.err = "HEVC não suportado pelo WebCodecs deste browser"; /* v455: sem aviso vermelho; o registo continua */ } }).catch(() => {});
       try{ decoder.configure(st.cfg); }catch(err){ st.err="configure: "+err.message; return; }
       file.setExtractionOptions(vt.id, null, {nbSamples:30});
       const sk = file.seek(v.currentTime||0, true); pos = sk.offset; lastTs = sk.time*1e6; ready = true;
@@ -5622,7 +5647,7 @@ function mp4Run(slot, st, src){
       if(MIR[slot]!==st || decoder.state!=="configured") return;
       for(const s of samples){
         const ts = Math.round(s.cts*1e6/s.timescale);
-        const ch = { type: s.is_sync?"key":"delta", timestamp: ts, duration: Math.round(s.duration*1e6/s.timescale), data: s.data };
+        const ch = { type: s.is_sync?"key":"delta", timestamp: ts, duration: Math.round(s.duration*1e6/s.timescale), data: st.hv ? __lpAnnex(new Uint8Array(s.data), st.hv, !!s.is_sync) : s.data };
         try{ decoder.decode(ch); }catch(e){ st.err="decode: "+e.message; }
         lastTs = ts;
       }
