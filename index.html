@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v485";
+const APP_VERSION = "v484";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4085,7 +4085,7 @@ function __lpAnnex(d, hv, key){
 function __hevcInfo(u){
   for(let i = 0; i + 4 < u.length && i < 4000; i++){
     if(u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1){ const t = (u[i + 3] >> 1) & 0x3f;
-      if(t < 32){ const nr = t < 16 && (t & 1) === 0, tid = (u[i + 4] & 7) - 1; return {nr, idr:t === 19 || t === 20, ref:!nr, tid, ras:t === 8 || t === 9}; }
+      if(t < 32){ const nr = t < 16 && (t & 1) === 0, tid = (u[i + 4] & 7) - 1; return {nr, idr:t === 19 || t === 20, ref:!nr, tid}; }
       i += 2; }
   }
   return {nr:false, idr:false, ref:true};
@@ -4142,9 +4142,6 @@ class SoftVideoDecoder {
     const ai = annex ? (this.hevc ? __hevcInfo(data) : __annexInfo(data)) : null;
     /* v484: HEVC — uma imagem «não-referência» (_N) só é descartável na camada temporal mais alta; nas de baixo, as camadas de cima podem usá-la (descartá-la deixava quadrados cinzentos) */
     if(ai && this.hevc && ai.tid >= 0){ if(ai.tid > (this.maxTid || 0)) this.maxTid = ai.tid; if(ai.nr && ai.tid < (this.maxTid || 0)){ ai.nr = false; ai.ref = true; } }
-    /* v485: imagens RASL (leading) de um CRA do início da reprodução referenciam imagens que nunca chegaram → cinzento; descartam-se até ao 2.º ponto de entrada */
-    if(key) this.keyN = (this.keyN || 0) + 1;
-    if(ai && ai.ras && this.hevc && (this.keyN || 0) <= 1) return;
     const c = {data, ts:ch.timestamp, key, nr:!key && (ai ? ai.nr : __avcNonRef(data)), ref:ai ? ai.ref || key : !key ? !__avcNonRef(data) : true, open:key && !!ai && !ai.idr};
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
