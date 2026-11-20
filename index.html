@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v460";
+const APP_VERSION = "v461";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3532,7 +3532,8 @@ function playChannel(c, slot=tvTarget, auto=false){
       /* v459: AC-3/E-AC-3 que o browser não aceita no MSE: o som vem por software (ver __tsMovieSound) */
       let sndA = null; if(isFileTs && window.__tsProbe && !(window.MediaSource && MediaSource.isTypeSupported('audio/mp4;codecs="ac-3"'))){ sndA = await window.__tsProbe(src); if(playId !== playSeq[slot]) return; }
       const mcfg = {type: isFlv ? "flv" : "mpegts", isLive:false, url:src}; if(sndA) mcfg.hasAudio = false;
-      const p = mpegts.createPlayer(mcfg, Object.assign({enableWorker:true, lazyLoad:true}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {})); tsInst[slot] = p;
+      const mopts = Object.assign({enableWorker:true, lazyLoad:true}, sndA && window.__TsPmtLoader ? {customLoader:window.__TsPmtLoader} : {}, window.__TESLA ? {autoCleanupSourceBuffer:true, autoCleanupMaxBackwardDuration:60, autoCleanupMinBackwardDuration:30, fixAudioTimestampGap:true} : {});
+      const p = mpegts.createPlayer(mcfg, mopts); tsInst[slot] = p;
       p.attachMediaElement(v); p.load(); let bad = false;
       p.on(mpegts.Events.ERROR, (t, d, info) => { try{ window.__dbgEv && window.__dbgEv(slot, "erro do leitor de .ts (filme)", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "").slice(0, 160), info:String(info && (info.msg || info.code) || "").slice(0, 200), somNoLeitor:!sndA}); }catch(e){} if(bad) return; bad = true; fail("vídeo", "formato ." + fext + " HINT:" + fmtHint(c.url)); });
       if(sndA && window.__tsMovieSound) window.__tsMovieSound(slot, src, sndA, playId);
@@ -16049,6 +16050,53 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       try{ rd.cancel(); }catch(e){}
       const L = pmtAudio(buf); return (L && L.find(t => t.kind === "ac3" || t.kind === "eac3")) || null;
     }catch(e){ return null; } };
+  /* v461: carregador do mpegts.js que reescreve a tabela de programas (PMT): as faixas AC-3/E-AC-3 deixam de existir
+     para o leitor (tipo 0x06, CRC refeito) e o vídeo entra sem o som que o browser não aceita. O som sai do __tsMovieSound. */
+  const crcT = (() => { const t = new Uint32Array(256); for(let i = 0; i < 256; i++){ let c = i << 24; for(let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04C11DB7) : (c << 1); t[i] = c >>> 0; } return t; })();
+  const crc32m = (b, s, e) => { let c = 0xFFFFFFFF; for(let i = s; i < e; i++) c = ((c << 8) ^ crcT[((c >>> 24) ^ b[i]) & 0xFF]) >>> 0; return c >>> 0; };
+  class TsPmtLoader {
+    constructor(seekHandler, config){ this._config = config || {}; this._ctl = null; this._status = 0; this._pmtPid = -1; this._carry = new Uint8Array(0); this._total = 0; this._aligned = true; }
+    static isSupported(){ return typeof fetch === "function" && typeof ReadableStream !== "undefined"; }
+    get status(){ return this._status; }
+    get type(){ return "tsPmtFetch"; }
+    isWorking(){ return this._status === 1 || this._status === 2; }
+    open(ds, range){
+      const from = range && range.from > 0 ? range.from : 0; this._ctl = new AbortController(); this._status = 1; this._total = from; this._carry = new Uint8Array(0); this._aligned = from === 0; this._pmtPid = -1;
+      const headers = from > 0 ? {Range:"bytes=" + from + "-"} : {};
+      (async () => { try{ const r = await fetch(ds.url, {headers, signal:this._ctl.signal});
+          if(!(r.ok || r.status === 206)) throw new Error("HTTP " + r.status);
+          if(from === 0 && this.onContentLengthKnown){ const cl = +r.headers.get("content-length"); if(cl) this.onContentLengthKnown(cl); }
+          this._status = 2; const rd = r.body.getReader();
+          while(true){ const x = await rd.read(); if(x.done) break; this._push(x.value); }
+          if(this._carry.length) this._emit(this._carry); this._carry = new Uint8Array(0);
+          this._status = 4; if(this.onComplete) this.onComplete(from, this._total - 1);
+        }catch(e){ if(e.name === "AbortError"){ this._status = 0; return; } this._status = 3; if(this.onError) this.onError(3, {code:-1, msg:String(e.message || e)}); } })();
+    }
+    abort(){ try{ this._ctl && this._ctl.abort(); }catch(e){} this._status = 0; }
+    destroy(){ this.abort(); this.onDataArrival = this.onComplete = this.onError = this.onContentLengthKnown = this.onURLRedirect = this.onRecoveredEarlyEof = null; }
+    _push(d){
+      let buf = d; if(this._carry.length){ buf = new Uint8Array(this._carry.length + d.length); buf.set(this._carry); buf.set(d, this._carry.length); }
+      if(!this._aligned){ let s = -1; for(let i = 0; i + 188 < buf.length; i++){ if(buf[i] === 0x47 && buf[i + 188] === 0x47){ s = i; break; } }
+        if(s < 0){ this._carry = buf.slice(Math.max(0, buf.length - 376)); return; } buf = buf.subarray(s); this._aligned = true; }
+      const n = Math.floor(buf.length / 188) * 188; this._carry = buf.slice(n); this._emit(buf.subarray(0, n)); }
+    _emit(b){ this._patch(b); const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); const start = this._total; this._total += b.byteLength; if(this.onDataArrival) this.onDataArrival(ab, start, this._total); }
+    _patch(b){ for(let o = 0; o + 188 <= b.length; o += 188){ if(b[o] !== 0x47) continue;
+        const pid = ((b[o + 1] & 0x1f) << 8) | b[o + 2], pusi = !!(b[o + 1] & 0x40), afc = (b[o + 3] >> 4) & 3; if(!pusi || !(afc & 1)) continue;
+        let p = o + 4; if(afc & 2) p += 1 + b[o + 4]; if(p >= o + 188) continue; const pe = o + 188;
+        if(pid === 0 && this._pmtPid < 0){ const sec = p + 1 + b[p]; if(sec + 8 > pe || b[sec] !== 0) continue; const sl = ((b[sec + 1] & 0xf) << 8) | b[sec + 2]; const end = Math.min(sec + 3 + sl - 4, pe);
+          for(let i = sec + 8; i + 4 <= end; i += 4){ const prog = (b[i] << 8) | b[i + 1]; if(prog){ this._pmtPid = ((b[i + 2] & 0x1f) << 8) | b[i + 3]; break; } } }
+        else if(this._pmtPid >= 0 && pid === this._pmtPid) this._patchPmt(b, p, pe);
+      } }
+    _patchPmt(b, p, pe){
+      const sec = p + 1 + b[p]; if(sec + 12 > pe || b[sec] !== 2) return; const sl = ((b[sec + 1] & 0xf) << 8) | b[sec + 2]; const end = sec + 3 + sl; if(end > pe) return;
+      const pil = ((b[sec + 10] & 0xf) << 8) | b[sec + 11]; let i = sec + 12 + pil, changed = false;
+      while(i + 5 <= end - 4){ const st = b[i], il = ((b[i + 3] & 0xf) << 8) | b[i + 4]; let hide = st === 0x81 || st === 0x87;
+        if(st === 0x06){ for(let k = i + 5; k < i + 5 + il && k + 1 < end;){ const tg = b[k], ln = b[k + 1]; if(tg === 0x6A || tg === 0x7A) hide = true; k += 2 + ln; } }
+        if(hide){ b[i] = 0x06; changed = true; } i += 5 + il; }
+      if(changed){ const c = crc32m(b, sec, end - 4); b[end - 4] = (c >>> 24) & 0xFF; b[end - 3] = (c >>> 16) & 0xFF; b[end - 2] = (c >>> 8) & 0xFF; b[end - 1] = c & 0xFF; }
+    }
+  }
+  window.__TsPmtLoader = TsPmtLoader;
   window.__tsMovieSound = (slot, url, a, playId) => {
     const v = $("vid" + slot); if(!v) return;
     const ctl = new AbortController(), st = {clock:new PcmClock(v), q:[], init:null, dec:null, L:null, on:true, busy:false};
