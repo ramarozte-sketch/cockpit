@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v489";
+const APP_VERSION = "v490";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3684,7 +3684,7 @@ function playChannel(c, slot=tvTarget, auto=false){
       const gapF = window.__TESLA ? 3000 - (Date.now() - Math.max(window.__hlsKillAt || 0, window.__connCloseAt || 0)) : 0;
       /* v488: .mkv no Tesla com o carro parado: a imagem por MSE a partir da nossa leitura (uma só descarga para imagem e som); se falhar, volta ao endereço direto */
       v._mkvMse = null; const co0 = v.crossOrigin;
-      const useMse = window.__TESLA && !live && /\.mkv(\?|$)/i.test(c.url) && cfg.mkvMse !== false && !mirrorOn && !!window.MediaSource && !(window.__mkvMseNo && window.__mkvMseNo[c.url]);
+      const useMse = window.__TESLA && !live && /\.mkv(\?|$)/i.test(c.url) && cfg.mkvMse !== false && !!window.MediaSource && !(window.__mkvMseNo && window.__mkvMseNo[c.url]);
       const goSrc = () => { if(useMse && window.__mkvMse(slot, c, playId, v, src1, why => { if(playId !== playSeq[slot]) return; (window.__mkvMseNo = window.__mkvMseNo || {})[c.url] = String(why || "1");
           const t = v.currentTime > 1 ? v.currentTime : 0; try{ if(co0) v.crossOrigin = co0; v.src = src1; v.load(); if(t){ const go = () => { v.removeEventListener("loadedmetadata", go); try{ v.currentTime = t; }catch(e){} }; v.addEventListener("loadedmetadata", go); } v.play().catch(() => {}); }catch(e){} })) return true;
         v.src = src1; return false; };
@@ -4005,7 +4005,7 @@ window.__hevcMovie = (slot, c) => {
     const lgOf = x => { const m = String(x.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]/i); return m ? m[1].toLowerCase() : (/\|pt\||portug/i.test(x.group || "") ? "pt" : ""); };
     const rank = x => { const l = lgOf(x); return l === lg && lg ? 0 : (l === "pt" || l === "br") ? 1 : l === "en" ? 2 : !l ? 3 : 4; };
     const cand = channels.filter(x => x && x.kind === c.kind && x.url !== c.url && !HEVCM.has(x.url) && movBase(x.name) === b)
-      .sort((x, y) => (rank(x) - rank(y)) || (tag(x.name) - tag(y.name)));
+      .sort((x, y) => (rank(x) - rank(y)) || ((/\.ts(\?|$)/i.test(x.url) ? 1 : 0) - (/\.ts(\?|$)/i.test(y.url) ? 1 : 0)) || (tag(x.name) - tag(y.name)));   /* v490: .ts por último (sem imagem em andamento) */
     const sib = cand[0];
     try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 em andamento", {outraVersao:sib ? sib.name : null}); }catch(e){}
     if(!sib) return false;
@@ -5052,7 +5052,9 @@ function mp4Init(slot){
   }
   st.onMeta = () => {
     if(MIR[slot]!==st) return;
-    const src = v.currentSrc || v.src; if(!src || st.src===src) return;
+    const M = v._mkvMse && v._mkvMse.alive && v._mkvMse.alive() ? v._mkvMse : null;
+    if(M && isMkv){ if(st.src === M.src) return; if(M.trk){ if(mirMseTap(slot, st, M)) return; } else { setTimeout(() => { try{ if(MIR[slot] === st && !st.src) st.onMeta(); }catch(e){} }, 500); return; } }
+    const src = M ? M.src : (v.currentSrc || v.src); if(!src || st.src===src) return;
     if(st.src){ stopMirror(slot); startMirror(slot); return; } // mudou de fonte (fallback de proxy)
     st.src = src; (isMkv ? mkvRun : mp4Run)(slot, st, src);
   };
@@ -5202,6 +5204,25 @@ window.__mkvMse = (slot, c, playId, v, src1, onFail) => {
     return true;
   }catch(e){ return false; }
 };
+/* v490: imagem em andamento a partir da leitura do MSE (o leitor do carro serve de relógio sem descarregar nada à parte): uma só descarga para o leitor do carro, a imagem por software e o som */
+function mirMseTap(slot, st, M){
+  const T = M && M.trk; if(!T || !M.alive()) return false;
+  const alive = () => MIR[slot] === st && M.alive();
+  st.q = []; st.marks = []; st.lastFrame = 0; st.err = null; st.film = true; st.src = M.src; window.__motorUsado = "h264soft";
+  const decoder = new SoftVideoDecoder({output: frame => { if(!alive()){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; mirPushFrame(st, frame); startPresent(slot); },
+    error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).length});
+  decoder.film = true; st.decoder = decoder;
+  if(T.hevc){ st.hv = __hvccAnnex(T.priv); if(!st.hv) return false; st.cfg = {codec:"hevc", hevc:true, codedWidth:T.w, codedHeight:T.h};
+    decoder.onSlow = info => { if(alive()) window.__h4kTo1080(slot, lastPlayed[slot], info); }; }
+  else st.cfg = {codec:T.codec, description:T.priv, codedWidth:T.w, codedHeight:T.h, optimizeForLatency:true};
+  decoder.configure(st.cfg);
+  M.tap = {decode(c){ if(!alive()){ M.tap = null; return; } decoder.decode({type:c.type, timestamp:c.timestamp, data:st.hv ? __lpAnnex(c.data, st.hv, c.type === "key") : c.data}); startPresent(slot); },
+    reset(){ for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null; }};
+  try{ window.__dbgEv && window.__dbgEv(slot, "andamento: imagem da mesma descarga do leitor do carro (MSE)", {hevc:!!T.hevc, w:T.w, h:T.h}); }catch(e){}
+  if(T.hevc){ const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(alive() && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 20000); }
+  try{ M.reseek && M.reseek(); }catch(e){}   /* volta a ler a partir do ponto atual (a leitura ia até 30 s à frente) */
+  return true;
+}
 function mkvRun(slot, st, src, audio){
   const alive = () => audio ? (window.__mka && window.__mka[slot] === st) : st.mse ? st.mse.alive() : MIR[slot] === st;
   const v = $("vid" + slot), ct = () => st.aac && st.clock ? st.clock.v.currentTime : v.currentTime, sleep = ms => new Promise(r => setTimeout(r, ms)), CH = 1 << 21;
@@ -5293,7 +5314,8 @@ function mkvRun(slot, st, src, audio){
       const isAvc = /^V_MPEG4\/ISO\/AVC/.test(trk.codec), isHevc = /^V_MPEGH\/ISO\/HEVC/.test(trk.codec);
       if(!(isAvc || isHevc) || !trk.priv) throw new Error("vídeo " + trk.codec + " (só H.264 e HEVC)");
       if(st.mse){ const hx = x => x.toString(16).padStart(2, "0"), mc = isAvc ? "avc1." + hx(trk.priv[1]) + hx(trk.priv[2]) + hx(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1"), durS = dur ? dur * scale / 1e9 : 0;
-        if(!st.mse.start(mc, MkvFmp4.init({hevc:isHevc, priv:trk.priv, w:trk.w || 1920, h:trk.h || 1080, durUs:durS * 1e6}), durS)) return; }
+        if(!st.mse.start(mc, MkvFmp4.init({hevc:isHevc, priv:trk.priv, w:trk.w || 1920, h:trk.h || 1080, durUs:durS * 1e6}), durS)) return;
+        st.mse.trk = {hevc:isHevc, codec:isAvc ? mc : "hevc", priv:trk.priv, w:trk.w, h:trk.h}; st.mse.reseek = () => { if(alive()) seekTo(ct()); }; }
       else {
       const h2 = x => x.toString(16).padStart(2, "0");
       const codec = isAvc ? "avc1." + h2(trk.priv[1]) + h2(trk.priv[2]) + h2(trk.priv[3]) : __hevcCodec(trk.priv, -2).replace(/^hev1/, "hvc1");
@@ -5321,7 +5343,7 @@ function mkvRun(slot, st, src, audio){
       const seekTo = t => {
         gen++; try{ st.abort && st.abort.abort(); }catch(e){}
         if(audio){ st.aq = []; st.aLast = -1; st.fbuf = null; try{ st.clock && st.clock.reset(); st.clock && st.clock.rearm && st.clock.rearm(); }catch(e){} }
-        for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null;
+        for(const f of st.q){ try{ f.close(); }catch(e){} } st.q = []; try{ decoder.reset(); }catch(e){} st.masterUs = null; st.offUs = null; if(st.mse && st.mse.tap){ try{ st.mse.tap.reset(); }catch(e){} }
         let at = first > 0 ? first : seg; resync = false;
         if(cues.length){ let c = cues[0]; for(const x of cues){ if(x.t <= t + 0.05) c = x; else break; } at = c.pos; lastTs = c.t * 1e6; }
         else if(t > 1 && dur && st.size){ at = Math.max(first > 0 ? first : seg, Math.floor(seg + (t * 1e9 / scale) / dur * (st.size - seg)) - (1 << 20)); resync = true; lastTs = 0; }
@@ -5348,7 +5370,8 @@ function mkvRun(slot, st, src, audio){
           const ps = pk.length ? Math.round(1024 / (st.sr0 || 48000) * 1e6) : 0; pk.forEach((dd, ii) => st.aq.push({ts:ts + ii * ps, data:dd})); st.aLast = ts; if(st.aac){ const c0 = ct() - 3; while(st.aq.length && st.aq[0].ts / 1e6 < c0) st.aq.shift(); } const mx = st.aac ? 6000 : (st.fedAt || st.xc) ? 20000 : 400; if(st.aq.length > mx) st.aq.splice(0, st.aq.length - mx); lastTs = ts; st.drain(); return; }
         if(fl & 0x06) return;   /* com lacing: ignora (raro em vídeo) */
         const ts = Math.round((tc + rel) * scale / 1000), key = keyFlag == null ? !!(fl & 0x80) : keyFlag;
-        try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw}); }catch(e){ st.err = "decode: " + e.message; }
+        try{ const raw = b.slice(q + 3, d + n); decoder.decode({type:key ? "key" : "delta", timestamp:ts, data:st.hv ? __lpAnnex(raw, st.hv, key) : raw});
+          if(st.mse && st.mse.tap) st.mse.tap.decode({type:key ? "key" : "delta", timestamp:ts, data:raw}); }catch(e){ st.err = "decode: " + e.message; }
         lastTs = ts;
       };
       if(audio){ st.feedTrk = trk.num; st.feedSrc = window.__fileKey(src);
