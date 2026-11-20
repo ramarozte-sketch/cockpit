@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v469";
+const APP_VERSION = "v470";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16095,6 +16095,10 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
           this._status = 2; const rd = r.body.getReader();
           let nb = 0, first = true; while(true){ const x = await rd.read(); if(ctl !== this._ctl) return; if(x.done) break; this._last = Date.now(); nb += x.value.length; if(first){ first = false; try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: primeiros dados", {from, bytes:x.value.length}); }catch(e){} } this._push(x.value); }
           if(this._carry.length) this._emit(this._carry); this._carry = new Uint8Array(0);
+          /* v470: o servidor fecha o pedido antes do fim do ficheiro: reabre a partir do byte atual (até 5 vezes) */
+          const sz = window.__tsSizeBy && window.__tsSizeBy.url === ds.url ? window.__tsSizeBy.size : 0;
+          try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: fim do pedido", {from, bytes:nb, total:this._total, faltam: sz ? sz - this._total : null}); }catch(e){}
+          if(sz && this._total < sz - 1000000 && (this._re || 0) < 5){ this._re = (this._re || 0) + 1; this.open(ds, {from:this._total}); return; }
           this._status = 4; if(this.onComplete) this.onComplete(from, this._total - 1);
         }catch(e){ if(ctl !== this._ctl) return; if(e.name === "AbortError"){ this._status = 0; return; } this._status = 3; if(this.onError) this.onError(3, {code:-1, msg:String(e.message || e)}); } })();
     }
