@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v455";
+const APP_VERSION = "v457";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4353,7 +4353,7 @@ function copyLoop(slot){
 /* Pequeno diagnóstico no canvas enquanto o WebCodecs não produz imagem (para testar no carro). */
 function mirDiag(slot, st){
   const cv=$("cv"+slot); if(!cv.width) return; const ctx=cv.getContext("2d");
-  if(!st.err) return;   /* v202: sem o texto azul «A descodificar… fragmentos/frames» por cima do vídeo */
+  if(true) return;   /* v457: sem texto por cima do vídeo (o erro continua no registo de diagnóstico) */
   const msg = "WebCodecs: "+st.err;
   ctx.save(); ctx.font="14px monospace"; ctx.textAlign="center";
   const w=ctx.measureText(msg).width+20;
@@ -15880,7 +15880,12 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
       ctor = await load(base + "/libav-6.10.9.0-" + variant + ".js"); if(ctor) break;
     }
     if(!ctor) throw new Error("libav não carregou");
-    const L = await ctor(); try{ await L.av_log_set_level(16); }catch(e){} return L;
+    const L = await ctor(); try{ await L.av_log_set_level(16); }catch(e){}
+    /* v456 (só medição): tempo de cada chamada de descodificação de som, para o registo «som Dolby: níveis» (decAudMs, decAudBlocos) */
+    try{ const orig = L.ff_decode_multi.bind(L); window.__audDec = window.__audDec || {ms:0, n:0, max:0};
+      L.ff_decode_multi = async (...a) => { const t = performance.now(); try{ return await orig(...a); } finally { const d = performance.now() - t; const b = a[3] ? a[3].length : 0; const s = window.__audDec; s.ms += d; s.n += b; if(d > s.max) s.max = d; } };
+    }catch(e){}
+    return L;
   })().catch(e => { delete LPm[variant]; throw e; }));
   window.__libav = libav;
   /* --- relógio: PCM seguido, ancorado ao tempo do vídeo --- */
@@ -15907,7 +15912,7 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
         if(rms > 0.004){ this.env = this.env ? this.env * 0.9 + rms * 0.1 : rms; let tg = Math.max(1, Math.min(12, 0.09 / this.env)); if(this.pk * tg > 0.9) tg = Math.max(1, 0.9 / this.pk);
           this.gA = tg < this.gA ? this.gA * 0.6 + tg * 0.4 : this.gA * 0.97 + tg * 0.03; }
         if(this.agc) this.agc.gain.setTargetAtTime(this.gA, c.currentTime, 0.03); /* v509: alisa a nivelação em vez de saltar (estalos) */
-        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {decMs:window.__dolDec ? Math.round(window.__dolDec.ms) : null, decBlocos:window.__dolDec ? window.__dolDec.n : null, rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
+        const now = performance.now(); if(now - this.lastLog > 6000){ this.lastLog = now; window.__dbgEv && window.__dbgEv(v.id === "vid1" ? 1 : 0, "som Dolby: níveis", {decMs:window.__dolDec ? Math.round(window.__dolDec.ms) : null, decBlocos:window.__dolDec ? window.__dolDec.n : null, decAudMs:window.__audDec ? Math.round(window.__audDec.ms) : null, decAudBlocos:window.__audDec ? window.__audDec.n : null, decAudMaxMs:window.__audDec ? Math.round(window.__audDec.max) : null, rms:+(20 * Math.log10(rms + 1e-9)).toFixed(1), pico:+(20 * Math.log10(this.pk + 1e-9)).toFixed(1), ganhoAuto:+this.gA.toFixed(2), perdidos:this.drops || 0, tarde:this.dropLate || 0, adiante:this.dropAhead || 0, canais:planes.length, voz:cfg.dolbyVoice == null ? 1 : +cfg.dolbyVoice, amp:window.__amp ? window.__amp.pct() : 100, ctx:this.ctx ? this.ctx.state : null, taxaCtx:this.ctx ? this.ctx.sampleRate : null}); } }catch(e){}
       if(v.paused || v.seeking || v.readyState < 2){ this.reset(); return; }
       /* v430: acerto do som do filme (segundos; positivo = som mais tarde), escolhido nos botões junto à barra do tempo */
       const anchor = c.currentTime + (t + (this.aoff || 0) - v.currentTime), n = planes[0].length, dur = n / sr;
