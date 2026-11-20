@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v465";
+const APP_VERSION = "v466";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16076,25 +16076,29 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
   const crcT = (() => { const t = new Uint32Array(256); for(let i = 0; i < 256; i++){ let c = i << 24; for(let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04C11DB7) : (c << 1); t[i] = c >>> 0; } return t; })();
   const crc32m = (b, s, e) => { let c = 0xFFFFFFFF; for(let i = s; i < e; i++) c = ((c << 8) ^ crcT[((c >>> 24) ^ b[i]) & 0xFF]) >>> 0; return c >>> 0; };
   class TsPmtLoader {
-    constructor(seekHandler, config){ this._config = config || {}; this._ctl = null; this._status = 0; this._pmtPid = -1; this._carry = new Uint8Array(0); this._total = 0; this._aligned = true; }
+    constructor(seekHandler, config){ this._config = config || {}; this._ctl = null; this._status = 0; this._pmtPid = -1; this._carry = new Uint8Array(0); this._total = 0; this._aligned = true; this._wd = setInterval(() => this._watch(), 2000); }
     static isSupported(){ return typeof fetch === "function" && typeof ReadableStream !== "undefined"; }
     get status(){ return this._status; }
     get type(){ return "tsPmtFetch"; }
     isWorking(){ return this._status === 1 || this._status === 2; }
     open(ds, range){
-      const from = range && range.from > 0 ? range.from : 0; this._ctl = new AbortController(); this._status = 1; this._total = from; this._carry = new Uint8Array(0); this._aligned = from === 0; this._pmtPid = -1;
+      const from = range && range.from > 0 ? range.from : 0; const ctl = this._ctl = new AbortController(); this._ds = ds; this._last = Date.now();
+      this._status = 1; this._total = from; this._carry = new Uint8Array(0); this._aligned = from === 0; this._pmtPid = -1;
       const headers = from > 0 ? {Range:"bytes=" + from + "-"} : {};
-      (async () => { try{ const r = await fetch(ds.url, {headers, signal:this._ctl.signal});
+      (async () => { try{ const r = await fetch(ds.url, {headers, signal:ctl.signal});
+          if(ctl !== this._ctl) return;
           if(!(r.ok || r.status === 206)) throw new Error("HTTP " + r.status);
           if(from === 0 && this.onContentLengthKnown){ const cl = +r.headers.get("content-length"); if(cl) this.onContentLengthKnown(cl); }
           this._status = 2; const rd = r.body.getReader();
-          while(true){ const x = await rd.read(); if(x.done) break; this._push(x.value); }
+          while(true){ const x = await rd.read(); if(ctl !== this._ctl) return; if(x.done) break; this._last = Date.now(); this._push(x.value); }
           if(this._carry.length) this._emit(this._carry); this._carry = new Uint8Array(0);
           this._status = 4; if(this.onComplete) this.onComplete(from, this._total - 1);
-        }catch(e){ if(e.name === "AbortError"){ this._status = 0; return; } this._status = 3; if(this.onError) this.onError(3, {code:-1, msg:String(e.message || e)}); } })();
+        }catch(e){ if(ctl !== this._ctl) return; if(e.name === "AbortError"){ this._status = 0; return; } this._status = 3; if(this.onError) this.onError(3, {code:-1, msg:String(e.message || e)}); } })();
     }
+    /* v464: se o servidor deixa de enviar dados durante 8 s, o carregador reabre o pedido a partir da posição atual */
+    _watch(){ if(this._status === 2 && this._ds && Date.now() - this._last > 8000){ try{ window.__dbgEv && window.__dbgEv(0, "carregador .ts: sem dados, reabre a partir do byte", {byte:this._total}); }catch(e){} this._last = Date.now(); this.open(this._ds, {from:this._total}); } }
     abort(){ try{ this._ctl && this._ctl.abort(); }catch(e){} this._status = 0; }
-    destroy(){ this.abort(); this.onDataArrival = this.onComplete = this.onError = this.onContentLengthKnown = this.onURLRedirect = this.onRecoveredEarlyEof = null; }
+    destroy(){ clearInterval(this._wd); this.abort(); this.onDataArrival = this.onComplete = this.onError = this.onContentLengthKnown = this.onURLRedirect = this.onRecoveredEarlyEof = null; }
     _push(d){
       let buf = d; if(this._carry.length){ buf = new Uint8Array(this._carry.length + d.length); buf.set(this._carry); buf.set(d, this._carry.length); }
       if(!this._aligned){ let s = -1; for(let i = 0; i + 188 < buf.length; i++){ if(buf[i] === 0x47 && buf[i + 188] === 0x47){ s = i; break; } }
