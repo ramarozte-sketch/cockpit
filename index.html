@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v484";
+const APP_VERSION = "v485";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4073,8 +4073,11 @@ function __hvccAnnex(c){
     for(let a = 0; a < na; a++){ if(o + 3 > c.length) return null; const n = (c[o + 1] << 8) | c[o + 2]; o += 3;
       for(let k = 0; k < n; k++){ if(o + 2 > c.length) return null; const l = (c[o] << 8) | c[o + 1]; o += 2; if(o + l > c.length) return null; out.push(0, 0, 0, 1); for(let i = 0; i < l; i++) out.push(c[o + i]); o += l; } }
     return out.length ? {ls, ps:new Uint8Array(out)} : null; }catch(e){ return null; } }
+/* v485: uma amostra com prefixo de tamanho cuja 1.ª NAL tem 256–511 bytes começa por 00 00 01 xx — era tomada por Annex B e ia crua
+   ao FFmpeg («Invalid NAL unit», imagem perdida → «Could not find ref» → quadrados cinzentos). Só é Annex B se os tamanhos não baterem certo. */
+function __lpFits(d, ls){ let o = 0; while(o + ls <= d.length){ let l = 0; for(let i = 0; i < ls; i++) l = l * 256 + d[o + i]; o += ls; if(l <= 0 || o + l > d.length) return false; o += l; } return o === d.length; }
 function __lpAnnex(d, hv, key){
-  const isA = d.length > 4 && d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1));
+  const isA = d.length > 4 && d[0] === 0 && d[1] === 0 && (d[2] === 1 || (d[2] === 0 && d[3] === 1)) && !__lpFits(d, hv.ls);
   if(isA){ if(!key) return d; const r = new Uint8Array(hv.ps.length + d.length); r.set(hv.ps); r.set(d, hv.ps.length); return r; }
   const parts = []; let o = 0, tot = key ? hv.ps.length : 0, ls = hv.ls;
   while(o + ls <= d.length){ let l = 0; for(let i = 0; i < ls; i++) l = l * 256 + d[o + i]; o += ls; if(l <= 0 || o + l > d.length) break; parts.push([o, l]); tot += 4 + l; o += l; }
