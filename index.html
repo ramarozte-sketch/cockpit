@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v470";
+const APP_VERSION = "v471";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16139,12 +16139,19 @@ try{ window.HW = HW; window.eac3Mode = eac3Mode; window.probeHardwareEac3 = prob
     const off = Math.max(0, Math.floor(t / dur * sz / 188) * 188);
     try{ window.__tsSnd && window.__tsSnd[slot] && window.__tsSnd[slot].stop(); }catch(e){}
     try{ tsInst[slot] && tsInst[slot].destroy(); }catch(e){}
-    window.__tsStartAt = off;
+    /* v471: o leitor recomeça no início do ficheiro e carrega até ao ponto; quando o buffer chega ao ponto, a imagem salta para lá */
+    window.__tsStartAt = 0;
     const p = mpegts.createPlayer({type:"mpegts", isLive:false, url:a.url, hasAudio:false}, {enableWorker:true, lazyLoad:true, customLoader:window.__TsPmtLoader});
     tsInst[slot] = p; p.attachMediaElement(v); p.load(); v.play().catch(()=>{});
-    window.__tsBase[slot] = t;
-    window.__tsMovieSound(slot, a.url, a.a, a.playId, 0, off);
-    try{ window.__dbgEv && window.__dbgEv(slot, "barra: reinício no ponto", {para: Math.round(t), byte: off}); }catch(e){}
+    window.__tsBase[slot] = 0;
+    window.__tsMovieSound(slot, a.url, a.a, a.playId, t, off);
+    const pid = a.playId, t0 = Date.now(); clearInterval(window.__tsPend && window.__tsPend[slot]);
+    window.__tsPend = window.__tsPend || []; window.__tsPend[slot] = setInterval(() => {
+      if(pid !== playSeq[slot] || tsInst[slot] !== p || Date.now() - t0 > 900000){ clearInterval(window.__tsPend[slot]); return; }
+      let ok = false; for(let k = 0; k < v.buffered.length; k++){ if(v.buffered.start(k) <= t + 0.5 && v.buffered.end(k) >= t + 3) ok = true; }
+      if(ok){ clearInterval(window.__tsPend[slot]); try{ v.currentTime = t; }catch(e){} try{ window.__dbgEv && window.__dbgEv(slot, "barra: imagem no ponto", {para: Math.round(t), esperou_s: Math.round((Date.now() - t0) / 1000)}); }catch(e){} }
+    }, 500);
+    try{ window.__dbgEv && window.__dbgEv(slot, "barra: recarrega do início até ao ponto", {para: Math.round(t), byte: off}); }catch(e){}
   };
   window.__tsMovieSound = (slot, url, a, playId, startSec, offIn) => {
     const v = $("vid" + slot); if(!v) return;
