@@ -2975,7 +2975,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v500";
+const APP_VERSION = "v501";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3694,6 +3694,8 @@ function playChannel(c, slot=tvTarget, auto=false){
       const setF = () => { if(playId !== playSeq[slot] || toHls) return; if(goSrc()) return; try{ v.load(); v.play().catch(()=>{}); }catch(e){} };
       if(gapF > 40){ try{ window.__dbgEv && window.__dbgEv(slot, "à espera da ligação anterior fechar", {ms:Math.round(gapF)}); }catch(e){} v.removeAttribute("src"); setTimeout(setF, gapF); } else goSrc();
       setTimeout(() => { try{ if(playId !== playSeq[slot] || hlsInst[slot] || v.readyState > 0 || v.currentTime > 0) return; if(/^blob:/.test(v.currentSrc || "")) return; if(!v.currentSrc && !v.getAttribute("src")) return;
+        /* v501: o leitor único (MP4 por MSE) tirou o endereço ao leitor do carro e está a arrancar: não o volta a pôr (abria uma 2.ª ligação) */
+        { const A = window.__mka && window.__mka[slot]; if((A && A.mse && !A.mseOff) || !v.getAttribute("src")) return; }
         const vb = v.webkitVideoDecodedByteCount; if(typeof vb === "number" && vb > 0) return;
         try{ window.__dbgEv && window.__dbgEv(slot, "filme sem dados do servidor: pede outra vez", {}); }catch(e){}
         const s0 = v.currentSrc || src1; v.removeAttribute("src"); v.load(); setTimeout(() => { if(playId !== playSeq[slot]) return; v.src = s0; v.load(); v.play().catch(()=>{}); }, 800);
@@ -5577,7 +5579,10 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
           }catch(e){ last = e; if(e.name === "AbortError" || e.fatal) throw e; EV("filme num só leitor (MSE): pedido falhou", {em:x, vez:t + 1, erro:String(e.message || e).slice(0, 80)}); await sleep(2000 * (t + 1)); } }
         throw last || new Error("cancelado"); };
       /* 1) índice: caixas de topo até ao moov, sem ler o mdat */
-      let p = 0, moovAt = -1, moovLen = 0, ftypLen = 0;
+      let p = 0, moovAt = -1, moovLen = 0, ftypLen = 0, tmC = null;
+      /* v501: índice já guardado (ou lido de uma vez do fim do ficheiro): o Cheetah Girls levava 12 s a encontrar o moov */
+      try{ const tm = await mp4TailMoov(src, ctl.signal); if(tm && tm.bytes && tm.ftyp && !tm.erro){ tmC = tm; moovAt = tm.at; moovLen = tm.sz; ftypLen = tm.ftypLen; EV("filme num só leitor (MSE): índice", {guardado:!!tm.guardado, MB:+(tm.sz / 1e6).toFixed(1), ms:Math.round(performance.now() - t0)}); } }catch(e){ if(e && e.name === "AbortError") throw e; }
+      if(!alive()) return;
       for(let i = 0; i < 200 && moovAt < 0; i++){
         const h = new DataView(await fr(p, p + 15)); let sz = h.getUint32(0); const ty = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
         if(sz === 1) sz = Number(h.getBigUint64(8));
@@ -5590,11 +5595,11 @@ function mp4MseRun(slot, st, src, c, playId, onFail){
       if(moovLen > (64 << 20)){ giveUp("índice demasiado grande: " + moovLen); return; }
       const f = MP4Box.createFile(); let info = null, perr = ""; f.onReady = i => { info = i; }; f.onError = e => { perr = String(e); };
       const feed = (buf, at) => { buf.fileStart = at; f.appendBuffer(buf); };
-      feed(await fr(0, ftypLen - 1), 0);
+      feed(tmC ? tmC.ftyp.slice().buffer : await fr(0, ftypLen - 1), 0);
       if(moovAt > ftypLen){ const gap = moovAt - ftypLen, hd = new ArrayBuffer(gap > 0xFFFFFFFF ? 16 : 8), dv = new DataView(hd);
         if(gap > 0xFFFFFFFF){ dv.setUint32(0, 1); dv.setUint32(4, 0x6d646174); dv.setBigUint64(8, BigInt(gap)); } else { dv.setUint32(0, gap); dv.setUint32(4, 0x6d646174); }
         feed(hd, ftypLen); }
-      const mvRaw = await fr(moovAt, moovAt + moovLen - 1), rawMoov = new Uint8Array(mvRaw.slice(0)); feed(mvRaw, moovAt);
+      const mvRaw = tmC ? tmC.bytes.slice().buffer : await fr(moovAt, moovAt + moovLen - 1), rawMoov = new Uint8Array(mvRaw.slice(0)); feed(mvRaw, moovAt);
       if(!alive()) return;
       if(!info){ giveUp(perr || "índice não lido"); return; }
       const vt = (info.videoTracks || [])[0]; if(!vt){ giveUp("sem faixa de vídeo"); return; }
