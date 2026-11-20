@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v480";
+const APP_VERSION = "v481";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4008,6 +4008,26 @@ window.__hevcMovie = (slot, c) => {
     return true;
   }catch(e){ return false; }
 };
+/* v481: em andamento, um 4K que o processador não descodifica a tempo passa à versão sem 4K do mesmo filme (mesma língua primeiro), na mesma posição */
+window.__h4kTo1080 = (slot, c, info) => {
+  try{
+    if(!c || !c.url || lastPlayed[slot] !== c) return;
+    const b = movBase(c.name); if(!b || b.length < 3) return;
+    const big = n => /\b(4k|uhd|2160p)\b/i.test(String(n || "").normalize("NFKD"));
+    const pref = String(c.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]?/i), lg = pref ? pref[1].toLowerCase() : "";
+    const lgOf = x => { const m = String(x.name || "").match(/^\s*\|?([a-z]{2,3})\|?\s*[-:|]/i); return m ? m[1].toLowerCase() : (/\|pt\||portug/i.test(x.group || "") ? "pt" : ""); };
+    const rank = x => { const l = lgOf(x); return l === lg && lg ? 0 : (l === "pt" || l === "br") ? 1 : l === "en" ? 2 : !l ? 3 : 4; };
+    const cand = channels.filter(x => x && x.kind === c.kind && x.url !== c.url && !big(x.name) && movBase(x.name) === b)
+      .sort((x, y) => (rank(x) - rank(y)) || (/\.ts(\?|$)/i.test(x.url) - /\.ts(\?|$)/i.test(y.url)) || (HEVCM.has(x.url) - HEVCM.has(y.url)));   /* .ts por último: não abre a meio */
+    const sib = cand[0];
+    try{ window.__dbgEv && window.__dbgEv(slot, "4K sem ritmo em andamento", Object.assign({outraVersao:sib ? sib.name : null}, info || {})); }catch(e){}
+    if(!sib || rank(sib) >= 4){ toast(c.name + ": o 4K não acompanha o ritmo em andamento e não há versão 1080p na mesma língua.", true); return; }
+    const v = $("vid" + slot), pos = v && isFinite(v.currentTime) ? v.currentTime : 0, dur = v && isFinite(v.duration) && v.duration > 0 ? v.duration : pos + 3600;
+    try{ if(pos > 40 && window.RES) window.RES.save(sib, pos, dur); }catch(e){}
+    toast("O 4K não acompanha em andamento: a abrir " + sib.name + " no mesmo ponto.");
+    setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot, true); }catch(e){} }, 60);
+  }catch(e){}
+};
 const WC_OK = WC_NATIVE || (typeof Worker === "function" && typeof WebAssembly === "object" && typeof createImageBitmap === "function");
 /* Sem WebCodecs (página em http): descodifica H.264 por software (FFmpeg/WASM) em Workers, à medida que o som avança.
    v176 — o log do Tesla (RTP1 720p a 50 imagens/s) mostrava o descodificador a dar só ~28 imagens/s: a imagem ia
@@ -4202,6 +4222,9 @@ class SoftVideoDecoder {
           /* v479: 4K de 10 bits: se o conjunto não chega a 1,5× o ritmo do filme, a imagem sai a 1/4 (960×402) em vez de metade; volta a metade com folga (2,4×) */
           if(this.hevc && ok && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ const want = tot < sf * 1.5 ? 2 : tot > sf * 2.4 ? 0 : (this.q4 ? 2 : 0);
             if(want !== (this.q4 ? 2 : 0)){ this.q4 = want === 2; for(const W of this.W){ try{ W.w.postMessage({cmd:"c10s", s:want}); }catch(e){} } } }
+          /* v481: 4K abaixo do ritmo do filme (com 15% de margem) em 5 medições seguidas (~10 s): avisa quem o abriu (passa à versão 1080p) */
+          if(this.hevc && ok && this.onSlow && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ this._slowN = tot < sf * 1.15 ? (this._slowN || 0) + 1 : 0;
+            if(this._slowN >= 5 && !this._slowFired){ this._slowFired = true; try{ this.onSlow({imagensPorSeg:Math.round(tot), precisas:Math.round(sf)}); }catch(e){} } }
           if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
           if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
@@ -5109,6 +5132,7 @@ function mkvRun(slot, st, src, audio){
         if(!st.hv){ st.err = "HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
         st.cfg = {codec:"hevc", hevc:true, codedWidth:trk.w, codedHeight:trk.h};
         try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software", {w:trk.w, h:trk.h, contentor:"mkv"}); }catch(e){}
+        decoder.onSlow = info => { if(alive()) window.__h4kTo1080(slot, lastPlayed[slot], info); };
         /* salvaguarda: sem imagem ao fim de 15 s, volta à regra antiga (outra versão do filme) */
         const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(alive() && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 15000); }
       const sup = WC_NATIVE ? await VideoDecoder.isConfigSupported(st.cfg).catch(() => null) : {supported:true};
@@ -5647,6 +5671,7 @@ function mp4Run(slot, st, src){
         if(!st.hv){ st.err="HEVC"; if(!window.__hevcMovie(slot, lastPlayed[slot])) toast("Este filme é H.265: nesta página (http) só dá imagem com o carro parado. Não encontrei outra versão dele.", true); return; }
         st.cfg = {codec:"hevc", hevc:true, codedWidth:st.cfg.codedWidth, codedHeight:st.cfg.codedHeight};
         try{ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software", {w:st.cfg.codedWidth, h:st.cfg.codedHeight, contentor:"mp4"}); }catch(e){}
+        decoder.onSlow = info => { if(MIR[slot] === st) window.__h4kTo1080(slot, lastPlayed[slot], info); };
         const c0 = lastPlayed[slot]; setTimeout(() => { try{ if(MIR[slot] === st && !(st.frames > 0)){ window.__dbgEv && window.__dbgEv(slot, "filme H.265 por software: sem imagem, troca de versão", {}); window.__hevcMovie(slot, c0); } }catch(e){} }, 15000); }
       if(/^(hvc1|hev1)/i.test(vt.codec) && !st.hv && window.VideoDecoder) VideoDecoder.isConfigSupported(st.cfg).then(r => { if(MIR[slot] === st && !(r && r.supported)){ st.err = "HEVC não suportado pelo WebCodecs deste browser"; /* v455: sem aviso vermelho; o registo continua */ } }).catch(() => {});
       try{ decoder.configure(st.cfg); }catch(err){ st.err="configure: "+err.message; return; }
