@@ -2972,7 +2972,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v494";
+const APP_VERSION = "v495";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -14835,6 +14835,10 @@ body.pfull #vSeek.on{display:flex}
     /* v430: com som por software (em andamento o elemento de vídeo pode não ter duração) os botões do acerto aparecem na mesma */
     const ac = window.__mseAcerto, acOn = !!(ac && ac.alive && ac.alive() && ac.slot === tvTarget && (v || ac.soft));
     w.classList.toggle("on", !!v || acOn);
+    /* v495: a barra do tempo encolhe para não ficar por cima da lista de filmes à esquerda */
+    try{ const L = $("fsCh"), ls = L && getComputedStyle(L); let ml = 0;
+      if(L && ls.display !== "none" && L.style.display !== "none" && L.childElementCount){ const lr = L.getBoundingClientRect().right, wl = w.getBoundingClientRect().left - (parseFloat(w.style.marginLeft) || 0); ml = Math.max(0, Math.round(lr - wl + 8)); }
+      const mv = ml ? ml + "px" : ""; if(w.style.marginLeft !== mv){ w.style.marginLeft = mv; w.style.flexBasis = ml ? "calc(100% - " + ml + "px)" : ""; w.style.maxWidth = ml ? "calc(100% - " + ml + "px)" : ""; } }catch(e){}
     const box = $("vAcBox"); if(box) box.style.display = acOn ? "flex" : "none";
     if(acOn){ $("vAcT").textContent = "Som " + ac.ms() + " ms"; }
     if(!v || drag) return;
