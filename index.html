@@ -1541,30 +1541,75 @@ body.layout-atv .rail{display:none}
       <div id="tempoList"></div>
     </section>
     <section class="view" id="v-news" hidden>
-      <div class="row"><h1>Notícias do mundo</h1><span class="spacer"></span><button class="btn" id="newsReload">Atualizar</button></div>
-      <div class="panel">
-        <div id="newsGlob" style="position:relative;width:100%;aspect-ratio:1/1;max-height:360px;margin:0 auto;border-radius:12px;background:#02060d;overflow:hidden;touch-action:none;cursor:grab"><div style="position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:2"><button class="btn" id="newsZoomIn" style="min-width:48px">＋</button><button class="btn" id="newsZoomOut" style="min-width:48px">−</button></div></div>
-        <p class="small muted" style="margin:6px 0 0">Arrasta para rodar o globo. Os pontos são capitais de países com notícias na lista.</p>
+      <style>
+        #v-news{--nw-card:#101a2b;--nw-line:#ffffff14;--nw-acc:#5cb8ff}
+        #v-news .nw-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+        #v-news .nw-head h1{margin:0;font-size:34px;letter-spacing:-.5px}
+        #v-news .nw-date{opacity:.6;font-size:15px;text-transform:capitalize}
+        #v-news .nw-search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:var(--nw-card);border:1px solid var(--nw-line);border-radius:999px;padding:0 16px}
+        #v-news .nw-search input{flex:1;background:none;border:0;outline:0;color:inherit;font:inherit;min-height:48px}
+        #v-news .nw-ib{min-height:48px;padding:0 16px;border-radius:999px;border:1px solid var(--nw-line);background:var(--nw-card);color:inherit;font:600 15px system-ui,sans-serif;cursor:pointer}
+        #v-news .nw-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:16px}
+        @media (max-width:900px){#v-news .nw-hero{grid-template-columns:1fr}}
+        #v-news .nw-top{position:relative;min-height:340px;border-radius:24px;overflow:hidden;background:linear-gradient(135deg,#1b3a66,#0b1220);cursor:pointer;display:flex;align-items:flex-end}
+        #v-news .nw-top img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+        #v-news .nw-top .nw-ov{position:relative;width:100%;padding:24px 26px;background:linear-gradient(0deg,#000e 0%,#000a 55%,transparent)}
+        #v-news .nw-top h2{margin:8px 0 6px;font-size:30px;line-height:1.15;letter-spacing:-.3px}
+        #v-news .nw-top p{margin:0;opacity:.8;font-size:16px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        #v-news .nw-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+        #v-news #newsGlob{position:relative;width:100%;aspect-ratio:1/1;max-height:300px;border-radius:24px;background:radial-gradient(circle at 50% 45%,#0c1d38,#02060d 70%);overflow:hidden;touch-action:none;cursor:grab}
+        #v-news .nw-zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:2}
+        #v-news .nw-zoom button{width:42px;height:42px;border-radius:50%;border:1px solid var(--nw-line);background:#0d1626cc;color:#fff;font-size:20px;cursor:pointer}
+        #v-news .nw-glabel{position:absolute;left:14px;top:12px;z-index:2;font:600 13px system-ui,sans-serif;opacity:.7;letter-spacing:.5px;text-transform:uppercase}
+        #v-news .nw-scroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+        #v-news .nw-scroll::-webkit-scrollbar{display:none}
+        #v-news .nw-pill{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:999px;border:1px solid var(--nw-line);background:var(--nw-card);color:inherit;font:600 14px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+        #v-news .nw-pill.on{background:var(--nw-acc);border-color:var(--nw-acc);color:#00142a}
+        #v-news .nw-pill i{font-style:normal;font-size:12px;opacity:.75;background:#ffffff1a;border-radius:999px;padding:2px 7px}
+        #v-news .nw-sec{display:flex;align-items:baseline;gap:10px;margin:18px 0 10px}
+        #v-news .nw-sec h2{margin:0;font-size:22px}
+        #v-news .nw-sec span{opacity:.55;font-size:14px}
+        #v-news #newsList{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+        #v-news .nw-card{display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:var(--nw-card);border:1px solid var(--nw-line);color:inherit;text-decoration:none;cursor:pointer;transition:transform .15s}
+        #v-news .nw-card:active{transform:scale(.98)}
+        #v-news .nw-card .nw-img{position:relative;aspect-ratio:16/9;background:var(--g);display:flex;align-items:center;justify-content:center;font:800 42px system-ui,sans-serif;color:#ffffff40}
+        #v-news .nw-card .nw-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+        #v-news .nw-card .nw-tx{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+        #v-news .nw-card b{font-size:17px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+        #v-news .nw-card.read{opacity:.5}
+        #v-news .nw-meta{display:flex;align-items:center;gap:8px;font-size:13px;opacity:.75;margin-top:auto}
+        #v-news .nw-src{display:inline-block;padding:3px 9px;border-radius:999px;font:700 12px system-ui,sans-serif;background:var(--c);color:#fff}
+        #v-news .nw-star{color:#ffcc33}
+        #v-news .nw-more{display:block;margin:16px auto 0;min-height:48px;padding:0 28px;border-radius:999px;border:1px solid var(--nw-line);background:var(--nw-card);color:inherit;font:600 15px system-ui,sans-serif;cursor:pointer}
+        #v-news .nw-fol{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+        #v-news .nw-fol input{min-height:42px;border-radius:999px;border:1px solid var(--nw-line);background:var(--nw-card);color:inherit;padding:0 14px;font:inherit;width:220px}
+        #v-news #newsPapers{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
+        #v-news #newsPapers .btn{flex:none;min-height:56px;padding:0 18px;border-radius:16px}
+        #v-news #newsTicker{position:sticky;bottom:0;z-index:5;overflow:hidden;white-space:nowrap;background:linear-gradient(90deg,#b3132b,#7a0d1d);border-radius:14px;padding:0;margin-top:18px;display:flex;align-items:center}
+        #v-news #newsTicker::before{content:"ÚLTIMA HORA";flex:none;position:relative;z-index:2;background:#000;color:#fff;font:800 13px system-ui,sans-serif;letter-spacing:1px;padding:12px 14px}
+        #v-news #newsTickerIn{display:inline-block;padding-left:100%;font-size:15px;font-weight:600;color:#fff}
+      </style>
+      <div class="nw-head">
+        <div><h1>Notícias</h1><div class="nw-date" id="newsDate"></div></div>
+        <label class="nw-search">🔍<input type="search" id="newsQ" placeholder="Pesquisar notícias"></label>
+        <button class="nw-ib" id="newsListen">🔊 Ouvir</button>
+        <button class="nw-ib" id="newsReload">↻</button>
       </div>
-      <div class="panel">
-        <div class="row"><h2>Países</h2><span class="spacer"></span><span class="small muted">Toca num país para ver as notícias e rodar o globo</span></div>
-        <div id="newsCountries" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px"></div>
+      <div class="nw-hero">
+        <div class="nw-top" id="newsHero"><div class="nw-ov"><span class="small muted">A carregar…</span></div></div>
+        <div class="nw-side">
+          <div id="newsGlob"><span class="nw-glabel">🌍 Mundo</span><div class="nw-zoom"><button id="newsZoomIn" aria-label="Aproximar">＋</button><button id="newsZoomOut" aria-label="Afastar">−</button></div></div>
+          <div class="nw-scroll" id="newsCountries"></div>
+        </div>
       </div>
-      <div class="panel">
-        <div class="row"><h2>Manchetes</h2><span class="spacer"></span><span class="small muted" id="newsCount"></span><button class="btn" id="newsListen">🔊 Ouvir</button></div>
-        <input type="search" id="newsQ" placeholder="Pesquisar (ex.: Ucrânia, Portugal, IA)" style="width:100%;margin-bottom:8px">
-        <div class="row" id="newsChips" style="flex-wrap:wrap;margin-bottom:8px"></div>
-        <div class="row" style="margin-bottom:6px"><input type="text" id="newsFol" placeholder="Seguir palavra-chave (ex.: Tesla)" autocomplete="off" style="flex:1;min-height:44px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn" id="newsFolGo">Seguir</button></div>
-        <div class="row" id="newsFolList" style="flex-wrap:wrap;margin-bottom:8px"></div>
-        <div class="list" id="newsList" style="max-height:none"><p class="muted small" style="margin:0">A carregar…</p></div>
-        <div class="row" style="margin-top:8px"><button class="btn" id="newsMore" hidden>Carregar mais</button></div>
-      </div>
-      <div class="panel">
-        <h2>Capas de jornais</h2>
-        <p class="small muted" style="margin:0 0 8px">As capas abrem no SAPO Jornais ou no site de cada jornal, dentro da app. Se ficar em branco, toca em "Abrir fora".</p>
-        <div class="row" id="newsPapers" style="flex-wrap:wrap"></div>
-      </div>
-      <div id="newsTicker" style="position:sticky;bottom:0;z-index:5;overflow:hidden;white-space:nowrap;background:#0b1220;border-top:1px solid #1f3352;border-radius:10px;padding:8px 0;margin-top:8px"><div id="newsTickerIn" style="display:inline-block;padding-left:100%;font-size:15px;color:#cfe3ff"></div></div>
+      <div class="nw-scroll" id="newsChips"></div>
+      <div class="nw-fol"><span id="newsFolList" class="nw-scroll"></span><input type="text" id="newsFol" placeholder="★ Seguir tema (ex.: Tesla)" autocomplete="off"><button class="nw-pill" id="newsFolGo">Seguir</button></div>
+      <div class="nw-sec"><h2>Manchetes</h2><span id="newsCount"></span></div>
+      <div id="newsList"><p class="muted small" style="margin:0">A carregar…</p></div>
+      <button class="nw-more" id="newsMore" hidden>Carregar mais</button>
+      <div class="nw-sec"><h2>Jornais</h2><span>abrem num separador próprio</span></div>
+      <div id="newsPapers"></div>
+      <div id="newsTicker"><div id="newsTickerIn"></div></div>
     </section>
     <section class="view" id="v-pod" hidden>
       <div class="row"><h1>Podcasts</h1><span class="spacer"></span><button class="btn" id="podBack" hidden>◀ Podcasts</button></div>
@@ -3081,7 +3126,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v545";
+const APP_VERSION = "v546";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8027,7 +8072,7 @@ function newsCountryMatch(c){ return newsItems.filter(it => (c.k[0] === "portuga
 function newsDashboard(){
   const box = $("newsCountries"); if(!box) return;
   const rows = NEWS_CTRY.map(c => ({c, n:newsCountryMatch(c).length})).filter(r => r.n > 0).sort((a, b) => b.n - a.n);
-  box.innerHTML = rows.length ? rows.map(r => `<button class="btn" data-ctry="${NEWS_CTRY.indexOf(r.c)}" style="text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px"><b style="font-size:16px">${newsEsc(r.c.k[0].replace(/^./, ch => ch.toUpperCase()))}</b><span class="small muted">${r.n} ${r.n === 1 ? "notícia" : "notícias"}</span></button>`).join("") : '<p class="muted small" style="margin:0">Sem notícias de países de momento.</p>';
+  box.innerHTML = rows.length ? rows.map(r => `<button class="nw-pill" data-ctry="${NEWS_CTRY.indexOf(r.c)}">${newsEsc(r.c.k[0].replace(/^./, ch => ch.toUpperCase()))}<i>${r.n}</i></button>`).join("") : '<span class="muted small">Sem notícias de países de momento.</span>';
   box.querySelectorAll("[data-ctry]").forEach(b => b.onclick = () => newsSelectCountry(NEWS_CTRY[+b.dataset.ctry]));
 }
 /* filtra as notícias por país e roda o globo até ele (usado pelo painel e por toque no globo) */
@@ -8061,7 +8106,7 @@ async function newsLoad(){
     if(t){
       try{
         const d = new DOMParser().parseFromString(t, "text/xml");
-        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim(), desc:newsClean(it.querySelector("description")?.textContent), ts:Date.parse(it.querySelector("pubDate")?.textContent || "") || 0}); });
+        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim(), desc:newsClean(it.querySelector("description")?.textContent), img:newsImgXml(it), ts:Date.parse(it.querySelector("pubDate")?.textContent || "") || 0}); });
       }catch(e){}
     }
     if(!got){
@@ -8069,7 +8114,7 @@ async function newsLoad(){
       try{
         const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(f.u));
         const j = r.ok ? await r.json() : null;
-        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:String(it.title || "").trim(), link:String(it.link || "").trim(), desc:newsClean(it.description), ts:Date.parse(String(it.pubDate || "").replace(" ", "T") + "Z") || 0}); });
+        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:String(it.title || "").trim(), link:String(it.link || "").trim(), desc:newsClean(it.description), img:String(it.thumbnail || it.enclosure?.link || (/<img[^>]+src=["']([^"']+)/i.exec(it.description || "") || [])[1] || ""), ts:Date.parse(String(it.pubDate || "").replace(" ", "T") + "Z") || 0}); });
       }catch(e){}
     }
     if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
@@ -8108,23 +8153,39 @@ function newsFiltered(){
     .map(x => { x.fol = fol.some(k => newsHay(x).includes(k)); return x; })
     .sort((a, b) => (b.fol - a.fol) || ((b.ts || 0) - (a.ts || 0)));
 }
+function newsHue(s){ let h = 0; for(const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; }
+function newsColor(s){ return "hsl(" + newsHue(s) + ",65%,42%)"; }
+function newsGrad(s){ const h = newsHue(s); return "linear-gradient(135deg,hsl(" + h + ",55%,30%),hsl(" + ((h + 40) % 360) + ",60%,14%))"; }
+/* imagem da notícia: enclosure, media:content/thumbnail ou a primeira <img> da descrição */
+function newsImgXml(it){
+  const enc = it.querySelector("enclosure"); if(enc && /image/i.test(enc.getAttribute("type") || "image") && enc.getAttribute("url")) return enc.getAttribute("url");
+  for(const tag of ["content", "thumbnail"]){ const m = it.getElementsByTagNameNS("*", tag)[0]; if(m && m.getAttribute("url")) return m.getAttribute("url"); }
+  const d = it.querySelector("description")?.textContent || "", m = /<img[^>]+src=["']([^"']+)/i.exec(d); return m ? m[1] : "";
+}
 function newsRender(){
   const list = $("newsList"); if(!list) return;
   const srcs = [...new Set(newsItems.map(x => x.src))];
   const lbl = n => n === "" ? "Todas" : n === "__pt" ? "🇵🇹 Portugal" : n;
-  $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("")
-    + NEWS_TOPICS.map(t => `<button class="btn${newsTopic === t.n ? " primary" : ""}" data-topic="${newsEsc(t.n)}">${newsEsc(t.n)}</button>`).join("");
+  $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="nw-pill${newsSrc === n ? " on" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("")
+    + NEWS_TOPICS.map(t => `<button class="nw-pill${newsTopic === t.n ? " on" : ""}" data-topic="${newsEsc(t.n)}">${newsEsc(t.n)}</button>`).join("");
   $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 5; newsRender(); });
   $("newsChips").querySelectorAll("[data-topic]").forEach(b => b.onclick = () => { newsTopic = newsTopic === b.dataset.topic ? "" : b.dataset.topic; newsShown = 5; newsRender(); });
   const fl = $("newsFolList");
   if(fl){
-    fl.innerHTML = newsFollows().map((k, i) => `<button class="btn primary" data-unf="${i}">★ ${newsEsc(k)} ×</button>`).join("");
+    fl.innerHTML = newsFollows().map((k, i) => `<button class="nw-pill on" data-unf="${i}">★ ${newsEsc(k)} ✕</button>`).join("");
     fl.querySelectorAll("[data-unf]").forEach(b => b.onclick = () => { cfg.newsFollow = newsFollows().filter((_, i) => i !== +b.dataset.unf); saveCfg(); newsRender(); });
   }
-  const all = newsFiltered(), part = all.slice(0, newsShown);
-  $("newsCount").textContent = all.length + " de " + newsItems.length + (newsCacheNote ? " · " + newsCacheNote : "");
-  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="#" data-open="${newsEsc(x.link)}" data-src="${newsEsc(x.src)}" style="display:block;padding:6px 0;text-decoration:none;color:inherit;opacity:${newsIsRead(x) ? .55 : 1}">${x.fol ? '<span style="color:#ffcc33">★</span> ' : ""}<b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}${newsAgo(x.ts) ? " · " + newsAgo(x.ts) : ""}${newsIsRead(x) ? " · lida" : ""}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
-  $("newsMore").hidden = all.length <= newsShown;
+  const all = newsFiltered();
+  $("newsCount").textContent = all.length + " notícias" + (newsCacheNote ? " · " + newsCacheNote : "");
+  const hero = all.find(x => x.img) || all[0], rest = all.filter(x => x !== hero), part = rest.slice(0, newsShown);
+  const H = $("newsHero");
+  if(H){
+    H.dataset.open = hero ? hero.link : "";
+    H.innerHTML = hero ? `${hero.img ? `<img src="${newsEsc(hero.img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<div class="nw-ov"><span class="nw-src" style="--c:${newsColor(hero.src)}">${newsEsc(hero.src)}</span> <span class="small" style="opacity:.75">${newsAgo(hero.ts)}</span><h2>${hero.fol ? '<span class="nw-star">★</span> ' : ""}${newsEsc(hero.title)}</h2>${hero.desc ? `<p>${newsEsc(hero.desc)}</p>` : ""}</div>` : '<div class="nw-ov"><span class="muted">Sem manchetes para esta pesquisa.</span></div>';
+  }
+  list.innerHTML = part.length ? part.map(x => `<a class="nw-card${newsIsRead(x) ? " read" : ""}" href="#" data-open="${newsEsc(x.link)}" data-src="${newsEsc(x.src)}"><div class="nw-img" style="--g:${newsGrad(x.src)}">${newsEsc(x.src.trim()[0] || "•")}${x.img ? `<img src="${newsEsc(x.img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div><div class="nw-tx"><b>${x.fol ? '<span class="nw-star">★</span> ' : ""}${newsEsc(x.title)}</b><div class="nw-meta"><span class="nw-src" style="--c:${newsColor(x.src)}">${newsEsc(x.src)}</span>${newsAgo(x.ts)}${newsIsRead(x) ? " · lida" : ""}</div></div></a>`).join("") : (hero ? "" : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>');
+  $("newsMore").hidden = rest.length <= newsShown;
+  const dEl = $("newsDate"); if(dEl) dEl.textContent = new Date().toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"});
 }
 /* ouvir: lê em voz alta os títulos (ou o texto do leitor) */
 function newsSpeak(text){
@@ -8156,6 +8217,7 @@ $("newsMore").onclick = () => { newsShown += 5; newsRender(); };
 /* as notícias abrem dentro da app (com a ligação "Abrir fora" disponível) */
 $("newsList").addEventListener("click", e => { const a = e.target.closest("[data-open]"); if(!a) return; e.preventDefault(); const x = newsItems.find(i => i.link === a.dataset.open); if(x) newsOpenReader(x); });
 $("newsListen").onclick = newsListen;
+$("newsHero").onclick = () => { const x = newsItems.find(i => i.link === $("newsHero").dataset.open); if(x) newsOpenReader(x); };
 $("newsRdClose").onclick = () => { $("newsReader").hidden = true; if(window.speechSynthesis) speechSynthesis.cancel(); };
 $("newsFolGo").onclick = () => { const v = $("newsFol").value.trim(); if(!v) return; const f = newsFollows(); if(!f.some(k => k.toLowerCase() === v.toLowerCase())) cfg.newsFollow = [...f, v].slice(0, 20); saveCfg(); $("newsFol").value = ""; newsRender(); };
 $("newsFol").addEventListener("keydown", e => { if(e.key === "Enter") $("newsFolGo").click(); });
