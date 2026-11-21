@@ -1497,7 +1497,7 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- PODCASTS -->
-    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverInfo" style="position:absolute;left:5%;top:72%;transform-origin:top left;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
+    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;left:5%;top:72%;transform-origin:top left;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
     <section class="view" id="v-saverCfg" hidden>
       <div class="row"><h1>Protetor de ecrã</h1><span class="spacer"></span><button class="btn primary" id="svPreview">▶ Ecrã inteiro</button></div>
       <div class="panel">
@@ -1519,7 +1519,7 @@ body.layout-atv .rail{display:none}
       <div class="panel">
         <h2>Formato</h2>
         <div class="row small" style="flex-wrap:wrap;gap:6px 16px">
-          <label class="row">Modo <select id="svMode"><option value="model">Carro 3D</option><option value="relogio">Só informação</option></select></label>
+          <label class="row">Modo <select id="svMode"><option value="model">Carro 3D</option><option value="relogio">Só informação</option><option value="sketchfab">Modelo Sketchfab (embebido)</option></select></label>
           <label class="row">Fundo <select id="svBg"><option value="noite">Noite azul</option><option value="preto">Preto</option><option value="estudio">Estúdio claro</option><option value="por">Pôr do sol</option></select></label>
           <label class="row">Câmara <select id="svCam"><option value="rodar">Rodar à volta</option><option value="tres">3/4 frente</option><option value="lado">Lateral</option><option value="frente">Frente</option><option value="tras">Traseira</option></select></label>
           <label class="row">Velocidade <input type="range" id="svSpeed" min="1" max="10" style="width:120px"></label>
@@ -3052,7 +3052,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v526";
+const APP_VERSION = "v527";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8217,6 +8217,9 @@ async function svMiniStart(){
   const c = saverCfgGet(), box = $("svMini");
   box.style.aspectRatio = innerWidth + "/" + innerHeight; box.style.maxHeight = "60vh"; box.style.background = SV_BG[c.bg] || SV_BG.noite;
   $("svMiniInfo").innerHTML = saverInfoHTML(); svMiniPlace();
+  let note = $("svMiniNote"); if(!note){ note = document.createElement("div"); note.id = "svMiniNote"; note.style.cssText = "padding:24px;color:#cfd8e6;text-align:center"; note.textContent = "Modelo Sketchfab: pré-visualização disponível em ecrã inteiro."; box.appendChild(note); }
+  note.hidden = c.mode !== "sketchfab"; $("svMiniInfo").hidden = c.mode === "sketchfab";
+  if(c.mode === "sketchfab"){ svMiniStop(); return; }
   if(c.mode !== "model"){ svMiniStop(); return; }
   if(!(await threeLoad())) return;
   const o = await svOpts(c), key = JSON.stringify({m:o.model, c:o.color, g:!!o.glb});
@@ -8298,6 +8301,8 @@ function saverOpen(preview){
   const c = saverCfgGet();
   const host = $("saver"); host.hidden = false; host.style.background = SV_BG[c.bg] || SV_BG.noite;
   saverInfoTick(); saverPlace(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
+  $("saverEmbed").hidden = c.mode !== "sketchfab"; $("saverCredit").hidden = c.mode !== "sketchfab";
+  if(c.mode === "sketchfab"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } svEmbedShow(); return; }
   if(c.mode !== "model"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } return; }
   threeLoad().then(ok => { if(ok) saverStart(c); else toast("Protetor indisponível: não carreguei o motor 3D.", true); });
 }
@@ -8312,6 +8317,20 @@ async function saverStart(c){
     g.t += 1 / 60; svCamPlace(g, g.cfg, g.t); g.renderer.render(g.scene, g.cam);
     requestAnimationFrame(frame);
   })();
+}
+/* Modelo Sketchfab embebido (embed oficial do Sketchfab, com crédito ao autor) */
+const SV_SKETCHFAB = {id:"66edf828087744479015edff815e85b3", title:"Tesla Model Y 2022", author:"mykoreanarchive"};
+function svEmbedShow(){
+  const box = $("saverEmbed");
+  if(!box.querySelector("iframe")){
+    const f = document.createElement("iframe");
+    f.title = SV_SKETCHFAB.title; f.setAttribute("frameborder", "0");
+    f.setAttribute("allow", "autoplay; fullscreen; xr-spatial-tracking"); f.setAttribute("allowfullscreen", "");
+    f.style.cssText = "width:100%;height:100%;border:0";
+    f.src = "https://sketchfab.com/models/" + SV_SKETCHFAB.id + "/embed";
+    box.appendChild(f);
+  }
+  $("saverCredit").innerHTML = `${SV_SKETCHFAB.title} por <b>${SV_SKETCHFAB.author}</b> no Sketchfab`;
 }
 function saverClose(){ if(saverG) saverG.running = false; clearInterval(saverInfoT); $("saver").hidden = true; }
 $("saverX").onclick = saverClose;
