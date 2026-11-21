@@ -1505,9 +1505,7 @@ body.layout-atv .rail{display:none}
       </div>
       <div class="panel">
         <h2>Carro</h2>
-        <select id="svModel" style="width:100%;margin-bottom:8px">
-          <option value="y">Model Y</option><option value="3">Model 3</option><option value="s">Model S</option><option value="x">Model X</option><option value="ct">Cybertruck</option><option value="glb">O meu modelo 3D (.glb)</option>
-        </select>
+        <select id="svModel" style="width:100%;margin-bottom:8px"><option value="y22">Tesla Model Y 2022 (Sketchfab)</option><option value="s">Tesla Model S Prior Design (Sketchfab)</option><option value="3">Tesla Model 3 2018 (Sketchfab)</option><option value="x">Tesla Model X animação (Sketchfab)</option><option value="ct">Tesla Cybertruck (Sketchfab)</option><option value="rs">Tesla Roadster (Sketchfab)</option><option value="glb">O meu modelo 3D (.glb)</option></select>
         <div id="svGlbRow" class="row small" hidden><input type="file" id="svGlb" accept=".glb,model/gltf-binary"><span class="muted" id="svGlbName"></span></div>
         <div class="row small" style="flex-wrap:wrap;gap:6px 16px">
           <label class="row">Cor <select id="svColor"><option value="f4f5f7">Branco pérola</option><option value="111317">Preto sólido</option><option value="6b7078">Cinzento</option><option value="b9bec6">Prata</option><option value="1f4fa8">Azul</option><option value="a3121b">Vermelho</option></select></label>
@@ -1516,7 +1514,7 @@ body.layout-atv .rail{display:none}
       <div class="panel">
         <h2>Formato</h2>
         <div class="row small" style="flex-wrap:wrap;gap:6px 16px">
-          <label class="row">Modo <select id="svMode"><option value="model">Carro 3D</option><option value="relogio">Só informação</option><option value="sketchfab">Modelo Sketchfab (embebido)</option></select></label>
+          <label class="row">Modo <select id="svMode"><option value="model">Carro</option><option value="relogio">Só informação</option></select></label>
           <label class="row">Fundo <select id="svBg"><option value="noite">Noite azul</option><option value="preto">Preto</option><option value="estudio">Estúdio claro</option><option value="por">Pôr do sol</option></select></label>
           <label class="row">Câmara <select id="svCam"><option value="rodar">Rodar à volta</option><option value="tres">3/4 frente</option><option value="lado">Lateral</option><option value="frente">Frente</option><option value="tras">Traseira</option></select></label>
           <label class="row">Velocidade <input type="range" id="svSpeed" min="1" max="10" style="width:120px"></label>
@@ -3054,7 +3052,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v528";
+const APP_VERSION = "v529";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7859,8 +7857,12 @@ const NEWS_FEEDS = [
   {n:"The Guardian", u:"https://www.theguardian.com/world/rss"},
   {n:"France 24", u:"https://www.france24.com/en/rss"},
   {n:"NPR", u:"https://feeds.npr.org/1004/rss.xml"},
-  {n:"RTP", u:"https://www.rtp.pt/noticias/feed/"},
-  {n:"Público", u:"https://www.publico.pt/rss"}
+  {n:"RTP", u:"https://www.rtp.pt/noticias/feed/", pt:true},
+  {n:"Público", u:"https://www.publico.pt/rss", pt:true},
+  {n:"Observador", u:"https://observador.pt/feed/", pt:true},
+  {n:"Expresso", u:"https://expresso.pt/rss", pt:true},
+  {n:"DN", u:"https://www.dn.pt/rss/", pt:true},
+  {n:"Notícias ao Minuto", u:"https://www.noticiasaominuto.com/rss/ultima-hora", pt:true}
 ];
 const NEWS_PAPERS = [
   {n:"Público", u:"https://www.publico.pt/"}, {n:"Expresso", u:"https://expresso.pt/"},
@@ -7906,14 +7908,15 @@ function newsCountryAngle(c){
   const x = -Math.sin(phi) * Math.cos(th), z = Math.sin(phi) * Math.sin(th);
   return Math.atan2(x, z);
 }
-function newsCountryMatch(c){ return newsItems.filter(it => c.k.some(k => (" " + it.title + " ").toLowerCase().includes(k))); }
+function newsCountryMatch(c){ return newsItems.filter(it => (c.k[0] === "portugal" && it.pt) || c.k.some(k => (" " + it.title + " ").toLowerCase().includes(k))); }
 function newsDashboard(){
   const box = $("newsCountries"); if(!box) return;
   const rows = NEWS_CTRY.map(c => ({c, n:newsCountryMatch(c).length})).filter(r => r.n > 0).sort((a, b) => b.n - a.n);
   box.innerHTML = rows.length ? rows.map(r => `<button class="btn" data-ctry="${NEWS_CTRY.indexOf(r.c)}" style="text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px"><b style="font-size:16px">${newsEsc(r.c.k[0].replace(/^./, ch => ch.toUpperCase()))}</b><span class="small muted">${r.n} ${r.n === 1 ? "notícia" : "notícias"}</span></button>`).join("") : '<p class="muted small" style="margin:0">Sem notícias de países de momento.</p>';
   box.querySelectorAll("[data-ctry]").forEach(b => b.onclick = () => {
     const c = NEWS_CTRY[+b.dataset.ctry];
-    $("newsQ").value = c.k[0]; newsShown = 15; newsSrc = ""; newsRender();
+    if(c.k[0] === "portugal"){ $("newsQ").value = ""; newsSrc = "__pt"; } else { $("newsQ").value = c.k[0]; newsSrc = ""; }
+    newsShown = 15; newsRender();
     newsFocusY = -newsCountryAngle(c);
     $("newsList").scrollIntoView({behavior:"smooth", block:"start"});
   });
@@ -7942,7 +7945,7 @@ async function newsLoad(){
     if(t){
       try{
         const d = new DOMParser().parseFromString(t, "text/xml");
-        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}); });
+        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}); });
       }catch(e){}
     }
     if(!got){
@@ -7950,7 +7953,7 @@ async function newsLoad(){
       try{
         const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(f.u));
         const j = r.ok ? await r.json() : null;
-        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, title:String(it.title || "").trim(), link:String(it.link || "").trim()}); });
+        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:String(it.title || "").trim(), link:String(it.link || "").trim()}); });
       }catch(e){}
     }
     if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
@@ -7962,12 +7965,14 @@ async function newsLoad(){
 let newsShown = 15, newsSrc = "";
 function newsFiltered(){
   const q = ($("newsQ")?.value || "").trim().toLowerCase();
-  return newsItems.filter(x => (!newsSrc || x.src === newsSrc) && (!q || (x.title + " " + x.src).toLowerCase().includes(q)));
+  const srcOk = x => !newsSrc || (newsSrc === "__pt" ? x.pt : x.src === newsSrc);
+  return newsItems.filter(x => srcOk(x) && (!q || (x.title + " " + x.src).toLowerCase().includes(q)));
 }
 function newsRender(){
   const list = $("newsList"); if(!list) return;
   const srcs = [...new Set(newsItems.map(x => x.src))];
-  $("newsChips").innerHTML = ["", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${n ? newsEsc(n) : "Todas"}</button>`).join("");
+  const lbl = n => n === "" ? "Todas" : n === "__pt" ? "🇵🇹 Portugal" : n;
+  $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("");
   $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 15; newsRender(); });
   const all = newsFiltered(), part = all.slice(0, newsShown);
   $("newsCount").textContent = all.length + " de " + newsItems.length;
@@ -8081,29 +8086,6 @@ $("newsReload").onclick = () => newsLoad();
 
 /* ---------- Protetor de ecrã: modelo 3D procedural de um Model Y branco (sem modelo oficial da Tesla) ---------- */
 let saverG = null;
-/* Modelos Tesla (perfis procedurais; não são os modelos oficiais) */
-const SV_MODELS = {
-  /* Model Y: dimensões do manual do proprietário da Tesla (m): 4,797 × 1,920 × 1,624; distância entre eixos 2,890; altura ao solo 0,167 */
-  y: {name:"Model Y", L:2.4, depth:1.92, paint:0xf4f5f7, metal:false, wr:.36, wx:[-1.445, 1.445], path:[["m",-2.4,.17],["l",-2.4,.72],["q",-2.36,.98,-2.0,1.04],["q",-1.5,1.32,-1.0,1.62],["l",.4,1.62],["q",1.4,1.58,1.95,1.3],["q",2.4,1.2,2.4,.85],["l",2.4,.17],["l",-2.4,.17]], cab:[["m",-1.92,1.1],["q",-1.6,1.36,-1.05,1.5],["l",.35,1.5],["q",1.3,1.46,1.8,1.22],["l",1.8,1.1],["l",-1.92,1.1]]},
-  3: {name:"Model 3", L:2.35, depth:1.85, paint:0xf4f5f7, metal:false, wr:.34, wx:[-1.44, 1.44], path:[["m",-2.3,.14],["l",-2.3,.6],["q",-2.25,.86,-1.9,.9],["q",-1.3,1.0,-.9,1.44],["l",.2,1.44],["q",1.2,1.4,2.0,.95],["q",2.35,.8,2.35,.6],["l",2.35,.14],["l",-2.3,.14]], cab:[["m",-1.8,.98],["q",-1.4,1.2,-.9,1.36],["l",.1,1.36],["q",1.0,1.32,1.7,.98],["l",-1.8,.98]]},
-  s: {name:"Model S", L:2.49, depth:1.96, paint:0xf4f5f7, metal:false, wr:.36, wx:[-1.48, 1.48], path:[["m",-2.45,.14],["l",-2.45,.66],["q",-2.42,.86,-2.1,.9],["q",-1.5,1.0,-1.0,1.43],["l",.4,1.44],["q",1.4,1.4,2.2,.95],["q",2.49,.82,2.49,.6],["l",2.49,.14],["l",-2.45,.14]], cab:[["m",-1.85,.98],["q",-1.5,1.2,-1.0,1.34],["l",.35,1.36],["q",1.3,1.32,1.95,.98],["l",-1.85,.98]]},
-  x: {name:"Model X", L:2.52, depth:2.0, paint:0xf4f5f7, metal:false, wr:.38, wx:[-1.48, 1.48], path:[["m",-2.45,.17],["l",-2.45,.8],["q",-2.4,1.0,-2.0,1.08],["q",-1.5,1.4,-1.1,1.68],["l",1.8,1.68],["q",2.4,1.6,2.45,1.2],["l",2.52,.9],["l",2.52,.17],["l",-2.45,.17]], cab:[["m",-1.9,1.1],["q",-1.55,1.45,-1.1,1.56],["l",1.6,1.56],["q",2.1,1.45,2.2,1.1],["l",-1.9,1.1]]},
-  ct: {name:"Cybertruck", L:2.84, depth:2.02, paint:0xc9ced6, metal:true, wr:.42, wx:[-1.85, 1.85], path:[["m",-2.84,.2],["l",-2.84,1.0],["l",-2.2,1.5],["l",-1.2,1.9],["l",1.4,1.9],["l",2.2,1.45],["l",2.84,.8],["l",2.84,.2],["l",-2.84,.2]], cab:[["m",-2.2,1.12],["l",-1.2,1.72],["l",1.3,1.72],["l",2.05,1.25],["l",-2.2,1.12]]}
-};
-function svPath(T, ops){
-  const sh = new T.Shape();
-  ops.forEach(o => { if(o[0] === "m") sh.moveTo(o[1], o[2]); else if(o[0] === "l") sh.lineTo(o[1], o[2]); else sh.quadraticCurveTo(o[1], o[2], o[3], o[4]); });
-  return sh;
-}
-const SV_BG = {noite:"radial-gradient(ellipse at 50% 40%,#22324a 0%,#06080d 75%)", preto:"#000", estudio:"radial-gradient(ellipse at 50% 35%,#f4f6f9 0%,#b9c0ca 80%)", por:"linear-gradient(180deg,#2b1d3a 0%,#a0483a 55%,#f0a35a 100%)"};
-/* reflexos: mapa de ambiente gerado a partir de painéis de luz (estúdio fotográfico) */
-function svEnv(T, renderer){
-  const sc = new T.Scene(); sc.background = new T.Color(0x20242b);
-  const pm = (w, h, x, y, z, c, i) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({color:new T.Color(c).multiplyScalar(i), side:T.DoubleSide})); m.position.set(x, y, z); m.lookAt(0, 0, 0); sc.add(m); };
-  pm(12, 2.2, 0, 9, 0, 0xffffff, 6); pm(10, 3, -9, 3, 0, 0xffffff, 3); pm(10, 3, 9, 3, 0, 0xdfeaff, 2.5); pm(10, 2, 0, 3, 9, 0xffffff, 2); pm(10, 2, 0, 3, -9, 0xffffff, 1.6);
-  const fl = new T.Mesh(new T.PlaneGeometry(40, 40), new T.MeshBasicMaterial({color:0x0c0d10})); fl.rotation.x = -Math.PI / 2; fl.position.y = -2; sc.add(fl);
-  const pg = new T.PMREMGenerator(renderer); const rt = pg.fromScene(sc, .02); pg.dispose(); return rt.texture;
-}
 function svMats(T, color, metal){
   return {
     paint: metal ? new T.MeshPhysicalMaterial({color, roughness:.32, metalness:.9, envMapIntensity:1.2})
@@ -8116,48 +8098,8 @@ function svMats(T, color, metal){
     head: new T.MeshBasicMaterial({color:0xf2f8ff}), tail: new T.MeshBasicMaterial({color:0xff1e2a})
   };
 }
-function svProcCar(T, M, mt){
-  const car = new T.Group();
-  const body = new T.Mesh(new T.ExtrudeGeometry(svPath(T, M.path), {depth:M.depth - .24, bevelEnabled:true, bevelThickness:.12, bevelSize:.12, bevelSegments:8, curveSegments:40}), mt.paint);
-  body.geometry.translate(0, 0, -(M.depth - .24) / 2); body.castShadow = true; car.add(body);
-  const gD = M.depth - .06;
-  const glass = new T.Mesh(new T.ExtrudeGeometry(svPath(T, M.cab), {depth:gD - .2, bevelEnabled:true, bevelThickness:.1, bevelSize:.06, bevelSegments:6, curveSegments:30}), mt.glass);
-  glass.geometry.translate(0, 0, -(gD - .2) / 2); car.add(glass);
-  /* saia preta inferior e cavas das rodas */
-  const skirt = new T.Mesh(new T.BoxGeometry(M.L * 2 - .5, .14, M.depth + .02), mt.trim); skirt.position.set(0, .24, 0); car.add(skirt);
-  const zW = M.depth / 2 - .02;
-  M.wx.forEach(x => [-1, 1].forEach(sd => {
-    const arch = new T.Mesh(new T.CylinderGeometry(M.wr + .07, M.wr + .07, .1, 40, 1, false, 0, Math.PI), mt.trim);
-    arch.rotation.x = Math.PI / 2; arch.rotation.y = 0; arch.position.set(x, M.wr + .02, (zW + .04) * sd); car.add(arch);
-    const w = new T.Group();
-    const tyre = new T.Mesh(new T.TorusGeometry(M.wr - .08, .1, 20, 48), mt.tyre); tyre.castShadow = true; w.add(tyre);
-    const disc = new T.Mesh(new T.CylinderGeometry(M.wr - .1, M.wr - .1, .05, 48), mt.rim); disc.rotation.x = Math.PI / 2; disc.position.z = .06 * sd; w.add(disc);
-    for(let k = 0; k < 5; k++){ const sp = new T.Mesh(new T.BoxGeometry(.06, M.wr - .14, .02), mt.rimDark); sp.position.z = .09 * sd; sp.rotation.z = k * Math.PI * 2 / 5; sp.translateY((M.wr - .14) / 2); w.add(sp); }
-    const hub = new T.Mesh(new T.CylinderGeometry(.06, .06, .06, 20), mt.rimDark); hub.rotation.x = Math.PI / 2; hub.position.z = .1 * sd; w.add(hub);
-    w.position.set(x, M.wr, zW * sd); car.add(w);
-  }));
-  /* faróis em barra fina e farolim traseiro de ponta a ponta */
-  const hl = new T.Mesh(new T.BoxGeometry(.06, .05, .42), mt.head);
-  [-1, 1].forEach(sd => { const h = hl.clone(); h.position.set(-M.L - .1, .9, sd * (M.depth / 2 - .35)); car.add(h); });
-  const tl = new T.Mesh(new T.BoxGeometry(.06, .06, M.depth - .3), mt.tail); tl.position.set(M.L + .1, .92, 0); car.add(tl);
-  /* acerta as medidas finais (o arredondamento das arestas aumenta o volume) */
-  const H = Math.max(...M.path.map(o => o[o.length - 1])), bx = new T.Box3().setFromObject(car), sz = bx.getSize(new T.Vector3());
-  car.scale.set(M.L * 2 / sz.x, H / sz.y, M.depth / sz.z);
-  car.position.y = -bx.min.y * car.scale.y;
-  return car;
-}
-function svFit(T, obj, M){
-  /* ajusta um modelo .glb ao tamanho e posição do protetor (frente para -x, rodas no chão) */
-  const box = new T.Box3().setFromObject(obj), size = box.getSize(new T.Vector3());
-  const long = Math.max(size.x, size.z), k = (M.L * 2) / (long || 1);
-  obj.scale.setScalar(k);
-  if(size.z > size.x) obj.rotation.y = Math.PI / 2;
-  const b2 = new T.Box3().setFromObject(obj), c = b2.getCenter(new T.Vector3());
-  obj.position.x -= c.x; obj.position.z -= c.z; obj.position.y -= b2.min.y;
-  obj.traverse(o => { if(o.isMesh){ o.castShadow = true; if(o.material) o.material.envMapIntensity = 1.3; } });
-}
 function saverBuild(opt){
-  const T = THREE, g = {key:JSON.stringify(opt)}, M = SV_MODELS[opt.model] || SV_MODELS.y;
+  const T = THREE, g = {key:JSON.stringify(opt)};
   g.renderer = new T.WebGLRenderer({antialias:true, alpha:true}); g.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   g.renderer.setClearColor(0x000000, 0);
   g.renderer.shadowMap.enabled = true; g.renderer.shadowMap.type = T.PCFSoftShadowMap;
@@ -8168,13 +8110,9 @@ function saverBuild(opt){
   key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6; Object.assign(key.shadow.camera, {left:-4, right:4, top:4, bottom:-4}); g.scene.add(key);
   g.scene.add(new T.HemisphereLight(0xffffff, 0x222428, .35));
   const floor = new T.Mesh(new T.PlaneGeometry(20, 20), new T.ShadowMaterial({opacity:.55})); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; g.scene.add(floor);
-  /* sombra de contacto suave por baixo do carro */
-  const ao = document.createElement("canvas"); ao.width = ao.height = 128; const cx = ao.getContext("2d"); const gr = cx.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, "rgba(0,0,0,.75)"); gr.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
-  const aoM = new T.Mesh(new T.PlaneGeometry(M.L * 2.4, M.depth * 1.7), new T.MeshBasicMaterial({map:new T.CanvasTexture(ao), transparent:true, depthWrite:false})); aoM.rotation.x = -Math.PI / 2; aoM.position.y = .005; g.scene.add(aoM);
-  const mt = svMats(T, new T.Color("#" + (opt.color || "f4f5f7")), M.metal && !opt.color);
-  if(opt.model === "glb" && opt.glb && T.GLTFLoader){
-    new T.GLTFLoader().parse(opt.glb, "", gl => { svFit(T, gl.scene, SV_MODELS.y); g.scene.add(gl.scene); }, () => { g.scene.add(svProcCar(T, SV_MODELS.y, mt)); toast("Não consegui ler o ficheiro .glb; a mostrar o modelo próprio da app.", true); });
-  } else g.scene.add(svProcCar(T, opt.model === "glb" ? SV_MODELS.y : M, mt));
+  if(opt.glb && T.GLTFLoader){
+    new T.GLTFLoader().parse(opt.glb, "", gl => { svFit(T, gl.scene, {L:2.4}); g.scene.add(gl.scene); }, () => toast("Não consegui ler o ficheiro .glb.", true));
+  }
   g.canvas = g.renderer.domElement; g.canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
   g.t = 0; return g;
 }
@@ -8207,7 +8145,7 @@ const SV_INFO = [
   {k:"vel", n:"Velocidade (km/h)"}, {k:"est", n:"Estado (P/R/N/D)"}, {k:"tint", n:"Temperatura interior"},
   {k:"text", n:"Temperatura exterior"}, {k:"lock", n:"Trancado"}, {k:"odo", n:"Odómetro (km)"}, {k:"pneu", n:"Pressão dos pneus (bar)"}
 ];
-const SV_DEF = {mode:"model", model:"y", color:"f4f5f7", bg:"noite", cam:"rodar", speed:4, info:{hora:true, data:true, bat:true, aut:true}};
+const SV_DEF = {mode:"model", model:"y22", color:"f4f5f7", bg:"noite", cam:"rodar", speed:4, info:{hora:true, data:true, bat:true, aut:true}};
 function saverCfgGet(){ return Object.assign({}, SV_DEF, cfg.saver || {}); }
 function saverCfgFill(){
   const c = saverCfgGet();
@@ -8246,9 +8184,10 @@ async function svMiniStart(){
   const c = saverCfgGet(), box = $("svMini");
   box.style.aspectRatio = innerWidth + "/" + innerHeight; box.style.maxHeight = "60vh"; box.style.background = SV_BG[c.bg] || SV_BG.noite;
   $("svMiniInfo").innerHTML = saverInfoHTML(); svMiniPlace();
+  const emb = !!SV_EMB[c.model];
   let note = $("svMiniNote"); if(!note){ note = document.createElement("div"); note.id = "svMiniNote"; note.style.cssText = "padding:24px;color:#cfd8e6;text-align:center"; note.textContent = "Modelo Sketchfab: pré-visualização disponível em ecrã inteiro."; box.appendChild(note); }
-  note.hidden = c.mode !== "sketchfab"; $("svMiniInfo").hidden = c.mode === "sketchfab";
-  if(c.mode === "sketchfab"){ svMiniStop(); return; }
+  note.hidden = !(emb && c.mode === "model"); $("svMiniInfo").hidden = emb && c.mode === "model";
+  if(emb || c.mode !== "model"){ svMiniStop(); return; }
   if(c.mode !== "model"){ svMiniStop(); return; }
   if(!(await threeLoad())) return;
   const o = await svOpts(c), key = JSON.stringify({m:o.model, c:o.color, g:!!o.glb});
@@ -8330,8 +8269,9 @@ function saverOpen(preview){
   const c = saverCfgGet();
   const host = $("saver"); host.hidden = false; host.style.background = SV_BG[c.bg] || SV_BG.noite;
   saverInfoTick(); saverPlace(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
-  $("saverEmbed").hidden = c.mode !== "sketchfab"; $("saverCredit").hidden = c.mode !== "sketchfab";
-  if(c.mode === "sketchfab"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } svEmbedShow(); return; }
+  const emb = !!SV_EMB[c.model] && c.mode === "model";
+  $("saverEmbed").hidden = !emb; $("saverCredit").hidden = !emb;
+  if(emb){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } svEmbedShow(c.model); return; }
   if(c.mode !== "model"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } return; }
   threeLoad().then(ok => { if(ok) saverStart(c); else toast("Protetor indisponível: não carreguei o motor 3D.", true); });
 }
@@ -8348,18 +8288,27 @@ async function saverStart(c){
   })();
 }
 /* Modelo Sketchfab embebido (embed oficial do Sketchfab, com crédito ao autor) */
-const SV_SKETCHFAB = {id:"66edf828087744479015edff815e85b3", title:"Tesla Model Y 2022", author:"mykoreanarchive"};
-function svEmbedShow(){
-  const box = $("saverEmbed");
-  if(!box.querySelector("iframe")){
-    const f = document.createElement("iframe");
-    f.title = SV_SKETCHFAB.title; f.setAttribute("frameborder", "0");
+const SV_EMB = {
+  y22: {title:"Tesla Model Y 2022", author:"mykoreanarchive", id:"66edf828087744479015edff815e85b3"},
+  s: {title:"Tesla Model S Prior Design", author:"RPMRender", id:"4ffda5b281cf4021977aec3205129a54"},
+  3: {title:"Tesla 2018 Model 3", author:"Ameer Studio", id:"5ef9b845aaf44203b6d04e2c677e444f"},
+  x: {title:"Tesla MODEL X [Animation]", author:"Virtual Studio", id:"36e9d3598c554bb69f3d9cd00e161818"},
+  ct: {title:"Tesla - Cybertruck", author:"bubelrobert", id:"5a86defda4b24836a504fe5e597fdb17"},
+  rs: {title:"Tesla Roadster - 3D Model", author:"The3DBoss", id:"559b4fe0bf8342f3ae25370ffaa40d0a"}
+};
+function svEmbedShow(key){
+  const box = $("saverEmbed"), e = SV_EMB[key]; if(!e) return;
+  let f = box.querySelector("iframe");
+  if(!f || f.dataset.key !== key){
+    if(f) f.remove();
+    f = document.createElement("iframe"); f.dataset.key = key;
+    f.title = e.title; f.setAttribute("frameborder", "0");
     f.setAttribute("allow", "autoplay; fullscreen; xr-spatial-tracking"); f.setAttribute("allowfullscreen", "");
     f.style.cssText = "width:100%;height:100%;border:0";
-    f.src = "https://sketchfab.com/models/" + SV_SKETCHFAB.id + "/embed?autostart=1&autospin=0.3&ui_infos=0&ui_watermark=0";
+    f.src = "https://sketchfab.com/models/" + e.id + "/embed?autostart=1&autospin=0.3&ui_infos=0&ui_watermark=0";
     box.appendChild(f);
   }
-  $("saverCredit").innerHTML = `${SV_SKETCHFAB.title} por <b>${SV_SKETCHFAB.author}</b> no Sketchfab`;
+  $("saverCredit").innerHTML = `${e.title} por <b>${e.author}</b> no Sketchfab`;
 }
 function saverClose(){ if(saverG) saverG.running = false; clearInterval(saverInfoT); $("saver").hidden = true; }
 $("saverX").onclick = saverClose;
