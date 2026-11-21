@@ -3059,7 +3059,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v537";
+const APP_VERSION = "v538";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -19012,18 +19012,18 @@ html.nightUi #ambient{filter:brightness(.75)}
       const c = lastPlayed && (lastPlayed[0] || lastPlayed[1]); if(c) return {k:"tv", t:"📺 " + c.name}; }catch(e){} return null; };
     const card = (v, l) => '<div class="c"><b>' + v + '</b><small>' + l + '</small></div>';
     const paint = () => {
+      /* respeita as definições do protetor: itens ativos, fundo e escala */
+      let c = {info:{}, bg:"noite", scale:1};
+      try{ c = saverCfgGet(); }catch(e){}
+      const info = c.info || {}, bgv = (typeof SV_BG !== "undefined" && SV_BG[c.bg]) || SV_BG.noite;
+      amb.style.background = bgv; amb.style.color = c.bg === "estudio" ? "#1a2230" : "";
       const d = new Date(); $m("ambClock").textContent = d.toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"});
       $m("ambDate").textContent = d.toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"});
+      $m("ambClock").style.display = info.hora ? "" : "none";
+      $m("ambDate").style.display = info.data ? "" : "none";
       let h = "";
-      try{ const c = typeof car !== "undefined" ? car : null, cs = c && c.charge_state || {}, cl = c && c.climate_state || {}, ds = c && c.drive_state || {}, MIk = typeof MI !== "undefined" ? MI : 1.609;
-        if(cl.outside_temp != null) h += card(Number(cl.outside_temp).toFixed(1) + " °C", "lá fora");
-        if(cl.inside_temp != null) h += card(Number(cl.inside_temp).toFixed(1) + " °C", "no carro");
-        if(cs.battery_level != null) h += card(Math.round(cs.battery_level) + " %", cs.battery_range != null ? Math.round(cs.battery_range * MIk) + " km de autonomia" : "bateria");
-        if(cs.charging_state === "Charging") h += card(cs.minutes_to_full_charge != null ? Math.floor(cs.minutes_to_full_charge / 60) + "h" + String(cs.minutes_to_full_charge % 60).padStart(2, "0") : "⚡", "até ao fim da carga" + (cs.charger_power ? " · " + cs.charger_power + " kW" : ""));
-        else if(cs.charging_state === "Complete") h += card("✓", "carga concluída");
-        if(ds.active_route_destination){ const m = ds.active_route_minutes_to_arrival; h += card(m != null ? Math.round(m) + " min" : "—", "até " + String(ds.active_route_destination).slice(0, 28) + (ds.active_route_traffic_minutes_delay ? " · +" + Math.round(ds.active_route_traffic_minutes_delay) + " min de trânsito" : "")); }
-      }catch(e){}
-      $m("ambRow").innerHTML = h;
+      try{ saverItems(c).forEach(it => { if(it.k !== "hora" && it.k !== "data") h += '<div class="c">' + it.html + '</div>'; }); }catch(e){}
+      $m("ambRow").style.zoom = c.scale || 1;
       const p = playing(); $m("ambPlay").classList.toggle("on", !!p); if(p) $m("ambNow").textContent = p.t;
     };
     const open = () => { if(amb.classList.contains("on")) return; paint(); amb.classList.add("on"); };
