@@ -1501,8 +1501,11 @@ body.layout-atv .rail{display:none}
         <p class="small muted" style="margin:6px 0 0">Arrasta para rodar o globo. Os pontos são capitais de países com notícias na lista.</p>
       </div>
       <div class="panel">
-        <h2>Manchetes</h2>
+        <div class="row"><h2>Manchetes</h2><span class="spacer"></span><span class="small muted" id="newsCount"></span></div>
+        <input type="search" id="newsQ" placeholder="Pesquisar (ex.: Ucrânia, Portugal, IA)" style="width:100%;margin-bottom:8px">
+        <div class="row" id="newsChips" style="flex-wrap:wrap;margin-bottom:8px"></div>
         <div class="list" id="newsList" style="max-height:none"><p class="muted small" style="margin:0">A carregar…</p></div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="newsMore" hidden>Mostrar mais</button></div>
       </div>
       <div class="panel">
         <h2>Capas de jornais</h2>
@@ -3011,7 +3014,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v518";
+const APP_VERSION = "v519";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7885,9 +7888,27 @@ async function newsLoad(){
     if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
   }
   newsItems = out.filter(x => x.title);
-  list.innerHTML = newsItems.length ? newsItems.map(x => `<a class="row small" href="${newsEsc(x.link)}" target="_blank" rel="noopener" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes de momento (sem ligação aos feeds).</p>';
+  newsShown = 15;
+  newsRender();
   newsPins();
 }
+let newsShown = 15, newsSrc = "";
+function newsFiltered(){
+  const q = ($("newsQ")?.value || "").trim().toLowerCase();
+  return newsItems.filter(x => (!newsSrc || x.src === newsSrc) && (!q || (x.title + " " + x.src).toLowerCase().includes(q)));
+}
+function newsRender(){
+  const list = $("newsList"); if(!list) return;
+  const srcs = [...new Set(newsItems.map(x => x.src))];
+  $("newsChips").innerHTML = ["", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${n ? newsEsc(n) : "Todas"}</button>`).join("");
+  $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 15; newsRender(); });
+  const all = newsFiltered(), part = all.slice(0, newsShown);
+  $("newsCount").textContent = all.length + " de " + newsItems.length;
+  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="${newsEsc(x.link)}" target="_blank" rel="noopener" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
+  $("newsMore").hidden = all.length <= newsShown;
+}
+$("newsQ").oninput = () => { newsShown = 15; newsRender(); };
+$("newsMore").onclick = () => { newsShown += 15; newsRender(); };
 function newsPins(){
   if(!newsG) return;
   const T = THREE;
@@ -7916,7 +7937,7 @@ async function newsGlobe(){
   if(!window.THREE) { host.innerHTML = '<p class="muted small" style="padding:12px">Globo 3D indisponível neste ecrã.</p>'; return; }
   const T = THREE, w = host.clientWidth || 300, h = host.clientHeight || 300;
   const renderer = new T.WebGLRenderer({antialias:true, alpha:true}); renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  host.innerHTML = ""; host.appendChild(renderer.domElement);
+  host.querySelectorAll("canvas").forEach(c => c.remove()); host.prepend(renderer.domElement);
   const scene = new T.Scene(), cam = new T.PerspectiveCamera(40, w / h, .1, 100); cam.position.z = 3.2;
   scene.add(new T.AmbientLight(0xffffff, .7)); const dl = new T.DirectionalLight(0xffffff, .8); dl.position.set(3, 2, 4); scene.add(dl);
   const root = new T.Group(); scene.add(root);
@@ -7941,8 +7962,9 @@ async function newsGlobe(){
   /* zoom: roda do rato/toque e botões; a câmara aproxima-se ou afasta-se do globo */
   const zoomTo = z => { cam.position.z = Math.min(6, Math.max(1.5, z)); };
   renderer.domElement.addEventListener("wheel", e => { e.preventDefault(); zoomTo(cam.position.z * (1 + Math.sign(e.deltaY) * .08)); }, {passive:false});
-  $("newsZoomIn").onclick = () => zoomTo(cam.position.z * .85);
-  $("newsZoomOut").onclick = () => zoomTo(cam.position.z * 1.18);
+  const zi = $("newsZoomIn"), zo = $("newsZoomOut");
+  if(zi) zi.onclick = () => zoomTo(cam.position.z * .85);
+  if(zo) zo.onclick = () => zoomTo(cam.position.z * 1.18);
   /* nuvens: camada semitransparente que roda um pouco mais depressa do que a Terra */
   const cloudMat = new T.MeshPhongMaterial({color:0xffffff, transparent:true, opacity:.35, depthWrite:false});
   const clouds = new T.Mesh(new T.SphereGeometry(1.01, 48, 32), cloudMat); root.add(clouds);
