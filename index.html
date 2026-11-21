@@ -1668,7 +1668,7 @@ body.layout-atv .rail{display:none}
           <label class="row small"><input type="checkbox" id="setRadarVoice"> Avisar também por voz</label>
           <label class="row small"><input type="checkbox" id="setRadarMap"> Mini mapa com os radares</label>
           <label class="row small"><input type="checkbox" id="setToll"> Portagens (autoestrada e custo estimado)</label>
-          <label class="row small">Posição do mini mapa <select id="setRadarPos"><option value="br">Inferior direito</option><option value="bl">Inferior esquerdo</option><option value="tr">Superior direito</option><option value="tl">Superior esquerdo</option></select></label>
+          <label class="row small">Posição do mini mapa (ou arrasta-o diretamente no ecrã) <select id="setRadarPos"><option value="br">Inferior direito</option><option value="bl">Inferior esquerdo</option><option value="tr">Superior direito</option><option value="tl">Superior esquerdo</option></select></label>
           <label class="row small">Aparência do mini mapa <select id="setRadarTheme"><option value="auto">Automático (noite após as 20h)</option><option value="dia">Dia</option><option value="noite">Noite</option></select></label>
           <label class="row small">Transparência do mini mapa <input type="range" id="setRadarOp" min="30" max="100" step="5" style="flex:1"> <span id="setRadarOpV" class="small"></span></label>
           <p class="small muted" style="margin:0">Radares fixos do OpenStreetMap (não oficial, sem radares móveis). O custo das portagens é uma estimativa média por km: classe 1 e classe 2 (aprox. 1,5 × classe 1); os valores reais dependem da concessionária.</p>
@@ -3062,7 +3062,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v539";
+const APP_VERSION = "v540";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8371,11 +8371,14 @@ const RD_TILES = {
 /* aparência: "auto" usa noite entre as 20h e as 7h */
 function rdTheme(){ const m = cfg.radarTheme || "auto"; if(m !== "auto") return m; const h = new Date().getHours(); return h >= 20 || h < 7 ? "noite" : "dia"; }
 function rdLook(){
-  const m = document.getElementById("rdMini"), pos = cfg.radarPos || "br", op = cfg.radarOp != null ? +cfg.radarOp : 85;
-  m.style.top = pos[0] === "t" ? "12px" : "auto"; m.style.bottom = pos[0] === "b" ? "12px" : "auto";
-  m.style.left = pos[1] === "l" ? "12px" : "auto"; m.style.right = pos[1] === "r" ? "12px" : "auto";
+  const m = document.getElementById("rdMini"), pos = cfg.radarPos || "br", op = cfg.radarOp != null ? +cfg.radarOp : 85, xy = cfg.radarXY;
+  if(!RD.dragging){
+    if(xy){ m.style.left = xy.x * innerWidth + "px"; m.style.top = xy.y * innerHeight + "px"; m.style.right = m.style.bottom = "auto"; }
+    else { m.style.top = pos[0] === "t" ? "12px" : "auto"; m.style.bottom = pos[0] === "b" ? "12px" : "auto";
+      m.style.left = pos[1] === "l" ? "12px" : "auto"; m.style.right = pos[1] === "r" ? "12px" : "auto"; }
+  }
   m.style.opacity = Math.max(.3, Math.min(1, op / 100));
-  const chip = document.getElementById("tlChip"), bl = pos === "bl";
+  const chip = document.getElementById("tlChip"), bl = !xy && pos === "bl";
   chip.style.left = bl ? "auto" : "12px"; chip.style.right = bl ? "12px" : "auto";
   const th = rdTheme();
   if(RD.map && RD.tile && RD.theme !== th){ const t = RD_TILES[th]; RD.tile.setUrl(t.url); RD.tile.options.attribution = t.attr; RD.theme = th; }
@@ -8478,7 +8481,16 @@ setInterval(() => { if((cfg.radarOn || cfg.tollOn) && !RD.gps && typeof driveChe
 {
   const pos = $("setRadarPos"), th = $("setRadarTheme"), op = $("setRadarOp"), opV = $("setRadarOpV");
   pos.value = cfg.radarPos || "br"; th.value = cfg.radarTheme || "auto"; op.value = cfg.radarOp != null ? cfg.radarOp : 85; opV.textContent = op.value + "%";
-  pos.onchange = () => { cfg.radarPos = pos.value; saveCfg(); rdLook(); };
+  pos.onchange = () => { cfg.radarPos = pos.value; cfg.radarXY = null; saveCfg(); rdLook(); };
+  /* arrastar o mini mapa para onde quiser (a posição fica guardada) */
+  const mini = $("rdMini"); let dg = null;
+  mini.style.touchAction = "none"; mini.style.cursor = "move";
+  mini.addEventListener("pointerdown", e => { if(e.target.closest("button")) return; const r = mini.getBoundingClientRect(); dg = {id:e.pointerId, dx:e.clientX - r.left, dy:e.clientY - r.top}; RD.dragging = true; try{ mini.setPointerCapture(e.pointerId); }catch(_){} });
+  mini.addEventListener("pointermove", e => { if(!dg || e.pointerId !== dg.id) return;
+    const x = Math.max(0, Math.min(innerWidth - mini.offsetWidth, e.clientX - dg.dx)), y = Math.max(0, Math.min(innerHeight - mini.offsetHeight, e.clientY - dg.dy));
+    mini.style.left = x + "px"; mini.style.top = y + "px"; mini.style.right = mini.style.bottom = "auto"; dg.x = x; dg.y = y; });
+  const endDrag = e => { if(!dg || (e && e.pointerId !== dg.id)) return; if(dg.x != null){ cfg.radarXY = {x: dg.x / innerWidth, y: dg.y / innerHeight}; saveCfg(); } dg = null; RD.dragging = false; rdLook(); };
+  mini.addEventListener("pointerup", endDrag); mini.addEventListener("pointercancel", endDrag);
   th.onchange = () => { cfg.radarTheme = th.value; saveCfg(); rdLook(); };
   op.oninput = () => { opV.textContent = op.value + "%"; cfg.radarOp = +op.value; rdLook(); };
   op.onchange = () => saveCfg();
