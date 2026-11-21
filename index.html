@@ -1363,6 +1363,9 @@ body.layout-atv .rail{display:none}
         <button class="apptile" data-app="news">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
           <b>Notícias</b><span>Globo 3D, manchetes e capas de jornais</span></button>
+        <button class="apptile" data-app="saver">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l3-6h12l3 6z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></span>
+          <b>Protetor</b><span>Modelo 3D do carro em rotação</span></button>
         <button class="apptile" data-app="engine">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v5M6 8h3l1-2h5v2h2l2 2v6h-3l-1 2H8l-2-2H6"/><path d="M21 12v3"/></svg></span>
           <b>Motor</b><span>Som de motor com os dados do carro</span></button>
@@ -1494,6 +1497,7 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- PODCASTS -->
+    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%)"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:2">✕ Fechar</button></div>
     <section class="view" id="v-news" hidden>
       <div class="row"><h1>Notícias do mundo</h1><span class="spacer"></span><button class="btn" id="newsReload">Atualizar</button></div>
       <div class="panel">
@@ -3014,7 +3018,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v520";
+const APP_VERSION = "v521";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7712,6 +7716,7 @@ const APPS = {
   ip_trafego: {name:"IP Trânsito", url:"https://www.infraestruturasdeportugal.pt/"},
   spotify: {name:"Spotify", url:"https://open.spotify.com/", stream:true},
   news: {name:"Notícias", url:""},
+  saver: {name:"Protetor", url:""},
   engine: {name:"Motor", url:""}
 };
 if(cfg.appsIn === undefined) cfg.appsIn = true;
@@ -7794,6 +7799,7 @@ function openApp(id){
   if(id === "games"){ show("games"); return true; }
   if(id === "podcasts"){ show("pod"); return true; }
   if(id === "news"){ show("news"); return true; }
+  if(id === "saver"){ saverOpen(); return true; }
   if(id === "engine"){ show("engine"); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
@@ -8009,6 +8015,77 @@ function newsEnter(){
   newsGlobe(); newsLoad();
 }
 $("newsReload").onclick = () => newsLoad();
+
+/* ---------- Protetor de ecrã: modelo 3D procedural de um Model Y branco (sem modelo oficial da Tesla) ---------- */
+let saverG = null;
+function saverBuild(){
+  const T = THREE, g = {};
+  g.renderer = new T.WebGLRenderer({antialias:true}); g.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  g.renderer.shadowMap.enabled = true; g.renderer.shadowMap.type = T.PCFSoftShadowMap;
+  g.renderer.toneMapping = T.ACESFilmicToneMapping; g.renderer.outputEncoding = T.sRGBEncoding;
+  g.scene = new T.Scene(); g.cam = new T.PerspectiveCamera(32, 1, .1, 100); g.cam.position.set(6.2, 2.1, 6.2);
+  g.scene.add(new T.HemisphereLight(0xdfeeff, 0x1a1d24, .9));
+  const key = new T.DirectionalLight(0xffffff, 1.6); key.position.set(-4, 7, 5); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = -4; key.shadow.camera.right = 4; key.shadow.camera.top = 4; key.shadow.camera.bottom = -4; g.scene.add(key);
+  const rim = new T.DirectionalLight(0x9fd3ff, .8); rim.position.set(5, 3, -4); g.scene.add(rim);
+  const paint = new T.MeshPhysicalMaterial({color:0xf4f5f7, roughness:.22, metalness:0, clearcoat:1, clearcoatRoughness:.05});
+  const glass = new T.MeshPhysicalMaterial({color:0x0b1118, roughness:.05, metalness:.2, clearcoat:1, transparent:true, opacity:.92});
+  const black = new T.MeshStandardMaterial({color:0x101216, roughness:.6});
+  const rimM = new T.MeshStandardMaterial({color:0xd9dde3, roughness:.25, metalness:.9});
+  const light = new T.MeshBasicMaterial({color:0xe8f4ff});
+  /* perfil lateral (comprimento x altura), extrudido em largura */
+  const sh = new T.Shape();
+  sh.moveTo(-2.36, .34); sh.lineTo(-2.4, .62); sh.quadraticCurveTo(-2.42, .92, -2.12, .98);
+  sh.quadraticCurveTo(-1.5, 1.06, -1.1, 1.06); sh.lineTo(-.9, 1.04); sh.quadraticCurveTo(-.4, 1.04, .1, 1.04); sh.lineTo(.5, 1.0);
+  sh.quadraticCurveTo(1.0, .92, 1.25, .8); sh.quadraticCurveTo(1.6, .76, 2.0, .74); sh.quadraticCurveTo(2.36, .72, 2.4, .5);
+  sh.lineTo(2.38, .34); sh.quadraticCurveTo(2.2, .3, 1.7, .3); sh.lineTo(-1.7, .3); sh.quadraticCurveTo(-2.2, .3, -2.36, .34);
+  const body = new T.Mesh(new T.ExtrudeGeometry(sh, {depth:1.84, bevelEnabled:true, bevelThickness:.08, bevelSize:.08, bevelSegments:5, curveSegments:24}), paint);
+  body.geometry.translate(0, 0, -.92); body.castShadow = true; g.scene.add(body);
+  /* vidros: cabine escura e para-brisas */
+  const cab = new T.Shape();
+  cab.moveTo(-1.08, 1.0); cab.quadraticCurveTo(-1.5, .98, -1.92, .9); cab.lineTo(-.6, .9);
+  cab.lineTo(.2, .98); cab.quadraticCurveTo(.95, .92, 1.22, .78); cab.lineTo(-1.0, .78); cab.lineTo(-1.08, 1.0);
+  const glassM = new T.Mesh(new T.ExtrudeGeometry(cab, {depth:1.66, bevelEnabled:false, curveSegments:16}), glass);
+  glassM.geometry.translate(0, 0, -.83); g.scene.add(glassM);
+  /* rodas */
+  [[-1.45, .3, .99], [1.45, .3, .99]].forEach(([x, y, z]) => [-1, 1].forEach(sd => {
+    const w = new T.Group();
+    const tyre = new T.Mesh(new T.CylinderGeometry(.36, .36, .26, 36), black); tyre.rotation.x = Math.PI / 2; tyre.castShadow = true; w.add(tyre);
+    const rim = new T.Mesh(new T.CylinderGeometry(.24, .24, .27, 24), rimM); rim.rotation.x = Math.PI / 2; w.add(rim);
+    w.position.set(x, y + .06, z * sd); g.scene.add(w);
+  }));
+  /* faróis e luzes traseiras */
+  const hl = new T.Mesh(new T.BoxGeometry(.5, .05, .12), light); hl.position.set(-2.22, .8, .55); g.scene.add(hl);
+  const hl2 = hl.clone(); hl2.position.z = -.55; g.scene.add(hl2);
+  const tl = new T.Mesh(new T.BoxGeometry(.05, .07, .6), new T.MeshBasicMaterial({color:0xff2a2a})); tl.position.set(2.39, .66, 0); g.scene.add(tl);
+  /* chão com sombra */
+  const floor = new T.Mesh(new T.CircleGeometry(6, 64), new T.MeshStandardMaterial({color:0x0c0f14, roughness:.9, metalness:0}));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = 0; floor.receiveShadow = true; g.scene.add(floor);
+  g.car = new T.Group(); g.scene.children.slice().forEach(o => { if(o !== floor && o.isLight !== true){ g.scene.remove(o); g.car.add(o); } });
+  g.scene.add(g.car); g.car.position.y = .02;
+  g.canvasHost = $("saver");
+  g.canvas = g.renderer.domElement; g.canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
+  g.canvasHost.insertBefore(g.canvas, g.canvasHost.firstChild);
+  g.t = 0; return g;
+}
+function saverSize(){ const g = saverG; const w = innerWidth, h = innerHeight; g.renderer.setSize(w, h, false); g.cam.aspect = w / h; g.cam.updateProjectionMatrix(); }
+function saverOpen(){
+  if(!window.THREE){ toast("Protetor indisponível: falta o motor 3D.", true); return; }
+  const host = $("saver"); host.hidden = false;
+  if(!saverG){ saverG = saverBuild(); }
+  saverSize(); saverG.running = true;
+  (function frame(){
+    if(!saverG || !saverG.running) return;
+    saverG.t += .004; const a = saverG.t;
+    saverG.cam.position.set(Math.cos(a) * 6.4, 2.0 + Math.sin(a * .5) * .3, Math.sin(a) * 6.4);
+    saverG.cam.lookAt(0, .65, 0);
+    saverG.renderer.render(saverG.scene, saverG.cam);
+    requestAnimationFrame(frame);
+  })();
+}
+function saverClose(){ if(saverG) saverG.running = false; $("saver").hidden = true; }
+$("saverX").onclick = saverClose;
+window.addEventListener("resize", () => { if(saverG && !$("saver").hidden) saverSize(); });
 document.querySelectorAll("[data-app]").forEach(b => b.onclick = () => openApp(b.dataset.app));
 let navRecent = LS.get("navRecent", []);
 function renderNavRecent(){
