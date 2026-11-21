@@ -3155,7 +3155,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v548";
+const APP_VERSION = "v549";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -12579,7 +12579,7 @@ $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 $("setTtsVoice").onchange = e => { cfg.ttsVoice = e.target.value; saveCfg(); };
-$("setTtsTest").onclick = () => ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit.");
+$("setTtsTest").onclick = () => { LS.set("ttsEdgeOff", 0); window.__ttsWhich = ""; setTimeout(() => { const w = window.__ttsWhich; if(w) toast(w === "edge" ? "Voz neural da Microsoft." : w === "grave" ? "Voz da Google com tom grave (a voz da Microsoft não respondeu)." : "Voz da Google (as vozes masculinas não responderam)."); }, 9500); ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit."); };
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
 $("setMaxRes").onchange = e => { cfg.maxRes = e.target.value; saveCfg(); toast("Qualidade máxima: " + (cfg.maxRes === "2160" ? "4K" : cfg.maxRes + "p")); };
@@ -19038,15 +19038,11 @@ select option,select optgroup{background:#fff;color:#111}
       ttsQ = parts.slice(); const lang = ttsLang();
       const next = (viaPx) => {
         const t = ttsQ.shift(); if(!t){ onEnd && onEnd(); return; }
-        const gU = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
-        /* voz online masculina/feminina (Amazon Polly via StreamElements, gratuita); se falhar, volta à voz da Google */
-        const gv = cfg.ttsVoice, poly = lang === "pt-PT" && (gv === "m" || gv === "f") && !LS.get("ttsSeOff", false) && !window.__seFail;
-        const u = poly ? "https://api.streamelements.com/kappa/v2/speech?voice=" + (gv === "m" ? "Cristiano" : "Ines") + "&text=" + encodeURIComponent(t) : gU;
+        const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
         try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); ttsA.removeAttribute("src"); } }catch(e){}   /* v451: nunca duas vozes ao mesmo tempo */
         const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
         /* v451: o erro do áudio e a recusa do play() chegavam os dois e cada um lançava a voz pelo proxy: duas vozes desfasadas (eco na navegação). Agora a troca acontece uma só vez */
         let moved = false; const fallback = () => { if(moved || ttsA !== a) return; moved = true; try{ a.onended = a.onerror = null; a.pause(); }catch(e){}
-          if(poly){ window.__seFail = true; ttsQ.unshift(t); next(viaPx); return; }
           if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };
         a.onended = () => { if(ttsA === a && !moved) next(viaPx); };
         a.onerror = fallback;   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
@@ -19054,8 +19050,89 @@ select option,select optgroup{background:#fff;color:#111}
       };
       next(LS.get("ttsViaPx", false));
     };
-    window.__ttsOnline = ttsOnline;
-    window.__ttsStop = () => { ttsQ = []; try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){} };
+    /* ---- vozes neurais da Microsoft (Edge “Ler em voz alta”, gratuitas): pt-PT Duarte (masculina) e Raquel (feminina) ---- */
+    let ttsGen = 0;
+    const edgeTTS = (txt, voice) => new Promise(async res => {
+      let done = false; const fin = v => { if(done) return; done = true; try{ ws && ws.close(); }catch(e){} res(v); };
+      let ws = null; setTimeout(() => fin(null), 8000);
+      try{
+        const TOK = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+        let ticks = Math.floor(Date.now() / 1000) + 11644473600; ticks -= ticks % 300;
+        const raw = new TextEncoder().encode(ticks + "0000000" + TOK);
+        const gec = [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+        const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/-/g, "");
+        ws = new WebSocket("wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TOK + "&Sec-MS-GEC=" + gec + "&Sec-MS-GEC-Version=1-130.0.2849.68&ConnectionId=" + id);
+        ws.binaryType = "arraybuffer"; const chunks = [];
+        const ts = () => new Date().toString();
+        ws.onopen = () => {
+          ws.send("X-Timestamp:" + ts() + "\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n" + '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}');
+          const esc2 = s => s.replace(/[<>&"']/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&apos;"}[c]));
+          ws.send("X-RequestId:" + id + "\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:" + ts() + "Z\r\nPath:ssml\r\n\r\n<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='pt-PT'><voice name='" + voice + "'><prosody pitch='+0Hz' rate='+0%' volume='+0%'>" + esc2(txt) + "</prosody></voice></speak>");
+        };
+        ws.onmessage = e => {
+          if(typeof e.data === "string"){ if(e.data.includes("Path:turn.end")) fin(chunks.length ? URL.createObjectURL(new Blob(chunks, {type:"audio/mpeg"})) : null); return; }
+          const dv = new DataView(e.data), hl = dv.getUint16(0); const head = new TextDecoder().decode(new Uint8Array(e.data, 2, hl));
+          if(head.includes("Path:audio")) chunks.push(new Uint8Array(e.data, 2 + hl));
+        };
+        ws.onerror = () => fin(null); ws.onclose = () => fin(chunks.length ? URL.createObjectURL(new Blob(chunks, {type:"audio/mpeg"})) : null);
+      }catch(e){ fin(null); }
+    });
+    /* reserva para a voz masculina: voz da Google com o tom mais grave (mantém a velocidade). Precisa do proxy para ler o áudio. */
+    const deepTTS = async (txt, lang) => {
+      try{
+        const parts = String(txt).match(/.{1,190}(\s|$)/g) || [txt];
+        const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC(); const bufs = [];
+        for(const p of parts){
+          const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(p.trim());
+          let ab = null; for(const url of [typeof px === "function" ? px(u) : null, u].filter(Boolean)){ try{ const r = await fetch(url); if(r.ok){ ab = await r.arrayBuffer(); break; } }catch(e){} }
+          if(!ab) return null; bufs.push(await ac.decodeAudioData(ab));
+        }
+        const sr = bufs[0].sampleRate, len = bufs.reduce((a, b) => a + b.length, 0), x = new Float32Array(len); let o = 0; bufs.forEach(b => { x.set(b.getChannelData(0), o); o += b.length; });
+        /* 1) encurta sem mudar o tom (WSOLA)  2) reamostra mais devagar: tom ~4 meios-tons abaixo, mesma duração */
+        const R = .8, N = 1024, Hs = 512, Ha = Hs / R, tol = 160, win = new Float32Array(N).map((_, i) => .5 - .5 * Math.cos(2 * Math.PI * i / N));
+        const outLen = Math.floor(len * R) + N, y = new Float32Array(outLen), wsum = new Float32Array(outLen);
+        let prev = 0;
+        for(let k = 0, pos = 0; pos + N + tol < len; k++, pos = Math.round(k * Ha)){
+          let best = pos, bv = -Infinity;
+          if(k){ for(let d = -tol; d <= tol; d += 4){ const s = pos + d; if(s < 0) continue; let c = 0; for(let i = 0; i < Hs; i += 4) c += x[s + i] * x[prev + Hs + i]; if(c > bv){ bv = c; best = s; } } }
+          const op = k * Hs; for(let i = 0; i < N; i++){ y[op + i] += x[best + i] * win[i]; wsum[op + i] += win[i]; }
+          prev = best;
+        }
+        for(let i = 0; i < outLen; i++) if(wsum[i] > 1e-3) y[i] /= wsum[i];
+        const fin = Math.floor(outLen / R), z = new Float32Array(fin);
+        for(let i = 0; i < fin; i++){ const s = i * R, a = Math.floor(s), f = s - a; z[i] = (y[a] || 0) * (1 - f) + (y[a + 1] || 0) * f; }
+        /* WAV */
+        const wav = new DataView(new ArrayBuffer(44 + fin * 2)); const W = (o, s) => [...s].forEach((c, i) => wav.setUint8(o + i, c.charCodeAt(0)));
+        W(0, "RIFF"); wav.setUint32(4, 36 + fin * 2, true); W(8, "WAVEfmt "); wav.setUint32(16, 16, true); wav.setUint16(20, 1, true); wav.setUint16(22, 1, true); wav.setUint32(24, sr, true); wav.setUint32(28, sr * 2, true); wav.setUint16(32, 2, true); wav.setUint16(34, 16, true); W(36, "data"); wav.setUint32(40, fin * 2, true);
+        for(let i = 0; i < fin; i++) wav.setInt16(44 + i * 2, Math.max(-1, Math.min(1, z[i])) * 32767, true);
+        try{ ac.close(); }catch(e){}
+        return URL.createObjectURL(new Blob([wav], {type:"audio/wav"}));
+      }catch(e){ return null; }
+    };
+    const playUrl = (url, rate, onEnd, onFail) => {
+      try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){}
+      const a = ttsA = new Audio(url); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
+      a.onended = () => { if(ttsA === a){ onEnd && onEnd(); } URL.revokeObjectURL(url); };
+      a.onerror = () => { if(ttsA === a) onFail(); };
+      a.play().catch(e => { if(e && e.name === "AbortError") return; if(ttsA === a) onFail(); });
+    };
+    const ttsBase = ttsOnline;
+    const ttsGender = (txt, rate, onEnd) => {
+      const g = cfg.ttsVoice, lang = ttsLang();
+      if(lang !== "pt-PT" || (g !== "m" && g !== "f")) return ttsBase(txt, rate, onEnd);
+      const my = ++ttsGen; ttsQ = []; try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){}
+      const google = () => { if(my === ttsGen) ttsBase(txt, rate, onEnd); };
+      (async () => {
+        let url = LS.get("ttsEdgeOff", 0) > Date.now() ? null : await edgeTTS(txt, g === "m" ? "Microsoft Server Speech Text to Speech Voice (pt-PT, DuarteNeural)" : "Microsoft Server Speech Text to Speech Voice (pt-PT, RaquelNeural)");
+        if(my !== ttsGen) return;
+        if(url){ window.__ttsWhich = "edge"; return playUrl(url, rate, onEnd, google); }
+        LS.set("ttsEdgeOff", Date.now() + 10 * 60000);   /* não volta a tentar durante 10 min (evita 8 s de espera em cada frase) */
+        if(g === "m"){ url = await deepTTS(txt, lang); if(my !== ttsGen) return; if(url){ window.__ttsWhich = "grave"; return playUrl(url, rate, onEnd, google); } }
+        window.__ttsWhich = "google"; google();
+      })();
+    };
+    window.__ttsOnline = ttsGender;
+    window.__ttsStop = () => { ttsGen++; ttsQ = []; try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){} };
     const hasVoices = () => { try{ return "speechSynthesis" in window && speechSynthesis.getVoices().length > 0; }catch(e){ return false; } };
     try{ speechSynthesis && speechSynthesis.getVoices(); }catch(e){}
     const speakA = txt => {
