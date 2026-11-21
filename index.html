@@ -3011,7 +3011,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v516";
+const APP_VERSION = "v517";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7811,6 +7811,10 @@ function openApp(id){
 /* ---------- Notícias do mundo: globo 3D (Three.js), manchetes RSS e links para as capas ---------- */
 const NEWS_FEEDS = [
   {n:"BBC", u:"https://feeds.bbci.co.uk/news/world/rss.xml"},
+  {n:"Al Jazeera", u:"https://www.aljazeera.com/xml/rss/all.xml"},
+  {n:"The Guardian", u:"https://www.theguardian.com/world/rss"},
+  {n:"France 24", u:"https://www.france24.com/en/rss"},
+  {n:"NPR", u:"https://feeds.npr.org/1004/rss.xml"},
   {n:"RTP", u:"https://www.rtp.pt/noticias/feed/"},
   {n:"Público", u:"https://www.publico.pt/rss"}
 ];
@@ -7828,7 +7832,28 @@ const NEWS_CTRY = [
   {k:["japão","japan","tóquio","tokyo"], lat:35.68, lon:139.7}, {k:["índia","india","nova deli","delhi"], lat:28.6, lon:77.2},
   {k:["eua","usa","united states","estados unidos","washington"], lat:38.9, lon:-77.0}, {k:["brasil","brazil","brasília"], lat:-15.8, lon:-47.9},
   {k:["israel","gaza","jerusalém","jerusalem"], lat:31.77, lon:35.2}, {k:["médio oriente","irão","iran","middle east"], lat:35.7, lon:51.4},
-  {k:["áfrica","africa","egito","egypt"], lat:30.04, lon:31.2}, {k:["austrália","australia"], lat:-35.28, lon:149.13}
+  {k:["áfrica","africa","egito","egypt"], lat:30.04, lon:31.2}, {k:["austrália","australia"], lat:-35.28, lon:149.13},
+  {k:["itália","italy","roma","rome"], lat:41.9, lon:12.5}, {k:["polónia","poland","varsóvia","warsaw"], lat:52.23, lon:21.01},
+  {k:["turquia","turkey","ancara","ankara"], lat:39.93, lon:32.86}, {k:["grécia","greece"], lat:37.98, lon:23.73},
+  {k:["suíça","switzerland","genebra","geneva"], lat:46.95, lon:7.45}, {k:["holanda","netherlands","amesterdão","amsterdam"], lat:52.37, lon:4.9},
+  {k:["bélgica","belgium","bruxelas","brussels"], lat:50.85, lon:4.35}, {k:["marrocos","morocco"], lat:34.02, lon:-6.84},
+  {k:["argélia","algeria","argel"], lat:36.75, lon:3.06}, {k:["nigéria","nigeria","lagos","abuja"], lat:9.06, lon:7.49},
+  {k:["quénia","kenya","nairobi"], lat:-1.29, lon:36.82}, {k:["etiópia","ethiopia"], lat:9.03, lon:38.74},
+  {k:["sudão","sudan"], lat:15.5, lon:32.56}, {k:["arábia saudita","saudi","riade","riyadh"], lat:24.71, lon:46.68},
+  {k:["síria","syria","damasco","damascus"], lat:33.51, lon:36.29}, {k:["líbano","lebanon","beirute","beirut"], lat:33.89, lon:35.5},
+  {k:["afeganistão","afghanistan","cabul","kabul"], lat:34.53, lon:69.17}, {k:["paquistão","pakistan"], lat:33.69, lon:73.06},
+  {k:["bangladesh","bangladeche"], lat:23.81, lon:90.41}, {k:["indonésia","indonesia","jacarta","jakarta"], lat:-6.21, lon:106.85},
+  {k:["filipinas","philippines"], lat:14.6, lon:120.98}, {k:["coreia do sul","south korea","seul","seoul"], lat:37.57, lon:126.98},
+  {k:["coreia do norte","north korea","pyongyang"], lat:39.03, lon:125.75}, {k:["taiwan"], lat:25.03, lon:121.56},
+  {k:["tailândia","thailand"], lat:13.76, lon:100.5}, {k:["vietname","vietnam"], lat:21.03, lon:105.85},
+  {k:["méxico","mexico"], lat:19.43, lon:-99.13}, {k:["canadá","canada","ottawa"], lat:45.42, lon:-75.7},
+  {k:["argentina","buenos aires"], lat:-34.6, lon:-58.38}, {k:["chile"], lat:-33.45, lon:-70.67},
+  {k:["colômbia","colombia"], lat:4.71, lon:-74.07}, {k:["venezuela","caracas"], lat:10.48, lon:-66.9},
+  {k:["cuba","havana"], lat:23.11, lon:-82.37}, {k:["nova zelândia","new zealand"], lat:-41.29, lon:174.78},
+  {k:["irlanda","ireland","dublin"], lat:53.35, lon:-6.26}, {k:["suécia","sweden","estocolmo","stockholm"], lat:59.33, lon:18.07},
+  {k:["noruega","norway","oslo"], lat:59.91, lon:10.75}, {k:["finlândia","finland"], lat:60.17, lon:24.94},
+  {k:["hungria","hungary"], lat:47.5, lon:19.04}, {k:["roménia","romania"], lat:44.43, lon:26.1},
+  {k:["cazaquistão","kazakhstan"], lat:51.17, lon:71.43}, {k:["irão","iran"], lat:35.7, lon:51.4}
 ];
 let newsItems = [], newsG = null;
 async function newsFetchText(u){
@@ -7910,16 +7935,25 @@ async function newsGlobe(){
   sg.setAttribute("position", new T.BufferAttribute(sp, 3));
   scene.add(new T.Points(sg, new T.PointsMaterial({color:0xcfe8ff, size:.05, transparent:true, opacity:.8})));
   newsG = {root, pins:[], renderer, scene, cam, vy:.002, drag:false};
-  const el = renderer.domElement; let lx = 0;
-  el.addEventListener("pointerdown", e => { newsG.drag = true; lx = e.clientX; newsG.vy = 0; });
-  el.addEventListener("pointermove", e => { if(newsG.drag){ const dx = e.clientX - lx; lx = e.clientX; root.rotation.y += dx * .006; } });
+  /* nuvens: camada semitransparente que roda um pouco mais depressa do que a Terra */
+  const cloudMat = new T.MeshPhongMaterial({color:0xffffff, transparent:true, opacity:.35, depthWrite:false});
+  const clouds = new T.Mesh(new T.SphereGeometry(1.01, 48, 32), cloudMat); root.add(clouds);
+  new T.TextureLoader().load("https://threejs.org/examples/textures/planets/earth_clouds_1024.png", tex => { cloudMat.map = tex; cloudMat.needsUpdate = true; }, undefined, () => {});
+  /* rotação total: arrastar roda em qualquer direção (horizontal e vertical), com inércia */
+  const el = renderer.domElement; let lx = 0, ly = 0;
+  newsG.vx = 0; newsG.vy = .002;
+  el.addEventListener("pointerdown", e => { newsG.drag = true; lx = e.clientX; ly = e.clientY; newsG.vx = 0; newsG.vy = 0; try{ el.setPointerCapture(e.pointerId); }catch(_){} });
+  el.addEventListener("pointermove", e => { if(!newsG.drag) return; const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; newsG.vy = dx * .006; newsG.vx = dy * .006; root.rotation.y += newsG.vy; root.rotation.x += newsG.vx; });
   const stop = () => { newsG.drag = false; };
-  el.addEventListener("pointerup", stop); el.addEventListener("pointerleave", stop);
-  (function loop(){
+  el.addEventListener("pointerup", stop); el.addEventListener("pointercancel", stop);
+  (function loop(t){
     if(!newsG || newsG.renderer !== renderer) return;
-    if(!newsG.drag) root.rotation.y += newsG.vy;
+    if(!newsG.drag){ root.rotation.y += newsG.vy; root.rotation.x += newsG.vx; newsG.vx *= .98; newsG.vy = newsG.vy * .98 + (newsG.vy > 0 ? 0 : 0); if(Math.abs(newsG.vy) < .002) newsG.vy += .0005 * Math.sign(newsG.vy || 1); }
+    clouds.rotation.y += .0004;
+    const pulse = 1 + .35 * Math.sin((t || 0) / 380);
+    newsG.pins.forEach((m, i) => { if(i % 2) m.scale.setScalar(pulse); });
     renderer.render(scene, cam); requestAnimationFrame(loop);
-  })();
+  })(0);
   newsPins();
 }
 function newsEnter(){
