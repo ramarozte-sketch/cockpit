@@ -3071,7 +3071,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v542";
+const APP_VERSION = "v543";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7843,11 +7843,11 @@ function openExtPlain(url){ const x = document.createElement("a"); x.href = url;
 const WX_CODE = {0:["☀️","Céu limpo"],1:["🌤️","Pouco nublado"],2:["⛅","Parcialmente nublado"],3:["☁️","Nublado"],45:["🌫️","Nevoeiro"],48:["🌫️","Nevoeiro"],51:["🌦️","Chuvisco"],53:["🌦️","Chuvisco"],55:["🌧️","Chuvisco forte"],56:["🌧️","Chuva gelada"],57:["🌧️","Chuva gelada"],61:["🌧️","Chuva fraca"],63:["🌧️","Chuva"],65:["🌧️","Chuva forte"],66:["🌧️","Chuva gelada"],67:["🌧️","Chuva gelada"],71:["🌨️","Neve fraca"],73:["🌨️","Neve"],75:["🌨️","Neve forte"],77:["🌨️","Granizo"],80:["🌦️","Aguaceiros"],81:["🌦️","Aguaceiros"],82:["⛈️","Aguaceiros fortes"],85:["🌨️","Aguaceiros de neve"],86:["🌨️","Aguaceiros de neve"],95:["⛈️","Trovoada"],96:["⛈️","Trovoada com granizo"],99:["⛈️","Trovoada com granizo"]};
 const wxInfo = c => WX_CODE[c] || ["•", "—"];
 const TEMPO_MAX = 6;
-let tempoCache = {}, tempoTimer = null;
+let tempoCache = {}, tempoTimer = null, tempoSel = {};
 function tempoLocs(){ return Array.isArray(cfg.tempoLocs) && cfg.tempoLocs.length ? cfg.tempoLocs : [{n:"Lisboa", lat:38.72, lon:-9.14}]; }
 async function tempoFetch(l){
   const u = "https://api.open-meteo.com/v1/forecast?latitude=" + l.lat + "&longitude=" + l.lon +
-    "&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7";
+    "&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max,sunrise,sunset&timezone=auto&forecast_days=7";
   const r = await fetch(u); if(!r.ok) throw new Error("HTTP " + r.status); return r.json();
 }
 async function tempoRefresh(){
@@ -7866,15 +7866,36 @@ function tempoRender(){
     if(c.err) return `<div class="panel"><div class="row"><h2>${newsEsc(l.n)}</h2><span class="spacer"></span><button class="btn" data-tdel="${i}">Remover</button></div><p class="small muted">Não consegui obter a previsão (${newsEsc(c.err)}).</p></div>`;
     const d = c.data, cur = d.current || {}, dy = d.daily || {};
     const cw = wxInfo(cur.weather_code);
+    const key = l.lat + "," + l.lon, sel = tempoSel[key];
+    const hm = iso => iso ? String(iso).slice(11, 16) : "—";
     const days = (dy.time || []).map((t, k) => {
-      const w = wxInfo(dy.weather_code[k]), wd = new Date(t + "T12:00").toLocaleDateString("pt-PT", {weekday:"short", day:"numeric"});
-      return `<div title="${w[1]}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:12px;background:#ffffff0d"><span class="small muted">${wd}</span><span style="font-size:26px">${w[0]}</span><b>${Math.round(dy.temperature_2m_max[k])}°</b><span class="small muted">${Math.round(dy.temperature_2m_min[k])}°</span><span class="small" style="color:#7cc4ff">${dy.precipitation_probability_max[k] ?? 0}%</span></div>`;
+      const w = wxInfo(dy.weather_code[k]), wd = new Date(t + "T12:00").toLocaleDateString("pt-PT", {weekday:"short", day:"numeric"}), on = sel === k;
+      return `<button data-tday="${i}:${k}" aria-pressed="${on}" title="${w[1]}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:12px;background:${on ? "#7cc4ff33" : "#ffffff0d"};border:1px solid ${on ? "#7cc4ff" : "transparent"};color:inherit;font:inherit;cursor:pointer"><span class="small muted">${wd}</span><span style="font-size:26px">${w[0]}</span><b>${Math.round(dy.temperature_2m_max[k])}°</b><span class="small muted">${Math.round(dy.temperature_2m_min[k])}°</span><span class="small" style="color:#7cc4ff">${dy.precipitation_probability_max[k] ?? 0}%</span></button>`;
     }).join("");
+    let det = "";
+    if(sel != null && dy.time && dy.time[sel]){
+      const k = sel, w = wxInfo(dy.weather_code[k]);
+      const row = (lb, v) => `<div class="row small" style="justify-content:space-between;border-bottom:1px solid #ffffff14;padding:6px 0"><span class="muted">${lb}</span><b>${v}</b></div>`;
+      det = `<div style="margin-top:10px;padding:12px 14px;border-radius:14px;background:#ffffff0d">
+        <div class="row"><h3 style="margin:0">${w[0]} ${w[1]} · ${new Date(dy.time[k] + "T12:00").toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"})}</h3></div>
+        ${row("Temperatura máx. / mín.", Math.round(dy.temperature_2m_max[k]) + "° / " + Math.round(dy.temperature_2m_min[k]) + "°")}
+        ${row("Probabilidade de precipitação", (dy.precipitation_probability_max[k] ?? 0) + "%")}
+        ${row("Precipitação prevista", (dy.precipitation_sum[k] ?? 0).toFixed(1) + " mm")}
+        ${row("Vento máximo", Math.round(dy.wind_speed_10m_max[k]) + " km/h")}
+        ${row("Índice UV máximo", dy.uv_index_max[k] != null ? Math.round(dy.uv_index_max[k]) : "—")}
+        ${row("Nascer / pôr do sol", hm(dy.sunrise[k]) + " / " + hm(dy.sunset[k]))}
+      </div>`;
+    }
     return `<div class="panel">
       <div class="row"><h2>${newsEsc(l.n)}</h2><span class="spacer"></span><span class="small muted">${cw[0]} agora ${Math.round(cur.temperature_2m)}° · vento ${Math.round(cur.wind_speed_10m)} km/h</span><button class="btn" data-tdel="${i}">Remover</button></div>
       <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px">${days}</div>
+      ${det}
     </div>`;
   }).join("") + (locs.length < TEMPO_MAX ? "" : `<p class="small muted">Máximo de ${TEMPO_MAX} localidades.</p>`);
+  $("tempoList").querySelectorAll("[data-tday]").forEach(b => b.onclick = () => {
+    const [i, k] = b.dataset.tday.split(":").map(Number), key = locs[i].lat + "," + locs[i].lon;
+    tempoSel[key] = tempoSel[key] === k ? null : k; tempoRender();
+  });
   $("tempoList").querySelectorAll("[data-tdel]").forEach(b => b.onclick = () => {
     const arr = tempoLocs().slice(); arr.splice(+b.dataset.tdel, 1); cfg.tempoLocs = arr.length ? arr : null; saveCfg(); tempoRender();
   });
