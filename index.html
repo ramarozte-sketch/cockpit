@@ -3155,7 +3155,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v550";
+const APP_VERSION = "v551";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -12588,7 +12588,7 @@ $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
 $("setTtsVoice").onchange = e => { cfg.ttsVoice = e.target.value; saveCfg(); };
-$("setTtsTest").onclick = () => { LS.set("ttsEdgeOff", 0); window.__ttsWhich = ""; setTimeout(() => { const w = window.__ttsWhich; if(w) toast(w === "edge" ? "Voz neural da Microsoft." : w === "grave" ? "Voz da Google com tom grave (a voz da Microsoft não respondeu)." : "Voz da Google (as vozes masculinas não responderam)."); }, 9500); ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit."); };
+$("setTtsTest").onclick = () => { LS.set("ttsEdgeOff", 0); window.__ttsWhich = ""; let tries = 0; const iv = setInterval(() => { const w = window.__ttsWhich; if(!w && ++tries < 60) return; clearInterval(iv); if(w) toast(w === "edge" ? "Voz neural da Microsoft." : w === "grave" ? "Voz da Google com tom grave (a voz da Microsoft não respondeu)." : w === "lenta" ? "Voz grave aproximada (a voz da Microsoft e o proxy não responderam)." : "Voz da Google (as vozes masculinas não responderam)."); }, 500); ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit."); };
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
 $("setMaxRes").onchange = e => { cfg.maxRes = e.target.value; saveCfg(); toast("Qualidade máxima: " + (cfg.maxRes === "2160" ? "4K" : cfg.maxRes + "p")); };
@@ -19040,7 +19040,7 @@ select option,select optgroup{background:#fff;color:#111}
     /* v260: o browser do Tesla não tem vozes instaladas (speechSynthesis fica calado): usa uma voz online, tocada como áudio */
     const ttsLang = () => cfg.lang === "en" ? "en-GB" : cfg.lang === "fr" ? "fr-FR" : "pt-PT";
     let ttsQ = [], ttsA = null;
-    const ttsOnline = (txt, rate, onEnd) => {
+    const ttsOnline = (txt, rate, onEnd, deep) => {
       const parts = []; let rest = String(txt).replace(/\s+/g, " ").trim();
       while(rest.length){ let cut = rest.length <= 190 ? rest.length : Math.max(rest.lastIndexOf(". ", 190), rest.lastIndexOf(", ", 190), rest.lastIndexOf(" ", 190)); if(cut < 40) cut = Math.min(190, rest.length); parts.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim(); }
       try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){}
@@ -19050,6 +19050,8 @@ select option,select optgroup{background:#fff;color:#111}
         const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
         try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); ttsA.removeAttribute("src"); } }catch(e){}   /* v451: nunca duas vozes ao mesmo tempo */
         const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
+        /* voz grave sem proxy: toca mais devagar sem manter o tom (fica mais grave e um pouco mais lenta) */
+        if(deep){ try{ a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false; }catch(e){} a.playbackRate = Math.max(.7, .84 * (rate || 1)); }
         /* v451: o erro do áudio e a recusa do play() chegavam os dois e cada um lançava a voz pelo proxy: duas vozes desfasadas (eco na navegação). Agora a troca acontece uma só vez */
         let moved = false; const fallback = () => { if(moved || ttsA !== a) return; moved = true; try{ a.onended = a.onerror = null; a.pause(); }catch(e){}
           if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };
@@ -19057,7 +19059,7 @@ select option,select optgroup{background:#fff;color:#111}
         a.onerror = fallback;   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
         a.play().catch(e => { if(e && e.name === "AbortError") return; fallback(); });
       };
-      next(LS.get("ttsViaPx", false));
+      next(deep ? false : LS.get("ttsViaPx", false));
     };
     /* ---- vozes neurais da Microsoft (Edge “Ler em voz alta”, gratuitas): pt-PT Duarte (masculina) e Raquel (feminina) ---- */
     let ttsGen = 0;
@@ -19070,7 +19072,7 @@ select option,select optgroup{background:#fff;color:#111}
         const raw = new TextEncoder().encode(ticks + "0000000" + TOK);
         const gec = [...new Uint8Array(await crypto.subtle.digest("SHA-256", raw))].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
         const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/-/g, "");
-        ws = new WebSocket("wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TOK + "&Sec-MS-GEC=" + gec + "&Sec-MS-GEC-Version=1-130.0.2849.68&ConnectionId=" + id);
+        ws = new WebSocket("wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TOK + "&Sec-MS-GEC=" + gec + "&Sec-MS-GEC-Version=1-143.0.3650.75&ConnectionId=" + id);
         ws.binaryType = "arraybuffer"; const chunks = [];
         const ts = () => new Date().toString();
         ws.onopen = () => {
@@ -19132,11 +19134,16 @@ select option,select optgroup{background:#fff;color:#111}
       const my = ++ttsGen; ttsQ = []; try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){}
       const google = () => { if(my === ttsGen) ttsBase(txt, rate, onEnd); };
       (async () => {
+        const log = m => { try{ window.__dbgEv && window.__dbgEv(0, "voz: " + m, {}); }catch(e){} };
         let url = LS.get("ttsEdgeOff", 0) > Date.now() ? null : await edgeTTS(txt, g === "m" ? "Microsoft Server Speech Text to Speech Voice (pt-PT, DuarteNeural)" : "Microsoft Server Speech Text to Speech Voice (pt-PT, RaquelNeural)");
         if(my !== ttsGen) return;
         if(url){ window.__ttsWhich = "edge"; return playUrl(url, rate, onEnd, google); }
         LS.set("ttsEdgeOff", Date.now() + 10 * 60000);   /* não volta a tentar durante 10 min (evita 8 s de espera em cada frase) */
-        if(g === "m"){ url = await deepTTS(txt, lang); if(my !== ttsGen) return; if(url){ window.__ttsWhich = "grave"; return playUrl(url, rate, onEnd, google); } }
+        log("Microsoft sem resposta");
+        if(g === "m"){
+          if(cfg.proxy || cfg.proxy2){ url = await deepTTS(txt, lang); if(my !== ttsGen) return; if(url){ window.__ttsWhich = "grave"; return playUrl(url, rate, onEnd, google); } log("tom grave via proxy falhou"); }
+          window.__ttsWhich = "lenta"; ttsBase(txt, rate, onEnd, true); return;
+        }
         window.__ttsWhich = "google"; google();
       })();
     };
