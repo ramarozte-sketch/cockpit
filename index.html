@@ -1494,6 +1494,14 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- PODCASTS -->
+    <div id="rdBanner" hidden style="position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:8600;background:#0d1626ee;border:1px solid #2a4a7a;color:#fff;border-radius:16px;padding:10px 16px;font-size:20px;font-weight:600;box-shadow:0 6px 24px #0008;display:flex;gap:10px;align-items:center"></div>
+    <div id="tlChip" hidden style="position:fixed;left:12px;bottom:12px;z-index:8600;background:#0d1626ee;border:1px solid #2a4a7a;color:#e8f0ff;border-radius:14px;padding:8px 12px;font-size:15px;box-shadow:0 6px 24px #0008"></div>
+    <div id="rdMini" hidden style="position:fixed;right:12px;bottom:12px;z-index:8600;width:230px;height:230px;border-radius:18px;overflow:hidden;border:2px solid #2a4a7a;box-shadow:0 6px 24px #0008;background:#0b0f16">
+      <div id="rdMap" style="position:absolute;inset:0"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:500;font-size:22px;filter:drop-shadow(0 0 4px #000)">🔺</div>
+      <div id="rdNext" style="position:absolute;left:6px;top:6px;z-index:500;background:#000a;color:#fff;border-radius:10px;padding:3px 8px;font-size:13px"></div>
+      <button id="rdHide" class="btn" style="position:absolute;right:4px;top:4px;z-index:500;min-height:30px;padding:0 8px">✕</button>
+    </div>
     <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
     <section class="view" id="v-saverCfg" hidden>
       <div class="row"><h1>Protetor de ecrã</h1><span class="spacer"></span><button class="btn primary" id="svPreview">▶ Ecrã inteiro</button></div>
@@ -1653,6 +1661,15 @@ body.layout-atv .rail{display:none}
       </div>
       <h3 class="setgrp">Segurança e carro</h3>
       <div class="setcards">
+      <div class="panel setcard">
+          <h2>Radares e portagens</h2>
+          <p class="small muted setsub" style="margin:0">Avisos por cima de qualquer ecrã do Cockpit, com o carro em andamento.</p>
+          <label class="row small"><input type="checkbox" id="setRadar"> Avisos de radares</label>
+          <label class="row small"><input type="checkbox" id="setRadarVoice"> Avisar também por voz</label>
+          <label class="row small"><input type="checkbox" id="setRadarMap"> Mini mapa com os radares</label>
+          <label class="row small"><input type="checkbox" id="setToll"> Portagens (autoestrada e custo estimado)</label>
+          <p class="small muted" style="margin:0">Radares fixos do OpenStreetMap (não oficial, sem radares móveis). O custo das portagens é uma estimativa média por km (classe 1).</p>
+      </div>
       <div class="panel setcard">
           <h2>PIN de proteção</h2>
           <p class="small muted setsub" style="margin:0">Bloqueia o acesso às Definições e ao Email.</p>
@@ -3042,7 +3059,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v536";
+const APP_VERSION = "v537";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8228,7 +8245,7 @@ function saverItems(c){
     bat: num(cs.battery_level, 0, " %"), aut: num(cs.battery_range, 0, " km"),
     carr: cs.charging_state ? String(cs.charging_state) : "—", pot: num(cs.charger_power, 1, " kW"),
     fim: isFinite(cs.minutes_to_full_charge) ? cs.minutes_to_full_charge + " min" : "—",
-    vel: num(ds.speed, 0, " km/h"), est: ds.shift_state ? String(ds.shift_state) : "P",
+    vel: isFinite(ds.speed) ? Math.round(ds.speed * MI) + " km/h" : "—", est: ds.shift_state ? String(ds.shift_state) : "P",
     tint: num(cl.inside_temp, 1, " °C"), text: num(cl.outside_temp, 1, " °C"),
     lock: vs.locked == null ? "—" : vs.locked ? "Sim" : "Não", odo: num(vs.odometer, 0, " km"),
     pneu: tp.every(isFinite) ? tp.map(v => (+v).toFixed(1)).join(" · ") : "—"
@@ -8339,6 +8356,103 @@ function svEmbedShow(key){
 function saverClose(){ if(saverG) saverG.running = false; clearInterval(saverInfoT); $("saver").hidden = true; }
 $("saverX").onclick = saverClose;
 window.addEventListener("resize", () => { if(saverG && !$("saver").hidden) saverSize(); });
+
+/* ======================= Radares e portagens (sobrepostos a qualquer ecrã) ======================= */
+const RD = {cams:[], at:null, lastQ:0, warned:{}, map:null, layer:null, hidden:false, toll:{ref:"", km:0, last:null, lastQ:0, total:0}};
+const TOLL_EUR_KM = 0.09; /* média aproximada, classe 1 */
+function rdDist(a, b){ const R = 6371000, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLo = (b.lon - a.lon) * r; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
+function rdBearing(a, b){ const r = Math.PI / 180, y = Math.sin((b.lon - a.lon) * r) * Math.cos(b.lat * r), x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lon - a.lon) * r); return (Math.atan2(y, x) / r + 360) % 360; }
+function rdPos(){
+  const g = RD.gps; if(g && Date.now() - g.t < 15000) return g;
+  const d = car?.drive_state || {}; if(!isFinite(d.latitude) || !isFinite(d.longitude)) return null;
+  return {lat:+d.latitude, lon:+d.longitude, hd:isFinite(d.heading) ? +d.heading : null, kmh:(d.speed || 0) * MI, t:Date.now()};
+}
+try{ if(window.isSecureContext && navigator.geolocation) navigator.geolocation.watchPosition(p => { RD.gps = {lat:p.coords.latitude, lon:p.coords.longitude, hd:isFinite(p.coords.heading) ? p.coords.heading : null, kmh:(p.coords.speed || 0) * 3.6, t:Date.now()}; }, () => {}, {enableHighAccuracy:true, maximumAge:2000}); }catch(e){}
+async function rdOverpass(q){
+  const u = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(q);
+  for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
+    try{ const r = await fetch(url); if(r.ok) return await r.json(); }catch(e){}
+  }
+  return null;
+}
+async function rdLoadCams(p){
+  if(RD.at && rdDist(RD.at, p) < 3000 && Date.now() - RD.lastQ < 600000) return;
+  if(Date.now() - RD.lastQ < 20000) return;
+  RD.lastQ = Date.now();
+  const j = await rdOverpass(`[out:json][timeout:20];node["highway"="speed_camera"](around:10000,${p.lat},${p.lon});out;`);
+  if(!j) return;
+  RD.at = {lat:p.lat, lon:p.lon};
+  RD.cams = (j.elements || []).map(e => ({id:e.id, lat:e.lat, lon:e.lon, max:parseInt(e.tags?.maxspeed) || null}));
+  rdDrawCams();
+}
+function rdSay(t){ if(!cfg.radarVoice) return; try{ const u = new SpeechSynthesisUtterance(t); u.lang = "pt-PT"; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+async function rdMapInit(){
+  if(RD.map) return true;
+  const L = await loadLeaflet(); if(!L) return false;
+  RD.map = L.map("rdMap", {zoomControl:false, attributionControl:true, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, boxZoom:false, keyboard:false, touchZoom:false});
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:18, attribution:"© OpenStreetMap"}).addTo(RD.map);
+  RD.map.attributionControl.setPrefix(false);
+  RD.layer = L.layerGroup().addTo(RD.map);
+  RD.map.setView([39.4, -8.2], 15);
+  rdDrawCams(); return true;
+}
+function rdDrawCams(){
+  if(!RD.map || !window.L) return;
+  RD.layer.clearLayers();
+  RD.cams.forEach(c => L.marker([c.lat, c.lon], {icon:L.divIcon({className:"", html:'<div style="font-size:20px;filter:drop-shadow(0 0 3px #000)">📷</div>', iconSize:[22, 22], iconAnchor:[11, 11]})}).addTo(RD.layer));
+}
+async function rdTick(){
+  const on = cfg.radarOn || cfg.tollOn;
+  { const sh = car?.drive_state?.shift_state; if(!sh || sh === "P") RD.hidden = false; }
+  const p = on ? rdPos() : null;
+  const showMini = cfg.radarOn && cfg.radarMap && !RD.hidden && p && $("saver").hidden;
+  $("rdMini").hidden = !showMini;
+  if(!on || !p){ $("rdBanner").hidden = true; $("tlChip").hidden = true; return; }
+  /* radares */
+  if(cfg.radarOn){
+    rdLoadCams(p);
+    let best = null;
+    for(const c of RD.cams){
+      const d = rdDist(p, c); if(d > 1500) continue;
+      if(p.hd != null){ let a = Math.abs(rdBearing(p, c) - p.hd); a = Math.min(a, 360 - a); if(a > 65) continue; }
+      if(!best || d < best.d) best = {c, d};
+    }
+    if(best && p.kmh > 5){
+      const lim = best.c.max ? " · limite " + best.c.max : "", over = best.c.max && p.kmh > best.c.max + 3;
+      $("rdBanner").hidden = false; $("rdBanner").style.background = over ? "#7a1010ee" : "#0d1626ee";
+      $("rdBanner").innerHTML = `📷 Radar a ${best.d < 1000 ? Math.round(best.d / 10) * 10 + " m" : (best.d / 1000).toFixed(1) + " km"}${lim}`;
+      const w = RD.warned[best.c.id] || 0;
+      if(best.d < 600 && w < 1){ RD.warned[best.c.id] = 1; rdSay("Radar a " + Math.round(best.d / 50) * 50 + " metros" + (best.c.max ? ", limite " + best.c.max : "")); }
+      else if(best.d < 200 && w < 2){ RD.warned[best.c.id] = 2; if(over) rdSay("Atenção à velocidade"); }
+    } else $("rdBanner").hidden = true;
+    $("rdNext").textContent = best ? "📷 " + Math.round(best.d) + " m" : RD.cams.length ? RD.cams.length + " radares perto" : "Sem radares perto";
+    if(showMini && await rdMapInit()){ RD.map.invalidateSize(); RD.map.setView([p.lat, p.lon], 15, {animate:true}); }
+  } else $("rdBanner").hidden = true;
+  /* portagens: estrada atual com toll=yes */
+  if(cfg.tollOn && p.kmh > 30){
+    const T = RD.toll;
+    if(Date.now() - T.lastQ > 30000){
+      T.lastQ = Date.now();
+      rdOverpass(`[out:json][timeout:15];way(around:30,${p.lat},${p.lon})["highway"~"^(motorway|trunk)$"];out tags;`).then(j => {
+        const w = (j?.elements || []).find(e => e.tags?.toll === "yes");
+        const ref = w ? (w.tags.ref || w.tags.name || "Autoestrada") : "";
+        if(ref && ref !== T.ref){ T.ref = ref; T.km = 0; T.last = null; }
+        if(!ref && T.ref){ T.total += T.km; T.ref = ""; }
+      });
+    }
+    if(T.ref){ if(T.last) T.km += rdDist(T.last, p) / 1000; T.last = {lat:p.lat, lon:p.lon}; }
+    $("tlChip").hidden = !T.ref;
+    if(T.ref) $("tlChip").innerHTML = `🛣️ ${newsEsc(T.ref)} · portagem · ${T.km.toFixed(1)} km · ≈ ${(T.km * TOLL_EUR_KM).toFixed(2)} €`;
+  } else if(!cfg.tollOn) $("tlChip").hidden = true;
+}
+$("rdHide").onclick = () => { RD.hidden = true; $("rdMini").hidden = true; toast("Mini mapa escondido até à próxima viagem."); };
+setInterval(rdTick, 2000);
+/* atualiza a posição do carro mais vezes quando os avisos estão ligados */
+setInterval(() => { if((cfg.radarOn || cfg.tollOn) && !RD.gps && typeof driveCheckNow === "function") driveCheckNow(); }, 10000);
+[["setRadar","radarOn"],["setRadarVoice","radarVoice"],["setRadarMap","radarMap"],["setToll","tollOn"]].forEach(([id, k]) => {
+  const el = $(id); el.checked = !!cfg[k];
+  el.onchange = () => { cfg[k] = el.checked; saveCfg(); if(k === "radarMap") RD.hidden = false; rdTick(); };
+});
 document.querySelectorAll("[data-app]").forEach(b => b.onclick = () => openApp(b.dataset.app));
 let navRecent = LS.get("navRecent", []);
 function renderNavRecent(){
