@@ -1,0 +1,1 @@
+{"model": ["tugao.onnx.00", "tugao.onnx.01", "tugao.onnx.02", "tugao.onnx.03", "tugao.onnx.04", "tugao.onnx.05", "tugao.onnx.06"], "modelSize": 63201294, "ortWasm": ["ort-wasm-simd.wasm.00", "ort-wasm-simd.wasm.01"], "ortWasmSize": 10551547, "voice": "pt", "rate": 22050, "inference": {"noise_scale": 0.667, "length_scale": 1, "noise_w": 0.8}, "speakers": 0}

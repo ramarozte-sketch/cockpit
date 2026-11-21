@@ -1,0 +1,5 @@
+Voz masculina pt-PT do Cockpit, gerada no browser (sem serviços externos).
+- Modelo: Piper «pt_PT-tugão-medium» (rhasspy/piper-voices), licença CC0. Dividido em partes de 9 MB (tugao.onnx.00…06).
+- Motor: onnxruntime-web 1.17.3 (MIT), ficheiro ort-wasm-simd.wasm dividido em 2 partes.
+- Fonetizador: piper-phonemize / espeak-ng em WebAssembly (@diffusionstudio/piper-wasm, MIT; espeak-ng GPLv3), só com os dados de português.
+Os ficheiros ficam guardados no IndexedDB do browser depois da primeira descarga (~75 MB).

@@ -804,6 +804,7 @@ body.layout-atv .rail{display:none}
 .acpic{align-self:center;width:170px;height:226px;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--fg) 10%,transparent);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--muted)}
 .acpic img{width:100%;height:100%;object-fit:cover}
 </style>
+<script src="voz/voz.js"></script>
 </head>
 <body>
 <div id="boot" aria-hidden="true"><canvas id="bootCv"></canvas><div class="bootc"><div class="bootlogo" id="bootLogo">COCKPIT</div><div class="bootsub" id="bootSub"></div><div class="bootbar"><i id="bootBar"></i></div><div class="bootlog" id="bootLog"></div></div><div class="bootsnd" id="bootSnd" hidden>Toca para ativar o som</div></div>
@@ -1870,6 +1871,7 @@ body.layout-atv .rail{display:none}
           <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
           <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
           <label class="row small">Voz <select id="setTtsVoice" style="flex:1"></select> <button class="btn" id="setTtsTest" type="button">▶ Testar</button></label>
+          <div class="row small" id="vozRow" style="gap:8px;flex-wrap:wrap"><span>Voz masculina no aparelho (sem internet, ~75 MB uma vez)</span><button class="btn" id="vozGet" type="button">⬇ Descarregar</button><span class="muted" id="vozSt"></span></div>
           <p class="small muted" style="margin:0">Usada nas notícias, nos radares e nas respostas. O browser do Tesla não tem vozes instaladas: aí usa uma voz online (feminina ou masculina).</p>
         </div>
       </div>
@@ -2625,26 +2627,263 @@ const VOICE = [
   {d:{pt:"canal RTP 1", en:"channel BBC One", fr:"chaîne TF1"}, re:[/^(?:canal|poe|mete|po|channel|play|chaine|mets) (.+)/], run:(m)=>{ const ok = playByName(m[1]); return ok ? true : false; }},
   {d:{pt:"abre a TV / notas / rede", en:"open TV / notes / network", fr:"ouvre la TV / notes / réseau"}, re:[/\b(inicio|home|accueil)\b|\b(tv|televisao|television|iptv)\b|\bnotas?\b|\bnotes\b|\brede\b|network|reseau|\bmedia\b|definicoes|settings|parametres|\bcarro\b|\bcar\b|voiture/], run:(m, raw)=>{ const n=norm(raw); const v = /inicio|home|accueil/.test(n)?(cfg.layout==="auto"?"home":"car"):/tv|televis|iptv/.test(n)?"tv":/nota|note/.test(n)?"notes":/rede|network|reseau/.test(n)?"net":/media/.test(n)?"media":/definic|setting|parametre/.test(n)?"settings":"car"; show(v); return true; }}
 ];
+/* ---------- v558: assistente local mais inteligente (sem IA, sem servidor) ----------
+   1) limpa a frase (cortesias, «olá Cockpit», números por extenso → algarismos)
+   2) responde sozinho a perguntas: hora, data, contas, conversões, estado do carro, tempo, radar, temporizadores
+   3) vários comandos numa frase («fecha os vidros e liga o ar»), seguimento («e amanhã?», «mais um grau»)
+   4) se não reconhecer, procura o comando mais parecido (tolera erros do reconhecimento de voz) e pede confirmação */
+const BR = {last:"", ctx:null, pend:null};
+const BR_NUM = {zero:0, um:1, uma:1, dois:2, duas:2, tres:3, quatro:4, cinco:5, seis:6, sete:7, oito:8, nove:9, dez:10, onze:11, doze:12, treze:13, catorze:14, quatorze:14, quinze:15,
+  dezasseis:16, dezesseis:16, dezassete:17, dezessete:17, dezoito:18, dezanove:19, dezenove:19, vinte:20, trinta:30, quarenta:40, cinquenta:50, sessenta:60, setenta:70, oitenta:80, noventa:90,
+  cem:100, cento:100, duzentos:200, duzentas:200, trezentos:300, quatrocentos:400, quinhentos:500, seiscentos:600, setecentos:700, oitocentos:800, novecentos:900, mil:1000};
+const BR_UNIT = /^(graus?|minutos?|horas?|segundos?|por|km|quilometros?|euros?|milhas?|kw|kwh|bar|%)$/;
+/* «vinte e um» → 21, «cento e vinte» → 120, «dois mil e quinhentos» → 2500, «vinte e um e meio» → 21.5 */
+function brNums(n){
+  const w = n.split(" "), out = [];
+  for(let i = 0; i < w.length; i++){
+    if(!(w[i] in BR_NUM)){ out.push(w[i]); continue; }
+    /* «um»/«uma» sozinhos são artigo, a não ser que venham antes de uma unidade */
+    if((w[i] === "um" || w[i] === "uma") && !(w[i + 1] in BR_NUM) && !BR_UNIT.test(w[i + 1] || "")){ out.push(w[i]); continue; }
+    let total = 0, cur = 0, j = i;
+    for(; j < w.length; j++){
+      const t = w[j];
+      if(t in BR_NUM){ const v = BR_NUM[t]; if(v === 1000){ total += (cur || 1) * 1000; cur = 0; } else cur += v; continue; }
+      if(t === "e" && (w[j + 1] in BR_NUM)) continue;
+      if(t === "e" && w[j + 1] === "meio"){ cur += .5; j += 2; break; }
+      break;
+    }
+    out.push(String(total + cur)); i = j - 1;
+  }
+  return out.join(" ");
+}
+function brClean(n){
+  n = " " + n + " ";
+  n = n.replace(/^ (ola|ei|hey|ok|okay|ouve|olha|bom dia|boa tarde|boa noite)?\s*(cockpit|jarvis|assistente|carro)\b/, " ");
+  n = n.replace(/ (por favor|se faz favor|faz favor|se fazes favor) /g, " ").replace(/ fexa/g, " fecha").replace(/ abri /g, " abre ").replace(/ trranca/g, " tranca");
+  n = n.replace(/^ (podes|podias|consegues|conseguias|queria que|quero que|gostava que|preciso que|sera que podes|eu quero|quero)\s+(me\s+)?/, " ");
+  n = n.replace(/^ (por favor)\s+/, " ");
+  return brNums(n.replace(/\s+/g, " ").trim());
+}
+const brIsQ = (n, raw) => /\?\s*$/.test(raw) || /^(qual|quais|quanto|quantos|quantas|como|esta|onde|quando|ha |tenho|o carro esta|a que|sera|vai|e |diz-me|diz me|sabes)/.test(n);
+const brFmt = (v, d) => (+v).toLocaleString("pt-PT", {maximumFractionDigits: d == null ? 2 : d});
+const BR_DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const BR_MESES = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function brDayOffset(n){
+  if(/depois de amanha/.test(n)) return 2; if(/amanha/.test(n)) return 1; if(/\bhoje\b|agora/.test(n)) return 0;
+  if(/fim de semana/.test(n)){ const d = new Date().getDay(); return d === 6 || d === 0 ? 0 : 6 - d; }
+  const wd = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"].findIndex(x => new RegExp("\\b" + x).test(n));
+  if(wd >= 0){ let o = (wd - new Date().getDay() + 7) % 7; return o; }
+  return null;
+}
+const brDayName = o => o === 0 ? "hoje" : o === 1 ? "amanhã" : o === 2 ? "depois de amanhã" : (BR_DIAS[(new Date().getDay() + o) % 7]);
+/* contas: «quanto é 25 vezes 4», «raiz quadrada de 81», «15 por cento de 80», «7 ao quadrado» */
+function brCalc(n){
+  let m = n.match(/(\d+(?:[.,]\d+)?)\s*(?:por cento|%)\s*de\s*(\d+(?:[.,]\d+)?)/);
+  if(m){ const r = parseFloat(m[1].replace(",", ".")) / 100 * parseFloat(m[2].replace(",", ".")); return m[1] + " por cento de " + m[2] + " é " + brFmt(r) + "."; }
+  m = n.match(/raiz (?:quadrada )?de\s*(\d+(?:[.,]\d+)?)/);
+  if(m){ return "A raiz quadrada de " + m[1] + " é " + brFmt(Math.sqrt(parseFloat(m[1].replace(",", ".")))) + "."; }
+  let e = n.replace(/^(quanto (e|sao|da|dá)|calcula|calcular|conta|faz a conta|resultado de)\s+/, "").replace(/\?/g, "")
+    .replace(/(\d),(\d)/g, "$1.$2").replace(/\bao quadrado\b/g, "^2").replace(/\bao cubo\b/g, "^3")
+    .replace(/\b(mais)\b/g, "+").replace(/\b(menos)\b/g, "-").replace(/\b(vezes|multiplicado por|x)\b/g, "*")
+    .replace(/\b(a dividir por|dividido por|divide por|sobre)\b/g, "/").replace(/\b(abre parenteses)\b/g, "(").replace(/\b(fecha parenteses)\b/g, ")").replace(/\^/g, "**").trim();
+  if(!/\d/.test(e) || !/[+\-*/]/.test(e) || !/^[\d+\-*/().\s]+$/.test(e)) return null;
+  try{ const r = Function('"use strict";return (' + e + ")")(); if(!isFinite(r)) return "Essa conta não tem resultado."; return "Dá " + brFmt(r, 4) + "."; }catch(x){ return null; }
+}
+/* conversões: milhas/km, °F/°C, psi/bar, libras/kg, polegadas/cm, kW/cv */
+function brConv(n){
+  const m = n.match(/(\d+(?:[.,]\d+)?)\s*(milhas?|mi|km|quilometros?|graus fahrenheit|fahrenheit|graus celsius|celsius|graus|psi|bar|libras?|kg|quilos?|polegadas?|cm|centimetros?|cv|cavalos|kw)\s*(?:em|para|a)\s*(\w+(?: \w+)?)/);
+  if(!m) return null;
+  const v = parseFloat(m[1].replace(",", ".")), from = m[2], to = m[3];
+  const T = [[/milha|^mi$/, /km|quilomet/, x => x * 1.60934, "quilómetros"], [/km|quilomet/, /milha/, x => x / 1.60934, "milhas"],
+    [/fahrenheit/, /celsius|graus|c\b/, x => (x - 32) * 5 / 9, "graus Celsius"], [/celsius|graus/, /fahrenheit|f\b/, x => x * 9 / 5 + 32, "graus Fahrenheit"],
+    [/psi/, /bar/, x => x / 14.5038, "bar"], [/bar/, /psi/, x => x * 14.5038, "psi"], [/libra/, /kg|quilo/, x => x * .453592, "quilos"], [/kg|quilo/, /libra/, x => x / .453592, "libras"],
+    [/polegada/, /cm|centimet/, x => x * 2.54, "centímetros"], [/cm|centimet/, /polegada/, x => x / 2.54, "polegadas"], [/cv|cavalo/, /kw/, x => x * .7355, "quilowatts"], [/kw/, /cv|cavalo/, x => x / .7355, "cavalos"]];
+  for(const [a, b, f, u] of T) if(a.test(from) && b.test(to)) return m[1] + " " + from + " são " + brFmt(f(v), 1) + " " + u + ".";
+  return null;
+}
+async function brWeather(n){
+  let locs = tempoLocs(), l = locs[0], name = l.n;
+  const em = n.match(/\b(?:em|no|na|para) ([a-z][a-z\s-]{2,30}?)(?:\s+(?:hoje|amanha|depois|no fim|este|esta|na|no)\b|$)/);
+  if(em && !/^(fim de semana|hoje|amanha)/.test(em[1])){
+    const q = em[1].trim(), hit = locs.find(x => norm(x.n).startsWith(q));
+    if(hit){ l = hit; name = hit.n; }
+    else { try{ const g = await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&name=" + encodeURIComponent(q))).json(); const r = g.results && g.results[0]; if(r){ l = {n:r.name, lat:r.latitude, lon:r.longitude}; name = r.name; } }catch(e){} }
+  } else if(!em){ try{ const p = carPos(); if(p && p.z > 7 && isFinite(p.lat)){ l = {n:"aqui", lat:+p.lat.toFixed(2), lon:+p.lon.toFixed(2)}; name = "aqui"; } }catch(e){} }
+  let off = brDayOffset(n); if(off == null) off = BR.ctx && BR.ctx.k === "wx" ? BR.ctx.off : 0; off = Math.min(6, off);
+  let d; const ck = l.lat + "," + l.lon, c = tempoCache[ck];
+  try{ d = c && c.data && Date.now() - c.t < 30 * 60000 ? c.data : await tempoFetch(l); tempoCache[ck] = {data:d, t:Date.now()}; }catch(e){ return "Não consegui ver a previsão do tempo agora."; }
+  BR.ctx = {k:"wx", off, n:name === "aqui" ? "" : name};
+  const dy = d.daily, code = dy.weather_code[off], lo = Math.round(dy.temperature_2m_min[off]), hi = Math.round(dy.temperature_2m_max[off]), pp = dy.precipitation_probability_max ? dy.precipitation_probability_max[off] : null;
+  const onde = name === "aqui" ? "" : " em " + name;
+  if(/chov|chuva|guarda-chuva|guarda chuva/.test(n)){
+    if(pp == null) return "Não sei a probabilidade de chuva" + onde + ".";
+    return (pp >= 60 ? "Sim, é provável que chova " : pp >= 30 ? "Talvez chova " : "Não deve chover ") + brDayName(off) + onde + " (" + pp + " por cento).";
+  }
+  if(off === 0 && d.current){ return "Agora" + onde + ": " + wxInfo(d.current.weather_code)[1].toLowerCase() + ", " + Math.round(d.current.temperature_2m) + " graus. Hoje entre " + lo + " e " + hi + (pp != null ? ", " + pp + " por cento de chuva." : "."); }
+  return (brDayName(off).charAt(0).toUpperCase() + brDayName(off).slice(1)) + onde + ": " + wxInfo(code)[1].toLowerCase() + ", entre " + lo + " e " + hi + " graus" + (pp != null ? ", " + pp + " por cento de chuva." : ".");
+}
+function brTimer(n, raw){
+  const m = n.match(/(\d+(?:[.,]\d+)?)\s*(segundos?|minutos?|horas?)/); if(!m) return null;
+  const v = parseFloat(m[1].replace(",", ".")), ms = v * (/seg/.test(m[2]) ? 1000 : /min/.test(m[2]) ? 60000 : 3600000);
+  if(!(ms > 0) || ms > 24 * 3600000) return "Só consigo lembretes até 24 horas.";
+  let what = (raw.match(/(?:de|para|que)\s+(.+?)\s*$/i) || [])[1] || "";
+  if(/^\d|^(segundo|minuto|hora)/i.test(what) || /(daqui a|dentro de)/i.test(what)) what = "";
+  what = what.replace(/^(me\s+)?(lembrar|avisar)\s+(de\s+|que\s+)?/i, "");
+  setTimeout(() => { const t = what ? "Lembrete: " + what : "O temporizador de " + m[1] + " " + m[2] + " terminou."; toast("⏰ " + t); try{ GX.tone(880, .25, "sine", .2, 880); }catch(e){} speak(t); }, ms);
+  return what ? "Combinado, lembro-te de " + what + " daqui a " + m[1] + " " + m[2] + "." : "Temporizador de " + m[1] + " " + m[2] + " a contar.";
+}
+const BR_JOKES = ["Sabes porque é que o carro elétrico nunca se zanga? Porque tem sempre boa carga.", "O meu carregador e eu temos uma relação ótima: ele dá tudo e eu fico sempre cheio.",
+  "Porque é que o GPS nunca se perde nas conversas? Porque recalcula sempre a rota.", "Qual é o carro preferido dos eletricistas? O que tem mais watts de personalidade."];
+/* perguntas e pedidos que o assistente resolve sozinho; devolvem o texto da resposta (ou null para seguir para os comandos) */
+const BRAIN = [
+  {re:/^(repete|repetir|podes repetir|o que disseste|diz outra vez)\b/, run:() => BR.last || "Ainda não disse nada."},
+  {re:/^(muito )?(obrigad\w*|valeu|fixe|brigad\w*)\b|^boa$/, run:() => ["De nada!", "Sempre às ordens.", "Disponha."][Math.floor(Math.random() * 3)]},
+  {re:/^(ola|oi|bom dia|boa tarde|boa noite|hey|ei)$/, run:() => { const h = new Date().getHours(); return (h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite") + "! Em que posso ajudar?"; }},
+  {re:/(quem es tu|como te chamas|o que es tu|quem e voce)/, run:() => "Sou o assistente do Cockpit. Funciono aqui no carro, sem inteligência artificial nem servidores: comando o carro, respondo a perguntas e ajudo na viagem."},
+  {re:/(conta|diz)(-me)? uma piada|anedota/, run:() => BR_JOKES[Math.floor(Math.random() * BR_JOKES.length)]},
+  {re:/(o que (podes|sabes|consegues) fazer|ajuda|que comandos|lista de comandos)/, run:() => "Posso trancar, abrir a mala, ligar o ar, mudar a temperatura, controlar a carga, levar-te a um destino, pôr rádio ou TV, dizer o tempo, a hora, o radar mais próximo, fazer contas e conversões, e criar lembretes. Experimenta: «que tempo faz amanhã» ou «fecha os vidros e liga o ar»."},
+  {re:/(que horas sao|que hora e|horas sao|diz-me as horas|sabes as horas)/, run:() => { const d = new Date(); return "São " + d.getHours() + " e " + String(d.getMinutes()).padStart(2, "0") + "."; }},
+  {re:/(quantos dias|quanto tempo) (faltam|falta)? ?(para|ate) (o |a |ao )?(natal|ano novo|passagem de ano|(\d{1,2}) de (\w+))/, run:(m) => {
+    const now = new Date(), y = now.getFullYear(); let t;
+    if(m[5] === "natal") t = new Date(y, 11, 25); else if(/ano novo|passagem/.test(m[5])) t = new Date(y + 1, 0, 1);
+    else { const mi = BR_MESES.indexOf(norm(m[7])); if(mi < 0) return null; t = new Date(y, mi, +m[6]); }
+    if(t < new Date(y, now.getMonth(), now.getDate())) t.setFullYear(y + 1);
+    const days = Math.round((t - new Date(y, now.getMonth(), now.getDate())) / 864e5);
+    return days === 0 ? "É hoje!" : "Faltam " + days + (days === 1 ? " dia." : " dias."); }},
+  {re:/(que dia e|que dia sera|em que dia|data de hoje|que data|dia do mes|dia da semana)/, run:(m, n) => { const o = brDayOffset(n) || 0, d = new Date(Date.now() + o * 864e5); return (o === 0 ? "Hoje é " : o === 1 ? "Amanhã é " : "Será ") + d.toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"}) + "."; }},
+  {re:/(\d+(?:[.,]\d+)?)\s*(?:por cento|%)\s*de\s*\d|raiz (quadrada )?de\s*\d|^(quanto (e|sao|da)|calcula|faz a conta)\b.*\d|\d\s*(mais|menos|vezes|a dividir por|dividido por)\s*\d/, run:(m, n) => brCalc(n)},
+  {re:/\d\s*(milhas?|mi|km|quilometros?|graus fahrenheit|fahrenheit|graus celsius|celsius|graus|psi|bar|libras?|kg|quilos?|polegadas?|cm|centimetros?|cv|cavalos|kw)\s*(em|para|a)\s*\w/, run:(m, n) => brConv(n)},
+  {re:/(temporizador|timer|cronometro|alarme|lembra-me|lembra me|avisa-me|avisa me|lembrete)/, run:(m, n, raw) => brTimer(n, raw) || "Diz-me quanto tempo: por exemplo, «temporizador de 5 minutos» ou «lembra-me daqui a 10 minutos de ligar à Ana»."},
+  {re:/\b(tempo|chover|chove|chuva|guarda-chuva|guarda chuva|meteorologia|previsao|frio la fora amanha|sol amanha)/, test:n => !/(quanto tempo|temporizador|tempo de carga|tempo falta|ha quanto tempo|tempo real)/.test(n), run:(m, n) => brWeather(n)},
+  {re:/^e (amanha|depois de amanha|hoje|no fim de semana|(na|no|em) [a-z])/, test:() => BR.ctx && BR.ctx.k === "wx", run:(m, n) => brWeather(n + (BR.ctx.n && !/ (em|no|na) /.test(n) ? " em " + norm(BR.ctx.n) : ""))},
+  {re:/(radar|radares)/, test:(n, raw) => brIsQ(n, raw) || /proximo|perto/.test(n), run:() => {
+    const p = typeof rdPos === "function" ? rdPos() : null; if(!p) return "Não sei onde estamos para procurar radares.";
+    if(!RD.cams.length) return cfg.radarOn ? "Ainda estou a carregar os radares da zona." : "Os avisos de radar estão desligados. Liga-os nas Definições, em Radares.";
+    let near = null; for(const c of RD.cams){ const d = rdDist(p, c); if(!near || d < near.d) near = {c, d}; }
+    const dt = near.d < 1000 ? Math.round(near.d / 10) * 10 + " metros" : brFmt(near.d / 1000, 1) + " quilómetros";
+    return "O radar mais próximo fica a " + dt + (near.c.max ? ", com limite de " + near.c.max : "") + "."; }},
+  {re:/(le|ler|lê|quais sao|diz-me|ultimas|resumo das) (as )?(noticias|novidades)/, run:() => { show("news"); setTimeout(() => { try{ newsListen(); }catch(e){} }, 1500); return "A abrir as notícias. Vou ler os títulos principais."; }},
+  /* estado do carro */
+  {re:/(temperatura|quantos graus|que calor|que frio|esta frio|esta calor|frio ca dentro|quente ca dentro)/, test:(n, raw) => !/\d/.test(n) && (brIsQ(n, raw) || /^(temperatura|e la fora|e ca dentro)/.test(n)), run:async () => {
+    try{ await loadState(); }catch(e){} const cl = car && car.climate_state || {};
+    BR.ctx = {k:"temp"};
+    if(!isFinite(cl.inside_temp) && !isFinite(cl.outside_temp)) return "Não tenho a temperatura do carro agora.";
+    return "Dentro estão " + brFmt(cl.inside_temp, 0) + " graus e lá fora " + brFmt(cl.outside_temp, 0) + "." + (cl.is_climate_on ? " O ar está ligado nos " + brFmt(cl.driver_temp_setting, 1) + " graus." : ""); }},
+  {re:/^e (la fora|ca dentro)/, test:() => BR.ctx && BR.ctx.k === "temp", run:(m) => { const cl = car && car.climate_state || {}; return m[1] === "la fora" ? "Lá fora estão " + brFmt(cl.outside_temp, 0) + " graus." : "Cá dentro estão " + brFmt(cl.inside_temp, 0) + " graus."; }},
+  {re:/(aumenta|sobe|mais quente|mais calor|baixa|desce|mais fresco|mais frio|menos calor)\b(.*)/, test:n => /(temperatura|grau|ar\b|clima|quente|calor|fresco|frio)/.test(n) && !/(volume|som|musica|radio)/.test(n), run:async (m, n) => {
+    const up = /(aumenta|sobe|quente|mais calor)/.test(m[1]), k = (n.match(/(\d+(?:[.,]5)?)\s*graus?/) || [])[1];
+    const step = k ? parseFloat(k.replace(",", ".")) : 1, cl = car && car.climate_state || {};
+    const cur = isFinite(cl.driver_temp_setting) ? cl.driver_temp_setting : 21, t = Math.min(28, Math.max(15, Math.round((cur + (up ? step : -step)) * 2) / 2));
+    const ok = await doCmd("set_temperatures", {temperature:t}, "Temperatura " + t + " °C"); BR.ctx = {k:"temp"};
+    return ok ? "Temperatura nos " + brFmt(t, 1) + " graus." : say("fail"); }},
+  {re:/(esta|ficou|deixei) (o carro |as portas |a porta )?(trancad|aberto|destrancad)|o carro esta fechado|portas (estao )?(fechadas|trancadas|abertas)/, run:async () => {
+    try{ await loadState(); }catch(e){} const vs = car && car.vehicle_state || {}; if(vs.locked == null) return "Não sei se está trancado.";
+    const open = ["df", "dr", "pf", "pr"].filter(k => vs[k]).length, mala = vs.rt ? " A mala está aberta." : "", fr = vs.ft ? " A mala da frente está aberta." : "";
+    return (vs.locked ? "Sim, o carro está trancado." : "Não, o carro está destrancado. Queres que tranque?") + (open ? " Há " + open + (open === 1 ? " porta aberta." : " portas abertas.") : "") + mala + fr; }},
+  {re:/(esta|estou) a carregar|quanto (tempo )?falta (para )?(acabar de |terminar de )?(carregar|a carga|carga)|carga (esta )?completa|quando (acaba|termina) (a carga|de carregar)/, run:async () => {
+    try{ await loadState(); }catch(e){} const cs = car && car.charge_state || {};
+    if(cs.charging_state !== "Charging") return cs.charging_state === "Complete" ? "A carga está completa, nos " + Math.round(cs.battery_level) + " por cento." : "Não está a carregar. Bateria nos " + Math.round(cs.battery_level || 0) + " por cento.";
+    const mn = cs.minutes_to_full_charge, h = Math.floor(mn / 60), r = mn % 60;
+    return "Está a carregar a " + brFmt(cs.charger_power || 0, 0) + " quilowatts, nos " + Math.round(cs.battery_level) + " por cento. Faltam " + (h ? h + (h === 1 ? " hora e " : " horas e ") : "") + r + " minutos até aos " + cs.charge_limit_soc + " por cento."; }},
+  {re:/(chego|da para|dá para|chega para|consigo fazer|aguenta) (?:a |aos |ate |os )?(\d+)\s*(km|quilometros)/, run:async (m) => {
+    try{ await loadState(); }catch(e){} const cs = car && car.charge_state || {}; if(!isFinite(cs.battery_range)) return "Não sei a autonomia agora.";
+    const km = Math.round(cs.battery_range * MI), need = +m[2], margin = km - need;
+    return margin > need * .15 + 15 ? "Sim, tens " + km + " quilómetros de autonomia, sobra margem." : margin > 0 ? "À justa: tens " + km + " quilómetros. Convém carregar pelo caminho." : "Não chega: tens " + km + " quilómetros. Vais precisar de carregar."; }},
+  {re:/(quilometros (tem|feitos|fiz)|odometro|conta-quilometros|quantos km tem)/, run:() => { const vs = car && car.vehicle_state || {}; return isFinite(vs.odometer) ? "O carro tem " + Math.round(vs.odometer * MI).toLocaleString("pt-PT") + " quilómetros." : "Não tenho o odómetro agora."; }},
+  {re:/(pneus|pressao)/, test:(n, raw) => brIsQ(n, raw) || /^(pneus|pressao)/.test(n), run:() => { const vs = car && car.vehicle_state || {}, p = [vs.tpms_pressure_fl, vs.tpms_pressure_fr, vs.tpms_pressure_rl, vs.tpms_pressure_rr];
+    if(!p.some(isFinite)) return "Não tenho a pressão dos pneus agora."; const low = p.some(v => isFinite(v) && v < 2.6);
+    return "Pressão: frente " + brFmt(p[0], 1) + " e " + brFmt(p[1], 1) + ", trás " + brFmt(p[2], 1) + " e " + brFmt(p[3], 1) + " bar." + (low ? " Atenção, há um pneu baixo." : " Está tudo bem."); }},
+  {re:/(a que velocidade|que velocidade|quao rapido|velocidade (vou|sigo|atual))/, run:() => { const s = dashSpeedSource(car && car.drive_state || {}); return "Vais a " + Math.round(s.kmh) + " quilómetros por hora."; }},
+  {re:/(sentinela|sentry)/, test:(n, raw) => brIsQ(n, raw) && !/(liga|desliga|ativa|desativa)/.test(n), run:() => { const vs = car && car.vehicle_state || {}; return vs.sentry_mode == null ? "Não sei o estado da sentinela." : vs.sentry_mode ? "A sentinela está ligada." : "A sentinela está desligada."; }}
+];
+/* frase → resposta do assistente local (ou null) */
+async function brainAnswer(n, raw){
+  for(const b of BRAIN){
+    const m = n.match(b.re); if(!m) continue;
+    if(b.test && !b.test(n, raw)) continue;
+    let r = null; try{ r = await b.run(m, n, raw); }catch(e){ r = null; }
+    if(r) return r;
+  }
+  return null;
+}
+/* o comando da lista VOICE que corresponde à frase (sem o executar) */
+function brMatch(n){ for(const c of VOICE) for(const re of c.re){ const m = n.match(re); if(m) return {c, m}; } return null; }
+/* semelhança entre frases (bigramas de letras, tolera erros do reconhecimento de voz) */
+function brSim(a, b){
+  const bg = s => { const o = new Map(); s = " " + s + " "; for(let i = 0; i < s.length - 1; i++){ const k = s.substr(i, 2); o.set(k, (o.get(k) || 0) + 1); } return o; };
+  const A = bg(a), B = bg(b); let inter = 0, na = 0, nb = 0;
+  for(const v of A.values()) na += v; for(const v of B.values()) nb += v;
+  for(const [k, v] of A) inter += Math.min(v, B.get(k) || 0);
+  return 2 * inter / (na + nb || 1);
+}
+/* frases de exemplo extra por comando (para a procura aproximada) */
+const BR_EX = {"trancar o carro":["fecha o carro", "tranca as portas", "tranca tudo"], "abre a mala":["abre a bagageira", "abre o porta bagagens"], "liga o ar":["liga o ar condicionado", "aquece o carro", "arrefece o carro"],
+  "desliga o ar":["desliga o ar condicionado", "desliga a climatizacao"], "quanta bateria tenho":["quanta carga tenho", "nivel da bateria", "quanto falta de bateria"], "abre os jogos":["quero jogar", "vamos jogar"],
+  "começa a carregar":["comeca a carga", "inicia o carregamento"], "para a carga":["para de carregar", "termina o carregamento"], "abre o portão":["abre o portao da garagem", "abre a garagem"],
+  "onde está o carro":["onde estacionei", "onde deixei o carro"], "lê os emails":["tenho emails novos", "le o correio"]};
+const BR_SAFE = /^(abre os jogos|abre o waze|abre o google maps|abre a nos tv|carregadores perto|teste de velocidade|quanta bateria|onde esta o carro|lê os emails|som do motor|abre a tv)/;
+function brFuzzy(n){
+  let best = null;
+  for(const c of VOICE){
+    const ex = c.d.pt; if(!ex || /\d|leva-me|youtube|nota |podcast|canal |radio /i.test(ex)) continue;
+    for(const s of [ex].concat(BR_EX[ex] || [])){ const v = brSim(n, norm(s)); if(!best || v > best.v) best = {c, v, s:ex}; }
+  }
+  return best && best.v >= .62 ? best : null;
+}
+async function brRun(c, m, raw){
+  let res; try{ res = await c.run(m, raw); }catch(e){ res = false; }
+  if(res === null) return null;
+  return res === "ask" ? say("unlockAsk") : typeof res === "string" ? res : res ? say("ok") : say("fail");
+}
+function brReply(t){ BR.last = t; logVoice(t); speak(t); }
+window.__brain = {brainAnswer, brClean, brNums, brCalc, brConv, brFuzzy, BR};
+
 async function handleCommand(raw){
   raw = raw.trim(); if(!raw) return;
   logVoice(raw, true); $("heard").textContent = "“"+raw+"”";
-  const n = norm(raw);
-  // Frases compostas ou perguntas vão primeiro à IA; as curtas usam os comandos fixos (mais rápidos e sem gastar IA).
-  const complex = /\?| e | and | et |, /.test(" "+n+" ") || n.split(" ").length > 6;
-  if(aiOn() && complex && !/^(confirmar|confirmo|confirm|confirmer)$/.test(n)){ if(await aiCommand(raw)) return; }
-  for(const c of VOICE){
-    for(const re of c.re){
-      const m = n.match(re);
-      if(m){
-        let res;
-        try{ res = await c.run(m, raw); }catch(e){ res=false; }
-        if(res===null) continue;
-        const reply = res==="ask" ? say("unlockAsk") : typeof res==="string" ? res : res ? say("ok") : say("fail");
-        logVoice(reply); speak(reply); return;
+  const pt = L() === "pt";
+  /* v558: cortesias e «olá Cockpit» fora; números por extenso passam a algarismos («temperatura vinte e um» → 21) */
+  if(pt) raw = raw.replace(/^\s*((ol[áa]|ok|ei|hey|ouve|olha)[,\s]+)?(cockpit|jarvis|assistente)[,!.\s]+/i, "").replace(/^\s*(podes|podias|consegues|conseguias|queria que|quero que|gostava que|preciso que)\s+(me\s+)?/i, "").replace(/[,\s]*(por favor|se faz favor|faz favor)\s*([.!?]*)\s*$/i, "$2").trim() || raw;
+  const n = pt ? brClean(norm(raw)) : norm(raw);
+  /* confirmação de um comando adivinhado */
+  if(BR.pend){
+    const pd = BR.pend; BR.pend = null;
+    if(Date.now() - pd.at < 20000){
+      if(/^(sim|isso|exato|exatamente|confirmo|pode ser|claro|yes|oui|correto|certo)\b/.test(n)){ const r = await brRun(pd.c, pd.m, pd.raw); return brReply(r || say("fail")); }
+      if(/^(nao|cancela|esquece|deixa|no|non)\b/.test(n)) return brReply("Está bem, não faço nada.");
+    }
+  }
+  /* perguntas que o assistente resolve sozinho (hora, contas, tempo, estado do carro…) */
+  if(pt){ const a = await brainAnswer(n, raw); if(a) return brReply(a); }
+  /* vários comandos numa só frase: «fecha os vidros e liga o ar», «tranca o carro, depois liga a sentinela» */
+  if(pt){
+    const parts = n.split(/\s*,\s*|\s+(?:e depois|e a seguir|depois|e tambem|e)\s+/).map(s => s.trim()).filter(s => s.length > 2);
+    if(parts.length > 1){
+      const ms = parts.map(brMatch);
+      if(ms.every(Boolean) && !ms.some(x => /leva-me|nota |youtube/.test(x.c.d.pt))){
+        const out = [];
+        for(let i = 0; i < parts.length; i++){ const r = await brRun(ms[i].c, ms[i].m, parts[i]); if(r && !out.includes(r)) out.push(r); }
+        return brReply(out.join(" ") || say("ok"));
       }
     }
   }
+  // Frases compostas ou perguntas vão primeiro à IA (se estiver ligada); as curtas usam os comandos fixos.
+  const complex = /\?| e | and | et |, /.test(" "+n+" ") || n.split(" ").length > 6;
+  if(aiOn() && complex && !/^(confirmar|confirmo|confirm|confirmer)$/.test(n)){ if(await aiCommand(raw)) return; }
+  const hit = brMatch(n);
+  if(hit){ const r = await brRun(hit.c, hit.m, raw); if(r != null) return brReply(r); }
   if(aiOn() && !complex && await aiCommand(raw)) return;
+  /* v558: nada bateu certo: o comando mais parecido (erros do reconhecimento de voz); os do carro pedem confirmação */
+  if(pt){
+    const f = brFuzzy(n);
+    if(f && !/^(confirmar|destrancar)/.test(f.s)){
+      const ex = norm(f.s), m = (f.c.re.map(re => ex.match(re)).find(Boolean)) || [ex];
+      if(BR_SAFE.test(f.s)){ const r = await brRun(f.c, m, f.s); if(r != null) return brReply(r); }
+      BR.pend = {c:f.c, m, raw:f.s, at:Date.now()};
+      return brReply("Querias dizer «" + f.s + "»? Diz sim para confirmar.");
+    }
+    return brReply("Não percebi. Experimenta, por exemplo: «abre a mala», «que tempo faz amanhã», «leva-me a Faro» ou «o que podes fazer».");
+  }
   logVoice(say("unknown")); speak(say("unknown"));
 }
 
@@ -2758,6 +2997,7 @@ function ckTTS(text, onEnd){
   text = String(text || "").trim(); if(!text) return;
   const g = cfg.ttsVoice || "auto", v = ttsPick();
   const online = () => { if(window.__ttsOnline) window.__ttsOnline(text, 1, onEnd); else onEnd && onEnd(); };
+  if(g === "m" && window.CockpitVoz && (CockpitVoz.state === "ready" || CockpitVoz.state === "loading")) return online();   /* v558: voz masculina do site */
   if(!v) return online();
   try{ const u = new SpeechSynthesisUtterance(text); u.voice = v; u.lang = v.lang; u.onend = u.onerror = () => onEnd && onEnd(); speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){ online(); }
 }
@@ -3187,7 +3427,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v557";
+const APP_VERSION = "v558";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -11974,7 +12214,9 @@ function gamePinball(st){
   /* rollovers */
   const rolls = [160, 190, 220].map(rx => ({x:rx, y:122, on:false, fl:0}));
   /* flippers */
-  const FL = 64, mkFlip = (px, py, side) => ({p:[px, py], side, a:.5, prevTip:null, up:false});
+  /* v558: com os flippers em baixo, as pontas ficavam a 24 px uma da outra e a bola (raio 9 + 7 de espessura do flipper de cada lado = 32 px)
+     não passava: ficava parada em cima. Flippers um pouco mais curtos e mais descaídos em repouso: 38 px de abertura, a bola cai pelo meio. */
+  const FL = 60, FL_REST = .62, mkFlip = (px, py, side) => ({p:[px, py], side, a:FL_REST, prevTip:null, up:false});
   const flips = [mkFlip(122, 700, -1), mkFlip(258, 700, 1)];
   const tipOf = f => [f.p[0] + Math.cos(f.a)*FL*(f.side < 0 ? 1 : -1), f.p[1] + Math.sin(f.a)*FL];
   /* ---------- estado ---------- */
@@ -12016,7 +12258,7 @@ function gamePinball(st){
   const world = (px, py, h) => [(px - CX)/40, h == null ? .25 : h, (py - 420)/40];
   const fx3 = (px, py, col, n, sp) => fx.burst(px, py, col, n || 14, sp || 220, .6, 3);
   const step = dts => {
-    for(const f of flips){ const prev = tipOf(f), target = f.up ? -.45 : .5, sp = f.up ? 26 : 15; f.a += Math.max(-sp*dts, Math.min(sp*dts, target - f.a)); const now = tipOf(f); f.vtip = [(now[0] - prev[0])/dts, (now[1] - prev[1])/dts]; }
+    for(const f of flips){ const prev = tipOf(f), target = f.up ? -.45 : FL_REST, sp = f.up ? 26 : 15; f.a += Math.max(-sp*dts, Math.min(sp*dts, target - f.a)); const now = tipOf(f); f.vtip = [(now[0] - prev[0])/dts, (now[1] - prev[1])/dts]; }
     for(const b of balls){
       if(b.cap){ continue; }
       b.v[1] += 1150*dts; const spd = Math.hypot(b.v[0], b.v[1]); if(spd > 2600){ b.v[0] *= 2600/spd; b.v[1] *= 2600/spd; }
@@ -12790,8 +13032,26 @@ $("setAi").onchange = e=>{ cfg.ai=e.target.value; saveCfg(); };
 $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
-$("setTtsVoice").onchange = e => { cfg.ttsVoice = e.target.value; saveCfg(); };
-$("setTtsTest").onclick = () => { LS.set("ttsEdgeOff", 0); window.__ttsWhich = ""; let tries = 0; const iv = setInterval(() => { const w = window.__ttsWhich; if(!w && ++tries < 60) return; clearInterval(iv); if(w) toast(w === "edge" ? "Voz neural da Microsoft." : w === "grave" ? "Voz da Google com tom grave (a voz da Microsoft não respondeu)." : w === "lenta" ? "Voz grave aproximada (a voz da Microsoft e o proxy não responderam)." : "Voz da Google (as vozes masculinas não responderam)."); }, 500); ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit."); };
+$("setTtsVoice").onchange = e => { cfg.ttsVoice = e.target.value; saveCfg(); if(cfg.ttsVoice === "m") vozGet(false); };
+/* v558: voz masculina alojada no site (Piper «tugão», gerada no browser). Descarrega uma vez e fica no aparelho. */
+function vozUi(){
+  const st = $("vozSt"), b = $("vozGet"), V = window.CockpitVoz; if(!st || !b) return;
+  if(!V){ st.textContent = "indisponível neste browser"; b.disabled = true; return; }
+  if(V.state === "ready"){ st.textContent = "✓ pronta"; b.textContent = "✓ Instalada"; b.disabled = true; return; }
+  if(V.state === "loading"){ st.textContent = "a descarregar… " + Math.round(V.progress * 100) + " %"; b.disabled = true; return; }
+  if(V.state === "error"){ st.textContent = "erro: " + V.err; b.disabled = false; b.textContent = "⬇ Tentar de novo"; return; }
+  b.disabled = false; st.textContent = "";
+}
+function vozGet(explicit){
+  const V = window.CockpitVoz; if(!V) return Promise.resolve(false);
+  V.onprogress = () => vozUi();
+  const p = V.load().then(() => { vozUi(); if(explicit) toast("Voz masculina instalada no aparelho ✓"); return true; }).catch(e => { vozUi(); if(explicit) toast("Voz masculina: " + (e && e.message || e), true); return false; });
+  vozUi(); return p;
+}
+$("vozGet").onclick = () => vozGet(true);
+/* já descarregada antes: prepara em segundo plano (vem do IndexedDB, ~2 s) */
+setTimeout(() => { try{ if(window.CockpitVoz) CockpitVoz.cached().then(c => { if(c) vozGet(false); else vozUi(); }); }catch(e){} }, 4000);
+$("setTtsTest").onclick = () => { LS.set("ttsEdgeOff", 0); window.__ttsWhich = ""; let tries = 0; const iv = setInterval(() => { const w = window.__ttsWhich; if(!w && ++tries < 60) return; clearInterval(iv); if(w) toast(w === "local" ? "Voz masculina do aparelho (alojada no Cockpit)." : w === "edge" ? "Voz neural da Microsoft." : w === "grave" ? "Voz da Google com tom grave (a voz da Microsoft não respondeu)." : w === "lenta" ? "Voz grave aproximada (a voz da Microsoft e o proxy não responderam)." : "Voz da Google (as vozes masculinas não responderam)."); }, 500); ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit."); };
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
 $("setMaxRes").onchange = e => { cfg.maxRes = e.target.value; saveCfg(); toast("Qualidade máxima: " + (cfg.maxRes === "2160" ? "4K" : cfg.maxRes + "p")); };
@@ -19338,6 +19598,24 @@ select option,select optgroup{background:#fff;color:#111}
       const google = () => { if(my === ttsGen) ttsBase(txt, rate, onEnd); };
       (async () => {
         const log = m => { try{ window.__dbgEv && window.__dbgEv(0, "voz: " + m, {}); }catch(e){} };
+        /* v558: voz masculina alojada no site, gerada no aparelho (sem internet): frase a frase, a seguinte é gerada enquanto a anterior toca */
+        const V = window.CockpitVoz;
+        if(g === "m" && V){
+          try{
+            if(V.state !== "ready"){ const c = await V.cached(); if(my !== ttsGen) return; if(c || V.state === "loading") await V.load(); else { V.load().catch(() => {}); throw new Error("ainda a descarregar"); } }
+            if(my !== ttsGen) return;
+            const ps = V.parts(txt); let nextP = V.wavOne(ps[0]);
+            window.__ttsWhich = "local";
+            for(let i = 0; i < ps.length; i++){
+              const blob = await nextP; if(my !== ttsGen) return;
+              if(i + 1 < ps.length) nextP = V.wavOne(ps[i + 1]);
+              /* espera o fim desta parte; se outra voz a interromper (pausa), segue em frente em vez de ficar à espera */
+              await new Promise(res => { playUrl(URL.createObjectURL(blob), rate, res, res); const a = ttsA; if(a) a.addEventListener("pause", () => { if(!a.ended) setTimeout(res, 50); }); });
+              if(my !== ttsGen) return;
+            }
+            onEnd && onEnd(); return;
+          }catch(e){ log("voz do aparelho: " + (e && e.message || e)); if(my !== ttsGen) return; }
+        }
         let url = LS.get("ttsEdgeOff", 0) > Date.now() ? null : await edgeTTS(txt, g === "m" ? "Microsoft Server Speech Text to Speech Voice (pt-PT, DuarteNeural)" : "Microsoft Server Speech Text to Speech Voice (pt-PT, RaquelNeural)");
         if(my !== ttsGen) return;
         if(url){ window.__ttsWhich = "edge"; return playUrl(url, rate, onEnd, google); }
