@@ -1524,6 +1524,14 @@ body.layout-atv .rail{display:none}
         <p class="small muted" style="margin:6px 0 0">Os dados do carro aparecem quando o carro está ligado ao Cockpit. Sem dados, mostra "—".</p>
       </div>
     </section>
+    <div id="newsReader" hidden style="position:fixed;inset:0;z-index:8000;background:#050a12ee;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="max-width:760px;width:100%;max-height:90vh;overflow:auto;background:#0d1626;border:1px solid #2a4a7a;border-radius:18px;padding:20px 22px">
+        <div class="small muted" id="newsRdSrc"></div>
+        <h2 id="newsRdTitle" style="font-size:26px;line-height:1.2;margin:8px 0 14px"></h2>
+        <p id="newsRdBody" style="font-size:19px;line-height:1.5;margin:0 0 18px;white-space:pre-line"></p>
+        <div class="row" style="flex-wrap:wrap;gap:10px"><button class="btn primary" id="newsRdOpen">Abrir no site</button><button class="btn" id="newsRdSpeak">🔊 Ouvir</button><span class="spacer"></span><button class="btn" id="newsRdClose">Fechar</button></div>
+      </div>
+    </div>
     <section class="view" id="v-tempo" hidden>
       <div class="row"><h1>Tempo</h1><span class="spacer"></span><span class="small muted">Previsão de 7 dias · Open-Meteo</span></div>
       <div class="panel">
@@ -1543,9 +1551,11 @@ body.layout-atv .rail{display:none}
         <div id="newsCountries" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px"></div>
       </div>
       <div class="panel">
-        <div class="row"><h2>Manchetes</h2><span class="spacer"></span><span class="small muted" id="newsCount"></span></div>
+        <div class="row"><h2>Manchetes</h2><span class="spacer"></span><span class="small muted" id="newsCount"></span><button class="btn" id="newsListen">🔊 Ouvir</button></div>
         <input type="search" id="newsQ" placeholder="Pesquisar (ex.: Ucrânia, Portugal, IA)" style="width:100%;margin-bottom:8px">
         <div class="row" id="newsChips" style="flex-wrap:wrap;margin-bottom:8px"></div>
+        <div class="row" style="margin-bottom:6px"><input type="text" id="newsFol" placeholder="Seguir palavra-chave (ex.: Tesla)" autocomplete="off" style="flex:1;min-height:44px;border-radius:12px;padding:0 12px;font:inherit"><button class="btn" id="newsFolGo">Seguir</button></div>
+        <div class="row" id="newsFolList" style="flex-wrap:wrap;margin-bottom:8px"></div>
         <div class="list" id="newsList" style="max-height:none"><p class="muted small" style="margin:0">A carregar…</p></div>
         <div class="row" style="margin-top:8px"><button class="btn" id="newsMore" hidden>Carregar mais</button></div>
       </div>
@@ -3071,7 +3081,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v543";
+const APP_VERSION = "v544";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8018,13 +8028,14 @@ function newsDashboard(){
   const box = $("newsCountries"); if(!box) return;
   const rows = NEWS_CTRY.map(c => ({c, n:newsCountryMatch(c).length})).filter(r => r.n > 0).sort((a, b) => b.n - a.n);
   box.innerHTML = rows.length ? rows.map(r => `<button class="btn" data-ctry="${NEWS_CTRY.indexOf(r.c)}" style="text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px"><b style="font-size:16px">${newsEsc(r.c.k[0].replace(/^./, ch => ch.toUpperCase()))}</b><span class="small muted">${r.n} ${r.n === 1 ? "notícia" : "notícias"}</span></button>`).join("") : '<p class="muted small" style="margin:0">Sem notícias de países de momento.</p>';
-  box.querySelectorAll("[data-ctry]").forEach(b => b.onclick = () => {
-    const c = NEWS_CTRY[+b.dataset.ctry];
-    if(c.k[0] === "portugal"){ $("newsQ").value = ""; newsSrc = "__pt"; } else { $("newsQ").value = c.k[0]; newsSrc = ""; }
-    newsShown = 5; newsRender();
-    newsFocusY = -newsCountryAngle(c);
-    $("newsList").scrollIntoView({behavior:"smooth", block:"start"});
-  });
+  box.querySelectorAll("[data-ctry]").forEach(b => b.onclick = () => newsSelectCountry(NEWS_CTRY[+b.dataset.ctry]));
+}
+/* filtra as notícias por país e roda o globo até ele (usado pelo painel e por toque no globo) */
+function newsSelectCountry(c){
+  if(c.k[0] === "portugal"){ $("newsQ").value = ""; newsSrc = "__pt"; } else { $("newsQ").value = c.k[0]; newsSrc = ""; }
+  newsTopic = ""; newsShown = 5; newsRender();
+  newsFocusY = -newsCountryAngle(c);
+  $("newsList").scrollIntoView({behavior:"smooth", block:"start"});
 }
 function newsTicker(){
   const el = $("newsTickerIn"); if(!el) return;
@@ -8050,7 +8061,7 @@ async function newsLoad(){
     if(t){
       try{
         const d = new DOMParser().parseFromString(t, "text/xml");
-        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}); });
+        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim(), desc:newsClean(it.querySelector("description")?.textContent), ts:Date.parse(it.querySelector("pubDate")?.textContent || "") || 0}); });
       }catch(e){}
     }
     if(!got){
@@ -8058,37 +8069,96 @@ async function newsLoad(){
       try{
         const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(f.u));
         const j = r.ok ? await r.json() : null;
-        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:String(it.title || "").trim(), link:String(it.link || "").trim()}); });
+        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, pt:!!f.pt, title:String(it.title || "").trim(), link:String(it.link || "").trim(), desc:newsClean(it.description), ts:Date.parse(String(it.pubDate || "").replace(" ", "T") + "Z") || 0}); });
       }catch(e){}
     }
     if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
   }
   newsItems = out.filter(x => x.title);
+  /* sem ligação: mostra a última lista guardada, com a hora da cache */
+  if(newsItems.length){ newsCacheNote = ""; try{ LS.set("newsCache", {t:Date.now(), items:newsItems.slice(0, 80)}); }catch(e){} }
+  else { const c = LS.get("newsCache", null); if(c && Array.isArray(c.items)){ newsItems = c.items; newsCacheNote = "offline · cache de " + new Date(c.t).toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"}); } }
   newsShown = 5;
   newsRender(); newsPins(); newsDashboard(); newsTicker();
 }
-let newsShown = 5, newsSrc = "";
+let newsShown = 5, newsSrc = "", newsTopic = "", newsCacheNote = "";
+const NEWS_TOPICS = [
+  {n:"Desporto", k:["futebol","benfica","sporting","fc porto","liga","golo","desporto","ténis","tenis","f1","fórmula 1","basquetebol","campeão"]},
+  {n:"Economia", k:["economia","bolsa","inflação","inflacao","euro","mercados","juros","empresa","negócios","negocios","banco","preços","pib"]},
+  {n:"Tecnologia", k:["inteligência artificial"," ia ","tecnologia","tesla","apple","google","software","chip","robô","robot","espaço"]},
+  {n:"Política", k:["governo","parlamento","eleições","eleicoes","presidente","ministro","política","politica","partido","guerra"]}
+];
+const newsHay = x => (" " + x.title + " " + (x.desc || "") + " ").toLowerCase();
+function newsAgo(ts){
+  if(!ts) return "";
+  const m = Math.round((Date.now() - ts) / 60000);
+  if(m < 1) return "agora"; if(m < 60) return "há " + m + " min";
+  const h = Math.round(m / 60); if(h < 24) return "há " + h + " h";
+  return "há " + Math.round(h / 24) + " d";
+}
+function newsIsRead(x){ return (cfg.newsRead || []).includes(x.link); }
+function newsMarkRead(x){ const r = (cfg.newsRead || []).filter(l => l !== x.link); r.push(x.link); cfg.newsRead = r.slice(-300); saveCfg(); }
+function newsFollows(){ return Array.isArray(cfg.newsFollow) ? cfg.newsFollow : []; }
 function newsFiltered(){
   const q = ($("newsQ")?.value || "").trim().toLowerCase();
   const srcOk = x => !newsSrc || (newsSrc === "__pt" ? x.pt : x.src === newsSrc);
-  return newsItems.filter(x => srcOk(x) && (!q || (x.title + " " + x.src).toLowerCase().includes(q)));
+  const topOk = x => { if(!newsTopic) return true; const t = NEWS_TOPICS.find(z => z.n === newsTopic); return !!t && t.k.some(k => newsHay(x).includes(k)); };
+  const fol = newsFollows().map(k => k.toLowerCase());
+  return newsItems.filter(x => srcOk(x) && topOk(x) && (!q || (x.title + " " + x.src).toLowerCase().includes(q)))
+    .map(x => { x.fol = fol.some(k => newsHay(x).includes(k)); return x; })
+    .sort((a, b) => (b.fol - a.fol) || ((b.ts || 0) - (a.ts || 0)));
 }
 function newsRender(){
   const list = $("newsList"); if(!list) return;
   const srcs = [...new Set(newsItems.map(x => x.src))];
   const lbl = n => n === "" ? "Todas" : n === "__pt" ? "🇵🇹 Portugal" : n;
-  $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("");
+  $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("")
+    + NEWS_TOPICS.map(t => `<button class="btn${newsTopic === t.n ? " primary" : ""}" data-topic="${newsEsc(t.n)}">${newsEsc(t.n)}</button>`).join("");
   $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 5; newsRender(); });
+  $("newsChips").querySelectorAll("[data-topic]").forEach(b => b.onclick = () => { newsTopic = newsTopic === b.dataset.topic ? "" : b.dataset.topic; newsShown = 5; newsRender(); });
+  const fl = $("newsFolList");
+  if(fl){
+    fl.innerHTML = newsFollows().map((k, i) => `<button class="btn primary" data-unf="${i}">★ ${newsEsc(k)} ×</button>`).join("");
+    fl.querySelectorAll("[data-unf]").forEach(b => b.onclick = () => { cfg.newsFollow = newsFollows().filter((_, i) => i !== +b.dataset.unf); saveCfg(); newsRender(); });
+  }
   const all = newsFiltered(), part = all.slice(0, newsShown);
-  $("newsCount").textContent = all.length + " de " + newsItems.length;
-  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="#" data-open="${newsEsc(x.link)}" data-src="${newsEsc(x.src)}" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
+  $("newsCount").textContent = all.length + " de " + newsItems.length + (newsCacheNote ? " · " + newsCacheNote : "");
+  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="#" data-open="${newsEsc(x.link)}" data-src="${newsEsc(x.src)}" style="display:block;padding:6px 0;text-decoration:none;color:inherit;opacity:${newsIsRead(x) ? .55 : 1}">${x.fol ? '<span style="color:#ffcc33">★</span> ' : ""}<b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}${newsAgo(x.ts) ? " · " + newsAgo(x.ts) : ""}${newsIsRead(x) ? " · lida" : ""}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
   $("newsMore").hidden = all.length <= newsShown;
 }
+/* ouvir: lê em voz alta os títulos (ou o texto do leitor) */
+function newsSpeak(text){
+  if(!("speechSynthesis" in window)){ toast("Sem voz neste ecrã.", true); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); u.lang = "pt-PT";
+  u.onend = u.onerror = () => { const b = $("newsListen"); if(b) b.textContent = "🔊 Ouvir"; };
+  speechSynthesis.speak(u); const b = $("newsListen"); if(b) b.textContent = "■ Parar";
+}
+function newsListen(){
+  if(window.speechSynthesis && speechSynthesis.speaking){ speechSynthesis.cancel(); $("newsListen").textContent = "🔊 Ouvir"; return; }
+  const items = newsFiltered().slice(0, 5); if(!items.length) return;
+  newsSpeak(items.map(x => x.title + ".").join(" "));
+}
+/* leitor: resumo do feed dentro da app; o artigo completo abre num separador próprio */
+function newsOpenReader(x){
+  newsMarkRead(x);
+  $("newsRdSrc").textContent = x.src + (newsAgo(x.ts) ? " · " + newsAgo(x.ts) : "");
+  $("newsRdTitle").textContent = x.title;
+  $("newsRdBody").textContent = x.desc || "Sem resumo disponível para esta notícia.";
+  $("newsRdOpen").onclick = () => openExtPlain(x.link);
+  $("newsRdSpeak").onclick = () => newsSpeak(x.title + ". " + (x.desc || ""));
+  $("newsReader").hidden = false; newsRender();
+}
+function newsClean(s){ try{ return new DOMParser().parseFromString(String(s || ""), "text/html").body.textContent.replace(/\s+/g, " ").trim().slice(0, 700); }catch(e){ return ""; } }
 $("newsQ").oninput = () => { newsShown = 5; newsRender(); };
 document.addEventListener("pointerdown", () => { newsFocusY = null; }, {capture:true, passive:true});
 $("newsMore").onclick = () => { newsShown += 5; newsRender(); };
 /* as notícias abrem dentro da app (com a ligação "Abrir fora" disponível) */
-$("newsList").addEventListener("click", e => { const a = e.target.closest("[data-open]"); if(!a) return; e.preventDefault(); openInApp(a.dataset.src || "Notícia", a.dataset.open, a.dataset.open, {}); });
+$("newsList").addEventListener("click", e => { const a = e.target.closest("[data-open]"); if(!a) return; e.preventDefault(); const x = newsItems.find(i => i.link === a.dataset.open); if(x) newsOpenReader(x); });
+$("newsListen").onclick = newsListen;
+$("newsRdClose").onclick = () => { $("newsReader").hidden = true; if(window.speechSynthesis) speechSynthesis.cancel(); };
+$("newsFolGo").onclick = () => { const v = $("newsFol").value.trim(); if(!v) return; const f = newsFollows(); if(!f.some(k => k.toLowerCase() === v.toLowerCase())) cfg.newsFollow = [...f, v].slice(0, 20); saveCfg(); $("newsFol").value = ""; newsRender(); };
+$("newsFol").addEventListener("keydown", e => { if(e.key === "Enter") $("newsFolGo").click(); });
 function newsPins(){
   if(!newsG) return;
   const T = THREE;
@@ -8105,6 +8175,7 @@ function newsPins(){
     m.position.copy(pos);
     const ring = new T.Mesh(new T.RingGeometry(.05, .07, 32), new T.MeshBasicMaterial({color:0xffcc33, transparent:true, opacity:.7, side:T.DoubleSide}));
     ring.position.copy(pos); ring.lookAt(0, 0, 0);
+    m.userData.c = c; ring.userData.c = c;
     newsG.root.add(m); newsG.root.add(ring); newsG.pins.push(m, ring);
   });
 }
@@ -8173,6 +8244,18 @@ async function newsGlobe(){
   });
   const up = e => { ptrs.delete(e.pointerId); if(ptrs.size === 1){ const p = [...ptrs.values()][0]; lx = p.x; ly = p.y; newsG.drag = true; } else if(!ptrs.size) newsG.drag = false; };
   el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  /* toque (sem arrastar) num ponto do globo: filtra as notícias desse país */
+  let tap0 = null;
+  el.addEventListener("pointerdown", e => { tap0 = {x:e.clientX, y:e.clientY, id:e.pointerId}; });
+  el.addEventListener("pointerup", e => {
+    if(!tap0 || tap0.id !== e.pointerId) return;
+    const moved = Math.hypot(e.clientX - tap0.x, e.clientY - tap0.y); tap0 = null;
+    if(moved > 8 || ptrs.size) return;
+    const r = el.getBoundingClientRect(), v = new T.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const rc = new T.Raycaster(); rc.setFromCamera(v, cam);
+    const h = rc.intersectObjects(newsG.pins, false)[0];
+    if(h && h.object.userData.c) newsSelectCountry(h.object.userData.c);
+  });
   (function loop(t){
     if(!newsG || newsG.renderer !== renderer) return;
     if(newsFocusY != null){ let d = newsFocusY - root.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); root.rotation.y += d * .08; newsG.vy = 0; if(Math.abs(d) < .002) newsFocusY = null; }
