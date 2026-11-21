@@ -3155,7 +3155,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v549";
+const APP_VERSION = "v550";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8537,16 +8537,25 @@ function saverRender(host, k){
   const c = saverCfgGet(), items = saverItems(c), cp = c.cardPos || {};
   const pos = items.map((it, i) => cp[it.k] || saverAutoPos(i));
   host.innerHTML = items.map((it, i) => `<div class="svc" data-k="${it.k}" style="position:absolute;left:${pos[i].x * 100}%;top:${pos[i].y * 100}%;width:${it.w}px;transform:scale(${(c.scale || 1) * k});transform-origin:top left;pointer-events:auto;cursor:move;touch-action:none;background:rgba(10,16,26,.45);border-radius:14px;padding:10px 14px;box-sizing:border-box">${it.html}</div>`).join("");
+  /* nenhum cartão fica fora do ecrã (corrige posições antigas gravadas fora dos limites) */
+  { const W = host.clientWidth, H = host.clientHeight, sc = (c.scale || 1) * k || 1;
+    if(W && H) host.querySelectorAll(".svc").forEach(el => {
+      const mx = Math.max(0, 1 - el.offsetWidth * sc / W), my = Math.max(0, 1 - el.offsetHeight * sc / H);
+      const x = Math.min(mx, Math.max(0, parseFloat(el.style.left) / 100)), y = Math.min(my, Math.max(0, parseFloat(el.style.top) / 100));
+      el.style.left = x * 100 + "%"; el.style.top = y * 100 + "%";
+    }); }
   host.querySelectorAll(".svc").forEach(el => {
     let d = null;
     el.addEventListener("pointerdown", e => { svDragging = true; d = {id:e.pointerId, x:e.clientX, y:e.clientY, px:el.offsetLeft, py:el.offsetTop}; try{ el.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
     el.addEventListener("pointermove", e => {
       if(!d || d.id !== e.pointerId) return;
       const W = host.clientWidth || 1, H = host.clientHeight || 1, sc = (c.scale || 1) * k || 1;
-      let nx = (d.px + (e.clientX - d.x) / sc) / W, ny = (d.py + (e.clientY - d.y) / sc) / H;
+      /* a posição (left/top) não é afetada pela escala do cartão: o deslocamento do dedo é aplicado tal e qual */
+      let nx = (d.px + (e.clientX - d.x)) / W, ny = (d.py + (e.clientY - d.y)) / H;
       const ox = [], oy = [];
       host.querySelectorAll(".svc").forEach(o => { if(o !== el){ ox.push(o.offsetLeft / W); oy.push(o.offsetTop / H); } });
-      nx = Math.min(.95, Math.max(-.05, svSnap(nx, ox))); ny = Math.min(.95, Math.max(-.05, svSnap(ny, oy)));
+      const mx = Math.max(0, 1 - el.offsetWidth * sc / W), my = Math.max(0, 1 - el.offsetHeight * sc / H);
+      nx = Math.min(mx, Math.max(0, svSnap(nx, ox))); ny = Math.min(my, Math.max(0, svSnap(ny, oy)));
       el.style.left = (nx * 100) + "%"; el.style.top = (ny * 100) + "%";
       el.dataset.nx = nx; el.dataset.ny = ny;
     });
