@@ -1497,7 +1497,7 @@ body.layout-atv .rail{display:none}
     <section class="view" id="v-news" hidden>
       <div class="row"><h1>Notícias do mundo</h1><span class="spacer"></span><button class="btn" id="newsReload">Atualizar</button></div>
       <div class="panel">
-        <div id="newsGlob" style="width:100%;aspect-ratio:1/1;max-height:360px;margin:0 auto;border-radius:12px;background:#02060d;overflow:hidden;touch-action:none;cursor:grab"></div>
+        <div id="newsGlob" style="position:relative;width:100%;aspect-ratio:1/1;max-height:360px;margin:0 auto;border-radius:12px;background:#02060d;overflow:hidden;touch-action:none;cursor:grab"><div style="position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:2"><button class="btn" id="newsZoomIn" style="min-width:48px">＋</button><button class="btn" id="newsZoomOut" style="min-width:48px">−</button></div></div>
         <p class="small muted" style="margin:6px 0 0">Arrasta para rodar o globo. Os pontos são capitais de países com notícias na lista.</p>
       </div>
       <div class="panel">
@@ -3011,7 +3011,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v517";
+const APP_VERSION = "v518";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7923,7 +7923,10 @@ async function newsGlobe(){
   /* Terra: textura real (se o CDN responder); sem ela fica uma esfera azul com grelha */
   const earthMat = new T.MeshPhongMaterial({color:0x1d4f7a, emissive:0x06142a, shininess:14, specular:0x335577});
   const earth = new T.Mesh(new T.SphereGeometry(1, 64, 40), earthMat); root.add(earth);
-  new T.TextureLoader().load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg", tex => { earthMat.map = tex; earthMat.color.set(0xffffff); earthMat.needsUpdate = true; }, undefined, () => {});
+  /* textura de alta resolução (4096 px; 2048 px se a primeira não carregar) */
+  const applyEarth = tex => { earthMat.map = tex; earthMat.color.set(0xffffff); earthMat.needsUpdate = true; };
+  new T.TextureLoader().load("https://threejs.org/examples/textures/planets/earth_atmos_4096.jpg", applyEarth, undefined,
+    () => new T.TextureLoader().load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg", applyEarth, undefined, () => {}));
   const wire = new T.Mesh(new T.SphereGeometry(1.002, 36, 24), new T.MeshBasicMaterial({color:0x3fa7ff, wireframe:true, transparent:true, opacity:.12}));
   root.add(wire);
   /* atmosfera: casca azul luminosa por fora da esfera */
@@ -7935,6 +7938,11 @@ async function newsGlobe(){
   sg.setAttribute("position", new T.BufferAttribute(sp, 3));
   scene.add(new T.Points(sg, new T.PointsMaterial({color:0xcfe8ff, size:.05, transparent:true, opacity:.8})));
   newsG = {root, pins:[], renderer, scene, cam, vy:.002, drag:false};
+  /* zoom: roda do rato/toque e botões; a câmara aproxima-se ou afasta-se do globo */
+  const zoomTo = z => { cam.position.z = Math.min(6, Math.max(1.5, z)); };
+  renderer.domElement.addEventListener("wheel", e => { e.preventDefault(); zoomTo(cam.position.z * (1 + Math.sign(e.deltaY) * .08)); }, {passive:false});
+  $("newsZoomIn").onclick = () => zoomTo(cam.position.z * .85);
+  $("newsZoomOut").onclick = () => zoomTo(cam.position.z * 1.18);
   /* nuvens: camada semitransparente que roda um pouco mais depressa do que a Terra */
   const cloudMat = new T.MeshPhongMaterial({color:0xffffff, transparent:true, opacity:.35, depthWrite:false});
   const clouds = new T.Mesh(new T.SphereGeometry(1.01, 48, 32), cloudMat); root.add(clouds);
