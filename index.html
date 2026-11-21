@@ -1494,14 +1494,14 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- PODCASTS -->
-    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;left:5%;top:72%;transform-origin:top left;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
+    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
     <section class="view" id="v-saverCfg" hidden>
       <div class="row"><h1>Protetor de ecrã</h1><span class="spacer"></span><button class="btn primary" id="svPreview">▶ Ecrã inteiro</button></div>
       <div class="panel">
         <div class="row"><h2>Pré-visualização</h2><span class="spacer"></span><span class="small muted">Arrasta a informação para a posicionar</span></div>
-        <div id="svMini" style="position:relative;width:100%;border-radius:12px;overflow:hidden;touch-action:none"><div id="svMiniInfo" style="position:absolute;transform-origin:top left;color:#e8f0ff;text-shadow:0 2px 8px #000;cursor:move;touch-action:none;z-index:2"></div></div>
+        <div id="svMini" style="position:relative;width:100%;border-radius:12px;overflow:hidden;touch-action:none"><div id="svMiniInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div></div>
         <div class="row small" style="margin-top:8px"><span>Tamanho da informação</span><input type="range" id="svScale" min="50" max="200" step="10" style="flex:1"><span id="svScaleV"></span></div>
-        <div class="row" style="margin-top:6px"><button class="btn" id="svResetPos">Repor posição</button></div>
+        <div class="row" style="margin-top:6px"><button class="btn" id="svResetPos">Alinhar automaticamente</button></div>
       </div>
       <div class="panel">
         <h2>Carro</h2>
@@ -1541,7 +1541,7 @@ body.layout-atv .rail{display:none}
         <input type="search" id="newsQ" placeholder="Pesquisar (ex.: Ucrânia, Portugal, IA)" style="width:100%;margin-bottom:8px">
         <div class="row" id="newsChips" style="flex-wrap:wrap;margin-bottom:8px"></div>
         <div class="list" id="newsList" style="max-height:none"><p class="muted small" style="margin:0">A carregar…</p></div>
-        <div class="row" style="margin-top:8px"><button class="btn" id="newsMore" hidden>Mostrar mais</button></div>
+        <div class="row" style="margin-top:8px"><button class="btn" id="newsMore" hidden>Carregar mais</button></div>
       </div>
       <div class="panel">
         <h2>Capas de jornais</h2>
@@ -3052,7 +3052,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v529";
+const APP_VERSION = "v531";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7916,7 +7916,7 @@ function newsDashboard(){
   box.querySelectorAll("[data-ctry]").forEach(b => b.onclick = () => {
     const c = NEWS_CTRY[+b.dataset.ctry];
     if(c.k[0] === "portugal"){ $("newsQ").value = ""; newsSrc = "__pt"; } else { $("newsQ").value = c.k[0]; newsSrc = ""; }
-    newsShown = 15; newsRender();
+    newsShown = 5; newsRender();
     newsFocusY = -newsCountryAngle(c);
     $("newsList").scrollIntoView({behavior:"smooth", block:"start"});
   });
@@ -7959,10 +7959,10 @@ async function newsLoad(){
     if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
   }
   newsItems = out.filter(x => x.title);
-  newsShown = 15;
+  newsShown = 5;
   newsRender(); newsPins(); newsDashboard(); newsTicker();
 }
-let newsShown = 15, newsSrc = "";
+let newsShown = 5, newsSrc = "";
 function newsFiltered(){
   const q = ($("newsQ")?.value || "").trim().toLowerCase();
   const srcOk = x => !newsSrc || (newsSrc === "__pt" ? x.pt : x.src === newsSrc);
@@ -7973,15 +7973,17 @@ function newsRender(){
   const srcs = [...new Set(newsItems.map(x => x.src))];
   const lbl = n => n === "" ? "Todas" : n === "__pt" ? "🇵🇹 Portugal" : n;
   $("newsChips").innerHTML = ["", "__pt", ...srcs].map(n => `<button class="btn${newsSrc === n ? " primary" : ""}" data-src="${newsEsc(n)}">${newsEsc(lbl(n))}</button>`).join("");
-  $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 15; newsRender(); });
+  $("newsChips").querySelectorAll("[data-src]").forEach(b => b.onclick = () => { newsSrc = b.dataset.src; newsShown = 5; newsRender(); });
   const all = newsFiltered(), part = all.slice(0, newsShown);
   $("newsCount").textContent = all.length + " de " + newsItems.length;
-  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="${newsEsc(x.link)}" target="_blank" rel="noopener" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
+  list.innerHTML = part.length ? part.map(x => `<a class="row small" href="#" data-open="${newsEsc(x.link)}" data-src="${newsEsc(x.src)}" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes para esta pesquisa.</p>';
   $("newsMore").hidden = all.length <= newsShown;
 }
-$("newsQ").oninput = () => { newsShown = 15; newsRender(); };
+$("newsQ").oninput = () => { newsShown = 5; newsRender(); };
 document.addEventListener("pointerdown", () => { newsFocusY = null; }, {capture:true, passive:true});
-$("newsMore").onclick = () => { newsShown += 15; newsRender(); };
+$("newsMore").onclick = () => { newsShown += 5; newsRender(); };
+/* as notícias abrem dentro da app (com a ligação "Abrir fora" disponível) */
+$("newsList").addEventListener("click", e => { const a = e.target.closest("[data-open]"); if(!a) return; e.preventDefault(); openInApp(a.dataset.src || "Notícia", a.dataset.open, a.dataset.open, {}); });
 function newsPins(){
   if(!newsG) return;
   const T = THREE;
@@ -8164,8 +8166,8 @@ function saverCfgSave(){
   saveCfg(); $("svGlbRow").hidden = cfg.saver.model !== "glb"; svMiniStart();
 }
 ["svMode","svModel","svColor","svBg","svCam","svSpeed"].forEach(id => $(id).onchange = saverCfgSave);
-$("svScale").oninput = () => { $("svScaleV").textContent = $("svScale").value + "%"; saverPosSave({scale:+($("svScale").value / 100).toFixed(2)}); svMiniPlace(); };
-$("svResetPos").onclick = () => { saverPosSave({pos:{x:.05, y:.72}, scale:1}); saverCfgFill(); };
+$("svScale").oninput = () => { $("svScaleV").textContent = $("svScale").value + "%"; saverPosSave({scale:+($("svScale").value / 100).toFixed(2)}); svMiniRender(); };
+$("svResetPos").onclick = () => { saverPosSave({cardPos:{}, scale:1}); saverCfgFill(); svMiniRender(); };
 $("svGlb").onchange = async e => {
   const f = e.target.files[0]; if(!f) return;
   if(f.size > 60 * 1048576){ toast("Ficheiro demasiado grande (máximo 60 MB).", true); return; }
@@ -8175,19 +8177,16 @@ $("svPreview").onclick = () => saverOpen(true);
 /* pré-visualização dentro das definições (mesmo formato do ecrã inteiro) */
 let svMiniG = null;
 function svMiniStop(){ if(svMiniG){ svMiniG.running = false; svMiniG.canvas.remove(); svMiniG = null; } }
-function svMiniPlace(){
-  const c = saverCfgGet(), box = $("svMini"), el = $("svMiniInfo"); const k = box.clientWidth / innerWidth;
-  const pos = c.pos || {x:.05, y:.72};
-  el.style.left = (pos.x * 100) + "%"; el.style.top = (pos.y * 100) + "%"; el.style.transform = "scale(" + ((c.scale || 1) * k) + ")";
-}
 async function svMiniStart(){
   const c = saverCfgGet(), box = $("svMini");
   box.style.aspectRatio = innerWidth + "/" + innerHeight; box.style.maxHeight = "60vh"; box.style.background = SV_BG[c.bg] || SV_BG.noite;
-  $("svMiniInfo").innerHTML = saverInfoHTML(); svMiniPlace();
+  svMiniRender();
   const emb = !!SV_EMB[c.model];
   let note = $("svMiniNote"); if(!note){ note = document.createElement("div"); note.id = "svMiniNote"; note.style.cssText = "padding:24px;color:#cfd8e6;text-align:center"; note.textContent = "Modelo Sketchfab: pré-visualização disponível em ecrã inteiro."; box.appendChild(note); }
-  note.hidden = !(emb && c.mode === "model"); $("svMiniInfo").hidden = emb && c.mode === "model";
-  if(emb || c.mode !== "model"){ svMiniStop(); return; }
+  note.hidden = true;
+  if(emb && c.mode === "model"){ svMiniStop(); svMiniEmbed(c.model, box); svMiniRender(); return; }
+  box.querySelectorAll("iframe").forEach(f => f.remove());
+  if(c.mode !== "model"){ svMiniStop(); svMiniRender(); return; }
   if(c.mode !== "model"){ svMiniStop(); return; }
   if(!(await threeLoad())) return;
   const o = await svOpts(c), key = JSON.stringify({m:o.model, c:o.color, g:!!o.glb});
@@ -8202,52 +8201,13 @@ async function svMiniStart(){
     requestAnimationFrame(frame);
   })();
 }
-setInterval(() => { if(currentView === "saverCfg") $("svMiniInfo").innerHTML = saverInfoHTML(); }, 1000);
-(function svMiniDrag(){
-  const el = $("svMiniInfo"); let d = null;
-  el.addEventListener("pointerdown", e => { d = {id:e.pointerId, x:e.clientX, y:e.clientY}; try{ el.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
-  el.addEventListener("pointermove", e => {
-    if(!d || d.id !== e.pointerId) return; const r = $("svMini").getBoundingClientRect(), c = saverCfgGet(), pos = c.pos || {x:.05, y:.72};
-    cfg.saver = Object.assign({}, cfg.saver || {}, {pos:{x:Math.min(.95, Math.max(-.05, pos.x + (e.clientX - d.x) / r.width)), y:Math.min(.95, Math.max(-.05, pos.y + (e.clientY - d.y) / r.height))}});
-    d.x = e.clientX; d.y = e.clientY; svMiniPlace();
-  });
-  const end = () => { if(d){ d = null; saveCfg(); } };
-  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
-})();
-function threeLoad(){
-  if(window.THREE) return Promise.resolve(true);
-  return new Promise(res => { const s = document.createElement("script"); s.src = "three3d.js?v=" + APP_VERSION; s.onload = () => res(!!window.THREE); s.onerror = () => res(false); document.head.appendChild(s); });
-}
-let saverInfoT = null;
-/* Posição e tamanho do painel de informação (guardados em cfg.saver: pos = fração do ecrã; scale = 0.5 a 2) */
-function saverPlace(){
-  const c = saverCfgGet(), el = $("saverInfo");
-  const pos = c.pos || {x:.05, y:.72};
-  el.style.left = (pos.x * 100) + "%"; el.style.top = (pos.y * 100) + "%";
-  el.style.transform = "scale(" + (c.scale || 1) + ")";
-}
+setInterval(() => { if(currentView === "saverCfg") svMiniRender(); }, 1000);
+let saverInfoT = null, svDragging = false;
 function saverPosSave(patch){ cfg.saver = Object.assign({}, cfg.saver || {}, patch); saveCfg(); }
-(function saverDrag(){
-  const el = $("saverInfo"); let drag = null;
-  el.style.pointerEvents = "auto"; el.style.cursor = "move"; el.style.touchAction = "none";
-  el.addEventListener("pointerdown", e => { drag = {id:e.pointerId, ox:e.clientX, oy:e.clientY}; try{ el.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
-  el.addEventListener("pointermove", e => {
-    if(!drag || drag.id !== e.pointerId) return;
-    const r = el.parentElement.getBoundingClientRect(); const c = saverCfgGet();
-    const pos = c.pos || {x:.05, y:.72};
-    const nx = Math.min(.95, Math.max(-.05, pos.x + (e.clientX - drag.ox) / r.width)), ny = Math.min(.95, Math.max(-.05, pos.y + (e.clientY - drag.oy) / r.height));
-    drag.ox = e.clientX; drag.oy = e.clientY;
-    cfg.saver = Object.assign({}, cfg.saver || {}, {pos:{x:nx, y:ny}}); saverPlace();
-  });
-  const end = () => { if(drag){ drag = null; saveCfg(); } };
-  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
-})();
-function saverScale(d){ const c = saverCfgGet(); const v = Math.min(2, Math.max(.5, (c.scale || 1) + d)); saverPosSave({scale:+v.toFixed(2)}); saverPlace(); }
-$("saverSmall").onclick = () => saverScale(-.1);
-$("saverBig").onclick = () => saverScale(.1);
-function saverInfoTick(){ $("saverInfo").innerHTML = saverInfoHTML(); }
-function saverInfoHTML(){
-  const c = saverCfgGet(); const now = new Date(); const cs = car?.charge_state || {}, ds = car?.drive_state || {}, cl = car?.climate_state || {}, vs = car?.vehicle_state || {};
+/* Cartões de informação: cada um com a sua posição; sem posição guardada, ficam alinhados automaticamente. */
+const SV_CARD_W = {hora:340, data:300, pneu:240};
+function saverItems(c){
+  const now = new Date(), cs = car?.charge_state || {}, ds = car?.drive_state || {}, cl = car?.climate_state || {}, vs = car?.vehicle_state || {};
   const num = (v, d, u) => isFinite(v) ? (+v).toFixed(d) + (u || "") : "—";
   const tp = [vs.tpms_pressure_fl, vs.tpms_pressure_fr, vs.tpms_pressure_rl, vs.tpms_pressure_rr];
   const val = {
@@ -8259,16 +8219,54 @@ function saverInfoHTML(){
     lock: vs.locked == null ? "—" : vs.locked ? "Sim" : "Não", odo: num(vs.odometer, 0, " km"),
     pneu: tp.every(isFinite) ? tp.map(v => (+v).toFixed(1)).join(" · ") : "—"
   };
-  const cards = [];
-  if(c.info.hora) cards.push(`<div style="grid-column:1/-1;font-size:clamp(48px,12vw,120px);font-weight:300;line-height:1">${now.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})}</div>`);
-  if(c.info.data) cards.push(`<div style="grid-column:1/-1;font-size:clamp(16px,3vw,28px);opacity:.85;text-transform:capitalize">${now.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})}</div>`);
-  SV_INFO.forEach(i => { if(i.k !== "hora" && i.k !== "data" && c.info[i.k]) cards.push(`<div style="background:rgba(255,255,255,.06);border-radius:12px;padding:8px 12px"><small style="opacity:.7">${i.n}</small><div style="font-size:clamp(16px,2.6vw,26px);font-weight:500">${val[i.k]}</div></div>`); });
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;width:min(70vw,720px)">${cards.join("")}</div>`;
+  const out = [];
+  if(c.info.hora) out.push({k:"hora", w:SV_CARD_W.hora, html:`<div style="font-size:88px;font-weight:300;line-height:1">${now.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})}</div>`});
+  if(c.info.data) out.push({k:"data", w:SV_CARD_W.data, html:`<div style="font-size:22px;opacity:.85;text-transform:capitalize">${now.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})}</div>`});
+  SV_INFO.forEach(i => { if(i.k !== "hora" && i.k !== "data" && c.info[i.k]) out.push({k:i.k, w:SV_CARD_W[i.k] || 170, html:`<small style="opacity:.7">${i.n}</small><div style="font-size:24px;font-weight:500">${val[i.k]}</div>`}); });
+  return out;
 }
+function saverAutoPos(i){ return {x: .05 + Math.floor(i / 4) * .3, y: .5 + (i % 4) * .11}; }
+/* alinhamento automático: encaixa nas grelhas de 2,5 % e nas bordas dos outros cartões */
+function svSnap(v, others){
+  let best = Math.round(v / .025) * .025, d = Math.abs(v - best);
+  others.forEach(o => { if(Math.abs(v - o) < d && Math.abs(v - o) < .012){ best = o; d = Math.abs(v - o); } });
+  return best;
+}
+function saverRender(host, k){
+  if(!host || svDragging) return;
+  const c = saverCfgGet(), items = saverItems(c), cp = c.cardPos || {};
+  const pos = items.map((it, i) => cp[it.k] || saverAutoPos(i));
+  host.innerHTML = items.map((it, i) => `<div class="svc" data-k="${it.k}" style="position:absolute;left:${pos[i].x * 100}%;top:${pos[i].y * 100}%;width:${it.w}px;transform:scale(${(c.scale || 1) * k});transform-origin:top left;pointer-events:auto;cursor:move;touch-action:none;background:rgba(10,16,26,.45);border-radius:14px;padding:10px 14px;box-sizing:border-box">${it.html}</div>`).join("");
+  host.querySelectorAll(".svc").forEach(el => {
+    let d = null;
+    el.addEventListener("pointerdown", e => { svDragging = true; d = {id:e.pointerId, x:e.clientX, y:e.clientY, px:el.offsetLeft, py:el.offsetTop}; try{ el.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); });
+    el.addEventListener("pointermove", e => {
+      if(!d || d.id !== e.pointerId) return;
+      const W = host.clientWidth || 1, H = host.clientHeight || 1, sc = (c.scale || 1) * k || 1;
+      let nx = (d.px + (e.clientX - d.x) / sc) / W, ny = (d.py + (e.clientY - d.y) / sc) / H;
+      const ox = [], oy = [];
+      host.querySelectorAll(".svc").forEach(o => { if(o !== el){ ox.push(o.offsetLeft / W); oy.push(o.offsetTop / H); } });
+      nx = Math.min(.95, Math.max(-.05, svSnap(nx, ox))); ny = Math.min(.95, Math.max(-.05, svSnap(ny, oy)));
+      el.style.left = (nx * 100) + "%"; el.style.top = (ny * 100) + "%";
+      el.dataset.nx = nx; el.dataset.ny = ny;
+    });
+    const end = () => {
+      if(!d) return; d = null; svDragging = false;
+      const nx = +el.dataset.nx, ny = +el.dataset.ny;
+      if(isFinite(nx) && isFinite(ny) && el.dataset.nx !== undefined){ const cur = Object.assign({}, saverCfgGet().cardPos || {}); cur[el.dataset.k] = {x:nx, y:ny}; saverPosSave({cardPos:cur}); }
+    };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  });
+}
+function saverInfoTick(){ saverRender($("saverInfo"), 1); }
+function svMiniRender(){ const box = $("svMini"); if(!box) return; saverRender($("svMiniInfo"), box.clientWidth / (innerWidth || 1)); }
+function saverScale(d){ const c = saverCfgGet(); const v = Math.min(2, Math.max(.5, (c.scale || 1) + d)); saverPosSave({scale:+v.toFixed(2)}); saverInfoTick(); svMiniRender(); }
+$("saverSmall").onclick = () => saverScale(-.1);
+$("saverBig").onclick = () => saverScale(.1);
 function saverOpen(preview){
   const c = saverCfgGet();
   const host = $("saver"); host.hidden = false; host.style.background = SV_BG[c.bg] || SV_BG.noite;
-  saverInfoTick(); saverPlace(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
+  saverInfoTick(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
   const emb = !!SV_EMB[c.model] && c.mode === "model";
   $("saverEmbed").hidden = !emb; $("saverCredit").hidden = !emb;
   if(emb){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } svEmbedShow(c.model); return; }
@@ -8296,6 +8294,16 @@ const SV_EMB = {
   ct: {title:"Tesla - Cybertruck", author:"bubelrobert", id:"5a86defda4b24836a504fe5e597fdb17"},
   rs: {title:"Tesla Roadster - 3D Model", author:"The3DBoss", id:"559b4fe0bf8342f3ae25370ffaa40d0a"}
 };
+function svIframeSrc(key){ return "https://sketchfab.com/models/" + SV_EMB[key].id + "/embed?autostart=1&autospin=0.3&ui_infos=0&ui_watermark=0"; }
+function svMiniEmbed(key, box){
+  let f = box.querySelector("iframe");
+  if(f && f.dataset.key === key) return;
+  if(f) f.remove();
+  f = document.createElement("iframe"); f.dataset.key = key; f.title = SV_EMB[key].title; f.setAttribute("frameborder", "0");
+  f.setAttribute("allow", "autoplay; fullscreen; xr-spatial-tracking"); f.setAttribute("allowfullscreen", "");
+  f.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0;z-index:1";
+  f.src = svIframeSrc(key); box.insertBefore(f, box.firstChild);
+}
 function svEmbedShow(key){
   const box = $("saverEmbed"), e = SV_EMB[key]; if(!e) return;
   let f = box.querySelector("iframe");
@@ -8305,7 +8313,7 @@ function svEmbedShow(key){
     f.title = e.title; f.setAttribute("frameborder", "0");
     f.setAttribute("allow", "autoplay; fullscreen; xr-spatial-tracking"); f.setAttribute("allowfullscreen", "");
     f.style.cssText = "width:100%;height:100%;border:0";
-    f.src = "https://sketchfab.com/models/" + e.id + "/embed?autostart=1&autospin=0.3&ui_infos=0&ui_watermark=0";
+    f.src = svIframeSrc(key);
     box.appendChild(f);
   }
   $("saverCredit").innerHTML = `${e.title} por <b>${e.author}</b> no Sketchfab`;
