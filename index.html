@@ -3052,7 +3052,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v531";
+const APP_VERSION = "v532";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8148,7 +8148,7 @@ const SV_INFO = [
   {k:"text", n:"Temperatura exterior"}, {k:"lock", n:"Trancado"}, {k:"odo", n:"Odómetro (km)"}, {k:"pneu", n:"Pressão dos pneus (bar)"}
 ];
 const SV_DEF = {mode:"model", model:"y22", color:"f4f5f7", bg:"noite", cam:"rodar", speed:4, info:{hora:true, data:true, bat:true, aut:true}};
-function saverCfgGet(){ return Object.assign({}, SV_DEF, cfg.saver || {}); }
+function saverCfgGet(){ const c = Object.assign({}, SV_DEF, cfg.saver || {}); if(!SV_EMB[c.model] && c.model !== "glb") c.model = "y22"; return c; }
 function saverCfgFill(){
   const c = saverCfgGet();
   $("svModel").value = c.model; $("svColor").value = c.color; $("svMode").value = c.mode; $("svBg").value = c.bg; $("svCam").value = c.cam; $("svSpeed").value = c.speed;
@@ -8259,11 +8259,15 @@ function saverRender(host, k){
   });
 }
 function saverInfoTick(){ saverRender($("saverInfo"), 1); }
+/* o arrasto termina sempre, mesmo que o dedo saia do cartão */
+window.addEventListener("pointerup", () => { svDragging = false; });
+window.addEventListener("pointercancel", () => { svDragging = false; });
 function svMiniRender(){ const box = $("svMini"); if(!box) return; saverRender($("svMiniInfo"), box.clientWidth / (innerWidth || 1)); }
 function saverScale(d){ const c = saverCfgGet(); const v = Math.min(2, Math.max(.5, (c.scale || 1) + d)); saverPosSave({scale:+v.toFixed(2)}); saverInfoTick(); svMiniRender(); }
 $("saverSmall").onclick = () => saverScale(-.1);
 $("saverBig").onclick = () => saverScale(.1);
 function saverOpen(preview){
+  svDragging = false;
   const c = saverCfgGet();
   const host = $("saver"); host.hidden = false; host.style.background = SV_BG[c.bg] || SV_BG.noite;
   saverInfoTick(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
