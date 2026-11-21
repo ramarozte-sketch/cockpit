@@ -3051,7 +3051,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v533";
+const APP_VERSION = "v534";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8147,7 +8147,7 @@ const SV_INFO = [
   {k:"text", n:"Temperatura exterior"}, {k:"lock", n:"Trancado"}, {k:"odo", n:"Odómetro (km)"}, {k:"pneu", n:"Pressão dos pneus (bar)"}
 ];
 const SV_DEF = {mode:"model", model:"y22", color:"f4f5f7", bg:"noite", cam:"rodar", speed:4, info:{hora:true, data:true, bat:true, aut:true}};
-function saverCfgGet(){ const c = Object.assign({}, SV_DEF, cfg.saver || {}); if(!SV_EMB[c.model] && c.model !== "glb") c.model = "y22"; return c; }
+function saverCfgGet(){ const c = Object.assign({}, SV_DEF, cfg.saver || {}); if(!SV_EMB[c.model] && c.model !== "glb") c.model = "y22"; if(c.mode !== "model" && c.mode !== "relogio") c.mode = "model"; return c; }
 function saverCfgFill(){
   const c = saverCfgGet();
   $("svModel").value = c.model; $("svMode").value = c.mode; $("svBg").value = c.bg; $("svCam").value = c.cam; $("svSpeed").value = c.speed;
