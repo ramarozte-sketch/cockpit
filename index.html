@@ -1501,6 +1501,10 @@ body.layout-atv .rail{display:none}
     <section class="view" id="v-saverCfg" hidden>
       <div class="row"><h1>Protetor de ecrã</h1><span class="spacer"></span><button class="btn primary" id="svPreview">▶ Pré-visualizar</button></div>
       <div class="panel">
+        <h2>Modelo</h2>
+        <select id="svModel" style="width:100%;margin-bottom:8px">
+          <option value="y">Model Y</option><option value="3">Model 3</option><option value="s">Model S</option><option value="x">Model X</option><option value="ct">Cybertruck</option>
+        </select>
         <h2>Modo</h2>
         <div class="row" style="flex-wrap:wrap">
           <label class="row small"><input type="radio" name="svMode" value="model"> Modelo 3D do carro</label>
@@ -3036,7 +3040,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v522";
+const APP_VERSION = "v523";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8036,8 +8040,21 @@ $("newsReload").onclick = () => newsLoad();
 
 /* ---------- Protetor de ecrã: modelo 3D procedural de um Model Y branco (sem modelo oficial da Tesla) ---------- */
 let saverG = null;
-function saverBuild(){
-  const T = THREE, g = {};
+/* Modelos Tesla (perfis procedurais; não são os modelos oficiais) */
+const SV_MODELS = {
+  y: {name:"Model Y", depth:1.84, paint:0xf4f5f7, metal:false, wr:.36, wx:[-1.45, 1.45], path:[["m",-2.36,.34],["q",-2.42,.92,-2.12,.98],["q",-1.5,1.06,-1.1,1.06],["l",-.9,1.04],["q",-.4,1.04,.1,1.04],["l",.5,1.0],["q",1.0,.92,1.25,.8],["q",1.6,.76,2.0,.74],["q",2.36,.72,2.4,.5],["l",2.38,.34],["q",2.2,.3,1.7,.3],["l",-1.7,.3],["q",-2.2,.3,-2.36,.34]], cab:[["m",-1.08,1.0],["q",-1.5,.98,-1.92,.9],["l",-.6,.9],["l",.2,.98],["q",.95,.92,1.22,.78],["l",-1.0,.78],["l",-1.08,1.0]]},
+  3: {name:"Model 3", depth:1.8, paint:0xf4f5f7, metal:false, wr:.34, wx:[-1.5, 1.5], path:[["m",-2.2,.34],["q",-2.26,.7,-2.12,.8],["q",-1.7,.92,-1.1,.96],["l",-.6,.97],["q",.2,1.0,.8,.92],["q",1.7,.8,2.2,.62],["q",2.3,.6,2.3,.44],["l",2.26,.34],["q",2.0,.3,1.6,.3],["l",-1.6,.3],["q",-2.0,.3,-2.2,.34]], cab:[["m",-1.0,.96],["q",-1.35,.94,-1.8,.84],["l",-.5,.86],["q",.3,.96,.7,.86],["q",1.25,.74,1.7,.66],["l",-.9,.66],["l",-1.0,.96]]},
+  s: {name:"Model S", depth:1.88, paint:0xf4f5f7, metal:false, wr:.36, wx:[-1.6, 1.6], path:[["m",-2.5,.36],["q",-2.56,.7,-2.4,.82],["q",-1.9,.98,-1.2,1.02],["l",-.4,1.04],["q",.5,1.04,1.0,.96],["q",1.9,.78,2.42,.66],["q",2.56,.6,2.56,.42],["l",2.52,.36],["q",2.2,.3,1.6,.3],["l",-1.6,.3],["q",-2.1,.3,-2.5,.36]], cab:[["m",-1.2,1.0],["q",-1.6,.96,-2.0,.84],["l",-.6,.88],["q",.4,1.0,.9,.92],["q",1.5,.8,1.9,.7],["l",-1.0,.72],["l",-1.2,1.0]]},
+  x: {name:"Model X", depth:1.9, paint:0xf4f5f7, metal:false, wr:.38, wx:[-1.5, 1.5], path:[["m",-2.4,.36],["q",-2.46,.9,-2.3,1.02],["q",-1.9,1.14,-1.1,1.14],["l",-.2,1.12],["q",.8,1.1,1.4,1.0],["q",2.0,.84,2.36,.78],["q",2.44,.6,2.42,.36],["q",2.2,.3,1.6,.3],["l",-1.6,.3],["q",-2.1,.3,-2.4,.36]], cab:[["m",-1.2,1.1],["q",-1.6,1.08,-2.0,.98],["l",-.4,1.0],["q",.6,1.04,1.3,.92],["l",-1.2,.9],["l",-1.2,1.1]]},
+  ct: {name:"Cybertruck", depth:1.92, paint:0xc9ced6, metal:true, wr:.4, wx:[-1.6, 1.6], path:[["m",-2.5,.36],["l",-2.5,.8],["l",-2.0,1.0],["l",-.4,1.12],["l",.6,1.12],["l",1.4,.8],["l",2.5,.7],["l",2.5,.36],["l",-2.5,.36]], cab:[["m",-1.8,.9],["l",-.9,1.08],["l",.5,1.08],["l",1.25,.82],["l",-1.8,.9]]}
+};
+function svPath(T, ops){
+  const sh = new T.Shape();
+  ops.forEach(o => { if(o[0] === "m") sh.moveTo(o[1], o[2]); else if(o[0] === "l") sh.lineTo(o[1], o[2]); else sh.quadraticCurveTo(o[1], o[2], o[3], o[4]); });
+  return sh;
+}
+function saverBuild(model){
+  const T = THREE, g = {model}, M = SV_MODELS[model] || SV_MODELS.y;
   g.renderer = new T.WebGLRenderer({antialias:true}); g.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   g.renderer.shadowMap.enabled = true; g.renderer.shadowMap.type = T.PCFSoftShadowMap;
   g.renderer.toneMapping = T.ACESFilmicToneMapping; g.renderer.outputEncoding = T.sRGBEncoding;
@@ -8046,37 +8063,26 @@ function saverBuild(){
   const key = new T.DirectionalLight(0xffffff, 1.6); key.position.set(-4, 7, 5); key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = -4; key.shadow.camera.right = 4; key.shadow.camera.top = 4; key.shadow.camera.bottom = -4; g.scene.add(key);
   const rim = new T.DirectionalLight(0x9fd3ff, .8); rim.position.set(5, 3, -4); g.scene.add(rim);
-  const paint = new T.MeshPhysicalMaterial({color:0xf4f5f7, roughness:.22, metalness:0, clearcoat:1, clearcoatRoughness:.05});
+  const paint = M.metal ? new T.MeshPhysicalMaterial({color:M.paint, roughness:.35, metalness:.85, clearcoat:.3})
+                        : new T.MeshPhysicalMaterial({color:M.paint, roughness:.22, metalness:0, clearcoat:1, clearcoatRoughness:.05});
   const glass = new T.MeshPhysicalMaterial({color:0x0b1118, roughness:.05, metalness:.2, clearcoat:1, transparent:true, opacity:.92});
   const black = new T.MeshStandardMaterial({color:0x101216, roughness:.6});
   const rimM = new T.MeshStandardMaterial({color:0xd9dde3, roughness:.25, metalness:.9});
   const light = new T.MeshBasicMaterial({color:0xe8f4ff});
-  /* perfil lateral (comprimento x altura), extrudido em largura */
-  const sh = new T.Shape();
-  sh.moveTo(-2.36, .34); sh.lineTo(-2.4, .62); sh.quadraticCurveTo(-2.42, .92, -2.12, .98);
-  sh.quadraticCurveTo(-1.5, 1.06, -1.1, 1.06); sh.lineTo(-.9, 1.04); sh.quadraticCurveTo(-.4, 1.04, .1, 1.04); sh.lineTo(.5, 1.0);
-  sh.quadraticCurveTo(1.0, .92, 1.25, .8); sh.quadraticCurveTo(1.6, .76, 2.0, .74); sh.quadraticCurveTo(2.36, .72, 2.4, .5);
-  sh.lineTo(2.38, .34); sh.quadraticCurveTo(2.2, .3, 1.7, .3); sh.lineTo(-1.7, .3); sh.quadraticCurveTo(-2.2, .3, -2.36, .34);
-  const body = new T.Mesh(new T.ExtrudeGeometry(sh, {depth:1.84, bevelEnabled:true, bevelThickness:.08, bevelSize:.08, bevelSegments:5, curveSegments:24}), paint);
-  body.geometry.translate(0, 0, -.92); body.castShadow = true; g.scene.add(body);
-  /* vidros: cabine escura e para-brisas */
-  const cab = new T.Shape();
-  cab.moveTo(-1.08, 1.0); cab.quadraticCurveTo(-1.5, .98, -1.92, .9); cab.lineTo(-.6, .9);
-  cab.lineTo(.2, .98); cab.quadraticCurveTo(.95, .92, 1.22, .78); cab.lineTo(-1.0, .78); cab.lineTo(-1.08, 1.0);
-  const glassM = new T.Mesh(new T.ExtrudeGeometry(cab, {depth:1.66, bevelEnabled:false, curveSegments:16}), glass);
-  glassM.geometry.translate(0, 0, -.83); g.scene.add(glassM);
-  /* rodas */
-  [[-1.45, .3, .99], [1.45, .3, .99]].forEach(([x, y, z]) => [-1, 1].forEach(sd => {
+  const body = new T.Mesh(new T.ExtrudeGeometry(svPath(T, M.path), {depth:M.depth, bevelEnabled:true, bevelThickness:.08, bevelSize:.08, bevelSegments:5, curveSegments:24}), paint);
+  body.geometry.translate(0, 0, -M.depth / 2); body.castShadow = true; g.scene.add(body);
+  const glassM = new T.Mesh(new T.ExtrudeGeometry(svPath(T, M.cab), {depth:M.depth - .18, bevelEnabled:false, curveSegments:16}), glass);
+  glassM.geometry.translate(0, 0, -(M.depth - .18) / 2); g.scene.add(glassM);
+  const zW = M.depth / 2 + .07;
+  M.wx.forEach(x => [-1, 1].forEach(sd => {
     const w = new T.Group();
-    const tyre = new T.Mesh(new T.CylinderGeometry(.36, .36, .26, 36), black); tyre.rotation.x = Math.PI / 2; tyre.castShadow = true; w.add(tyre);
-    const rim = new T.Mesh(new T.CylinderGeometry(.24, .24, .27, 24), rimM); rim.rotation.x = Math.PI / 2; w.add(rim);
-    w.position.set(x, y + .06, z * sd); g.scene.add(w);
+    const tyre = new T.Mesh(new T.CylinderGeometry(M.wr, M.wr, .26, 36), black); tyre.rotation.x = Math.PI / 2; tyre.castShadow = true; w.add(tyre);
+    const rim = new T.Mesh(new T.CylinderGeometry(M.wr * .66, M.wr * .66, .27, 24), rimM); rim.rotation.x = Math.PI / 2; w.add(rim);
+    w.position.set(x, M.wr - .06 + .06, zW * sd); g.scene.add(w);
   }));
-  /* faróis e luzes traseiras */
   const hl = new T.Mesh(new T.BoxGeometry(.5, .05, .12), light); hl.position.set(-2.22, .8, .55); g.scene.add(hl);
   const hl2 = hl.clone(); hl2.position.z = -.55; g.scene.add(hl2);
   const tl = new T.Mesh(new T.BoxGeometry(.05, .07, .6), new T.MeshBasicMaterial({color:0xff2a2a})); tl.position.set(2.39, .66, 0); g.scene.add(tl);
-  /* chão com sombra */
   const floor = new T.Mesh(new T.CircleGeometry(6, 64), new T.MeshStandardMaterial({color:0x0c0f14, roughness:.9, metalness:0}));
   floor.rotation.x = -Math.PI / 2; floor.position.y = 0; floor.receiveShadow = true; g.scene.add(floor);
   g.car = new T.Group(); g.scene.children.slice().forEach(o => { if(o !== floor && o.isLight !== true){ g.scene.remove(o); g.car.add(o); } });
@@ -8088,19 +8094,20 @@ function saverBuild(){
 }
 function saverSize(){ const g = saverG; const w = innerWidth, h = innerHeight; g.renderer.setSize(w, h, false); g.cam.aspect = w / h; g.cam.updateProjectionMatrix(); }
 /* Configuração do protetor (guardada em cfg.saver) */
-const SV_DEF = {mode:"model", hora:true, data:true, bat:false};
+const SV_DEF = {mode:"model", model:"y", hora:true, data:true, bat:false};
 function saverCfgGet(){ return Object.assign({}, SV_DEF, cfg.saver || {}); }
 function saverCfgFill(){
   const c = saverCfgGet();
   document.querySelectorAll('input[name="svMode"]').forEach(r => r.checked = r.value === c.mode);
   $("svHora").checked = !!c.hora; $("svData").checked = !!c.data; $("svBat").checked = !!c.bat;
+  $("svModel").value = c.model;
 }
 function saverCfgSave(){
-  cfg.saver = {mode: document.querySelector('input[name="svMode"]:checked')?.value || "model", hora: $("svHora").checked, data: $("svData").checked, bat: $("svBat").checked};
+  cfg.saver = {mode: document.querySelector('input[name="svMode"]:checked')?.value || "model", model: $("svModel").value, hora: $("svHora").checked, data: $("svData").checked, bat: $("svBat").checked};
   saveCfg();
 }
 document.querySelectorAll('input[name="svMode"]').forEach(r => r.onchange = saverCfgSave);
-["svHora","svData","svBat"].forEach(id => $(id).onchange = saverCfgSave);
+["svHora","svData","svBat","svModel"].forEach(id => $(id).onchange = saverCfgSave);
 $("svPreview").onclick = () => saverOpen(true);
 let saverInfoT = null;
 function saverInfoTick(){
@@ -8116,7 +8123,8 @@ function saverOpen(preview){
   saverInfoTick(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
   if(c.mode === "relogio"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } return; }
   if(!window.THREE){ toast("Protetor indisponível: falta o motor 3D.", true); return; }
-  if(!saverG){ saverG = saverBuild(); }
+  if(saverG && saverG.model !== (c.model || "y")){ saverG.running = false; saverG.canvas.remove(); saverG = null; }
+  if(!saverG){ saverG = saverBuild(c.model || "y"); }
   saverG.canvas.hidden = false;
   saverSize(); if(saverG.running) return; saverG.running = true;
   (function frame(){
