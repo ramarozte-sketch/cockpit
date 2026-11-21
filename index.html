@@ -3014,7 +3014,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v519";
+const APP_VERSION = "v520";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7960,8 +7960,10 @@ async function newsGlobe(){
   scene.add(new T.Points(sg, new T.PointsMaterial({color:0xcfe8ff, size:.05, transparent:true, opacity:.8})));
   newsG = {root, pins:[], renderer, scene, cam, vy:.002, drag:false};
   /* zoom: roda do rato/toque e botões; a câmara aproxima-se ou afasta-se do globo */
-  const zoomTo = z => { cam.position.z = Math.min(6, Math.max(1.5, z)); };
-  renderer.domElement.addEventListener("wheel", e => { e.preventDefault(); zoomTo(cam.position.z * (1 + Math.sign(e.deltaY) * .08)); }, {passive:false});
+  /* o zoom é suave: define um alvo e a câmara aproxima-se dele em cada imagem */
+  newsG.zt = cam.position.z;
+  const zoomTo = z => { newsG.zt = Math.min(6, Math.max(1.5, z)); };
+  renderer.domElement.addEventListener("wheel", e => { e.preventDefault(); zoomTo(newsG.zt * (1 + Math.sign(e.deltaY) * .08)); }, {passive:false});
   const zi = $("newsZoomIn"), zo = $("newsZoomOut");
   if(zi) zi.onclick = () => zoomTo(cam.position.z * .85);
   if(zo) zo.onclick = () => zoomTo(cam.position.z * 1.18);
@@ -7970,15 +7972,31 @@ async function newsGlobe(){
   const clouds = new T.Mesh(new T.SphereGeometry(1.01, 48, 32), cloudMat); root.add(clouds);
   new T.TextureLoader().load("https://threejs.org/examples/textures/planets/earth_clouds_1024.png", tex => { cloudMat.map = tex; cloudMat.needsUpdate = true; }, undefined, () => {});
   /* rotação total: arrastar roda em qualquer direção (horizontal e vertical), com inércia */
-  const el = renderer.domElement; let lx = 0, ly = 0;
+  /* dedos: 1 dedo roda; 2 dedos afastam/aproximam (pinch) com zoom suave */
+  const el = renderer.domElement; let lx = 0, ly = 0, pinch0 = 0, z0 = 0;
+  const ptrs = new Map();
   newsG.vx = 0; newsG.vy = .002;
-  el.addEventListener("pointerdown", e => { newsG.drag = true; lx = e.clientX; ly = e.clientY; newsG.vx = 0; newsG.vy = 0; try{ el.setPointerCapture(e.pointerId); }catch(_){} });
-  el.addEventListener("pointermove", e => { if(!newsG.drag) return; const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; newsG.vy = dx * .006; newsG.vx = dy * .006; root.rotation.y += newsG.vy; root.rotation.x += newsG.vx; });
-  const stop = () => { newsG.drag = false; };
-  el.addEventListener("pointerup", stop); el.addEventListener("pointercancel", stop);
+  const dist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+  el.addEventListener("pointerdown", e => {
+    ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    if(ptrs.size === 1){ newsG.drag = true; lx = e.clientX; ly = e.clientY; newsG.vx = 0; newsG.vy = 0; }
+    if(ptrs.size === 2){ newsG.drag = false; pinch0 = dist(); z0 = newsG.zt; }
+  });
+  el.addEventListener("pointermove", e => {
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(ptrs.size === 2){ zoomTo(z0 * pinch0 / dist()); return; }
+    if(!newsG.drag) return;
+    const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY;
+    newsG.vy = dx * .006; newsG.vx = dy * .006; root.rotation.y += newsG.vy; root.rotation.x += newsG.vx;
+  });
+  const up = e => { ptrs.delete(e.pointerId); if(ptrs.size === 1){ const p = [...ptrs.values()][0]; lx = p.x; ly = p.y; newsG.drag = true; } else if(!ptrs.size) newsG.drag = false; };
+  el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   (function loop(t){
     if(!newsG || newsG.renderer !== renderer) return;
     if(!newsG.drag){ root.rotation.y += newsG.vy; root.rotation.x += newsG.vx; newsG.vx *= .98; newsG.vy = newsG.vy * .98 + (newsG.vy > 0 ? 0 : 0); if(Math.abs(newsG.vy) < .002) newsG.vy += .0005 * Math.sign(newsG.vy || 1); }
+    cam.position.z += (newsG.zt - cam.position.z) * .12;
     clouds.rotation.y += .0004;
     const pulse = 1 + .35 * Math.sin((t || 0) / 380);
     newsG.pins.forEach((m, i) => { if(i % 2) m.scale.setScalar(pulse); });
