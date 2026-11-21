@@ -1010,15 +1010,18 @@ body.layout-atv .rail{display:none}
     <!-- CARRO -->
     <section class="view" id="v-dash" hidden>
       <style>
-        #v-dash{--d-card:#101a2b;--d-line:#ffffff14;--d-acc:#5cb8ff}
+        #v-dash{--d-card:linear-gradient(160deg,#18284a 0%,#0c1424 100%);--d-line:#ffffff1a;--d-acc:#5cf2ff}
+        #v-dash .d-head h1{background:linear-gradient(90deg,#ffffff,#5cf2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+        #v-dash .d-speedcard{grid-column:1 / -1 !important;grid-row:auto !important;background:radial-gradient(circle at 50% 0%,#1d3d66 0%,#0b1426 65%) !important;box-shadow:0 0 0 1px #5cf2ff26,0 16px 40px #0009 !important}
         #v-dash .d-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
         #v-dash .d-head h1{margin:0;font-size:34px;letter-spacing:-.5px}
         #v-dash .d-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
         @media (max-width:1100px){#v-dash .d-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-        #v-dash .d-card{background:var(--d-card);border:1px solid var(--d-line);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+        #v-dash .d-card{background:var(--d-card);border:1px solid var(--d-line);border-radius:22px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0;box-shadow:0 10px 26px #0006;transition:transform .15s ease,border-color .2s}
+        #v-dash .d-card:hover{transform:translateY(-2px);border-color:#5cf2ff55}
         #v-dash .d-card.big{grid-column:span 2;grid-row:span 2;justify-content:center;align-items:center;text-align:center;background:radial-gradient(circle at 50% 40%,#1b3556,#0b1220 70%)}
         #v-dash .d-lbl{font:600 12px system-ui,sans-serif;letter-spacing:1px;text-transform:uppercase;opacity:.55}
-        #v-dash .d-val{font:600 30px/1.1 system-ui,sans-serif;letter-spacing:-.5px}
+        #v-dash .d-val{font:700 30px/1.1 system-ui,sans-serif;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
         #v-dash .d-sub{font-size:14px;opacity:.65}
         #v-dash .d-speed{font:200 150px/1 system-ui,sans-serif;letter-spacing:-4px}
         #v-dash .d-unit{font:600 22px system-ui,sans-serif;opacity:.6}
@@ -1027,6 +1030,8 @@ body.layout-atv .rail{display:none}
         #v-dash .d-tyres{display:grid;grid-template-columns:1fr 1fr;gap:6px;font:600 20px system-ui,sans-serif}
         #v-dash .d-tyres small{display:block;font-size:11px;opacity:.5;font-weight:500}
         #v-dash .d-ok{color:#3ddc97}#v-dash .d-warn{color:#ffcc33}#v-dash .d-bad{color:#ff6b6b}
+        #v-dash .d-snd{min-height:42px;padding:0 18px;border-radius:999px;border:1px solid #5cf2ff66;background:linear-gradient(90deg,#0f3a52,#123f5e);color:#eaffff;font:600 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 0 18px #5cf2ff26}
+        #v-dash .d-snd[aria-pressed="true"]{background:linear-gradient(90deg,#3ddc97,#5cf2ff);color:#03141a;border-color:transparent}
         #v-dash .d-btn{margin-top:auto;align-self:flex-start;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--d-line);background:#ffffff0d;color:inherit;font:600 14px system-ui,sans-serif;cursor:pointer}
       </style>
       <div class="d-head"><h1>Dashboard</h1><span class="small muted" id="dashUp"></span></div>
@@ -3181,7 +3186,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v555";
+const APP_VERSION = "v556";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8110,7 +8115,7 @@ function dashGaugeBuild(){
   DG.st = st;
   const nm = $("dgName"); if(nm) nm.textContent = DG_NAMES[st] || st;
   /* a horizontal é mais curta: proporção 3:1 */
-  box.style.aspectRatio = st === "futuro" ? "3 / 1" : "1 / 1"; box.style.maxWidth = st === "futuro" ? "560px" : "360px";
+  box.style.aspectRatio = st === "futuro" ? "3 / 1" : "1 / 1"; box.style.maxWidth = st === "futuro" ? "1040px" : "460px";
 }
 function dashGaugeSet(v, gear){
   if(!DG.fn) return;
@@ -8125,6 +8130,7 @@ function dashGaugeStep(d){
 function dashBindGauge(){
   $("dgPrev").onclick = () => dashGaugeStep(-1);
   $("dgNext").onclick = () => dashGaugeStep(1);
+  $("dgSound").onclick = () => { try{ if(E.on) engStop(); else engStart(); }catch(e){ toast("Som: " + e.message, true); } dashSoundSync(); };
   const card = $("dashSpeedCard"); let x0 = null, y0 = null;
   card.addEventListener("pointerdown", e => { if(e.target.closest("button")) return; x0 = e.clientX; y0 = e.clientY; });
   card.addEventListener("pointerup", e => {
@@ -8133,11 +8139,16 @@ function dashBindGauge(){
   });
   card.addEventListener("pointercancel", () => { x0 = null; });
 }
+/* botão de som: liga/desliga o som de motor da app Motor (mesmo áudio), e mostra o estado */
+function dashSoundSync(){
+  const b = $("dgSound"); if(!b) return; let on = false; try{ on = !!E.on; }catch(e){}
+  b.textContent = on ? "🔊 Som do motor ligado" : "🔇 Ligar som do motor"; b.setAttribute("aria-pressed", on ? "true" : "false");
+}
 function dashSpeedHTML(){
-  return `<div class="d-card big" id="dashSpeedCard" style="position:relative;overflow:hidden;touch-action:pan-y;user-select:none;align-items:stretch;text-align:left">
+  return `<div class="d-card big d-speedcard" id="dashSpeedCard" style="position:relative;overflow:hidden;touch-action:pan-y;user-select:none;align-items:stretch;text-align:left">
     <div class="row" style="width:100%;justify-content:space-between;margin-bottom:4px"><button class="btn" id="dgPrev" aria-label="Estilo anterior" style="min-width:48px">‹</button><span class="small muted" id="dgName"></span><button class="btn" id="dgNext" aria-label="Estilo seguinte" style="min-width:48px">›</button></div>
-    <div id="dashGauge" style="width:100%;max-width:360px;aspect-ratio:1/1;margin:0 auto"></div>
-    <div class="row small" style="justify-content:space-between;width:100%;margin-top:6px;gap:8px;flex-wrap:wrap"><span id="spSrc" class="small"></span><span id="spMaxL" class="small muted"></span></div>
+    <div id="dashGauge" style="width:100%;max-width:460px;aspect-ratio:1/1;margin:0 auto"></div>
+    <div class="row small" style="justify-content:space-between;width:100%;margin-top:6px;gap:8px;flex-wrap:wrap"><span id="spSrc" class="small"></span><span id="spMaxL" class="small muted"></span><button class="d-snd" id="dgSound" aria-pressed="false">🔇 Ligar som do motor</button></div>
   </div>`;
 }
 function spFrame(){
@@ -8177,7 +8188,7 @@ function dashRender(){
 function dashEnter(){
   if(!$("dashSpeedCard")){ $("dashGrid").innerHTML = dashSpeedHTML() + '<div id="dashRest" style="display:contents"></div>'; dashBindGauge(); dashGaugeBuild(); }
   if(!spRaf) spFrame();
-  dashRender();
+  dashRender(); dashSoundSync();
   if(!dashTimer) dashTimer = setInterval(() => { if(currentView === "dash") dashRender(); }, 1000);
   if(!dashPoll) dashPoll = setInterval(() => { if(currentView === "dash" && typeof loadState === "function") loadState(); }, 10000);
   if(typeof loadState === "function") loadState();
