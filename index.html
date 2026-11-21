@@ -1360,6 +1360,9 @@ body.layout-atv .rail{display:none}
         <button class="apptile" data-app="ip_trafego">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L10 4M20 20L14 4M12 6v2M12 11v2M12 16v2"/></svg></span>
           <b>IP Trânsito</b><span>Alertas e cortes da rede de estradas</span></button>
+        <button class="apptile" data-app="news">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
+          <b>Notícias</b><span>Globo 3D, manchetes e capas de jornais</span></button>
         <button class="apptile" data-app="engine">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v5M6 8h3l1-2h5v2h2l2 2v6h-3l-1 2H8l-2-2H6"/><path d="M21 12v3"/></svg></span>
           <b>Motor</b><span>Som de motor com os dados do carro</span></button>
@@ -1491,6 +1494,22 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- PODCASTS -->
+    <section class="view" id="v-news" hidden>
+      <div class="row"><h1>Notícias do mundo</h1><span class="spacer"></span><button class="btn" id="newsReload">Atualizar</button></div>
+      <div class="panel">
+        <div id="newsGlob" style="width:100%;aspect-ratio:1/1;max-height:360px;margin:0 auto;border-radius:12px;background:#02060d;overflow:hidden;touch-action:none;cursor:grab"></div>
+        <p class="small muted" style="margin:6px 0 0">Arrasta para rodar o globo. Os pontos são capitais de países com notícias na lista.</p>
+      </div>
+      <div class="panel">
+        <h2>Manchetes</h2>
+        <div class="list" id="newsList" style="max-height:none"><p class="muted small" style="margin:0">A carregar…</p></div>
+      </div>
+      <div class="panel">
+        <h2>Capas de jornais</h2>
+        <p class="small muted" style="margin:0 0 8px">As capas não são mostradas aqui (direitos de autor). Abre a capa diretamente no site do jornal.</p>
+        <div class="row" id="newsPapers" style="flex-wrap:wrap"></div>
+      </div>
+    </section>
     <section class="view" id="v-pod" hidden>
       <div class="row"><h1>Podcasts</h1><span class="spacer"></span><button class="btn" id="podBack" hidden>◀ Podcasts</button></div>
       <div class="panel" id="podNow" hidden>
@@ -2141,7 +2160,7 @@ function show(view){
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
-  const order = ["atv","home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","engine","web","notes","mail","net","settings","launcher"];
+  const order = ["atv","home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","news","engine","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -2159,6 +2178,7 @@ function show(view){
   if(view==="games") renderGames();
   if(view==="chargers") renderChargers();
   if(view==="pod" && typeof podEnter === "function") podEnter();
+  if(view==="news" && typeof newsEnter === "function") newsEnter();
   if(view==="engine" && typeof engUi === "function") engUi();
   if(view==="tv" && typeof tvLockUi === "function") tvLockUi();
   if(view==="media" && typeof mediaLockUi === "function") mediaLockUi();
@@ -2991,7 +3011,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v513";
+const APP_VERSION = "v514";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7688,6 +7708,7 @@ const APPS = {
   ipma: {name:"IPMA", url:"https://www.ipma.pt/pt/index.jsp"},
   ip_trafego: {name:"IP Trânsito", url:"https://www.infraestruturasdeportugal.pt/"},
   spotify: {name:"Spotify", url:"https://open.spotify.com/", stream:true},
+  news: {name:"Notícias", url:""},
   engine: {name:"Motor", url:""}
 };
 if(cfg.appsIn === undefined) cfg.appsIn = true;
@@ -7769,6 +7790,7 @@ function openApp(id){
   }
   if(id === "games"){ show("games"); return true; }
   if(id === "podcasts"){ show("pod"); return true; }
+  if(id === "news"){ show("news"); return true; }
   if(id === "engine"){ show("engine"); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
@@ -7785,6 +7807,101 @@ function openApp(id){
   else openInApp(a.name, a.url, a.url, {hint:"Se ficar em branco, toca em “Abrir fora”"});
   return true;
 }
+
+/* ---------- Notícias do mundo: globo 3D (Three.js), manchetes RSS e links para as capas ---------- */
+const NEWS_FEEDS = [
+  {n:"BBC", u:"https://feeds.bbci.co.uk/news/world/rss.xml"},
+  {n:"RTP", u:"https://www.rtp.pt/noticias/feed/"},
+  {n:"Público", u:"https://www.publico.pt/rss"}
+];
+const NEWS_PAPERS = [
+  {n:"Público", u:"https://www.publico.pt/"}, {n:"Expresso", u:"https://expresso.pt/"},
+  {n:"Jornal de Notícias", u:"https://www.jn.pt/"}, {n:"The Guardian", u:"https://www.theguardian.com/"},
+  {n:"The New York Times", u:"https://www.nytimes.com/"}, {n:"Le Monde", u:"https://www.lemonde.fr/"},
+  {n:"El País", u:"https://elpais.com/"}, {n:"Der Spiegel", u:"https://www.spiegel.de/"}
+];
+const NEWS_CTRY = [
+  {k:["portugal","lisboa"], lat:38.72, lon:-9.14}, {k:["espanha","spain","madrid"], lat:40.42, lon:-3.7},
+  {k:["frança","france","paris"], lat:48.86, lon:2.35}, {k:["alemanha","germany","berlim","berlin"], lat:52.52, lon:13.4},
+  {k:["reino unido","uk ","britain","london","londres"], lat:51.5, lon:-0.12}, {k:["ucrânia","ukraine","kyiv","kiev"], lat:50.45, lon:30.52},
+  {k:["rússia","russia","moscow","moscovo"], lat:55.75, lon:37.62}, {k:["china","pequim","beijing"], lat:39.9, lon:116.4},
+  {k:["japão","japan","tóquio","tokyo"], lat:35.68, lon:139.7}, {k:["índia","india","nova deli","delhi"], lat:28.6, lon:77.2},
+  {k:["eua","usa","united states","estados unidos","washington"], lat:38.9, lon:-77.0}, {k:["brasil","brazil","brasília"], lat:-15.8, lon:-47.9},
+  {k:["israel","gaza","jerusalém","jerusalem"], lat:31.77, lon:35.2}, {k:["médio oriente","irão","iran","middle east"], lat:35.7, lon:51.4},
+  {k:["áfrica","africa","egito","egypt"], lat:30.04, lon:31.2}, {k:["austrália","australia"], lat:-35.28, lon:149.13}
+];
+let newsItems = [], newsG = null;
+async function newsFetchText(u){
+  for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
+    try{ const r = await fetch(url); if(r.ok) return await r.text(); }catch(e){}
+  }
+  return "";
+}
+async function newsLoad(){
+  const list = $("newsList"); list.innerHTML = '<p class="muted small" style="margin:0">A carregar…</p>';
+  const out = [];
+  for(const f of NEWS_FEEDS){
+    const t = await newsFetchText(f.u); if(!t) continue;
+    try{
+      const d = new DOMParser().parseFromString(t, "text/xml");
+      [...d.querySelectorAll("item")].slice(0, 8).forEach(it => out.push({src:f.n, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}));
+    }catch(e){}
+  }
+  newsItems = out.filter(x => x.title);
+  list.innerHTML = newsItems.length ? newsItems.map(x => `<a class="row small" href="${newsEsc(x.link)}" target="_blank" rel="noopener" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes de momento (sem ligação aos feeds).</p>';
+  newsPins();
+}
+function newsPins(){
+  if(!newsG) return;
+  const T = THREE;
+  newsG.pins.forEach(p => newsG.root.remove(p)); newsG.pins = [];
+  const hits = new Set();
+  for(const it of newsItems){
+    const t = (" " + it.title + " ").toLowerCase();
+    for(const c of NEWS_CTRY){ if(!hits.has(c) && c.k.some(k => t.includes(k))) hits.add(c); }
+  }
+  hits.forEach(c => {
+    const phi = (90 - c.lat) * Math.PI / 180, th = (c.lon + 180) * Math.PI / 180, r = 1.02;
+    const m = new T.Mesh(new T.SphereGeometry(.035, 10, 8), new T.MeshBasicMaterial({color:0xffcc33}));
+    m.position.set(-r * Math.sin(phi) * Math.cos(th), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(th));
+    newsG.root.add(m); newsG.pins.push(m);
+  });
+}
+function newsEsc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+async function newsGlobe(){
+  const host = $("newsGlob"); if(!host || newsG) return;
+  if(!window.THREE){
+    await new Promise(res => { const s = document.createElement("script"); s.src = "three3d.js?v=" + APP_VERSION; s.onload = res; s.onerror = res; document.head.appendChild(s); });
+  }
+  if(!window.THREE) { host.innerHTML = '<p class="muted small" style="padding:12px">Globo 3D indisponível neste ecrã.</p>'; return; }
+  const T = THREE, w = host.clientWidth || 300, h = host.clientHeight || 300;
+  const renderer = new T.WebGLRenderer({antialias:true, alpha:true}); renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  host.innerHTML = ""; host.appendChild(renderer.domElement);
+  const scene = new T.Scene(), cam = new T.PerspectiveCamera(40, w / h, .1, 100); cam.position.z = 3.2;
+  scene.add(new T.AmbientLight(0xffffff, .7)); const dl = new T.DirectionalLight(0xffffff, .8); dl.position.set(3, 2, 4); scene.add(dl);
+  const root = new T.Group(); scene.add(root);
+  const grid = new T.Mesh(new T.SphereGeometry(1, 40, 28), new T.MeshStandardMaterial({color:0x1d4f7a, roughness:.9, flatShading:true}));
+  root.add(grid);
+  const wire = new T.Mesh(new T.SphereGeometry(1.001, 24, 16), new T.MeshBasicMaterial({color:0x3fa7ff, wireframe:true, transparent:true, opacity:.25}));
+  root.add(wire);
+  newsG = {root, pins:[], renderer, scene, cam, vy:.002, drag:false};
+  const el = renderer.domElement; let lx = 0;
+  el.addEventListener("pointerdown", e => { newsG.drag = true; lx = e.clientX; newsG.vy = 0; });
+  el.addEventListener("pointermove", e => { if(newsG.drag){ const dx = e.clientX - lx; lx = e.clientX; root.rotation.y += dx * .006; } });
+  const stop = () => { newsG.drag = false; };
+  el.addEventListener("pointerup", stop); el.addEventListener("pointerleave", stop);
+  (function loop(){
+    if(!newsG || newsG.renderer !== renderer) return;
+    if(!newsG.drag) root.rotation.y += newsG.vy;
+    renderer.render(scene, cam); requestAnimationFrame(loop);
+  })();
+  newsPins();
+}
+function newsEnter(){
+  $("newsPapers").innerHTML = NEWS_PAPERS.map(p => `<a class="btn" href="${newsEsc(p.u)}" target="_blank" rel="noopener">${newsEsc(p.n)} ↗</a>`).join("");
+  newsGlobe(); newsLoad();
+}
+$("newsReload").onclick = () => newsLoad();
 document.querySelectorAll("[data-app]").forEach(b => b.onclick = () => openApp(b.dataset.app));
 let navRecent = LS.get("navRecent", []);
 function renderNavRecent(){
