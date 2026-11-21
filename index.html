@@ -1513,10 +1513,8 @@ body.layout-atv .rail{display:none}
       </div>
       <div class="panel">
         <h2>Informação no ecrã</h2>
-        <label class="row small"><input type="checkbox" id="svHora"> Hora grande</label>
-        <label class="row small"><input type="checkbox" id="svData"> Data</label>
-        <label class="row small"><input type="checkbox" id="svBat"> Bateria do carro (%) e autonomia</label>
-        <p class="small muted" style="margin:6px 0 0">A bateria só aparece se o carro estiver ligado ao Cockpit.</p>
+        <div id="svInfoList" class="row" style="flex-wrap:wrap;gap:6px 16px"></div>
+        <p class="small muted" style="margin:6px 0 0">Os dados do carro aparecem quando o carro está ligado ao Cockpit. Sem dados, mostra "—".</p>
       </div>
     </section>
     <section class="view" id="v-news" hidden>
@@ -3040,7 +3038,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v523";
+const APP_VERSION = "v524";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8094,35 +8092,62 @@ function saverBuild(model){
 }
 function saverSize(){ const g = saverG; const w = innerWidth, h = innerHeight; g.renderer.setSize(w, h, false); g.cam.aspect = w / h; g.cam.updateProjectionMatrix(); }
 /* Configuração do protetor (guardada em cfg.saver) */
-const SV_DEF = {mode:"model", model:"y", hora:true, data:true, bat:false};
-function saverCfgGet(){ return Object.assign({}, SV_DEF, cfg.saver || {}); }
+const SV_INFO = [
+  {k:"hora", n:"Hora grande"}, {k:"data", n:"Data"}, {k:"bat", n:"Bateria (%)"}, {k:"aut", n:"Autonomia (km)"},
+  {k:"carr", n:"Estado de carga"}, {k:"pot", n:"Potência de carga (kW)"}, {k:"fim", n:"Tempo até carga completa"},
+  {k:"vel", n:"Velocidade (km/h)"}, {k:"est", n:"Estado (P/R/N/D)"}, {k:"tint", n:"Temperatura interior"},
+  {k:"text", n:"Temperatura exterior"}, {k:"lock", n:"Trancado"}, {k:"odo", n:"Odómetro (km)"}, {k:"pneu", n:"Pressão dos pneus (bar)"}
+];
+const SV_DEF = {mode:"model", model:"y", info:{hora:true, data:true, bat:true, aut:true}};
+function saverCfgGet(){ const c = cfg.saver || {}; return {mode:c.mode || SV_DEF.mode, model:c.model || SV_DEF.model, info: c.info || SV_DEF.info}; }
 function saverCfgFill(){
   const c = saverCfgGet();
   document.querySelectorAll('input[name="svMode"]').forEach(r => r.checked = r.value === c.mode);
-  $("svHora").checked = !!c.hora; $("svData").checked = !!c.data; $("svBat").checked = !!c.bat;
   $("svModel").value = c.model;
+  $("svInfoList").innerHTML = SV_INFO.map(i => `<label class="row small" style="min-width:45%"><input type="checkbox" data-svi="${i.k}" ${c.info[i.k] ? "checked" : ""}> ${i.n}</label>`).join("");
+  $("svInfoList").querySelectorAll("[data-svi]").forEach(b => b.onchange = saverCfgSave);
 }
 function saverCfgSave(){
-  cfg.saver = {mode: document.querySelector('input[name="svMode"]:checked')?.value || "model", model: $("svModel").value, hora: $("svHora").checked, data: $("svData").checked, bat: $("svBat").checked};
+  const info = {};
+  document.querySelectorAll("[data-svi]").forEach(b => info[b.dataset.svi] = b.checked);
+  cfg.saver = {mode: document.querySelector('input[name="svMode"]:checked')?.value || "model", model: $("svModel").value, info};
   saveCfg();
 }
 document.querySelectorAll('input[name="svMode"]').forEach(r => r.onchange = saverCfgSave);
-["svHora","svData","svBat","svModel"].forEach(id => $(id).onchange = saverCfgSave);
+$("svModel").onchange = saverCfgSave;
 $("svPreview").onclick = () => saverOpen(true);
+function threeLoad(){
+  if(window.THREE) return Promise.resolve(true);
+  return new Promise(res => { const s = document.createElement("script"); s.src = "three3d.js?v=" + APP_VERSION; s.onload = () => res(!!window.THREE); s.onerror = () => res(false); document.head.appendChild(s); });
+}
 let saverInfoT = null;
 function saverInfoTick(){
-  const c = saverCfgGet(), el = $("saverInfo"); const now = new Date(); const parts = [];
-  if(c.hora) parts.push(`<div style="font-size:clamp(48px,12vw,120px);font-weight:300;line-height:1">${now.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})}</div>`);
-  if(c.data) parts.push(`<div style="font-size:clamp(16px,3vw,28px);opacity:.85;text-transform:capitalize">${now.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})}</div>`);
-  if(c.bat){ const cs = car?.charge_state || {}; const b = isFinite(cs.battery_level) ? cs.battery_level + " %" : "—"; const r = isFinite(cs.battery_range) ? Math.round(cs.battery_range) + " km" : "—"; parts.push(`<div style="font-size:clamp(14px,2.4vw,22px);margin-top:8px">🔋 ${b} · ${r} de autonomia</div>`); }
-  el.innerHTML = parts.join("");
+  const c = saverCfgGet(), el = $("saverInfo"); const now = new Date(); const cs = car?.charge_state || {}, ds = car?.drive_state || {}, cl = car?.climate_state || {}, vs = car?.vehicle_state || {};
+  const num = (v, d, u) => isFinite(v) ? (+v).toFixed(d) + (u || "") : "—";
+  const tp = [vs.tpms_pressure_fl, vs.tpms_pressure_fr, vs.tpms_pressure_rl, vs.tpms_pressure_rr];
+  const val = {
+    bat: num(cs.battery_level, 0, " %"), aut: num(cs.battery_range, 0, " km"),
+    carr: cs.charging_state ? String(cs.charging_state) : "—", pot: num(cs.charger_power, 1, " kW"),
+    fim: isFinite(cs.minutes_to_full_charge) ? cs.minutes_to_full_charge + " min" : "—",
+    vel: num(ds.speed, 0, " km/h"), est: ds.shift_state ? String(ds.shift_state) : "P",
+    tint: num(cl.inside_temp, 1, " °C"), text: num(cl.outside_temp, 1, " °C"),
+    lock: vs.locked == null ? "—" : vs.locked ? "Sim" : "Não", odo: num(vs.odometer, 0, " km"),
+    pneu: tp.every(isFinite) ? tp.map(v => (+v).toFixed(1)).join(" · ") : "—"
+  };
+  const cards = [];
+  if(c.info.hora) cards.push(`<div style="grid-column:1/-1;font-size:clamp(48px,12vw,120px);font-weight:300;line-height:1">${now.toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})}</div>`);
+  if(c.info.data) cards.push(`<div style="grid-column:1/-1;font-size:clamp(16px,3vw,28px);opacity:.85;text-transform:capitalize">${now.toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})}</div>`);
+  SV_INFO.forEach(i => { if(i.k !== "hora" && i.k !== "data" && c.info[i.k]) cards.push(`<div style="background:rgba(255,255,255,.06);border-radius:12px;padding:8px 12px"><small style="opacity:.7">${i.n}</small><div style="font-size:clamp(16px,2.6vw,26px);font-weight:500">${val[i.k]}</div></div>`); });
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-width:min(92vw,720px)">${cards.join("")}</div>`;
 }
 function saverOpen(preview){
   const c = saverCfgGet();
   const host = $("saver"); host.hidden = false;
   saverInfoTick(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
   if(c.mode === "relogio"){ if(saverG){ saverG.running = false; saverG.canvas.hidden = true; } return; }
-  if(!window.THREE){ toast("Protetor indisponível: falta o motor 3D.", true); return; }
+  threeLoad().then(ok => { if(ok) saverStart(c); else toast("Protetor indisponível: não carreguei o motor 3D.", true); });
+}
+function saverStart(c){
   if(saverG && saverG.model !== (c.model || "y")){ saverG.running = false; saverG.canvas.remove(); saverG = null; }
   if(!saverG){ saverG = saverBuild(c.model || "y"); }
   saverG.canvas.hidden = false;
