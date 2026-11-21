@@ -3181,7 +3181,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v554";
+const APP_VERSION = "v555";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8058,27 +8058,59 @@ function spTicks(){
   }
   return s;
 }
+/* Horizontal futurista (só no dashboard): faixa de segmentos luminosos, HUD e número ao centro. */
+function gHorizon(el){
+  const N = 60, x0 = 40, x1 = 560, sw = (x1 - x0) / N, lo = GAUGE.min, hi = GAUGE.max;
+  const col = v => v >= GAUGE.red ? "#ff4d6d" : v >= GAUGE.red * .8 ? "#ffb703" : "#5cf2ff";
+  let segs = "", lab = "";
+  for(let i = 0; i < N; i++){
+    const v = lo + (hi - lo) * (i + .5) / N, x = x0 + i * sw;
+    segs += `<rect class="hs" data-v="${v.toFixed(1)}" x="${(x + .6).toFixed(1)}" y="118" width="${(sw - 1.4).toFixed(1)}" height="34" rx="2" fill="${col(v)}" opacity=".1"/>`;
+  }
+  for(let v = lo; v <= hi + .1; v += GAUGE.step * 2){
+    const x = x0 + (v - lo) / (hi - lo) * (x1 - x0);
+    lab += `<text x="${x.toFixed(1)}" y="176" text-anchor="middle" font-size="13" font-weight="600" style="fill:${v >= GAUGE.red ? "#ff8fa3" : "#7fa6c0"};font-family:system-ui,sans-serif">${Math.round(v)}</text>`;
+  }
+  el.innerHTML = `<svg viewBox="0 0 600 200" aria-hidden="true"><defs><filter id="hGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <rect x="2" y="2" width="596" height="196" rx="18" fill="#03070d" stroke="rgba(92,242,255,.25)" stroke-width="2"/>
+    <path d="M14 40 V14 H40 M560 14 H586 V40 M586 160 V186 H560 M40 186 H14 V160" fill="none" stroke="#5cf2ff" stroke-opacity=".5" stroke-width="2"/>
+    <line x1="40" y1="108" x2="560" y2="108" stroke="#5cf2ff" stroke-opacity=".15" stroke-width="1"/>
+    <g filter="url(#hGlow)">${segs}</g>${lab}
+    <text id="gGear" x="92" y="112" text-anchor="middle" font-size="46" font-weight="800" style="fill:#5cf2ff;font-family:system-ui,sans-serif" filter="url(#hGlow)"></text>
+    <text id="gSpd" x="300" y="84" text-anchor="middle" font-size="58" font-weight="200" style="fill:#ffffff;font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums" filter="url(#hGlow)"></text>
+    <text x="300" y="104" text-anchor="middle" font-size="12" letter-spacing="4" style="fill:#7fa6c0;font-family:system-ui,sans-serif">KM/H</text>
+    <text x="520" y="60" text-anchor="middle" font-size="11" letter-spacing="2" style="fill:#7fa6c0;font-family:system-ui,sans-serif">GEAR</text></svg>`;
+  const segEls = [...el.querySelectorAll(".hs")].map(n => ({n, v:+n.dataset.v}));
+  GAUGE.fn = (val, gear, spd) => {
+    let last = -1; segEls.forEach((s, i) => { if(s.v <= val) last = i; });
+    segEls.forEach((s, i) => { s.n.setAttribute("opacity", i <= last ? (i === last ? 1 : .75) : .1); s.n.setAttribute("filter", i === last ? "url(#hGlow)" : ""); });
+    gSetText(el, "#gSpd", Math.round(spd)); gSetText(el, "#gGear", gear);
+  };
+}
 /* Velocímetro do dashboard: usa os mesmos mostradores da app Motor (Moderno, Clássico, Retro, Néon, Desportivo) em modo km/h.
    O estilo muda com as setas ou deslizando; a escolha fica guardada (cfg.dashGauge). */
-const DG_ORDER = ["modern", "classic", "retro", "neon", "sport"];
+const DG_ORDER = ["modern", "classic", "retro", "neon", "sport", "futuro"];
+const DG_NAMES = {modern:"Moderno", classic:"Clássico", retro:"Retro", neon:"Néon", sport:"Desportivo", futuro:"Horizontal futurista"};
 const DG_RANGE = {min:0, max:200, red:160, step:20, ev:false, kmh:true};
 let DG = {fn:null, st:""};
 function dashStyle(){ return DG_ORDER.includes(cfg.dashGauge) ? cfg.dashGauge : "modern"; }
 /* constrói o mostrador com a escala do dashboard sem alterar a escala da app Motor */
 /* guarda e repõe a escala global (inclusive chaves novas, como kmh) */
-const gSnap = () => ({...GAUGE});
-const gRestore = s => { for(const k of Object.keys(GAUGE)) if(!(k in s)) delete GAUGE[k]; Object.assign(GAUGE, s); };
+function gSnap(){ return {...GAUGE}; }
+function gRestore(s){ for(const k of Object.keys(GAUGE)) if(!(k in s)) delete GAUGE[k]; Object.assign(GAUGE, s); }
 function dashGaugeBuild(){
   const box = $("dashGauge"); if(!box) return;
   const st = dashStyle(), saved = gSnap();
   Object.assign(GAUGE, DG_RANGE, {key:""});
   try{
     box.innerHTML = "";
-    if(st === "neon") gNeon(box); else if(st === "sport") gSport(box); else gDial(box, GAUGE_DIALS[st]);
+    if(st === "futuro") gHorizon(box); else if(st === "neon") gNeon(box); else if(st === "sport") gSport(box); else gDial(box, GAUGE_DIALS[st]);
     DG.fn = GAUGE.fn;
   } finally { gRestore(saved); }
   DG.st = st;
-  const nm = $("dgName"); if(nm) nm.textContent = GAUGE_STYLES[st] || st;
+  const nm = $("dgName"); if(nm) nm.textContent = DG_NAMES[st] || st;
+  /* a horizontal é mais curta: proporção 3:1 */
+  box.style.aspectRatio = st === "futuro" ? "3 / 1" : "1 / 1"; box.style.maxWidth = st === "futuro" ? "560px" : "360px";
 }
 function dashGaugeSet(v, gear){
   if(!DG.fn) return;
