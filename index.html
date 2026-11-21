@@ -3126,7 +3126,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v546";
+const APP_VERSION = "v547";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -19316,15 +19316,17 @@ html.nightUi #ambient{filter:brightness(.75)}
       $m("ambRow").style.zoom = c.scale || 1;
       const p = playing(); $m("ambPlay").classList.toggle("on", !!p); if(p) $m("ambNow").textContent = p.t;
     };
-    const open = () => { if(amb.classList.contains("on")) return; paint(); amb.classList.add("on"); };
-    const close = () => { amb.classList.remove("on"); lastAct = Date.now(); };
+    /* o modo ambiente abre o protetor definido na app Protetor (modelo, informação, fundo) */
+    const svOn = () => { const s = document.getElementById("saver"); return !!s && !s.hidden; };
+    const open = () => { if(svOn()) return; try{ saverOpen(false); }catch(e){ paint(); amb.classList.add("on"); } };
+    const close = () => { amb.classList.remove("on"); try{ if(svOn()) saverClose(); }catch(e){} lastAct = Date.now(); };
     window.__ambient = {open, close};
     $m("ambPP").addEventListener("click", e => { e.stopPropagation(); try{ const p = playing(); if(!p) return;
       if(p.k === "amp"){ const W = window.__wamp; if(W.E){ W.E.paused() ? W.E.play() : W.E.pause(); } }
       else if(p.k === "radio"){ const a = document.getElementById("radioAud"); a.paused ? a.play().catch(() => {}) : a.pause(); }
       else { const v = document.getElementById("vid" + (lastPlayed[0] ? 0 : 1)); v.paused ? v.play().catch(() => {}) : v.pause(); } paint(); }catch(x){} });
     setInterval(() => { try{
-      if(amb.classList.contains("on")){ paint(); if(typeof drivingEff === "function" && drivingEff()) close(); return; }
+      if(amb.classList.contains("on") || svOn()){ if(amb.classList.contains("on")) paint(); if(typeof drivingEff === "function" && drivingEff()) close(); return; }
       const m = mins(); if(!m) return;
       const moving = typeof drivingEff === "function" && drivingEff();
       if(!moving && !document.body.classList.contains("pfull") && Date.now() - lastAct > m * 60000) open();
