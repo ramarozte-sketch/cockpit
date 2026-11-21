@@ -3181,7 +3181,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v552";
+const APP_VERSION = "v553";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8034,10 +8034,68 @@ function tempoEnter(){
 let dashTimer = null, dashPoll = null;
 const dashCard = (lbl, val, sub, cls, extra) => `<div class="d-card ${cls || ""}"${extra || ""}><span class="d-lbl">${lbl}</span><span class="d-val">${val}</span>${sub ? `<span class="d-sub">${sub}</span>` : ""}</div>`;
 function dashCompass(h){ if(!isFinite(h)) return "—"; return ["N","NE","E","SE","S","SO","O","NO"][Math.round(((h % 360) + 360) % 360 / 45) % 8]; }
+/* ---------- velocidade: GPS do browser primeiro (se for recente), senão a Tessie (carro) ---------- */
+let dashSpd = {kmh:0, src:"", gps:false}, spTgt = 0, spCur = 0, spMax = 0, spRaf = null;
+const SP_MAX = 200, SP_A0 = 135;
+function dashSpeedSource(ds){
+  const g = RD.gps;
+  if(g && Date.now() - g.t < 4000 && typeof g.spd === "number" && isFinite(g.spd)) return {kmh: Math.max(0, g.spd * 3.6), src: "GPS do browser", gps: true};
+  return {kmh: isFinite(ds.speed) ? Math.max(0, ds.speed * MI) : 0, src: "Carro (Tessie)", gps: false};
+}
+const spCol = v => v < 100 ? "#5cb8ff" : v < 140 ? "#3ddc97" : v < 170 ? "#ffcc33" : "#ff5a5a";
+function spPt(f, r){ const a = (SP_A0 + 270 * f) * Math.PI / 180; return [100 + r * Math.cos(a), 100 + r * Math.sin(a)]; }
+function spArc(f){
+  const r = 84, [x0, y0] = spPt(0, r); if(f <= .001) return `M${x0.toFixed(2)} ${y0.toFixed(2)}`;
+  const [x1, y1] = spPt(Math.min(1, f), r);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${f * 270 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+function spTicks(){
+  let s = "";
+  for(let i = 0; i <= 40; i++){
+    const f = i / 40, major = i % 4 === 0, [x0, y0] = spPt(f, 96), [x1, y1] = spPt(f, major ? 84 : 90);
+    s += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" stroke="#ffffff" stroke-opacity="${major ? .8 : .35}" stroke-width="${major ? 2 : 1}"/>`;
+    if(major){ const [lx, ly] = spPt(f, 70); s += `<text x="${lx.toFixed(2)}" y="${(ly + 3).toFixed(2)}" fill="#ffffff" fill-opacity=".55" font-size="9" text-anchor="middle" font-family="system-ui,sans-serif">${Math.round(i / 40 * SP_MAX)}</text>`; }
+  }
+  return s;
+}
+function dashSpeedHTML(){
+  return `<div class="d-card big" id="dashSpeedCard" style="position:relative;overflow:hidden">
+    <svg viewBox="0 0 200 200" style="width:100%;max-width:340px;height:auto;max-height:52vh" aria-label="Velocidade">
+      <defs>
+        <linearGradient id="spTrack" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5cb8ff"/><stop offset=".5" stop-color="#3ddc97"/><stop offset=".75" stop-color="#ffcc33"/><stop offset="1" stop-color="#ff5a5a"/></linearGradient>
+        <filter id="spGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <radialGradient id="spBg" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#1d3a63" stop-opacity=".55"/><stop offset="1" stop-color="#0b1220" stop-opacity="0"/></radialGradient>
+      </defs>
+      <circle cx="100" cy="100" r="96" fill="url(#spBg)"/>
+      <path d="${spArc(1)}" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="12" stroke-linecap="round"/>
+      <path id="spArc" d="${spArc(0)}" fill="none" stroke="#5cb8ff" stroke-width="12" stroke-linecap="round" filter="url(#spGlow)"/>
+      ${spTicks()}
+      <circle id="spNeedle" cx="16" cy="116" r="6" fill="#5cb8ff" filter="url(#spGlow)"/>
+    </svg>
+    <div style="position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;pointer-events:none">
+      <div id="spNum" style="font:200 clamp(56px,12vw,96px)/1 system-ui,sans-serif;letter-spacing:-3px;font-variant-numeric:tabular-nums">0</div>
+      <div class="d-unit" style="margin-top:2px">km/h</div>
+    </div>
+    <div class="row small" style="justify-content:space-between;width:100%;margin-top:6px;gap:8px;flex-wrap:wrap"><span id="spSrc" class="small"></span><span id="spMaxL" class="small muted"></span></div>
+    <span class="d-sub" id="spGear"></span>
+  </div>`;
+}
+function spFrame(){
+  spRaf = requestAnimationFrame(spFrame);
+  if(currentView !== "dash"){ spRaf = null; return; }
+  spCur += (spTgt - spCur) * .12; if(Math.abs(spTgt - spCur) < .05) spCur = spTgt;
+  const f = Math.min(1, spCur / SP_MAX), col = spCol(spCur);
+  const arc = $("spArc"), nd = $("spNeedle"), num = $("spNum");
+  if(arc){ arc.setAttribute("d", spArc(f)); arc.setAttribute("stroke", col); }
+  if(nd){ const [x, y] = spPt(f, 84); nd.setAttribute("cx", x.toFixed(2)); nd.setAttribute("cy", y.toFixed(2)); nd.setAttribute("fill", col); }
+  if(num) num.textContent = Math.round(spCur);
+}
 function dashRender(){
   const c = car || {}, cs = c.charge_state || {}, cl = c.climate_state || {}, ds = c.drive_state || {}, vs = c.vehicle_state || {};
   const num = (v, d, u) => isFinite(v) ? (+v).toFixed(d) + (u || "") : "—";
-  const kmh = isFinite(ds.speed) ? Math.round(ds.speed * MI) : 0;
+  const sp = dashSpeedSource(ds), kmh = Math.round(sp.kmh);
+  dashSpd = sp; spTgt = sp.kmh; spMax = Math.max(spMax, sp.kmh);
+  { const s1 = $("spSrc"), s2 = $("spMaxL"); if(s1){ s1.textContent = "● " + sp.src; s1.style.color = sp.gps ? "#3ddc97" : "#8fb4e0"; } if(s2) s2.textContent = "máx. sessão " + Math.round(spMax) + " km/h"; }
   const gear = ds.shift_state ? String(ds.shift_state) : "P";
   const bat = isFinite(cs.battery_level) ? Math.round(cs.battery_level) : null;
   const tp = [vs.tpms_pressure_fl, vs.tpms_pressure_fr, vs.tpms_pressure_rl, vs.tpms_pressure_rr];
@@ -8047,7 +8105,6 @@ function dashRender(){
   const hasPos = isFinite(ds.latitude) && isFinite(ds.longitude);
   const dest = ds.active_route_destination ? String(ds.active_route_destination).slice(0, 40) : "";
   let h = "";
-  h += `<div class="d-card big"><span class="d-lbl">Velocidade</span><span class="d-speed">${kmh}</span><span class="d-unit">km/h</span><span class="d-sub">Marcha ${gear} · rumo ${dashCompass(ds.heading)}${isFinite(ds.heading) ? " (" + Math.round(ds.heading) + "°)" : ""}</span></div>`;
   h += `<div class="d-card"><span class="d-lbl">Bateria</span><span class="d-val">${bat != null ? bat + " %" : "—"}</span><div class="d-bar"><i style="width:${bat != null ? bat : 0}%"></i></div><span class="d-sub">${isFinite(cs.battery_range) ? Math.round(cs.battery_range * MI) + " km de autonomia" : ""}</span></div>`;
   h += dashCard("Carregamento", chg ? chargeLabel(chg) : "—", [isFinite(cs.charger_power) && cs.charger_power ? num(cs.charger_power, 1, " kW") : "", fim ? "até ao fim: " + fim : ""].filter(Boolean).join(" · "), chgCls);
   h += dashCard("Limite de carga", isFinite(cs.charge_limit_soc) ? Math.round(cs.charge_limit_soc) + " %" : "—", isFinite(cs.charge_current_request) ? "corrente " + cs.charge_current_request + " A" : "");
@@ -8057,11 +8114,13 @@ function dashRender(){
   h += `<div class="d-card"><span class="d-lbl">Pneus (bar)</span><div class="d-tyres"><div class="${tpWarn(tp[0])}">${num(tp[0], 1)}<small>Frente esq.</small></div><div class="${tpWarn(tp[1])}">${num(tp[1], 1)}<small>Frente dir.</small></div><div class="${tpWarn(tp[2])}">${num(tp[2], 1)}<small>Traseira esq.</small></div><div class="${tpWarn(tp[3])}">${num(tp[3], 1)}<small>Traseira dir.</small></div></div></div>`;
   h += dashCard("Localização", hasPos ? ds.latitude.toFixed(4) + ", " + ds.longitude.toFixed(4) : "—", hasPos ? "" : "sem posição do carro", "", hasPos ? "" : "");
   h += `<div class="d-card"><span class="d-lbl">Navegação</span><span class="d-val" style="font-size:22px">${dest || "Sem destino"}</span><span class="d-sub">${isFinite(ds.active_route_minutes_to_arrival) ? Math.round(ds.active_route_minutes_to_arrival) + " min até chegar" : ""}${isFinite(ds.active_route_traffic_minutes_delay) && ds.active_route_traffic_minutes_delay ? " · +" + Math.round(ds.active_route_traffic_minutes_delay) + " min de trânsito" : ""}</span>${hasPos ? `<button class="d-btn" id="dashMap">🗺️ Abrir posição no mapa</button>` : ""}</div>`;
-  $("dashGrid").innerHTML = h;
+  $("dashRest").innerHTML = h;
   const bm = $("dashMap"); if(bm) bm.onclick = () => openExt("https://www.google.com/maps?q=" + ds.latitude + "," + ds.longitude);
   $("dashUp").textContent = "atualizado " + new Date().toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
 }
 function dashEnter(){
+  if(!$("dashSpeedCard")) $("dashGrid").innerHTML = dashSpeedHTML() + '<div id="dashRest" style="display:contents"></div>';
+  if(!spRaf) spFrame();
   dashRender();
   if(!dashTimer) dashTimer = setInterval(() => { if(currentView === "dash") dashRender(); }, 1000);
   if(!dashPoll) dashPoll = setInterval(() => { if(currentView === "dash" && typeof loadState === "function") loadState(); }, 10000);
@@ -8728,7 +8787,7 @@ function rdPos(){
   const d = car?.drive_state || {}; if(!isFinite(d.latitude) || !isFinite(d.longitude)) return null;
   return {lat:+d.latitude, lon:+d.longitude, hd:isFinite(d.heading) ? +d.heading : null, kmh:(d.speed || 0) * MI, t:Date.now()};
 }
-try{ if(window.isSecureContext && navigator.geolocation) navigator.geolocation.watchPosition(p => { RD.gps = {lat:p.coords.latitude, lon:p.coords.longitude, hd:isFinite(p.coords.heading) ? p.coords.heading : null, kmh:(p.coords.speed || 0) * 3.6, t:Date.now()}; }, () => {}, {enableHighAccuracy:true, maximumAge:2000}); }catch(e){}
+try{ if(window.isSecureContext && navigator.geolocation) navigator.geolocation.watchPosition(p => { RD.gps = {lat:p.coords.latitude, lon:p.coords.longitude, hd:isFinite(p.coords.heading) ? p.coords.heading : null, kmh:(p.coords.speed || 0) * 3.6, spd:p.coords.speed, t:Date.now()}; }, () => {}, {enableHighAccuracy:true, maximumAge:2000}); }catch(e){}
 async function rdOverpass(q){
   const u = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(q);
   for(const url of [u, HASPX() ? px(u) : null].filter(Boolean)){
