@@ -804,7 +804,7 @@ body.layout-atv .rail{display:none}
 .acpic{align-self:center;width:170px;height:226px;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--fg) 10%,transparent);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--muted)}
 .acpic img{width:100%;height:100%;object-fit:cover}
 </style>
-<script src="voz/voz.js"></script>
+<script src="voz/voz.js?v=559"></script>
 </head>
 <body>
 <div id="boot" aria-hidden="true"><canvas id="bootCv"></canvas><div class="bootc"><div class="bootlogo" id="bootLogo">COCKPIT</div><div class="bootsub" id="bootSub"></div><div class="bootbar"><i id="bootBar"></i></div><div class="bootlog" id="bootLog"></div></div><div class="bootsnd" id="bootSnd" hidden>Toca para ativar o som</div></div>
@@ -3427,7 +3427,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v558";
+const APP_VERSION = "v559";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{

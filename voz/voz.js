@@ -88,11 +88,33 @@
     const feeds = {
       input: new ort.Tensor("int64", BigInt64Array.from(ids, x => BigInt(x)), [1, ids.length]),
       input_lengths: new ort.Tensor("int64", BigInt64Array.from([BigInt(ids.length)])),
-      scales: new ort.Tensor("float32", Float32Array.from([inf.noise_scale, inf.length_scale / rate, inf.noise_w]))
+      /* v559: menos «ruído» na geração = pronúncia mais estável e nítida (valores do modelo: 0,667 / 0,8) */
+      scales: new ort.Tensor("float32", Float32Array.from([V.clear === false ? inf.noise_scale : .5, inf.length_scale / rate, V.clear === false ? inf.noise_w : .6]))
     };
     if(man.speakers) feeds.sid = new ort.Tensor("int64", BigInt64Array.from([0n]));
     const r = await sess.run(feeds);
-    return r.output.data;
+    return V.clear === false ? r.output.data : clarity(r.output.data, man.rate);
+  }
+  /* v559: nitidez para os altifalantes do carro: corta graves surdos (< 90 Hz), realça a presença da voz (3 kHz)
+     e o brilho (> 6 kHz), compressão suave e volume normalizado. Filtros biquad (RBJ) aplicados à amostra gerada. */
+  function biquad(x, sr, type, f0, q, gainDb){
+    const A = Math.pow(10, gainDb / 40), w = 2 * Math.PI * f0 / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * q);
+    let b0, b1, b2, a0, a1, a2;
+    if(type === "hp"){ b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = (1 + cs) / 2; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
+    else if(type === "peak"){ b0 = 1 + al * A; b1 = -2 * cs; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * cs; a2 = 1 - al / A; }
+    else { const s = 2 * Math.sqrt(A) * al; b0 = A * ((A + 1) + (A - 1) * cs + s); b1 = -2 * A * ((A - 1) + (A + 1) * cs); b2 = A * ((A + 1) + (A - 1) * cs - s); a0 = (A + 1) - (A - 1) * cs + s; a1 = 2 * ((A - 1) - (A + 1) * cs); a2 = (A + 1) - (A - 1) * cs - s; }
+    const y = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for(let i = 0; i < x.length; i++){ const v = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; }
+    return y;
+  }
+  function clarity(pcm, sr){
+    let y = biquad(pcm, sr, "hp", 90, .707, 0);
+    y = biquad(y, sr, "peak", 3000, 1.0, 4.5);
+    y = biquad(y, sr, "shelf", 6500, .707, 2.5);
+    /* compressão suave (acima de 0,35) e normalização a 0,95 */
+    let mx = 0; for(let i = 0; i < y.length; i++){ let v = y[i], a = Math.abs(v); if(a > .35) v = Math.sign(v) * (.35 + (a - .35) * .45); y[i] = v; if(Math.abs(v) > mx) mx = Math.abs(v); }
+    const g = mx > 0 ? .95 / mx : 1; for(let i = 0; i < y.length; i++) y[i] *= g;
+    return y;
   }
   function wav(pcm, sr){
     const n = pcm.length, dv = new DataView(new ArrayBuffer(44 + n * 2)), W = (o, s) => { for(let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
