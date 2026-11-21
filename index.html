@@ -1508,7 +1508,6 @@ body.layout-atv .rail{display:none}
         <select id="svModel" style="width:100%;margin-bottom:8px"><option value="y22">Tesla Model Y 2022 (Sketchfab)</option><option value="s">Tesla Model S Prior Design (Sketchfab)</option><option value="3">Tesla Model 3 2018 (Sketchfab)</option><option value="x">Tesla Model X animação (Sketchfab)</option><option value="ct">Tesla Cybertruck (Sketchfab)</option><option value="rs">Tesla Roadster (Sketchfab)</option><option value="glb">O meu modelo 3D (.glb)</option></select>
         <div id="svGlbRow" class="row small" hidden><input type="file" id="svGlb" accept=".glb,model/gltf-binary"><span class="muted" id="svGlbName"></span></div>
         <div class="row small" style="flex-wrap:wrap;gap:6px 16px">
-          <label class="row">Cor <select id="svColor"><option value="f4f5f7">Branco pérola</option><option value="111317">Preto sólido</option><option value="6b7078">Cinzento</option><option value="b9bec6">Prata</option><option value="1f4fa8">Azul</option><option value="a3121b">Vermelho</option></select></label>
         </div>
       </div>
       <div class="panel">
@@ -3052,7 +3051,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v532";
+const APP_VERSION = "v533";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8136,7 +8135,7 @@ function svGlbLoad(){
   return new Promise(res => { const s = document.createElement("script"); s.src = "gltf3d.js?v=" + APP_VERSION; s.onload = () => res(!!THREE.GLTFLoader); s.onerror = () => res(false); document.head.appendChild(s); });
 }
 async function svOpts(c){
-  const o = {model:c.model, color:c.color};
+  const o = {model:c.model};
   if(c.model === "glb"){ await svGlbLoad(); o.glb = await svGlbGet(); }
   return o;
 }
@@ -8151,7 +8150,7 @@ const SV_DEF = {mode:"model", model:"y22", color:"f4f5f7", bg:"noite", cam:"roda
 function saverCfgGet(){ const c = Object.assign({}, SV_DEF, cfg.saver || {}); if(!SV_EMB[c.model] && c.model !== "glb") c.model = "y22"; return c; }
 function saverCfgFill(){
   const c = saverCfgGet();
-  $("svModel").value = c.model; $("svColor").value = c.color; $("svMode").value = c.mode; $("svBg").value = c.bg; $("svCam").value = c.cam; $("svSpeed").value = c.speed;
+  $("svModel").value = c.model; $("svMode").value = c.mode; $("svBg").value = c.bg; $("svCam").value = c.cam; $("svSpeed").value = c.speed;
   $("svGlbRow").hidden = c.model !== "glb";
   svGlbGet().then(b => $("svGlbName").textContent = b ? "Modelo guardado (" + (b.byteLength / 1048576).toFixed(1) + " MB)" : "Nenhum modelo guardado");
   const sc = Math.round((c.scale || 1) * 100); $("svScale").value = sc; $("svScaleV").textContent = sc + "%";
@@ -8162,10 +8161,10 @@ function saverCfgFill(){
 function saverCfgSave(){
   const info = {};
   document.querySelectorAll("[data-svi]").forEach(b => info[b.dataset.svi] = b.checked);
-  cfg.saver = Object.assign({}, cfg.saver || {}, {mode:$("svMode").value, model:$("svModel").value, color:$("svColor").value, bg:$("svBg").value, cam:$("svCam").value, speed:+$("svSpeed").value, info});
+  cfg.saver = Object.assign({}, cfg.saver || {}, {mode:$("svMode").value, model:$("svModel").value, bg:$("svBg").value, cam:$("svCam").value, speed:+$("svSpeed").value, info});
   saveCfg(); $("svGlbRow").hidden = cfg.saver.model !== "glb"; svMiniStart();
 }
-["svMode","svModel","svColor","svBg","svCam","svSpeed"].forEach(id => $(id).onchange = saverCfgSave);
+["svMode","svModel","svBg","svCam","svSpeed"].forEach(id => $(id).onchange = saverCfgSave);
 $("svScale").oninput = () => { $("svScaleV").textContent = $("svScale").value + "%"; saverPosSave({scale:+($("svScale").value / 100).toFixed(2)}); svMiniRender(); };
 $("svResetPos").onclick = () => { saverPosSave({cardPos:{}, scale:1}); saverCfgFill(); svMiniRender(); };
 $("svGlb").onchange = async e => {
@@ -8189,7 +8188,7 @@ async function svMiniStart(){
   if(c.mode !== "model"){ svMiniStop(); svMiniRender(); return; }
   if(c.mode !== "model"){ svMiniStop(); return; }
   if(!(await threeLoad())) return;
-  const o = await svOpts(c), key = JSON.stringify({m:o.model, c:o.color, g:!!o.glb});
+  const o = await svOpts(c), key = JSON.stringify({m:o.model, g:!!o.glb});
   if(svMiniG && svMiniG.k2 === key){ svMiniG.cfg = c; return; }
   svMiniStop();
   svMiniG = saverBuild(o); svMiniG.k2 = key; svMiniG.cfg = c; box.insertBefore(svMiniG.canvas, box.firstChild);
@@ -8278,7 +8277,7 @@ function saverOpen(preview){
   threeLoad().then(ok => { if(ok) saverStart(c); else toast("Protetor indisponível: não carreguei o motor 3D.", true); });
 }
 async function saverStart(c){
-  const o = await svOpts(c), key = JSON.stringify({m:o.model, c:o.color, g:!!o.glb});
+  const o = await svOpts(c), key = JSON.stringify({m:o.model, g:!!o.glb});
   if(saverG && saverG.k2 !== key){ saverG.running = false; saverG.canvas.remove(); saverG = null; }
   if(!saverG){ saverG = saverBuild(o); saverG.k2 = key; const h = $("saver"); h.insertBefore(saverG.canvas, h.firstChild); }
   saverG.cfg = c; saverG.canvas.hidden = false;
