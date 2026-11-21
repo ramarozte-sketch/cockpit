@@ -1535,7 +1535,7 @@ body.layout-atv .rail{display:none}
       </div>
       <div class="panel">
         <h2>Capas de jornais</h2>
-        <p class="small muted" style="margin:0 0 8px">As capas não são mostradas aqui (direitos de autor). Abre a capa diretamente no site do jornal.</p>
+        <p class="small muted" style="margin:0 0 8px">As capas abrem no SAPO Jornais ou no site de cada jornal, dentro da app. Se ficar em branco, toca em "Abrir fora".</p>
         <div class="row" id="newsPapers" style="flex-wrap:wrap"></div>
       </div>
       <div id="newsTicker" style="position:sticky;bottom:0;z-index:5;overflow:hidden;white-space:nowrap;background:#0b1220;border-top:1px solid #1f3352;border-radius:10px;padding:8px 0;margin-top:8px"><div id="newsTickerIn" style="display:inline-block;padding-left:100%;font-size:15px;color:#cfe3ff"></div></div>
@@ -3042,7 +3042,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v535";
+const APP_VERSION = "v536";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7855,8 +7855,12 @@ const NEWS_FEEDS = [
   {n:"Notícias ao Minuto", u:"https://www.noticiasaominuto.com/rss/ultima-hora", pt:true}
 ];
 const NEWS_PAPERS = [
-  {n:"Público", u:"https://www.publico.pt/"}, {n:"Expresso", u:"https://expresso.pt/"},
-  {n:"Jornal de Notícias", u:"https://www.jn.pt/"}, {n:"The Guardian", u:"https://www.theguardian.com/"},
+  {n:"📰 Capas de hoje (SAPO Jornais)", u:"https://jornais.sapo.pt/", sapo:true},
+  {n:"Correio da Manhã", u:"https://www.cmjornal.pt/"}, {n:"Público", u:"https://www.publico.pt/"}, {n:"Expresso", u:"https://expresso.pt/"},
+  {n:"Jornal de Notícias", u:"https://www.jn.pt/"}, {n:"Diário de Notícias", u:"https://www.dn.pt/"}, {n:"Nascer do SOL", u:"https://sol.sapo.pt/"},
+  {n:"Jornal i", u:"https://ionline.sapo.pt/"}, {n:"Jornal de Negócios", u:"https://www.jornaldenegocios.pt/"}, {n:"ECO", u:"https://eco.sapo.pt/"},
+  {n:"Visão", u:"https://visao.pt/"}, {n:"Sábado", u:"https://www.sabado.pt/"}, {n:"A Bola", u:"https://www.abola.pt/"},
+  {n:"Record", u:"https://www.record.pt/"}, {n:"O Jogo", u:"https://www.ojogo.pt/"}, {n:"The Guardian", u:"https://www.theguardian.com/"},
   {n:"The New York Times", u:"https://www.nytimes.com/"}, {n:"Le Monde", u:"https://www.lemonde.fr/"},
   {n:"El País", u:"https://elpais.com/"}, {n:"Der Spiegel", u:"https://www.spiegel.de/"}
 ];
@@ -8071,7 +8075,8 @@ async function newsGlobe(){
   newsPins();
 }
 function newsEnter(){
-  $("newsPapers").innerHTML = NEWS_PAPERS.map(p => `<a class="btn" href="${newsEsc(p.u)}" target="_blank" rel="noopener">${newsEsc(p.n)} ↗</a>`).join("");
+  $("newsPapers").innerHTML = NEWS_PAPERS.map(p => `<button class="btn${p.sapo ? " primary" : ""}" data-paper="${newsEsc(p.u)}" data-pn="${newsEsc(p.n)}">${newsEsc(p.n)}</button>`).join("");
+  $("newsPapers").querySelectorAll("[data-paper]").forEach(b => b.onclick = () => openInApp(b.dataset.pn.replace(/^\S+\s/, ""), b.dataset.paper, b.dataset.paper, {}));
   newsGlobe(); newsLoad();
 }
 $("newsReload").onclick = () => newsLoad();
