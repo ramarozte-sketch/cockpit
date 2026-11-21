@@ -3062,7 +3062,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v540";
+const APP_VERSION = "v541";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8096,7 +8096,8 @@ async function newsGlobe(){
 }
 function newsEnter(){
   $("newsPapers").innerHTML = NEWS_PAPERS.map(p => `<button class="btn${p.sapo ? " primary" : ""}" data-paper="${newsEsc(p.u)}" data-pn="${newsEsc(p.n)}">${newsEsc(p.n)}</button>`).join("");
-  $("newsPapers").querySelectorAll("[data-paper]").forEach(b => b.onclick = () => openInApp(b.dataset.pn.replace(/^\S+\s/, ""), b.dataset.paper, b.dataset.paper, {}));
+  /* a maioria dos jornais recusa ser mostrada dentro de outra página (“Não é possível aceder a este site”): abrem num separador próprio */
+  $("newsPapers").querySelectorAll("[data-paper]").forEach(b => b.onclick = () => openExtPlain(b.dataset.paper));
   newsGlobe(); newsLoad();
 }
 $("newsReload").onclick = () => newsLoad();
