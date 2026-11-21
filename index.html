@@ -1838,6 +1838,8 @@ body.layout-atv .rail{display:none}
           <label class="f">Assistente IA (frases livres, perguntas e emails)<select id="setAi"><option value="auto">Ligado</option><option value="off">Desligado (só comandos fixos)</option></select></label>
           <label class="f">Reconhecimento de voz<select id="setStt"><option value="auto">Automático</option><option value="cloud">Cloudflare (recomendado no Tesla)</option><option value="browser">Browser</option></select></label>
           <label class="row small"><input type="checkbox" id="setSpeak"> Responder por voz (desliga para execução silenciosa)</label>
+          <label class="row small">Voz <select id="setTtsVoice" style="flex:1"></select> <button class="btn" id="setTtsTest" type="button">▶ Testar</button></label>
+          <p class="small muted" style="margin:0">Usada nas notícias, nos radares e nas respostas. O browser do Tesla não tem vozes instaladas: aí usa uma voz online (feminina ou masculina).</p>
         </div>
       </div>
       <h3 class="setgrp">Conta IPTV</h3>
@@ -2707,10 +2709,37 @@ Current car state: ${carSummary()}. Local time: ${new Date().toLocaleString("pt-
 }
 function logVoice(t, me){ const d=document.createElement("div"); d.textContent=t; if(me) d.className="me"; const l=$("voiceLog"); l.appendChild(d); l.scrollTop=l.scrollHeight; }
 let speakLast = {t:"", at:0};
+/* ---------- Voz: feminina, masculina ou uma voz concreta do browser (cfg.ttsVoice) ---------- */
+const TTS_F = /(female|feminin|mulher|joana|raquel|in[eê]s|catarina|helena|fernanda|maria|luciana|francisca|camila|vit[oó]ria|zira|samantha|amália|google portugu)/i;
+const TTS_M = /(\bmale|masculin|homem|duarte|cristiano|ricardo|daniel|jo[aã]o|ant[oó]nio|felipe|tiago|h[eé]lio|thiago|paulo)/i;
+function ttsVoices(){ try{ return speechSynthesis.getVoices().filter(v => /^pt/i.test(v.lang)); }catch(e){ return []; } }
+function ttsPick(){
+  const m = cfg.ttsVoice || "auto", vs = ttsVoices(); if(!vs.length) return null;
+  if(m.startsWith("v:")) return vs.find(v => v.name === m.slice(2)) || null;
+  const pt = vs.filter(v => /pt[-_]PT/i.test(v.lang)), pool = pt.length ? pt : vs;
+  if(m === "f") return pool.find(v => TTS_F.test(v.name) && !TTS_M.test(v.name)) || vs.find(v => TTS_F.test(v.name)) || null;
+  if(m === "m") return pool.find(v => TTS_M.test(v.name)) || vs.find(v => TTS_M.test(v.name)) || null;
+  return pool[0];
+}
+/* fala com a voz escolhida; sem vozes do browser (Tesla) ou sem voz do género pedido, usa a voz online */
+function ckTTS(text, onEnd){
+  text = String(text || "").trim(); if(!text) return;
+  const g = cfg.ttsVoice || "auto", v = ttsPick();
+  const online = () => { if(window.__ttsOnline) window.__ttsOnline(text, 1, onEnd); else onEnd && onEnd(); };
+  if(!v) return online();
+  try{ const u = new SpeechSynthesisUtterance(text); u.voice = v; u.lang = v.lang; u.onend = u.onerror = () => onEnd && onEnd(); speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){ online(); }
+}
+function ttsFill(){
+  const s = document.getElementById("setTtsVoice"); if(!s) return;
+  const vs = ttsVoices();
+  s.innerHTML = '<option value="auto">Automática</option><option value="f">Feminina</option><option value="m">Masculina</option>' + vs.map(v => `<option value="v:${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  s.value = cfg.ttsVoice || "auto"; if(s.value !== (cfg.ttsVoice || "auto")) s.value = "auto";
+}
+try{ speechSynthesis.addEventListener("voiceschanged", ttsFill); }catch(e){}
 function speak(t){ if(!cfg.speak) return;
   /* v451: a mesma frase pedida duas vezes seguidas (ex.: instrução da navegação) fala uma só vez */
   try{ const now = Date.now(); if(t && t === speakLast.t && now - speakLast.at < 4000) return; speakLast = {t, at:now}; }catch(e){}
-  try{ if(!("speechSynthesis" in window) || !speechSynthesis.getVoices().length){ if(window.__ttsOnline) window.__ttsOnline(t, 1); return; } }catch(e){} if(!("speechSynthesis" in window)) return; try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+  try{ if(!("speechSynthesis" in window) || !speechSynthesis.getVoices().length){ if(window.__ttsOnline) window.__ttsOnline(t, 1); return; } }catch(e){} if(!("speechSynthesis" in window)) return; if(cfg.lang === "pt" || !cfg.lang){ ckTTS(t); return; } try{ const u=new SpeechSynthesisUtterance(t); u.lang=cfg.lang; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
 function renderCmdList(){ $("cmdList").innerHTML = VOICE.map(c=>`<div class="cmd"><b>“${esc(c.d[L()])}”</b></div>`).join(""); }
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3126,7 +3155,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v547";
+const APP_VERSION = "v548";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8189,14 +8218,14 @@ function newsRender(){
 }
 /* ouvir: lê em voz alta os títulos (ou o texto do leitor) */
 function newsSpeak(text){
-  if(!("speechSynthesis" in window)){ toast("Sem voz neste ecrã.", true); return; }
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text); u.lang = "pt-PT";
-  u.onend = u.onerror = () => { const b = $("newsListen"); if(b) b.textContent = "🔊 Ouvir"; };
-  speechSynthesis.speak(u); const b = $("newsListen"); if(b) b.textContent = "■ Parar";
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const b = $("newsListen"); if(b) b.textContent = "■ Parar"; newsTalking = true;
+  ckTTS(text, () => { newsTalking = false; const b2 = $("newsListen"); if(b2) b2.textContent = "🔊 Ouvir"; });
 }
+let newsTalking = false;
+function newsStop(){ try{ speechSynthesis.cancel(); }catch(e){} try{ window.__ttsOnline && window.__ttsStop && window.__ttsStop(); }catch(e){} newsTalking = false; const b = $("newsListen"); if(b) b.textContent = "🔊 Ouvir"; }
 function newsListen(){
-  if(window.speechSynthesis && speechSynthesis.speaking){ speechSynthesis.cancel(); $("newsListen").textContent = "🔊 Ouvir"; return; }
+  if(newsTalking){ newsStop(); return; }
   const items = newsFiltered().slice(0, 5); if(!items.length) return;
   newsSpeak(items.map(x => x.title + ".").join(" "));
 }
@@ -8218,7 +8247,7 @@ $("newsMore").onclick = () => { newsShown += 5; newsRender(); };
 $("newsList").addEventListener("click", e => { const a = e.target.closest("[data-open]"); if(!a) return; e.preventDefault(); const x = newsItems.find(i => i.link === a.dataset.open); if(x) newsOpenReader(x); });
 $("newsListen").onclick = newsListen;
 $("newsHero").onclick = () => { const x = newsItems.find(i => i.link === $("newsHero").dataset.open); if(x) newsOpenReader(x); };
-$("newsRdClose").onclick = () => { $("newsReader").hidden = true; if(window.speechSynthesis) speechSynthesis.cancel(); };
+$("newsRdClose").onclick = () => { $("newsReader").hidden = true; newsStop(); };
 $("newsFolGo").onclick = () => { const v = $("newsFol").value.trim(); if(!v) return; const f = newsFollows(); if(!f.some(k => k.toLowerCase() === v.toLowerCase())) cfg.newsFollow = [...f, v].slice(0, 20); saveCfg(); $("newsFol").value = ""; newsRender(); };
 $("newsFol").addEventListener("keydown", e => { if(e.key === "Enter") $("newsFolGo").click(); });
 function newsPins(){
@@ -8645,7 +8674,7 @@ async function rdLoadCams(p){
   RD.cams = (j.elements || []).map(e => ({id:e.id, lat:e.lat, lon:e.lon, max:parseInt(e.tags?.maxspeed) || null}));
   rdDrawCams();
 }
-function rdSay(t){ if(!cfg.radarVoice) return; try{ const u = new SpeechSynthesisUtterance(t); u.lang = "pt-PT"; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+function rdSay(t){ if(!cfg.radarVoice) return; ckTTS(t); }
 async function rdMapInit(){
   if(RD.map) return true;
   const L = await loadLeaflet(); if(!L) return false;
@@ -12529,7 +12558,7 @@ async function speedTest(){
 $("btnSpeed").onclick = speedTest;
 
 /* ---------- Definições ---------- */
-function fillSettings(){ { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setMaxRes").value=String(cfg.maxRes||"1080"); }
+function fillSettings(){ try{ ttsFill(); }catch(e){} { const e = document.getElementById("appVer"); if(e) e.textContent = APP_VERSION; } $("setToken").value=cfg.token; $("setVin").value=cfg.vin; $("setLang").value=cfg.lang; $("voiceLang").value=cfg.lang; $("setSpeak").checked=cfg.speak; $("setM3u").value=cfg.m3u; $("setXs").value=cfg.xs; $("setXu").value=cfg.xu; $("setXp").value=cfg.xp; $("setEpg").value=cfg.epg; $("setProxy").value=cfg.proxy; $("setProxy2").value=cfg.proxy2||""; $("setPkey2").value=cfg.pkey2||""; $("setPkey").value=cfg.pkey; $("setDirect").checked=!!cfg.directMode; $("setStt").value=cfg.stt; $("setAi").value=cfg.ai; $("setUi").value=uiLang(); $("setYtKey").value=cfg.ytKey; $("setGClient").value=cfg.gClient; $("setMsClient").value=cfg.msClient; $("setGwToken").value=cfg.gwToken; $("setGwPlant").value=cfg.gwPlant; $("setGwUnit").value=cfg.gwUnit||"W"; $("setHouseW").value=cfg.houseW; $("setTarIn").value=cfg.tarIn; $("setTarOut").value=cfg.tarOut; $("setTarSc").value=cfg.tarSc; $("setPhases").value=cfg.phases||"1"; ["kwp","tilt","azim","homeLat","homeLon","capKwh","effWh","reserve","ocmKey"].forEach(k=>{ $("set" + k[0].toUpperCase() + k.slice(1)).value = cfg[k] || ""; }); $("setMaxRes").value=String(cfg.maxRes||"1080"); }
 (function(){ const sel = $("setGpsKmh"); if(!sel) return; const vs = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120];
   sel.innerHTML = vs.map(v => '<option value="' + v + '">' + v + ' km/h' + (v === 50 ? ' (por omissão)' : '') + '</option>').join(""); sel.value = String(+cfg.gpsLockKmh || 50);
   sel.onchange = () => { cfg.gpsLockKmh = +sel.value; saveCfg(); toast("Bloqueio pelo GPS acima de " + sel.value + " km/h"); };
@@ -12549,6 +12578,8 @@ $("setAi").onchange = e=>{ cfg.ai=e.target.value; saveCfg(); };
 $("setUi").onchange = e=>{ cfg.ui=e.target.value; saveCfg(); applyLang(); };
 $("setStt").onchange = e=>{ cfg.stt=e.target.value; cfg.srBroken=false; saveCfg(); };
 $("setSpeak").onchange = e=>{ cfg.speak=e.target.checked; saveCfg(); };
+$("setTtsVoice").onchange = e => { cfg.ttsVoice = e.target.value; saveCfg(); };
+$("setTtsTest").onclick = () => ckTTS(cfg.ttsVoice === "m" ? "Olá, esta é a voz masculina do Cockpit." : cfg.ttsVoice === "f" ? "Olá, esta é a voz feminina do Cockpit." : "Olá, esta é a voz do Cockpit.");
 buildSchemes(); applyTheme();
 $("btnSaveProxy").onclick = () => $("btnLoadIptv").click();
 $("setMaxRes").onchange = e => { cfg.maxRes = e.target.value; saveCfg(); toast("Qualidade máxima: " + (cfg.maxRes === "2160" ? "4K" : cfg.maxRes + "p")); };
@@ -19007,11 +19038,15 @@ select option,select optgroup{background:#fff;color:#111}
       ttsQ = parts.slice(); const lang = ttsLang();
       const next = (viaPx) => {
         const t = ttsQ.shift(); if(!t){ onEnd && onEnd(); return; }
-        const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
+        const gU = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(t);
+        /* voz online masculina/feminina (Amazon Polly via StreamElements, gratuita); se falhar, volta à voz da Google */
+        const gv = cfg.ttsVoice, poly = lang === "pt-PT" && (gv === "m" || gv === "f") && !LS.get("ttsSeOff", false) && !window.__seFail;
+        const u = poly ? "https://api.streamelements.com/kappa/v2/speech?voice=" + (gv === "m" ? "Cristiano" : "Ines") + "&text=" + encodeURIComponent(t) : gU;
         try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); ttsA.removeAttribute("src"); } }catch(e){}   /* v451: nunca duas vozes ao mesmo tempo */
         const a = ttsA = new Audio(viaPx && typeof px === "function" ? px(u) : u); a._noAmp = true; a.playbackRate = Math.max(0.7, Math.min(1.5, rate || 1));
         /* v451: o erro do áudio e a recusa do play() chegavam os dois e cada um lançava a voz pelo proxy: duas vozes desfasadas (eco na navegação). Agora a troca acontece uma só vez */
         let moved = false; const fallback = () => { if(moved || ttsA !== a) return; moved = true; try{ a.onended = a.onerror = null; a.pause(); }catch(e){}
+          if(poly){ window.__seFail = true; ttsQ.unshift(t); next(viaPx); return; }
           if(!viaPx && typeof px === "function" && cfg.proxy){ ttsQ.unshift(t); next(true); } else { console.log("voz online indisponível"); onEnd && onEnd(); } };
         a.onended = () => { if(ttsA === a && !moved) next(viaPx); };
         a.onerror = fallback;   /* v272: sem aviso no ecrã (aparecia ao abrir, por cima de outras mensagens) */
@@ -19020,6 +19055,7 @@ select option,select optgroup{background:#fff;color:#111}
       next(LS.get("ttsViaPx", false));
     };
     window.__ttsOnline = ttsOnline;
+    window.__ttsStop = () => { ttsQ = []; try{ if(ttsA){ ttsA.onended = ttsA.onerror = null; ttsA.pause(); } }catch(e){} };
     const hasVoices = () => { try{ return "speechSynthesis" in window && speechSynthesis.getVoices().length > 0; }catch(e){ return false; } };
     try{ speechSynthesis && speechSynthesis.getVoices(); }catch(e){}
     const speakA = txt => {
