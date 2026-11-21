@@ -1540,6 +1540,7 @@ body.layout-atv .rail{display:none}
         <div id="svMini" style="position:relative;width:100%;border-radius:12px;overflow:hidden;touch-action:none"><div id="svMiniInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div></div>
         <div class="row small" style="margin-top:8px"><span>Tamanho da informação</span><input type="range" id="svScale" min="50" max="200" step="10" style="flex:1"><span id="svScaleV"></span></div>
         <div class="row" style="margin-top:6px"><button class="btn" id="svResetPos">Alinhar automaticamente</button></div>
+        <div class="row small" style="margin-top:6px;gap:10px"><label class="row small" style="gap:8px">Cor de fundo <input type="color" id="svBgColor" value="#7a0f14" style="width:56px;height:34px;padding:0;border:0;background:none"></label><button class="btn" id="svBgReset">Cor predefinida</button></div>
       </div>
       <div class="panel">
         <h2>Carro</h2>
@@ -3186,7 +3187,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v556";
+const APP_VERSION = "v557";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8130,6 +8131,7 @@ function dashGaugeStep(d){
 function dashBindGauge(){
   $("dgPrev").onclick = () => dashGaugeStep(-1);
   $("dgNext").onclick = () => dashGaugeStep(1);
+  $("dgSndPick").onchange = e => { cfg.engProf = e.target.value; saveCfg(); try{ if(E.on){ E.gear = 0; engBuild(); } engUi(); }catch(err){ toast("Som: " + err.message, true); } dashSoundSync(); };
   $("dgSound").onclick = () => { try{ if(E.on) engStop(); else engStart(); }catch(e){ toast("Som: " + e.message, true); } dashSoundSync(); };
   const card = $("dashSpeedCard"); let x0 = null, y0 = null;
   card.addEventListener("pointerdown", e => { if(e.target.closest("button")) return; x0 = e.clientX; y0 = e.clientY; });
@@ -8143,12 +8145,16 @@ function dashBindGauge(){
 function dashSoundSync(){
   const b = $("dgSound"); if(!b) return; let on = false; try{ on = !!E.on; }catch(e){}
   b.textContent = on ? "🔊 Som do motor ligado" : "🔇 Ligar som do motor"; b.setAttribute("aria-pressed", on ? "true" : "false");
+  const sel = $("dgSndPick"); if(!sel || typeof ENG_PROFILES !== "object") return;
+  const ids = Object.keys(ENG_PROFILES);
+  if(sel.options.length !== ids.length) sel.innerHTML = ids.map(id => `<option value="${id}">${ENG_PROFILES[id].ico || ""} ${ENG_PROFILES[id].name}</option>`).join("");
+  const cur = engCfg().prof; if(sel.value !== cur) sel.value = cur;
 }
 function dashSpeedHTML(){
   return `<div class="d-card big d-speedcard" id="dashSpeedCard" style="position:relative;overflow:hidden;touch-action:pan-y;user-select:none;align-items:stretch;text-align:left">
     <div class="row" style="width:100%;justify-content:space-between;margin-bottom:4px"><button class="btn" id="dgPrev" aria-label="Estilo anterior" style="min-width:48px">‹</button><span class="small muted" id="dgName"></span><button class="btn" id="dgNext" aria-label="Estilo seguinte" style="min-width:48px">›</button></div>
     <div id="dashGauge" style="width:100%;max-width:460px;aspect-ratio:1/1;margin:0 auto"></div>
-    <div class="row small" style="justify-content:space-between;width:100%;margin-top:6px;gap:8px;flex-wrap:wrap"><span id="spSrc" class="small"></span><span id="spMaxL" class="small muted"></span><button class="d-snd" id="dgSound" aria-pressed="false">🔇 Ligar som do motor</button></div>
+    <div class="row small" style="justify-content:space-between;width:100%;margin-top:6px;gap:8px;flex-wrap:wrap"><span id="spSrc" class="small"></span><span id="spMaxL" class="small muted"></span><span class="row" style="gap:8px"><select id="dgSndPick" aria-label="Escolher o som do motor" style="min-height:42px;border-radius:999px;padding:0 12px;background:#0f1e33;color:#eaffff;border:1px solid #5cf2ff66"></select><button class="d-snd" id="dgSound" aria-pressed="false">🔇 Ligar som do motor</button></span></div>
   </div>`;
 }
 function spFrame(){
@@ -8571,6 +8577,9 @@ function svMats(T, color, metal){
   };
 }
 const SV_BG = {noite:"radial-gradient(ellipse at 50% 40%,#22324a 0%,#06080d 75%)", preto:"#000", estudio:"radial-gradient(ellipse at 50% 35%,#f4f6f9 0%,#b9c0ca 80%)", por:"linear-gradient(180deg,#2b1d3a 0%,#a0483a 55%,#f0a35a 100%)"};
+/* cor de fundo escolhida pelo utilizador (cfg.saver.bgc) tem prioridade sobre os fundos predefinidos */
+function svBgCss(c){ return c && c.bgc ? c.bgc : (SV_BG[c && c.bg] || SV_BG.noite); }
+function svTextOn(c){ if(!c || !c.bgc) return c && c.bg === "estudio" ? "#1a2230" : ""; const h = c.bgc.replace("#", ""); const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16); return (0.299*r + 0.587*g + 0.114*b) > 160 ? "#1a2230" : ""; }
 /* reflexos: mapa de ambiente gerado a partir de painéis de luz (estúdio fotográfico) */
 function svEnv(T, renderer){
   const sc = new T.Scene(); sc.background = new T.Color(0x20242b);
@@ -8646,6 +8655,7 @@ function saverCfgFill(){
   const sc = Math.round((c.scale || 1) * 100); $("svScale").value = sc; $("svScaleV").textContent = sc + "%";
   $("svInfoList").innerHTML = SV_INFO.map(i => `<label class="row small" style="min-width:45%"><input type="checkbox" data-svi="${i.k}" ${c.info[i.k] ? "checked" : ""}> ${i.n}</label>`).join("");
   $("svInfoList").querySelectorAll("[data-svi]").forEach(b => b.onchange = saverCfgSave);
+  $("svBgColor").value = c.bgc || "#7a0f14";
   svMiniStart();
 }
 function saverCfgSave(){
@@ -8666,9 +8676,13 @@ $("svPreview").onclick = () => saverOpen(true);
 /* pré-visualização dentro das definições (mesmo formato do ecrã inteiro) */
 let svMiniG = null;
 function svMiniStop(){ if(svMiniG){ svMiniG.running = false; svMiniG.canvas.remove(); svMiniG = null; } }
+(function svBgWire(){
+  $("svBgColor").oninput = () => { cfg.saver = Object.assign({}, cfg.saver || {}, {bgc: $("svBgColor").value}); saveCfg(); svMiniStart(); };
+  $("svBgReset").onclick = () => { cfg.saver = Object.assign({}, cfg.saver || {}); delete cfg.saver.bgc; saveCfg(); $("svBgColor").value = "#7a0f14"; svMiniStart(); };
+})();
 async function svMiniStart(){
   const c = saverCfgGet(), box = $("svMini");
-  box.style.aspectRatio = innerWidth + "/" + innerHeight; box.style.maxHeight = "60vh"; box.style.background = SV_BG[c.bg] || SV_BG.noite;
+  box.style.aspectRatio = innerWidth + "/" + innerHeight; box.style.maxHeight = "60vh"; box.style.background = svBgCss(c);
   svMiniRender();
   const emb = !!SV_EMB[c.model];
   let note = $("svMiniNote"); if(!note){ note = document.createElement("div"); note.id = "svMiniNote"; note.style.cssText = "padding:24px;color:#cfd8e6;text-align:center"; note.textContent = "Modelo Sketchfab: pré-visualização disponível em ecrã inteiro."; box.appendChild(note); }
@@ -8767,7 +8781,7 @@ $("saverBig").onclick = () => saverScale(.1);
 function saverOpen(preview){
   svDragging = false;
   const c = saverCfgGet();
-  const host = $("saver"); host.hidden = false; host.style.background = SV_BG[c.bg] || SV_BG.noite;
+  const host = $("saver"); host.hidden = false; host.style.background = svBgCss(c);
   saverInfoTick(); clearInterval(saverInfoT); saverInfoT = setInterval(saverInfoTick, 1000);
   const emb = !!SV_EMB[c.model] && c.mode === "model";
   $("saverEmbed").hidden = !emb; $("saverCredit").hidden = !emb;
@@ -19623,8 +19637,8 @@ html.nightUi #ambient{filter:brightness(.75)}
       /* respeita as definições do protetor: itens ativos, fundo e escala */
       let c = {info:{}, bg:"noite", scale:1};
       try{ c = saverCfgGet(); }catch(e){}
-      const info = c.info || {}, bgv = (typeof SV_BG !== "undefined" && SV_BG[c.bg]) || SV_BG.noite;
-      amb.style.background = bgv; amb.style.color = c.bg === "estudio" ? "#1a2230" : "";
+      const info = c.info || {};
+      amb.style.background = svBgCss(c); amb.style.color = svTextOn(c);
       const d = new Date(); $m("ambClock").textContent = d.toLocaleTimeString("pt-PT", {hour:"2-digit", minute:"2-digit"});
       $m("ambDate").textContent = d.toLocaleDateString("pt-PT", {weekday:"long", day:"numeric", month:"long"});
       $m("ambClock").style.display = info.hora ? "" : "none";
