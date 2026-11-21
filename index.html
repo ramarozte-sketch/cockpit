@@ -3011,7 +3011,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v514";
+const APP_VERSION = "v515";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7841,11 +7841,23 @@ async function newsLoad(){
   const list = $("newsList"); list.innerHTML = '<p class="muted small" style="margin:0">A carregar…</p>';
   const out = [];
   for(const f of NEWS_FEEDS){
-    const t = await newsFetchText(f.u); if(!t) continue;
-    try{
-      const d = new DOMParser().parseFromString(t, "text/xml");
-      [...d.querySelectorAll("item")].slice(0, 8).forEach(it => out.push({src:f.n, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}));
-    }catch(e){}
+    const t = await newsFetchText(f.u);
+    let got = 0;
+    if(t){
+      try{
+        const d = new DOMParser().parseFromString(t, "text/xml");
+        [...d.querySelectorAll("item")].slice(0, 8).forEach(it => { got++; out.push({src:f.n, title:(it.querySelector("title")?.textContent || "").trim(), link:(it.querySelector("link")?.textContent || "").trim()}); });
+      }catch(e){}
+    }
+    if(!got){
+      /* Sem resposta direta (o feed não envia CORS): tenta o conversor RSS → JSON, que envia CORS. */
+      try{
+        const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(f.u));
+        const j = r.ok ? await r.json() : null;
+        (j?.items || []).slice(0, 8).forEach(it => { got++; out.push({src:f.n, title:String(it.title || "").trim(), link:String(it.link || "").trim()}); });
+      }catch(e){}
+    }
+    if(!got){ try{ dbgS("notícias: sem manchetes de " + f.n, {feed:f.u}); }catch(e){} }
   }
   newsItems = out.filter(x => x.title);
   list.innerHTML = newsItems.length ? newsItems.map(x => `<a class="row small" href="${newsEsc(x.link)}" target="_blank" rel="noopener" style="display:block;padding:6px 0;text-decoration:none;color:inherit"><b>${newsEsc(x.title)}</b><br><span class="muted">${newsEsc(x.src)}</span></a>`).join("") : '<p class="muted small" style="margin:0">Sem manchetes de momento (sem ligação aos feeds).</p>';
