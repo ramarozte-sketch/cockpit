@@ -3081,7 +3081,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v544";
+const APP_VERSION = "v545";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8624,7 +8624,18 @@ async function rdTick(){
       if(best.d < 600 && w < 1){ RD.warned[best.c.id] = 1; rdSay("Radar a " + Math.round(best.d / 50) * 50 + " metros" + (best.c.max ? ", limite " + best.c.max : "")); }
       else if(best.d < 200 && w < 2){ RD.warned[best.c.id] = 2; if(over) rdSay("Atenção à velocidade"); }
     } else $("rdBanner").hidden = true;
-    $("rdNext").textContent = best ? "📷 " + Math.round(best.d) + " m" : RD.cams.length ? RD.cams.length + " radares perto" : "Sem radares perto";
+    /* radar mais próximo (em qualquer direção): seta a indicar onde fica em relação ao sentido do carro */
+    let near = null;
+    for(const c of RD.cams){ const d = rdDist(p, c); if(!near || d < near.d) near = {c, d}; }
+    const nx = $("rdNext");
+    if(near){
+      const dt = near.d < 1000 ? Math.round(near.d / 10) * 10 + " m" : (near.d / 1000).toFixed(1) + " km";
+      const rel = p.hd != null ? Math.round(((rdBearing(p, near.c) - p.hd) + 540) % 360 - 180) : 0;
+      const lim = near.c.max ? " · " + near.c.max : "";
+      nx.innerHTML = `<span style="display:inline-block;transform:rotate(${rel}deg);font-size:20px;line-height:1">⬆</span> <b>📷 ${dt}</b>${lim}`;
+      nx.style.fontSize = "16px";
+      nx.style.color = near.d < 300 ? "#ffcc33" : "#fff";
+    } else { nx.textContent = "Sem radares perto"; nx.style.fontSize = "16px"; nx.style.color = "#fff"; }
     if(showMini && await rdMapInit()){ RD.map.invalidateSize(); RD.map.setView([p.lat, p.lon], 15, {animate:true}); }
   } else $("rdBanner").hidden = true;
   /* portagens: estrada atual com toll=yes */
