@@ -3572,7 +3572,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v567";
+const APP_VERSION = "v568";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20319,14 +20319,14 @@ html.nightUi #ambient{filter:brightness(.75)}
       /* v565: ROMs a partir do telemóvel: link (pasta MEGA ou ROM) ou o ficheiro, enviado aos bocados pela ligação direta ao carro */
       $r("rmRomGo").onclick = () => { const u = $r("rmRom").value.trim(); if(!/^https?:\/\//i.test(u)){ $r("rmRomSt").textContent = "Cola um link que comece por https://"; return; } send({t:"romlink", u}); $r("rmRomSt").textContent = "Link enviado ✓"; $r("rmRom").value = ""; };
       /* v567: pasta de ROMs no telemóvel: os jogos ficam guardados no browser do telemóvel e o carro vê a lista; ao escolher um jogo no carro, o telemóvel envia-o */
-      const RX = /\.(nes|sfc|smc|gb|gbc|gba|md|gen|smd|bin|sms|gg|n64|z64|v64|nds|a26|pce)$/i;
+      const RX = /\.(nes|sfc|smc|gb|gbc|gba|md|gen|smd|bin|sms|gg|n64|z64|v64|nds|a26|pce|zip|7z)$/i;
       const libDb = () => new Promise((res, rej) => { const q = indexedDB.open("ckphoneroms", 1); q.onupgradeneeded = () => q.result.createObjectStore("f"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
       const libAll = async () => { try{ const d = await libDb(); return await new Promise(res => { const out = [], c = d.transaction("f").objectStore("f").openCursor(); c.onsuccess = () => { const k = c.result; if(k){ out.push({id:k.key, n:k.value.n, size:k.value.size}); k.continue(); } else res(out); }; c.onerror = () => res(out); }); }catch(e){ return []; } };
       const libGet = async id => { const d = await libDb(); return await new Promise(res => { const q = d.transaction("f").objectStore("f").get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); };
       const libPut = async files => { const d = await libDb(); let n = 0; for(const f of files){ if(!RX.test(f.name) || f.size > 64 * 1048576) continue; const buf = await f.arrayBuffer(); await new Promise(res => { const tx = d.transaction("f", "readwrite"); tx.objectStore("f").put({n:f.name, size:f.size, buf}, f.name + ":" + f.size); tx.oncomplete = tx.onerror = () => res(); }); n++; } return n; };
       const libShow = async () => { const L = await libAll(); $r("rmLib").textContent = L.length ? "📂 No telemóvel: " + L.length + " jogos (o carro mostra-os em Jogos › Pasta do telemóvel)." : ""; return L; };
       const libSend = async () => { const L = await libShow(); if(L.length) send({t:"romcat", list:L}); };
-      const libPick = async e => { const fs = [...(e.target.files || [])]; e.target.value = ""; if(!fs.length) return; $r("rmRomSt").textContent = "A guardar no telemóvel…"; const n = await libPut(fs); $r("rmRomSt").textContent = n ? n + " jogos guardados no telemóvel ✓" : "Não encontrei ROMs (.md, .nes, .sfc, .gba…) na escolha."; libSend(); };
+      const libPick = async e => { const fs = [...(e.target.files || [])]; e.target.value = ""; if(!fs.length) return; $r("rmRomSt").textContent = "A guardar no telemóvel…"; const n = await libPut(fs); $r("rmRomSt").textContent = n ? n + " jogos guardados no telemóvel ✓" : "Não encontrei ROMs (.md, .nes, .sfc, .gba, .zip…) na escolha."; libSend(); };
       $r("rmRomD").onchange = libPick; $r("rmRomM").onchange = libPick; libShow();
       const sendFile = async (name, b, extra) => { const CH = 12000, n = Math.ceil(b.length / CH), id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
         send(Object.assign({t:"romfile0", id, name, size:b.length, n}, extra || {}));
@@ -20533,7 +20533,16 @@ html.nightUi #ambient{filter:brightness(.75)}
       m = u.match(/drive\.google\.com\/file\/d\/([^\/?]+)/); if(m) return "https://drive.google.com/uc?export=download&id=" + m[1];
       if(/dropbox\.com/.test(u)) return u.replace(/[?&]dl=0/, "").replace(/\?.*$/, m2 => m2) + (/[?&]dl=1/.test(u) ? "" : (u.includes("?") ? "&dl=1" : "?dl=1"));
       return u; };
-    const sysOf = u => { const e = (String(u).split("?")[0].match(/\.([a-z0-9]+)$/i) || [])[1]; return e && EXT[e.toLowerCase()] || ""; };
+    const sysOf = u => { const e = (String(u).split("?")[0].match(/\.([a-z0-9]+)$/i) || [])[1]; if(e && /^(zip|7z)$/i.test(e)) return "zip"; return e && EXT[e.toLowerCase()] || ""; };
+    /* v568: jogos em .zip/.7z: o EmulatorJS descomprime-os sozinho; o sistema vem do nome do ficheiro lá dentro (zip),
+       ou do nome do jogo/pasta (ex.: «Mega Drive»), ou pergunta-se uma vez */
+    const zipSys = buf => { try{ const b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        for(let i = Math.max(0, b.length - 66000); i < b.length - 46; i++){ if(dv.getUint32(i, true) !== 0x02014b50) continue; const nl = dv.getUint16(i + 28, true), nm = new TextDecoder().decode(b.subarray(i + 46, i + 46 + nl)), s = sysOf(nm); if(s && s !== "zip") return s; i += 45 + nl; }
+        for(let i = 0; i + 30 < Math.min(b.length, 4096); i++){ if(dv.getUint32(i, true) !== 0x04034b50) continue; const nl = dv.getUint16(i + 26, true), s = sysOf(new TextDecoder().decode(b.subarray(i + 30, i + 30 + nl))); if(s && s !== "zip") return s; break; }
+      }catch(e){} return ""; };
+    const guessSys = txt => { const n = String(txt || "").toLowerCase(); return /mega ?drive|genesis|\bmd\b|sega 16/.test(n) ? "segaMD" : /super ?nintendo|snes|super famicom/.test(n) ? "snes" : /\bgba\b|game ?boy advance/.test(n) ? "gba" : /game ?boy|\bgbc?\b/.test(n) ? "gb" : /master ?system|\bsms\b/.test(n) ? "sms" : /game ?gear/.test(n) ? "gg" : /pc ?engine|turbografx/.test(n) ? "pce" : /atari/.test(n) ? "atari2600" : /\bnes\b|famicom|nintendo 8/.test(n) ? "nes" : /\bn64\b|nintendo 64/.test(n) ? "n64" : ""; };
+    const askSys = name => { const k = Object.keys(SYS).filter(x => CORE[x]); const r = prompt("De que consola é «" + name + "»? Escreve o número:\n" + k.map((x, i) => (i + 1) + " " + SYS[x]).join("\n"), "1"); const ix = (+r || 0) - 1; return k[ix] || ""; };
+    const realSys = (s, name, buf, dir) => s !== "zip" ? s : (buf && zipSys(buf)) || guessSys(name + " " + (dir || "")) || askSys(name);
     /* v269: o emulador e os núcleos ficam no próprio site do Cockpit (pasta emu/); se faltar algum, usa o CDN do EmulatorJS */
     let emuData = "https://cdn.emulatorjs.org/stable/data/";
     const CORE = {nes:"fceumm", snes:"snes9x", gb:"gambatte", gba:"mgba", segaMD:"genesis_plus_gx", sms:"genesis_plus_gx", gg:"genesis_plus_gx", pce:"mednafen_pce", atari2600:"stella"};
@@ -20548,7 +20557,7 @@ html.nightUi #ambient{filter:brightness(.75)}
     window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
     const addGame = () => {
       const u0 = prompt("Endereço direto da ROM (GitHub, Dropbox, Google Drive ou outro site)"); if(!u0 || !/^https?:\/\//i.test(u0.trim())) return;
-      const u = fixUrl(u0); let sy = sysOf(u);
+      const u = fixUrl(u0); let sy = sysOf(u); if(sy === "zip") sy = guessSys(decodeURIComponent(u)) || "";
       if(!sy){ const k = Object.keys(SYS); const r = prompt("Sistema do jogo? Escreve o número:\n" + k.map((x, i) => (i + 1) + " " + SYS[x]).join("\n"), "1"); const ix = (+r || 0) - 1; if(!k[ix]) return; sy = k[ix]; }
       const n = prompt("Nome do jogo", (String(u).split("?")[0].split("/").pop() || "Jogo").replace(/\.[a-z0-9]+$/i, "").replace(/[_%20]+/g, " ")) || "Jogo";
       const viaPx = /drive\.google\.com/.test(u) ? true : confirm("Abrir pelo proxy do Cockpit? (escolhe OK se o link direto não funcionar, por exemplo Google Drive)");
@@ -20563,16 +20572,16 @@ html.nightUi #ambient{filter:brightness(.75)}
     let megaFiles = null;
     const megaList = async url => {
       const M = await megaLib(), root = M.File.fromURL(url); await root.loadAttributes();
-      const out = [], walk = (n, path) => { if(n.directory || n.children){ (n.children || []).forEach(c => walk(c, path ? path + " / " + n.name : (n === root ? "" : n.name))); return; } const s = sysOf(n.name); if(s) out.push({n:n.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), f:n, s, size:n.size, dir:path, k:"mega:" + (n.nodeId || n.downloadId || n.name) + ":" + n.size}); };
+      const out = [], walk = (n, path) => { if(n.directory || n.children){ (n.children || []).forEach(c => walk(c, path ? path + " / " + n.name : (n === root ? "" : n.name))); return; } const s0 = sysOf(n.name), s = s0 === "zip" ? (guessSys(n.name + " " + path) || "zip") : s0; if(s) out.push({n:n.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), f:n, s, size:n.size, dir:path, k:"mega:" + (n.nodeId || n.downloadId || n.name) + ":" + n.size}); };
       walk(root, ""); return out.sort((a, b) => (a.dir || "").localeCompare(b.dir || "") || a.n.localeCompare(b.n));
     };
     const megaPaint = (msg) => {
       const mb = box.querySelector("#megaBox"); if(!mb) return; mb.hidden = false;
       const head = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📂 A minha pasta MEGA</h3><span class="spacer" style="flex:1"></span><button class="btn" data-mg="ref">↻ Atualizar</button><button class="btn" data-mg="link">🔗 Mudar link</button><button class="btn" data-mg="close">✕</button></div>';
       if(msg){ mb.innerHTML = head + '<p class="small muted">' + esc(msg) + '</p>'; }
-      else if(!megaFiles || !megaFiles.length){ mb.innerHTML = head + '<p class="small muted">Não encontrei ROMs nesta pasta (.md, .gen, .bin, .nes, .sfc, .smc, .gb, .gbc, .gba, .sms, .gg, .pce, .a26…).</p>'; }
+      else if(!megaFiles || !megaFiles.length){ mb.innerHTML = head + '<p class="small muted">Não encontrei ROMs nesta pasta (.md, .gen, .bin, .nes, .sfc, .smc, .gb, .gbc, .gba, .sms, .gg, .pce, .a26, .zip, .7z…).</p>'; }
       else mb.innerHTML = head + '<p class="small muted" style="margin:6px 0">' + megaFiles.length + ' jogos · na 1.ª vez cada jogo é descarregado; depois abre logo.</p><div class="eg">' +
-        megaFiles.map((g, i) => '<button class="et" data-mi="' + i + '"><i>' + (g.s === "segaMD" ? "🔵" : g.s === "snes" || g.s === "nes" ? "🔴" : g.s.startsWith("gb") ? "🟢" : "🎮") + '</i><b>' + esc(g.n) + '</b><small>' + esc((SYS[g.s] || g.s) + (g.dir ? " · " + g.dir : "") + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
+        megaFiles.map((g, i) => '<button class="et" data-mi="' + i + '"><i>' + (g.s === "segaMD" ? "🔵" : g.s === "snes" || g.s === "nes" ? "🔴" : g.s.startsWith("gb") ? "🟢" : g.s === "zip" ? "🗜️" : "🎮") + '</i><b>' + esc(g.n) + '</b><small>' + esc((SYS[g.s] || (g.s === "zip" ? "ZIP" : g.s)) + (g.dir ? " · " + g.dir : "") + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
       mb.querySelectorAll("[data-mi]").forEach(b => b.onclick = () => megaPlay(megaFiles[+b.dataset.mi], b));
       mb.querySelectorAll("[data-mg]").forEach(b => b.onclick = () => { const a = b.dataset.mg; if(a === "close"){ mb.hidden = true; } else if(a === "ref"){ megaFiles = null; megaOpen(false); } else megaOpen(true); });
     };
@@ -20587,7 +20596,7 @@ html.nightUi #ambient{filter:brightness(.75)}
     const addLink = u => {
       if(/^https:\/\/mega\.(nz|co\.nz)\/(folder|file)\//i.test(u) && u.includes("#")){ LS.set("emuMega", u); megaFiles = null; try{ show("games"); }catch(e){} setTimeout(() => { paint(); megaOpen(false); }, 300); return "Pasta MEGA guardada no carro ✓ — a abrir em Jogos."; }
       if(/mega\.nz/i.test(u)) return "Esse link MEGA não tem a chave (#…) no fim.";
-      const v = fixUrl(u), sy = sysOf(v); if(!sy) return "Não reconheço o tipo de ROM pelo nome do ficheiro (.md, .nes, .sfc, .gba…). Adiciona-o no carro em «Jogo por endereço».";
+      const v = fixUrl(u); let sy = sysOf(v); if(sy === "zip") sy = guessSys(decodeURIComponent(v)) || askSys(decodeURIComponent(v.split("?")[0].split("/").pop())); if(!sy) return "Não reconheço o tipo de ROM pelo nome do ficheiro (.md, .nes, .sfc, .gba…). Adiciona-o no carro em «Jogo por endereço».";
       const n = decodeURIComponent((v.split("?")[0].split("/").pop() || "Jogo")).replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ");
       const g = games(); if(!g.some(x => x.u === v)){ g.push({n, u:v, s:sy, px:/drive\.google\.com/.test(v)}); LS.set("emuGames", g); }
       try{ show("games"); }catch(e){} paint(); toast("🎮 «" + n + "» chegou do telemóvel."); return "«" + n + "» adicionado aos Jogos do carro ✓";
@@ -20596,15 +20605,15 @@ html.nightUi #ambient{filter:brightness(.75)}
     const phonePaint = () => {
       const mb = box.querySelector("#phoneBox"); if(!mb) return; if(!phoneCat){ mb.hidden = true; return; } mb.hidden = false;
       mb.innerHTML = '<div class="row" style="margin-top:12px;gap:8px"><h3 style="margin:0">📱 Pasta do telemóvel</h3><span class="spacer" style="flex:1"></span><span class="small muted">' + phoneCat.length + ' jogos · o telemóvel tem de estar ligado</span></div>' +
-        '<div class="eg">' + phoneCat.map((g, i) => '<button class="et" data-pi="' + i + '"><i>📱</i><b>' + esc(g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ")) + '</b><small>' + esc((SYS[sysOf(g.n)] || "?") + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
+        '<div class="eg">' + phoneCat.map((g, i) => '<button class="et" data-pi="' + i + '"><i>📱</i><b>' + esc(g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ")) + '</b><small>' + esc((SYS[sysOf(g.n)] || (sysOf(g.n) === "zip" ? "ZIP" : "?")) + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
       mb.querySelectorAll("[data-pi]").forEach(b => b.onclick = async () => { const g = phoneCat[+b.dataset.pi], k = "file:" + g.n + ":" + g.size, buf = await romGet(k);
-        if(buf){ playRom({n:g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), u:URL.createObjectURL(new Blob([buf])), s:sysOf(g.n), px:false, key:k}); return; }
+        if(buf){ const s = realSys(sysOf(g.n), g.n, buf); if(!s) return; playRom({n:g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), u:URL.createObjectURL(new Blob([buf])), s, px:false, key:k}); return; }
         if(!phoneReq){ toast("Liga o telemóvel ao carro (📱) para trazer este jogo.", true); return; }
         b.querySelector("small").textContent = "A pedir ao telemóvel…"; phoneReq(g.id); });
     };
     const setPhoneCat = (list, req) => { phoneCat = list.filter(g => sysOf(g.n)); phoneReq = req; phonePaint(); };
     const addFile = async (name, buf, play) => {
-      const sy = sysOf(name); if(!sy) return "Não reconheço o tipo de ROM de «" + name + "» (.md, .nes, .sfc, .gba…).";
+      let sy = sysOf(name); if(sy === "zip") sy = zipSys(buf) || guessSys(name) || askSys(name); if(!sy) return "Não reconheço o tipo de ROM de «" + name + "» (.md, .nes, .sfc, .gba…).";
       const k = "file:" + name + ":" + buf.byteLength; await romPut(k, buf);
       const n = name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), g = games(); if(!g.some(x => x.key === k)){ g.push({n, u:"", s:sy, px:false, key:k}); LS.set("emuGames", g); }
       try{ show("games"); }catch(e){} paint(); toast("🎮 «" + n + "» guardado no carro.");
@@ -20616,8 +20625,9 @@ html.nightUi #ambient{filter:brightness(.75)}
       try{
         let buf = await romGet(g.k);
         if(!buf){ const sm = btn && btn.querySelector("small"), old = sm ? sm.textContent : ""; if(sm) sm.textContent = "A descarregar…"; buf = await g.f.downloadBuffer(); if(sm) sm.textContent = old; buf = buf.buffer ? buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) : buf; await romPut(g.k, buf); }
+        const s = realSys(g.s, g.n, buf, g.dir); if(!s){ toast("Não consegui saber de que consola é «" + g.n + "».", true); return; } if(g.s === "zip"){ g.s = s; }
         const u = URL.createObjectURL(new Blob([buf]));
-        playRom({n:g.n, u, s:g.s, px:false, key:g.k});
+        playRom({n:g.n, u, s, px:false, key:g.k});
       }catch(e){ toast("Não consegui abrir «" + g.n + "»: " + (e && e.message || e), true); }
     };
     const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), ...games().map((g, gi) => ({i:"🎮", n:g.n, d:(SYS[g.s] || g.s) + (g.key ? " · no carro" : g.px ? " · pelo proxy" : ""), rom:g, gi})), {i:"📂", n:"A minha pasta MEGA", d:LS.get("emuMega", "") ? "As tuas ROMs da pasta MEGA" : "Liga a tua pasta MEGA com ROMs", mega:true}, {i:"➕", n:"Jogo por endereço", d:"Junta uma ROM tua a partir de um link (GitHub, Dropbox, Drive…)", addRom:true}, L.find(x => x.add)];
