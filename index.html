@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v579";
+const APP_VERSION = "v580";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20349,11 +20349,23 @@ html.nightUi #ambient{filter:brightness(.75)}
           "#rmPad.st-nt .sh button{border-radius:10px 10px 18px 18px;background:linear-gradient(180deg,#3b4050,#22262f)}" +
           "#rmPad.st-nt .mid{flex-direction:row}#rmPad.st-nt .mid button{width:11vmin;height:11vmin;border-radius:50%;font-size:22px;font-weight:900}" +
           "#rmPad.st-nt #rpDpad button{background:linear-gradient(180deg,#3a3f50,#20242f)}" +
+          /* v580: corpo de comando original (desenho próprio) por trás dos botões; a cor muda com o estilo */
+          "#rmPad .ctl{position:relative;isolation:isolate}#rpBody{position:absolute;left:1.5vw;right:1.5vw;top:0;bottom:1vh;z-index:-1;pointer-events:none}" +
+          "#rpBody svg{width:100%;height:100%;display:block;filter:drop-shadow(0 18px 30px #000c)}" +
+          "#rmPad.st-xb #rpBody .sh{fill:url(#rpGx)}#rmPad.st-ps #rpBody .sh{fill:url(#rpGp)}#rmPad.st-nt #rpBody .sh{fill:url(#rpGn)}" +
+          "#rpBody .rim{fill:none;stroke:var(--acc);stroke-opacity:.35;stroke-width:3}#rpBody .gl{fill:#ffffff10}" +
+          "@media (orientation:portrait){#rpBody{display:none}}" +
           "@media (orientation:portrait){#rmPad .ctl{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:3vh}#rmPad .mid{flex-direction:row}}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
         P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpStyle" title="Estilo do comando">🎨 Estilo</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
-          '<div class="ctl"><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
+          '<div class="ctl"><div id="rpBody"><svg viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true"><defs>' +
+            '<linearGradient id="rpGx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3140"/><stop offset="1" stop-color="#11141c"/></linearGradient>' +
+            '<linearGradient id="rpGp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26385c"/><stop offset=".6" stop-color="#16213a"/><stop offset="1" stop-color="#0c1324"/></linearGradient>' +
+            '<linearGradient id="rpGn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a4256"/><stop offset=".3" stop-color="#2a2f3d"/><stop offset=".7" stop-color="#2a2f3d"/><stop offset="1" stop-color="#3d3550"/></linearGradient></defs>' +
+            '<path class="sh" d="M180 40 C260 18 380 30 500 30 C620 30 740 18 820 40 C930 70 985 160 990 260 C995 360 960 410 900 410 C840 410 800 360 760 320 C720 285 640 270 500 270 C360 270 280 285 240 320 C200 360 160 410 100 410 C40 410 5 360 10 260 C15 160 70 70 180 40 Z"/>' +
+            '<path class="rim" d="M180 40 C260 18 380 30 500 30 C620 30 740 18 820 40 C930 70 985 160 990 260 C995 360 960 410 900 410 C840 410 800 360 760 320 C720 285 640 270 500 270 C360 270 280 285 240 320 C200 360 160 410 100 410 C40 410 5 360 10 260 C15 160 70 70 180 40 Z"/>' +
+            '<ellipse class="gl" cx="500" cy="80" rx="320" ry="34"/><rect x="440" y="372" width="120" height="8" rx="4" fill="var(--acc)" fill-opacity=".6"/></svg></div><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
         document.body.appendChild(P); P.classList.toggle("p2", myPlayer === 1);
