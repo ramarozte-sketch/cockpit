@@ -1517,6 +1517,9 @@ body.layout-atv .rail{display:none}
         #v-dj .dtit small{opacity:.65;font-variant-numeric:tabular-nums}
         #v-dj .dbpm{font:700 22px system-ui;font-variant-numeric:tabular-nums;text-align:right;line-height:1}
         #v-dj .dbpm small{display:block;font:600 11px system-ui;opacity:.6}
+        #v-dj .jogw{display:flex;justify-content:center}
+        #v-dj canvas.jog{width:min(220px,62%);aspect-ratio:1/1;touch-action:none;cursor:grab;border-radius:50%;filter:drop-shadow(0 10px 20px #000a)}
+        #v-dj canvas.jog.hold{cursor:grabbing}
         #v-dj canvas.wf{width:100%;height:70px;border-radius:10px;background:#050a12;cursor:pointer;touch-action:none}
         #v-dj .drow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
         #v-dj .dbtn{min-height:46px;min-width:46px;padding:0 12px;border-radius:12px;border:1px solid var(--dl);background:#ffffff0d;color:inherit;font:700 15px system-ui;cursor:pointer;touch-action:manipulation}
@@ -1558,7 +1561,7 @@ body.layout-atv .rail{display:none}
           <div class="xf"><span style="color:var(--dA)">A</span><input type="range" id="djX" min="0" max="100" value="50" aria-label="Crossfader"><span style="color:var(--dB)">B</span></div>
           <div class="drow" style="justify-content:center"><button class="dbtn" id="djXc">Centrar</button></div>
           <div class="kn" style="opacity:1"><span>Master</span><input type="range" id="djMaster" min="0" max="120" value="90"><output id="djMasterV">90 %</output></div>
-          <p class="small muted" style="margin:0">Sync acerta o tempo deste deck pelo outro. Toca na onda para saltar; os pontos 1–4 guardam sítios da música (toque longo apaga).</p>
+          <p class="small muted" style="margin:0">Prato: arrasta no centro para scratch; na borda acerta o ritmo. Sync acerta o tempo deste deck pelo outro. Toca na onda para saltar; os pontos 1–4 guardam sítios da música (toque longo apaga).</p>
         </div>
         <div class="deck B" data-d="1"></div>
       </div>
@@ -3533,7 +3536,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v563";
+const APP_VERSION = "v564";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20451,9 +20454,9 @@ html.nightUi #ambient{filter:brightness(.75)}
     const playRom = async gm => { const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
       const viaPx = gm.px && typeof px === "function" && cfg.proxy, url = viaPx ? px(gm.u) : gm.u;
       const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}#game{width:100%;height:100%}</style></head><body><div id="game"></div><script>' +
-        'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata=' + JSON.stringify(emuData) + ';window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
+        'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata=' + JSON.stringify(emuData) + ';window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' + (lb ? 'window.EJS_DEBUG_XX=true;' : '') +
         'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="' + emuData + 'loader.js"><\/script></body></html>';
-      cur = {n:gm.n, u:gm.key || gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply(); document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
+      cur = {n:gm.n, u:gm.key || gm.u, rom:gm}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply(); document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
     };
     window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
     const addGame = () => {
@@ -20528,7 +20531,10 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(b.id === "emuBack"){ win.classList.remove("on"); const f = document.getElementById("emuF"); f.removeAttribute("srcdoc"); f.src = "about:blank"; }
       else if(b.id === "emuZi") zSet(0.1); else if(b.id === "emuZo") zSet(-0.1); else if(b.id === "emuZv") zSet(0);
       else if(b.id === "emuRe" && cur){ const f = document.getElementById("emuF"); if(f.srcdoc){ const sd = f.srcdoc; f.srcdoc = ""; setTimeout(() => f.srcdoc = sd, 50); } else f.src = cur.u; }
-      else if(b.id === "emuOut" && cur){ win.classList.remove("on"); document.getElementById("emuF").src = "about:blank"; out(cur.u); } });
+      else if(b.id === "emuOut" && cur){ win.classList.remove("on"); const f = document.getElementById("emuF"); f.removeAttribute("srcdoc"); f.src = "about:blank";
+        /* v564: jogos (ROMs) abrem fora numa página própria do Cockpit (emu/play.html), que lê a ROM guardada no aparelho ou o link */
+        if(cur.rom){ const g = cur.rom, q = new URLSearchParams({s:g.s, n:g.n}); if(g.key) q.set("k", g.key); else q.set("u", g.px && typeof px === "function" && cfg.proxy ? px(g.u) : g.u); out(new URL("emu/play.html?" + q.toString(), location.href).href); }
+        else out(cur.u); } });
     box.addEventListener("change", e => { if(e.target.id === "emuIn") LS.set("emuIn", e.target.checked); });
     box.addEventListener("contextmenu", e => { const b = e.target.closest(".et"); if(!b) return; e.preventDefault(); const t = b.querySelector("b").textContent; const g = games(); const i = g.findIndex(x => x.n === t); if(i >= 0 && confirm("Apagar «" + t + "» da lista?")){ g.splice(i, 1); LS.set("emuGames", g); paint(); } });
     paint();
@@ -20774,6 +20780,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       this.el.innerHTML = '<div class="dhead"><span class="dlet">' + L + '</span><div class="dtit"><b data-r="tit">Sem música</b><small data-r="time">0:00 / 0:00</small></div><div class="dbpm"><span data-r="bpm">—</span><small>BPM</small></div></div>' +
         '<div class="drow" style="gap:4px"><button class="dbtn" data-a="tap" title="Toca 4 vezes no ritmo">TAP</button><button class="dbtn" data-a="half">½</button><button class="dbtn" data-a="dbl">×2</button><span class="small muted" data-r="tapH" style="margin-left:4px"></span></div>' +
         '<canvas class="wf" data-r="wf" width="800" height="140"></canvas>' +
+        '<div class="jogw"><canvas class="jog" data-r="jog" width="440" height="440" aria-label="Prato do deck ' + L + ': arrasta no centro para scratch, na borda para acertar o ritmo"></canvas></div>' +
         '<div class="drow"><button class="dbtn" data-a="load">⏏ Carregar</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn big" data-a="play">▶</button><button class="dbtn" data-a="sync">SYNC</button></div>' +
         '<div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4">Loop 4</button><button class="dbtn" data-lp="8">8</button></div>' +
         '<div class="pitch"><button class="dbtn" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn" data-a="bup">+</button></div>' +
@@ -20788,6 +20795,42 @@ html.nightUi #ambient{filter:brightness(.75)}
       this.el.querySelectorAll("[data-hc]").forEach(b => { let tm = null; b.addEventListener("pointerdown", () => { tm = setTimeout(() => { tm = "long"; this.hot[+b.dataset.hc] = null; this.paintHot(); }, 700); }); b.addEventListener("pointerup", () => { if(tm !== "long") clearTimeout(tm); }); });
       /* onda: toca para saltar */
       const wf = this.r("wf"); wf.addEventListener("pointerdown", e => { if(!this.buf) return; const rc = wf.getBoundingClientRect(); this.seek((e.clientX - rc.left) / rc.width * this.buf.duration); });
+      /* prato: no centro faz scratch (a música anda com o dedo, também para trás); na borda, com a música a tocar, acelera ou trava um pouco para acertar */
+      const jg = this.r("jog"); this.ang = 0;
+      const angOf = e => { const rc = jg.getBoundingClientRect(), cx = rc.left + rc.width / 2, cy = rc.top + rc.height / 2; return {a:Math.atan2(e.clientY - cy, e.clientX - cx), r:Math.hypot(e.clientX - cx, e.clientY - cy) / (rc.width / 2)}; };
+      jg.addEventListener("pointerdown", e => { if(!this.buf) return; ensure(); e.preventDefault(); try{ jg.setPointerCapture(e.pointerId); }catch(x){} const g = angOf(e); jg.classList.add("hold");
+        this.jog = {a:g.a, t:performance.now(), edge:g.r > .74 && this.playing, was:this.playing, pos:this.curPos()};
+        if(!this.jog.edge){ if(this.playing){ this.killSrc(); this.playing = false; } this.pos = this.jog.pos; } });
+      jg.addEventListener("pointermove", e => { const j = this.jog; if(!j) return; const g = angOf(e), now = performance.now(); let da = g.a - j.a; if(da > Math.PI) da -= 2 * Math.PI; if(da < -Math.PI) da += 2 * Math.PI; const dt = Math.max(1, now - j.t) / 1000; j.a = g.a; j.t = now;
+        this.ang += da;
+        if(j.edge){ this.rebase(); this.bend = Math.max(-.12, Math.min(.12, da / dt / 12)); this.rebase(); clearTimeout(this.bendT); this.bendT = setTimeout(() => { this.rebase(); this.bend = 0; this.rebase(); }, 120); return; }
+        /* uma volta = 1,8 s de música (disco a 33⅓ rpm) */
+        const ds = da / (2 * Math.PI) * 1.8; this.pos = Math.max(0, Math.min(this.buf.duration - .02, this.pos + ds)); this.grain(ds, dt); });
+      const up = () => { const j = this.jog; if(!j) return; this.jog = null; jg.classList.remove("hold"); if(!j.edge && j.was) this.startAt(this.pos); };
+      jg.addEventListener("pointerup", up); jg.addEventListener("pointercancel", up); jg.addEventListener("lostpointercapture", up);
+    }
+    /* bocadinho de som ao mexer o prato: para a frente ou para trás (cópia invertida da música), à velocidade do dedo */
+    grain(ds, dt){
+      if(!this.buf || Math.abs(ds) < .0005) return;
+      if(ds < 0 && !this.rev){ const b = this.buf, r = ac.createBuffer(b.numberOfChannels, b.length, b.sampleRate); for(let c = 0; c < b.numberOfChannels; c++){ const s = b.getChannelData(c), d = r.getChannelData(c), n = s.length; for(let i = 0; i < n; i++) d[i] = s[n - 1 - i]; } this.rev = r; }
+      const sp = Math.max(.05, Math.min(4, Math.abs(ds) / dt)), s = ac.createBufferSource(), g = ac.createGain(), now = ac.currentTime, dur = Math.min(.12, dt * 1.6);
+      s.buffer = ds > 0 ? this.buf : this.rev; s.playbackRate.value = sp;
+      const off = ds > 0 ? this.pos - ds : this.buf.duration - (this.pos - ds);
+      g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(1, now + .005); g.gain.setValueAtTime(1, now + dur - .01); g.gain.linearRampToValueAtTime(0, now + dur);
+      s.connect(g); g.connect(this.gain); s.start(now, Math.max(0, Math.min(this.buf.duration - .01, off)), dur * sp + .01); s.stop(now + dur + .02);
+    }
+    drawJog(){
+      const cv = this.r("jog"); if(!cv) return; const x = cv.getContext("2d"), w = cv.width, c = w / 2, R = c - 6, col = this.i ? "#ff5ca8" : "#5cf2ff";
+      if(this.playing && !this.jog){ const now = performance.now(); this.ang += ((now - (this.lastJ || now)) / 1000) * (2 * Math.PI / 1.8) * this.rateNow(); this.lastJ = now; } else this.lastJ = performance.now();
+      x.clearRect(0, 0, w, w);
+      const g0 = x.createRadialGradient(c, c, R * .2, c, c, R); g0.addColorStop(0, "#1b1b22"); g0.addColorStop(1, "#050507"); x.fillStyle = g0; x.beginPath(); x.arc(c, c, R, 0, 7); x.fill();
+      x.strokeStyle = "#ffffff10"; x.lineWidth = 1; for(let r = R * .4; r < R * .96; r += 5){ x.beginPath(); x.arc(c, c, r, 0, 7); x.stroke(); }
+      x.save(); x.translate(c, c); x.rotate(this.ang);
+      const sh = x.createLinearGradient(-R, -R, R, R); sh.addColorStop(.35, "#ffffff00"); sh.addColorStop(.5, "#ffffff14"); sh.addColorStop(.65, "#ffffff00"); x.fillStyle = sh; x.beginPath(); x.arc(0, 0, R * .96, 0, 7); x.fill();
+      x.fillStyle = col; x.beginPath(); x.arc(0, 0, R * .34, 0, 7); x.fill(); x.fillStyle = "#03121a"; x.font = "800 " + Math.round(R * .2) + "px system-ui"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("AB"[this.i], 0, 0);
+      x.fillStyle = "#fff"; x.fillRect(-3, -R * .95, 6, R * .22);
+      x.fillStyle = "#03121a"; x.beginPath(); x.arc(0, 0, R * .04, 0, 7); x.fill(); x.restore();
+      x.strokeStyle = this.jog ? col : "#ffffff33"; x.lineWidth = this.jog ? 8 : 4; x.beginPath(); x.arc(c, c, R, 0, 7); x.stroke();
     }
     build(){
       const c = ac; this.gain = c.createGain(); this.hi = c.createBiquadFilter(); this.mid = c.createBiquadFilter(); this.lo = c.createBiquadFilter(); this.flt = c.createBiquadFilter();
@@ -20799,7 +20842,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       this.ch.connect(this.xf); this.xf.connect(master); this.ch.connect(this.an); this.ch.gain.value = this.vol; this.applyX();
     }
     async load(buf, name, known){
-      this.stop(); this.buf = buf; this.name = name; this.pos = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0;
+      this.stop(); this.buf = buf; this.rev = null; this.name = name; this.pos = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0;
       this.r("tit").textContent = name; this.r("bpm").textContent = "…"; this.drawWave(); this.paintHot(); this.paintLoop();
       await new Promise(r => setTimeout(r, 20));
       this.bpm = known || trackBpm(buf); this.beat0 = known ? 0 : firstBeat(buf); this.showBpm();
@@ -20909,7 +20952,7 @@ html.nightUi #ambient{filter:brightness(.75)}
   /* ---------- desenho ---------- */
   const vuData = new Uint8Array(512);
   const loop = () => { requestAnimationFrame(loop); if(V.hidden) return;
-    D.forEach((d, i) => { d.frame(); const el = document.getElementById("djVu" + i); if(!el) return; let lv = 0; if(d.an && d.playing){ d.an.getByteTimeDomainData(vuData); let s = 0; for(let k = 0; k < vuData.length; k++){ const v = (vuData[k] - 128) / 128; s += v * v; } lv = Math.min(1, Math.sqrt(s / vuData.length) * 3.2); } d.vu = Math.max(lv, (d.vu || 0) * .9); el.style.height = Math.round(d.vu * 100) + "%"; });
+    D.forEach((d, i) => { d.frame(); d.drawJog(); const el = document.getElementById("djVu" + i); if(!el) return; let lv = 0; if(d.an && d.playing){ d.an.getByteTimeDomainData(vuData); let s = 0; for(let k = 0; k < vuData.length; k++){ const v = (vuData[k] - 128) / 128; s += v * v; } lv = Math.min(1, Math.sqrt(s / vuData.length) * 3.2); } d.vu = Math.max(lv, (d.vu || 0) * .9); el.style.height = Math.round(d.vu * 100) + "%"; });
   };
   requestAnimationFrame(loop);
   window.__dj = {D, makeLoop, trackBpm, ensure};

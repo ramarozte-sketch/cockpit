@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cockpit · Jogo</title>
+<style>html,body{margin:0;height:100%;background:#000;color:#cfe;font:16px system-ui}#game{width:100%;height:100%}#msg{position:fixed;inset:auto 0 0 0;padding:10px;text-align:center;background:#000c}</style>
+</head><body><div id="game"></div><div id="msg">A preparar o jogo…</div>
+<script>
+/* Cockpit v564: abre uma ROM do utilizador numa página própria (fora do Cockpit).
+   ?k=chave → ROM guardada no aparelho (IndexedDB «ckroms», a mesma do Cockpit); ?u=link → ROM por endereço. ?s=sistema, ?n=nome */
+(async function(){
+  const q = new URLSearchParams(location.search), msg = t => document.getElementById("msg").textContent = t;
+  const sys = q.get("s") || "segaMD", name = q.get("n") || "Jogo";
+  document.title = name + " · Cockpit";
+  let url = q.get("u") || "";
+  if(q.get("k")){
+    const buf = await new Promise(res => { try{ const r = indexedDB.open("ckroms", 1); r.onupgradeneeded = () => r.result.createObjectStore("r"); r.onsuccess = () => { try{ const g = r.result.transaction("r").objectStore("r").get(q.get("k")); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); }catch(e){ res(null); } }; r.onerror = () => res(null); }catch(e){ res(null); } });
+    if(!buf){ msg("Este jogo ainda não está guardado neste browser. Abre-o primeiro dentro do Cockpit (Jogos › A minha pasta MEGA)."); return; }
+    url = URL.createObjectURL(new Blob([buf]));
+  }
+  if(!url){ msg("Falta o jogo."); return; }
+  /* emulador local (pasta emu/data) com os módulos do EmulatorJS; se faltar, o CDN oficial */
+  let data = new URL("data/", location.href).href, local = true;
+  try{ const r = await fetch(data + "loader.js", {method:"HEAD", cache:"no-store"}); if(!r.ok) throw 0; }catch(e){ data = "https://cdn.emulatorjs.org/stable/data/"; local = false; }
+  window.EJS_player = "#game"; window.EJS_core = sys; window.EJS_gameUrl = url; window.EJS_gameName = name; window.EJS_pathtodata = data;
+  window.EJS_startOnLoaded = true; window.EJS_language = "pt-PT"; if(local) window.EJS_DEBUG_XX = true;
+  window.EJS_onGameStart = () => document.getElementById("msg").remove();
+  window.EJS_onLoadError = () => msg("O emulador não conseguiu abrir o jogo.");
+  const s = document.createElement("script"); s.src = data + "loader.js"; document.body.appendChild(s);
+  msg("A carregar " + name + "…");
+})();
+</script></body></html>
