@@ -3572,7 +3572,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v566";
+const APP_VERSION = "v567";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20260,7 +20260,8 @@ html.nightUi #ambient{filter:brightness(.75)}
         '<div class="row"><input id="rmQ" type="search" placeholder="Pesquisar…" autocomplete="off"><button id="rmGo" class="pri" style="flex:0 0 110px">Procurar</button></div><div id="rmRes"></div>' +
         '<h1 style="margin-top:18px;font-size:20px">🎮 Jogos (ROMs)</h1><div class="st">Envia para o carro o link da pasta MEGA, o link direto de uma ROM, ou o próprio ficheiro.</div>' +
         '<div class="row"><input id="rmRom" type="url" placeholder="https://mega.nz/folder/…#chave ou link da ROM" autocomplete="off"><button id="rmRomGo" class="pri" style="flex:0 0 110px">Enviar</button></div>' +
-        '<div class="row"><label class="pri" style="display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;background:#1f3b63;flex:1;cursor:pointer">📁 Enviar ficheiro da ROM<input id="rmRomF" type="file" hidden></label></div><div class="st" id="rmRomSt"></div>';
+        '<div class="row"><label class="pri" style="display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;background:#1f3b63;flex:1;cursor:pointer">📁 Enviar ficheiro da ROM<input id="rmRomF" type="file" hidden></label></div>' +
+        '<div class="row"><label class="pri" style="display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;background:#2b4a7a;flex:1;cursor:pointer">📂 Pasta de ROMs no telemóvel<input id="rmRomD" type="file" webkitdirectory directory multiple hidden></label><label style="display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:14px;background:#24324d;flex:0 0 120px;cursor:pointer">ou ficheiros<input id="rmRomM" type="file" multiple hidden></label></div><div class="st" id="rmRomSt"></div><div class="st" id="rmLib"></div>';
       document.body.appendChild(ui); document.title = "Comando Cockpit";
       const $r = id => document.getElementById(id); let dc = null;
       const send = o => { try{ if(dc && dc.readyState === "open") dc.send(JSON.stringify(o)); else $r("rmSt").textContent = "Ainda não estou ligado ao carro…"; }catch(e){} };
@@ -20317,6 +20318,22 @@ html.nightUi #ambient{filter:brightness(.75)}
       $r("rmQ").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); $r("rmGo").click(); } });
       /* v565: ROMs a partir do telemóvel: link (pasta MEGA ou ROM) ou o ficheiro, enviado aos bocados pela ligação direta ao carro */
       $r("rmRomGo").onclick = () => { const u = $r("rmRom").value.trim(); if(!/^https?:\/\//i.test(u)){ $r("rmRomSt").textContent = "Cola um link que comece por https://"; return; } send({t:"romlink", u}); $r("rmRomSt").textContent = "Link enviado ✓"; $r("rmRom").value = ""; };
+      /* v567: pasta de ROMs no telemóvel: os jogos ficam guardados no browser do telemóvel e o carro vê a lista; ao escolher um jogo no carro, o telemóvel envia-o */
+      const RX = /\.(nes|sfc|smc|gb|gbc|gba|md|gen|smd|bin|sms|gg|n64|z64|v64|nds|a26|pce)$/i;
+      const libDb = () => new Promise((res, rej) => { const q = indexedDB.open("ckphoneroms", 1); q.onupgradeneeded = () => q.result.createObjectStore("f"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+      const libAll = async () => { try{ const d = await libDb(); return await new Promise(res => { const out = [], c = d.transaction("f").objectStore("f").openCursor(); c.onsuccess = () => { const k = c.result; if(k){ out.push({id:k.key, n:k.value.n, size:k.value.size}); k.continue(); } else res(out); }; c.onerror = () => res(out); }); }catch(e){ return []; } };
+      const libGet = async id => { const d = await libDb(); return await new Promise(res => { const q = d.transaction("f").objectStore("f").get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); };
+      const libPut = async files => { const d = await libDb(); let n = 0; for(const f of files){ if(!RX.test(f.name) || f.size > 64 * 1048576) continue; const buf = await f.arrayBuffer(); await new Promise(res => { const tx = d.transaction("f", "readwrite"); tx.objectStore("f").put({n:f.name, size:f.size, buf}, f.name + ":" + f.size); tx.oncomplete = tx.onerror = () => res(); }); n++; } return n; };
+      const libShow = async () => { const L = await libAll(); $r("rmLib").textContent = L.length ? "📂 No telemóvel: " + L.length + " jogos (o carro mostra-os em Jogos › Pasta do telemóvel)." : ""; return L; };
+      const libSend = async () => { const L = await libShow(); if(L.length) send({t:"romcat", list:L}); };
+      const libPick = async e => { const fs = [...(e.target.files || [])]; e.target.value = ""; if(!fs.length) return; $r("rmRomSt").textContent = "A guardar no telemóvel…"; const n = await libPut(fs); $r("rmRomSt").textContent = n ? n + " jogos guardados no telemóvel ✓" : "Não encontrei ROMs (.md, .nes, .sfc, .gba…) na escolha."; libSend(); };
+      $r("rmRomD").onchange = libPick; $r("rmRomM").onchange = libPick; libShow();
+      const sendFile = async (name, b, extra) => { const CH = 12000, n = Math.ceil(b.length / CH), id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        send(Object.assign({t:"romfile0", id, name, size:b.length, n}, extra || {}));
+        for(let i = 0; i < n; i++){ while(dc.bufferedAmount > 1 << 20) await new Promise(r => setTimeout(r, 30)); let s = ""; const part = b.subarray(i * CH, (i + 1) * CH); for(let k = 0; k < part.length; k++) s += String.fromCharCode(part[k]); send({t:"romfile", id, i, d:btoa(s)}); if(i % 20 === 0) $r("rmRomSt").textContent = "A enviar " + name + "… " + Math.round(i / n * 100) + " %"; }
+        $r("rmRomSt").textContent = "Enviado ✓ " + name; };
+      window.__rmLibReq = async id => { const v = await libGet(id); if(!v){ send({t:"toast2", m:"O telemóvel já não tem esse jogo."}); return; } sendFile(v.n, new Uint8Array(v.buf), {play:true}); };
+      window.__rmLibSend = libSend;
       $r("rmRomF").onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
         if(f.size > 64 * 1048576){ $r("rmRomSt").textContent = "Ficheiro grande demais (máx. 64 MB)."; return; }
         if(!dc || dc.readyState !== "open"){ $r("rmRomSt").textContent = "Ainda não estou ligado ao carro…"; return; }
@@ -20334,13 +20351,14 @@ html.nightUi #ambient{filter:brightness(.75)}
           $r("rmSt").textContent = "✅ Ligado ao carro" + (o.other ? " · " + o.other : "") + (o.mirror ? " · imagem em andamento ligada" : ""); }
         else if(o.t === "results"){ $r("rmRes").innerHTML = o.list.length ? o.list.map(x => '<button data-u="' + esc3(x.u) + '" data-k="' + esc3(x.k) + '">' + (x.logo ? '<img src="' + esc3(x.logo) + '" alt="" onerror="this.remove()">' : "") + '<span>' + esc3(x.n) + '</span></button>').join("") : '<div class="st">Nada encontrado.</div>'; }
         else if(o.t === "player"){ myPlayer = o.n === 1 ? 1 : 0; const pb = document.getElementById("rpPl"); if(pb) pb.textContent = "J" + (myPlayer + 1); }
-        else if(o.t === "toast"){ $r("rmSt").textContent = o.m; } };
+        else if(o.t === "toast"){ $r("rmSt").textContent = o.m; }
+        else if(o.t === "romget"){ if(window.__rmLibReq) window.__rmLibReq(o.id); } };
       (async () => {
         if(!base){ $r("rmSt").textContent = "Falta o endereço do proxy no link. Lê de novo o código no ecrã do carro."; return; }
         let offer = null, lastE = ""; for(let i = 0; i < 40 && !offer; i++){ try{ const r = await fetch(syncUrl(base, key, __rmId(code, 0)), {cache:"no-store"}); if(r.ok) offer = await r.json(); else lastE = "HTTP " + r.status + " " + (await r.text()).slice(0, 60); }catch(e){ lastE = String(e.message || e); } if(!offer){ $r("rmSt").textContent = "À procura do carro… (" + (i + 1) + "/40" + (lastE && !/404/.test(lastE) ? " · " + lastE : "") + ")"; await sleep(1500); } }
         if(!offer){ $r("rmSt").textContent = "Não encontrei o carro (" + (lastE || "sem resposta") + "). Gera um código novo no carro e lê-o logo."; return; }
         const pc = new RTCPeerConnection(await rtcConfig(base, key));
-        pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
+        pc.ondatachannel = ev => { dc = ev.channel; dc.onmessage = onMsg; dc.onopen = () => { $r("rmSt").textContent = "✅ Ligado ao carro"; send({t:"hello"}); setTimeout(() => window.__rmLibSend && window.__rmLibSend(), 600); }; dc.onclose = () => { $r("rmSt").textContent = "Ligação ao carro terminada. Lê de novo o código no carro."; }; };
         await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await waitIce(pc);
         const pr = await fetch(syncUrl(base, key, __rmId(code, 1)), {method:"POST", body:JSON.stringify({type:pc.localDescription.type, sdp:pc.localDescription.sdp, n:offer.n})});
         if(!pr.ok){ $r("rmSt").textContent = "O Worker recusou a resposta (HTTP " + pr.status + "). Gera um código novo no carro."; return; }
@@ -20385,11 +20403,13 @@ html.nightUi #ambient{filter:brightness(.75)}
           else if(c === "home"){ setCinema(false); show("tvinicio"); }
           else if(c === "stop"){ window.__tvStop && window.__tvStop(); } }
         else if(o.t === "view"){ setCinema(false); show(o.v === "tv" ? "tvinicio" : o.v); }
+        else if(o.t === "romcat"){ const go = () => window.__emu.setPhoneCat(Array.isArray(o.list) ? o.list : [], id => txTo(from, {t:"romget", id})); if(window.__emu) go(); else setTimeout(() => window.__emu && go(), 1500); toast("📱 Pasta do telemóvel: " + (o.list || []).length + " jogos."); }
+        else if(o.t === "toast2"){ toast(String(o.m || "")); }
         else if(o.t === "romlink"){ const go = () => { const r = window.__emu.addLink(String(o.u || "")); txTo(from, {t:"toast", m:r}); }; if(window.__emu) go(); else { show("games"); setTimeout(() => window.__emu ? go() : txTo(from, {t:"toast", m:"Os jogos ainda não estão prontos no carro. Abre Jogos e envia de novo."}), 1500); } }
-        else if(o.t === "romfile0"){ (window.__romRx = window.__romRx || {})[o.id] = {name:String(o.name || "jogo"), size:+o.size || 0, n:+o.n || 0, parts:new Array(+o.n || 0), got:0}; toast("📱 A receber " + o.name + "…"); }
+        else if(o.t === "romfile0"){ (window.__romRx = window.__romRx || {})[o.id] = {name:String(o.name || "jogo"), size:+o.size || 0, n:+o.n || 0, parts:new Array(+o.n || 0), got:0, play:!!o.play}; toast("📱 A receber " + o.name + "…"); }
         else if(o.t === "romfile"){ const R = window.__romRx && window.__romRx[o.id]; if(!R || R.parts[o.i]) return; const s = atob(o.d), u = new Uint8Array(s.length); for(let k = 0; k < s.length; k++) u[k] = s.charCodeAt(k); R.parts[o.i] = u; R.got++;
           if(R.got === R.n){ delete window.__romRx[o.id]; const all = new Uint8Array(R.size); let off = 0; for(const p of R.parts){ all.set(p, off); off += p.length; }
-            if(!window.__emu){ show("games"); await new Promise(r => setTimeout(r, 1500)); } const r = window.__emu ? await window.__emu.addFile(R.name, all.buffer) : "Os jogos ainda não estão prontos no carro."; txTo(from, {t:"toast", m:r}); } }
+            if(!window.__emu){ show("games"); await new Promise(r => setTimeout(r, 1500)); } const r = window.__emu ? await window.__emu.addFile(R.name, all.buffer, R.play) : "Os jogos ainda não estão prontos no carro."; txTo(from, {t:"toast", m:r}); } }
         else if(o.t === "slot"){ if(typeof setTarget === "function") setTarget(o.s); }
         else if(o.t === "search"){ const q = (typeof norm === "function" ? norm(o.q) : o.q.toLowerCase()); let list = [];
           if(o.kind === "radio"){ playRadioByName(o.q).then(ok => tx({t:"toast", m:ok ? "📻 A tocar" : "Rádio não encontrada"})); list = []; }
@@ -20572,13 +20592,26 @@ html.nightUi #ambient{filter:brightness(.75)}
       const g = games(); if(!g.some(x => x.u === v)){ g.push({n, u:v, s:sy, px:/drive\.google\.com/.test(v)}); LS.set("emuGames", g); }
       try{ show("games"); }catch(e){} paint(); toast("🎮 «" + n + "» chegou do telemóvel."); return "«" + n + "» adicionado aos Jogos do carro ✓";
     };
-    const addFile = async (name, buf) => {
+    let phoneCat = null, phoneReq = null;
+    const phonePaint = () => {
+      const mb = box.querySelector("#phoneBox"); if(!mb) return; if(!phoneCat){ mb.hidden = true; return; } mb.hidden = false;
+      mb.innerHTML = '<div class="row" style="margin-top:12px;gap:8px"><h3 style="margin:0">📱 Pasta do telemóvel</h3><span class="spacer" style="flex:1"></span><span class="small muted">' + phoneCat.length + ' jogos · o telemóvel tem de estar ligado</span></div>' +
+        '<div class="eg">' + phoneCat.map((g, i) => '<button class="et" data-pi="' + i + '"><i>📱</i><b>' + esc(g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " ")) + '</b><small>' + esc((SYS[sysOf(g.n)] || "?") + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
+      mb.querySelectorAll("[data-pi]").forEach(b => b.onclick = async () => { const g = phoneCat[+b.dataset.pi], k = "file:" + g.n + ":" + g.size, buf = await romGet(k);
+        if(buf){ playRom({n:g.n.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), u:URL.createObjectURL(new Blob([buf])), s:sysOf(g.n), px:false, key:k}); return; }
+        if(!phoneReq){ toast("Liga o telemóvel ao carro (📱) para trazer este jogo.", true); return; }
+        b.querySelector("small").textContent = "A pedir ao telemóvel…"; phoneReq(g.id); });
+    };
+    const setPhoneCat = (list, req) => { phoneCat = list.filter(g => sysOf(g.n)); phoneReq = req; phonePaint(); };
+    const addFile = async (name, buf, play) => {
       const sy = sysOf(name); if(!sy) return "Não reconheço o tipo de ROM de «" + name + "» (.md, .nes, .sfc, .gba…).";
       const k = "file:" + name + ":" + buf.byteLength; await romPut(k, buf);
       const n = name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), g = games(); if(!g.some(x => x.key === k)){ g.push({n, u:"", s:sy, px:false, key:k}); LS.set("emuGames", g); }
-      try{ show("games"); }catch(e){} paint(); toast("🎮 «" + n + "» guardado no carro."); return "«" + n + "» guardado no carro ✓ (Jogos)";
+      try{ show("games"); }catch(e){} paint(); toast("🎮 «" + n + "» guardado no carro.");
+      if(play) playRom({n, u:URL.createObjectURL(new Blob([buf])), s:sy, px:false, key:k});
+      return "«" + n + "» guardado no carro ✓ (Jogos)";
     };
-    window.__emu = {addLink, addFile};
+    window.__emu = {addLink, addFile, setPhoneCat};
     const megaPlay = async (g, btn) => {
       try{
         let buf = await romGet(g.k);
@@ -20590,8 +20623,8 @@ html.nightUi #ambient{filter:brightness(.75)}
     const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), ...games().map((g, gi) => ({i:"🎮", n:g.n, d:(SYS[g.s] || g.s) + (g.key ? " · no carro" : g.px ? " · pelo proxy" : ""), rom:g, gi})), {i:"📂", n:"A minha pasta MEGA", d:LS.get("emuMega", "") ? "As tuas ROMs da pasta MEGA" : "Liga a tua pasta MEGA com ROMs", mega:true}, {i:"➕", n:"Jogo por endereço", d:"Junta uma ROM tua a partir de um link (GitHub, Dropbox, Drive…)", addRom:true}, L.find(x => x.add)];
       box.innerHTML = '<div class="row"><h2 style="margin:0">🕹️ Emuladores e jogos web</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="emuIn"> Abrir dentro do Cockpit</label></div>' +
         '<p class="small muted" style="margin:6px 0 0">Os emuladores não trazem jogos: usa só ROMs tuas, de jogos que tenhas, ou jogos homebrew livres.</p><div class="eg">' +
-        all.map((x, k) => '<button class="et" data-k="' + k + '"><i>' + x.i + '</i><b>' + x.n + '</b><small>' + x.d + '</small></button>').join("") + '</div><div id="megaBox" hidden></div>';
-      box.querySelector("#emuIn").checked = LS.get("emuIn", true) !== false;
+        all.map((x, k) => '<button class="et" data-k="' + k + '"><i>' + x.i + '</i><b>' + x.n + '</b><small>' + x.d + '</small></button>').join("") + '</div><div id="phoneBox" hidden></div><div id="megaBox" hidden></div>';
+      box.querySelector("#emuIn").checked = LS.get("emuIn", true) !== false; setTimeout(() => { try{ phonePaint(); }catch(e){} }, 0);
       box.querySelectorAll(".et").forEach(b => b.onclick = () => { const x = all[+b.dataset.k];
         if(x.addRom){ addGame(); return; }
         if(x.mega){ megaOpen(false); return; }
