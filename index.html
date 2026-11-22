@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v570";
+const APP_VERSION = "v571";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20580,7 +20580,8 @@ html.nightUi #ambient{filter:brightness(.75)}
     const localOk = async s => { try{ const base = new URL("emu/data/", location.href).href; const r1 = await fetch(base + "loader.js", {method:"HEAD", cache:"no-store"}); if(!r1.ok) return false; const c = CORE[s]; if(!c) return false; const r2 = await fetch(base + "cores/" + c + "-wasm.data", {method:"HEAD", cache:"no-store"}); return r2.ok ? base : false; }catch(e){ return false; } };
     /* v569: Neo Geo (núcleo FBNeo): precisa da BIOS «neogeo.zip» do utilizador (guardada no aparelho: pasta MEGA, telemóvel ou ficheiro) */
     const neoBios = async () => { let b = await romGet("bios:neogeo"); if(b) return b;
-      const f = (megaFiles || []).find(x => /^neogeo\.zip$/i.test(x.f && x.f.name || "")); if(f){ try{ toast("A trazer a BIOS do Neo Geo da pasta MEGA…"); let x = await f.f.downloadBuffer(); x = x.buffer ? x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength) : x; await romPut("bios:neogeo", x); return x; }catch(e){} }
+      if(!megaBios && LS.get("emuMega", "")){ try{ megaFiles = await megaList(LS.get("emuMega", "")); }catch(e){} }   /* relê a pasta: a BIOS pode ter sido posta depois */
+      if(megaBios){ try{ toast("A trazer a BIOS do Neo Geo da pasta MEGA…"); let x = await megaBios.downloadBuffer(); x = x.buffer ? x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength) : x; await romPut("bios:neogeo", x); return x; }catch(e){ toast("Não consegui trazer a BIOS do MEGA: " + (e && e.message || e), true); } }
       return null; };
     const playRom = async gm => { const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
       let biosUrl = ""; if(gm.s === "neogeo"){ const bb = await neoBios(); if(!bb){ toast("Para o Neo Geo falta a BIOS «neogeo.zip». Põe-na na tua pasta MEGA ou envia-a do telemóvel (como uma ROM).", true); return; } biosUrl = URL.createObjectURL(new Blob([bb])); }
@@ -20605,10 +20606,10 @@ html.nightUi #ambient{filter:brightness(.75)}
     const romGet = async k => { try{ const d = await romDb(); return await new Promise(res => { const q = d.transaction("r").objectStore("r").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); }catch(e){ return null; } };
     const romPut = async (k, v) => { try{ const d = await romDb(); await new Promise(res => { const tx = d.transaction("r", "readwrite"); tx.objectStore("r").put(v, k); tx.oncomplete = tx.onerror = tx.onabort = () => res(); }); }catch(e){} };
     const megaLib = () => window.mega ? Promise.resolve(window.mega) : new Promise((res, rej) => { const s = document.createElement("script"); s.src = "emu/megajs.min.js"; s.onload = () => res(window.mega); s.onerror = () => rej(new Error("não carreguei o leitor do MEGA")); document.head.appendChild(s); });
-    let megaFiles = null;
+    let megaFiles = null, megaBios = null;   /* v571: a BIOS do Neo Geo da pasta MEGA fica à parte (antes era tirada da lista e depois não era encontrada) */
     const megaList = async url => {
       const M = await megaLib(), root = M.File.fromURL(url); await root.loadAttributes();
-      const out = [], walk = (n, path) => { if(n.directory || n.children){ (n.children || []).forEach(c => walk(c, path ? path + " / " + n.name : (n === root ? "" : n.name))); return; } const s0 = sysOf(n.name), s = s0 === "zip" ? (guessSys(n.name + " " + path) || "zip") : s0; if(/^neogeo\.zip$/i.test(n.name)) return; if(s) out.push({n:n.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), f:n, s, size:n.size, dir:path, k:"mega:" + (n.nodeId || n.downloadId || n.name) + ":" + n.size}); };
+      const out = [], walk = (n, path) => { if(n.directory || n.children){ (n.children || []).forEach(c => walk(c, path ? path + " / " + n.name : (n === root ? "" : n.name))); return; } const s0 = sysOf(n.name), s = s0 === "zip" ? (guessSys(n.name + " " + path) || "zip") : s0; if(/^neogeo\.zip$/i.test(n.name)){ megaBios = n; return; } if(s) out.push({n:n.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), f:n, s, size:n.size, dir:path, k:"mega:" + (n.nodeId || n.downloadId || n.name) + ":" + n.size}); };
       walk(root, ""); return out.sort((a, b) => (a.dir || "").localeCompare(b.dir || "") || a.n.localeCompare(b.n));
     };
     const megaPaint = (msg) => {
