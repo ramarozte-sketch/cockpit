@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v577";
+const APP_VERSION = "v578";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20125,6 +20125,17 @@ html.nightUi #ambient{filter:brightness(.75)}
     const $m = id => document.getElementById(id);
     let lastAct = Date.now();
     ["pointerdown", "keydown", "wheel", "touchstart"].forEach(ev => document.addEventListener(ev, e => { lastAct = Date.now(); if(amb.classList.contains("on") && !(e.target && e.target.closest && e.target.closest("#ambPP"))){ e.preventDefault(); e.stopPropagation(); close(); } }, true));
+    /* v578: qualquer interação conta (não só toques no Cockpit): toques e teclas dentro dos jogos (janelas internas),
+       comandos do telemóvel, comandos físicos e o comando no ecrã. E nunca abre a meio de um jogo nem com a mesa de DJ a tocar */
+    window.__ckActivity = () => { lastAct = Date.now(); };
+    const hookFrame = f => { try{ const w = f.contentWindow; if(!w || w.__ckHooked) return; w.__ckHooked = true; ["pointerdown", "keydown", "touchstart", "wheel"].forEach(ev => w.addEventListener(ev, () => { lastAct = Date.now(); }, true)); }catch(e){} };
+    document.addEventListener("load", e => { if(e.target && e.target.tagName === "IFRAME") hookFrame(e.target); }, true);
+    setInterval(() => { try{ document.querySelectorAll("iframe").forEach(hookFrame); const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; for(const g of pads){ if(g.buttons.some(b => b.pressed) || g.axes.some(a => Math.abs(a) > .4)){ lastAct = Date.now(); break; } } }catch(e){} }, 1000);
+    const busy = () => { try{
+      const ew = document.getElementById("emuWin"); if(ew && ew.classList.contains("on")) return true;   /* emulador aberto */
+      if(typeof currentView !== "undefined" && currentView === "games" && document.querySelector("#v-games canvas, #v-games iframe")) { const vis = [...document.querySelectorAll("#v-games canvas, #v-games iframe")].some(x => x.offsetParent !== null && x.offsetWidth > 120); if(vis) return true; }   /* jogo do Cockpit em curso */
+      if(window.__dj && window.__dj.D && window.__dj.D.some(d => d.playing)) return true;   /* mesa de DJ a tocar */
+    }catch(e){} return false; };
     const mins = () => { const v = (typeof cfg !== "undefined" && cfg.ambientMin != null) ? +cfg.ambientMin : 5; return v; };
     const playing = () => { try{ const W = window.__wamp; if(W && W.playing && W.playing() && W.cur) return {k:"amp", t:"🎵 " + W.cur.artist + " — " + W.cur.title};
       const ra = document.getElementById("radioAud"); if(typeof radioCur !== "undefined" && radioCur) return {k:"radio", t:"📻 " + radioCur.name, paused:ra && ra.paused};
@@ -20158,6 +20169,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(amb.classList.contains("on") || svOn()){ if(amb.classList.contains("on")) paint(); if(typeof drivingEff === "function" && drivingEff()) close(); return; }
       const m = mins(); if(!m) return;
       const moving = typeof drivingEff === "function" && drivingEff();
+      if(busy()){ lastAct = Date.now(); return; }
       if(!moving && !document.body.classList.contains("pfull") && Date.now() - lastAct > m * 60000) open();
     }catch(e){} }, 5000);
     /* opção nas Definições (junto das opções da TV) */
@@ -20439,6 +20451,7 @@ html.nightUi #ambient{filter:brightness(.75)}
     const txTo = (d, o) => { try{ if(d && d.readyState === "open") d.send(JSON.stringify(o)); }catch(e){} };
     const vol = d => { try{ const G = window.__vg, v = document.getElementById("vid" + audioSlot); let x = (G && G.v != null ? G.v : v.volume) + d; x = Math.max(0, Math.min(1, Math.round(x * 10) / 10)); if(G) G.v = x; v.muted = false; v.volume = x; LS.set("tvVol", x); tx({t:"toast", m:"Som " + Math.round(x * 100) + "%"}); }catch(e){} };
     const onCmd = async (m, from) => { let o; try{ o = JSON.parse(m.data); }catch(e){ return; }
+      try{ window.__ckActivity && window.__ckActivity(); }catch(e){}
       try{
         if(o.t === "pad"){ if(window.__padPress) window.__padPress(o.p === 1 ? 1 : 0, o.b | 0, !!o.on);
           /* v574: a jogar pelo telemóvel, o comando no ecrã esconde-se sozinho (uma vez por jogo; dá para voltar a mostrar) */
@@ -20873,6 +20886,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         if((VC.dx || VC.dy) && !VC.t) VC.t = setInterval(vcTick, 16); if(!VC.dx && !VC.dy){ clearInterval(VC.t); VC.t = null; } vcShow(); }
       else if(i === 0 && on !== VC.down){ VC.down = on; vcShow(); vcPtr(on ? "pointerdown" : "pointerup"); } };
     window.__padPress = (pi, i, on) => {
+      try{ window.__ckActivity && window.__ckActivity(); }catch(e){}
       try{
         /* v576: no emulador, cada telemóvel/comando é o seu jogador: o botão vai direto à entrada do jogador certo (antes eram teclas do teclado, que só servem o jogador 1) */
         if(inEmu() && window.__emuDos){ const m = DOSK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); return; }
