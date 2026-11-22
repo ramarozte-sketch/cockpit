@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v580";
+const APP_VERSION = "v581";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20313,7 +20313,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       const openPad = () => {
         let P = document.getElementById("rmPad");
         try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); }catch(e){}
-        if(P){ P.style.display = "flex"; return; }
+        if(P){ P.style.display = "flex"; setTimeout(() => P.__drawBody && P.__drawBody(), 60); return; }
         const css = document.createElement("style");
         /* v577: visual moderno: vidro escuro, néon na cor do jogador (J1 ciano, J2 rosa), cruzeta em cruz, A/B/X/Y coloridos em losango, botões que afundam ao toque */
         css.textContent = "#rmPad{--acc:#5cf2ff;position:fixed;inset:0;z-index:100000;color:#eaf6ff;display:flex;flex-direction:column;font-family:system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none;" +
@@ -20350,22 +20350,16 @@ html.nightUi #ambient{filter:brightness(.75)}
           "#rmPad.st-nt .mid{flex-direction:row}#rmPad.st-nt .mid button{width:11vmin;height:11vmin;border-radius:50%;font-size:22px;font-weight:900}" +
           "#rmPad.st-nt #rpDpad button{background:linear-gradient(180deg,#3a3f50,#20242f)}" +
           /* v580: corpo de comando original (desenho próprio) por trás dos botões; a cor muda com o estilo */
-          "#rmPad .ctl{position:relative;isolation:isolate}#rpBody{position:absolute;left:1.5vw;right:1.5vw;top:0;bottom:1vh;z-index:-1;pointer-events:none}" +
+          "#rmPad .ctl{position:relative;isolation:isolate}#rpBody{position:absolute;inset:0;z-index:-1;pointer-events:none}" +
           "#rpBody svg{width:100%;height:100%;display:block;filter:drop-shadow(0 18px 30px #000c)}" +
-          "#rmPad.st-xb #rpBody .sh{fill:url(#rpGx)}#rmPad.st-ps #rpBody .sh{fill:url(#rpGp)}#rmPad.st-nt #rpBody .sh{fill:url(#rpGn)}" +
-          "#rpBody .rim{fill:none;stroke:var(--acc);stroke-opacity:.35;stroke-width:3}#rpBody .gl{fill:#ffffff10}" +
+          "#rmPad.st-xb #rpBody .sh *{fill:url(#rpGx)}#rmPad.st-ps #rpBody .sh *{fill:url(#rpGp)}#rmPad.st-nt #rpBody .sh *{fill:url(#rpGn)}" +
+          "#rpBody .rim *{fill:var(--acc);fill-opacity:.4;stroke:var(--acc);stroke-opacity:.4;stroke-width:6}#rpBody .gl{fill:#ffffff0d}#rpBody .sh *{stroke:none}" +
           "@media (orientation:portrait){#rpBody{display:none}}" +
           "@media (orientation:portrait){#rmPad .ctl{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:3vh}#rmPad .mid{flex-direction:row}}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
         P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpStyle" title="Estilo do comando">🎨 Estilo</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
-          '<div class="ctl"><div id="rpBody"><svg viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true"><defs>' +
-            '<linearGradient id="rpGx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3140"/><stop offset="1" stop-color="#11141c"/></linearGradient>' +
-            '<linearGradient id="rpGp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26385c"/><stop offset=".6" stop-color="#16213a"/><stop offset="1" stop-color="#0c1324"/></linearGradient>' +
-            '<linearGradient id="rpGn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a4256"/><stop offset=".3" stop-color="#2a2f3d"/><stop offset=".7" stop-color="#2a2f3d"/><stop offset="1" stop-color="#3d3550"/></linearGradient></defs>' +
-            '<path class="sh" d="M180 40 C260 18 380 30 500 30 C620 30 740 18 820 40 C930 70 985 160 990 260 C995 360 960 410 900 410 C840 410 800 360 760 320 C720 285 640 270 500 270 C360 270 280 285 240 320 C200 360 160 410 100 410 C40 410 5 360 10 260 C15 160 70 70 180 40 Z"/>' +
-            '<path class="rim" d="M180 40 C260 18 380 30 500 30 C620 30 740 18 820 40 C930 70 985 160 990 260 C995 360 960 410 900 410 C840 410 800 360 760 320 C720 285 640 270 500 270 C360 270 280 285 240 320 C200 360 160 410 100 410 C40 410 5 360 10 260 C15 160 70 70 180 40 Z"/>' +
-            '<ellipse class="gl" cx="500" cy="80" rx="320" ry="34"/><rect x="440" y="372" width="120" height="8" rx="4" fill="var(--acc)" fill-opacity=".6"/></svg></div><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
+          '<div class="ctl"><div id="rpBody"><svg aria-hidden="true"></svg></div><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
         document.body.appendChild(P); P.classList.toggle("p2", myPlayer === 1);
@@ -20374,7 +20368,28 @@ html.nightUi #ambient{filter:brightness(.75)}
           ps:{n:"Formas", lab:{0:"✕", 1:"○", 2:"□", 3:"△", 4:"L1", 5:"R1", 8:"Select", 9:"Start"}},
           nt:{n:"Letras trocadas", lab:{0:"B", 1:"A", 2:"Y", 3:"X", 4:"L", 5:"R", 8:"−", 9:"+"}}};
         const ORD = ["xb", "ps", "nt"];
-        const applySty = k => { if(!STY[k]) k = "xb"; ORD.forEach(x => P.classList.toggle("st-" + x, x === k)); Object.entries(STY[k].lab).forEach(([b, l]) => { const el = P.querySelector('button[data-b="' + b + '"]'); if(el) el.textContent = l; }); const sb = document.getElementById("rpStyle"); if(sb) sb.textContent = "🎨 " + STY[k].n; try{ localStorage.setItem("ck_padStyle", k); }catch(e){} };
+        /* v581: o corpo do comando é desenhado à volta dos botões reais (pegas centradas na cruzeta/joystick e nos A/B/X/Y,
+           ombros por baixo de LB/RB e ponte a cobrir Select/Start); redesenha ao rodar o ecrã, mudar de modo ou de estilo */
+        const drawBody = () => { try{
+          const C = P.querySelector(".ctl"), svg = P.querySelector("#rpBody svg"); if(!C || !svg) return; const cr = C.getBoundingClientRect(); if(cr.width < 50) return;
+          const box = el => { const r = el.getBoundingClientRect(); return {x:r.left - cr.left, y:r.top - cr.top, w:r.width, h:r.height, cx:r.left - cr.left + r.width / 2, cy:r.top - cr.top + r.height / 2}; };
+          const st = P.querySelector("#rpStick"), dp = P.querySelector("#rpDpad"), L = box(st && st.offsetParent ? st : dp), R = box(P.querySelector("#rpAbxy")), M = box(P.querySelector(".mid")), sh = [...P.querySelectorAll(".sh button")].map(box);
+          const rl = Math.max(L.w, L.h) / 2 * 0.95 + 22, rr = Math.max(R.w, R.h) / 2 * 0.95 + 22;
+          const by0 = Math.min(L.cy - rl * .78, R.cy - rr * .78, M.y - 26), by1 = Math.max(M.y + M.h + 26, Math.min(L.cy, R.cy) + Math.min(rl, rr) * .35);
+          let shapes = '<circle cx="' + L.cx + '" cy="' + L.cy + '" r="' + rl + '"/><circle cx="' + R.cx + '" cy="' + R.cy + '" r="' + rr + '"/>' +
+            '<rect x="' + L.cx + '" y="' + by0 + '" width="' + (R.cx - L.cx) + '" height="' + (by1 - by0) + '" rx="' + Math.min(60, (by1 - by0) / 2) + '"/>';
+          sh.forEach(b => { shapes += '<rect x="' + (b.x - 10) + '" y="' + (b.y + b.h * .35) + '" width="' + (b.w + 20) + '" height="' + Math.max(40, (b.cx < cr.width / 2 ? L.cy : R.cy) - b.y) + '" rx="22"/>'; });
+          svg.setAttribute("viewBox", "0 0 " + cr.width + " " + cr.height); svg.setAttribute("width", cr.width); svg.setAttribute("height", cr.height);
+          svg.innerHTML = '<defs><linearGradient id="rpGx" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d3443"/><stop offset="1" stop-color="#11141c"/></linearGradient>' +
+            '<linearGradient id="rpGp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26385c"/><stop offset=".6" stop-color="#16213a"/><stop offset="1" stop-color="#0c1324"/></linearGradient>' +
+            '<linearGradient id="rpGn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a4256"/><stop offset=".35" stop-color="#2a2f3d"/><stop offset=".65" stop-color="#2a2f3d"/><stop offset="1" stop-color="#3d3550"/></linearGradient></defs>' +
+            '<g class="rim">' + shapes + '</g><g class="sh">' + shapes + '</g>' +
+            '<ellipse class="gl" cx="' + (L.cx + R.cx) / 2 + '" cy="' + (by0 + 24) + '" rx="' + (R.cx - L.cx) * .42 + '" ry="16"/>' +
+            '<rect x="' + ((L.cx + R.cx) / 2 - 50) + '" y="' + (by1 - 18) + '" width="100" height="7" rx="3.5" fill="var(--acc)" fill-opacity=".65"/>';
+        }catch(e){} };
+        P.__drawBody = drawBody; addEventListener("resize", () => setTimeout(drawBody, 120)); try{ screen.orientation && screen.orientation.addEventListener("change", () => setTimeout(drawBody, 300)); }catch(e){}
+        setTimeout(drawBody, 60); setTimeout(drawBody, 600);
+        const applySty = k => { if(!STY[k]) k = "xb"; ORD.forEach(x => P.classList.toggle("st-" + x, x === k)); Object.entries(STY[k].lab).forEach(([b, l]) => { const el = P.querySelector('button[data-b="' + b + '"]'); if(el) el.textContent = l; }); const sb = document.getElementById("rpStyle"); if(sb) sb.textContent = "🎨 " + STY[k].n; try{ localStorage.setItem("ck_padStyle", k); }catch(e){} setTimeout(() => P.__drawBody && P.__drawBody(), 30); };
         let curSty = "xb"; try{ curSty = localStorage.getItem("ck_padStyle") || "xb"; }catch(e){}
         applySty(curSty);
         document.getElementById("rpStyle").onclick = () => { curSty = ORD[(ORD.indexOf(curSty) + 1) % ORD.length]; applySty(curSty); };
@@ -20394,7 +20409,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         S.addEventListener("pointerdown", e => { e.preventDefault(); sid = e.pointerId; try{ S.setPointerCapture(sid); }catch(x){} stick(e); });
         S.addEventListener("pointermove", e => { if(e.pointerId === sid) stick(e); });
         ["pointerup", "pointercancel"].forEach(t => S.addEventListener(t, e => { if(e.pointerId !== sid) return; sid = null; K.style.transform = ""; [12, 13, 14, 15].forEach(b => press(b, false)); }));
-        let mode = 0; document.getElementById("rpMode").onclick = () => { releaseAll(); mode = 1 - mode; document.getElementById("rpMode").textContent = mode ? "Joystick" : "Cruzeta"; document.getElementById("rpDpad").style.display = mode ? "none" : "grid"; S.style.display = mode ? "block" : "none"; };
+        let mode = 0; document.getElementById("rpMode").onclick = () => { releaseAll(); mode = 1 - mode; document.getElementById("rpMode").textContent = mode ? "Joystick" : "Cruzeta"; document.getElementById("rpDpad").style.display = mode ? "none" : "grid"; S.style.display = mode ? "block" : "none"; setTimeout(() => P.__drawBody && P.__drawBody(), 30); };
         document.getElementById("rpFull").onclick = () => send({t:"cmd", c:"gfull"});
         /* v574: esconde/mostra o comando virtual no ecrã do carro */
         document.getElementById("rpVp").onclick = () => send({t:"cmd", c:"vpad"});
