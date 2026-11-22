@@ -570,6 +570,11 @@ body.layout-tesla .app.cinema .top{grid-column:1}body.layout-tesla .app.cinema m
 .audiocard b{font:700 26px var(--f-display)}
 .aico{font-size:44px;line-height:1}
 .radiogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+/* v560: rádio compacta: duas filas que deslizam para o lado; «Ver todas» abre a grelha com altura limitada */
+.radiogrid.compact{grid-template-columns:none;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:minmax(190px,220px);overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+.radiogrid.compact .rcard{scroll-snap-align:start;min-height:56px;padding:8px}
+.radiogrid.all{max-height:46vh;overflow-y:auto;padding-right:4px}
+.radiotools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .rcard{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel-2);text-align:left;min-height:64px;min-width:0}
 .rcard img,.rcard .ph{width:40px;height:40px;border-radius:8px;object-fit:contain;background:var(--panel);flex:none}
 .rcard .t{min-width:0}
@@ -1298,7 +1303,8 @@ body.layout-atv .rail{display:none}
           </div></div>
         <form id="radioForm" class="row" style="flex-wrap:nowrap"><input type="search" id="radioQ" placeholder="Procurar rádio (ex.: Comercial, TSF, Antena 3)"><button class="btn">Procurar</button></form>
         <div class="radionow" id="radioNow" hidden><span class="aico">📻</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><b id="rnName"></b><span class="small muted" id="rnTrack" hidden></span></span><button class="btn" id="rnFav">☆</button><button class="btn primary" id="rnStop">■ Parar</button></div>
-        <div class="radiogrid" id="radioGrid"><p class="muted small" style="margin:0">A carregar rádios…</p></div>
+        <div class="radiotools"><span class="small muted" id="radioCount"></span><span class="spacer"></span><button class="btn" id="radioMore" type="button" hidden>▾ Ver todas</button></div>
+        <div class="radiogrid compact" id="radioGrid"><p class="muted small" style="margin:0">A carregar rádios…</p></div>
         <p class="small muted" style="margin:0">As rádios são só som, por isso funcionam com o carro em andamento. Diretório: radio-browser.info.</p>
       </div>
       <div class="panel" id="spotifyPanel">
@@ -3311,28 +3317,67 @@ $("orgImpFile").onchange = async e => {
   try{ const t = await f.text(); $("orgXfer").value = t; if(!confirm("Importar substitui a ordem, os ocultos e os favoritos atuais. Continuar?")) return; const r = orgImport(t); orgXferMsg("Importado: " + r.favs + " favoritos, " + r.hidden + " canais ocultos" + (r.acc ? ", dados de acesso (carrega a lista IPTV em Definições)." : ".")); }
   catch(x){ orgXferMsg("Erro: " + x.message, true); }
 };
-/* ---------- Canais portugueses em sinal aberto (lista pública iptv-org) ----------
-   Streams públicos e gratuitos, mantidos pela comunidade. Alguns canais podem estar em baixo ou só funcionar em Portugal. */
-const FREE_SRC = "https://iptv-org.github.io/iptv/countries/pt.m3u";
+/* ---------- Canais portugueses em sinal aberto (v560: revistos) ----------
+   1) lista «CanaisTVPT» (thomraider12, atualizada todos os dias, com os endereços oficiais de RTP, SIC, TVI e CNN Portugal)
+   2) lista pública iptv-org, só para o que faltar
+   Ficam de fora as rádios, os canais estrangeiros e religiosos, e as retransmissões não oficiais de canais pagos
+   (servidores dyndns, IPs soltos, vavoo). A Sport TV vem da tua lista IPTV, se a tiveres carregada (grupo «Desporto»). */
+const FREE_SRCS = ["https://raw.githubusercontent.com/thomraider12/canaistvpt/main/pt.m3u", "https://iptv-org.github.io/iptv/countries/pt.m3u"];
+const FREE_SRC = FREE_SRCS[1];
 let freeChans = [];
-const FREE_TOP = [/^rtp ?1\b/i, /^rtp ?2\b/i, /^sic\b(?!.*(not|radical|mulher|caras|k\b))/i, /^tvi\b(?!.*(ficc|reality|afric))/i, /^cmtv|cm ?tv/i, /rtp not[ií]cias/i, /sic not[ií]cias/i, /cnn portugal/i, /^tvi (24|not)/i, /rtp ?3/i, /rtp mem[oó]ria/i, /rtp (africa|internacional)/i, /rtp madeira|rtp a[cç]ores/i, /^canal ?q|^porto canal|^benfica|^sporting|^sport tv/i];
+const FREE_TOP = [/^rtp ?1\b/i, /^rtp ?2\b/i, /^sic$|^sic\b(?!.*(not|radical|mulher|caras|k\b|internac|alta|replay))/i, /^tvi$|^tvi\b(?!.*(fic|reality|afric|internac))/i, /^cmtv|cm ?tv/i, /rtp not[ií]cias/i, /sic not[ií]cias/i, /cnn portugal/i, /^v ?\+ ?tvi/i, /^sport ?tv ?1\b/i, /^sport ?tv ?2\b/i, /^sport ?tv ?3\b/i, /^sport ?tv ?4\b/i, /^sport ?tv ?5\b/i, /^sport ?tv ?6\b/i, /^sport ?tv ?7\b/i, /^sport ?tv ?\+|sporttv\+/i, /rtp desporto/i, /^canal 11/i, /rtp mem[oó]ria/i, /^porto canal/i, /euronews/i, /artv|parlamento/i, /sic (alta|replay)/i, /tvi (ficc|reality)/i, /rtp (africa|áfrica|mundo|internacional)/i, /rtp madeira|rtp a[cç]ores/i, /internacional/i];
 const freeRank = n => { const i = FREE_TOP.findIndex(r=>r.test(n)); return i<0 ? 99 : i; };
+const FREE_BAD_URL = /dyndns|vavoo|workers\.dev|^https?:\/\/\d{1,3}(\.\d{1,3}){3}[:/]/i;
+const FREE_BAD_NAME = /\((esp|ger|us|uk|fr|br)\)|man[aá] |kuriakos|igreja|church|iglesia|eglise|tserkov|cirkev|adb tv|npc r[aá]dio|fama ?tv|rfp ?tv|r[aá]dio |\bfm\b|trace |fama |gaming|ubisoft|game toon|5-minute|failarmy|fashion box|fast & fun/i;
+function freeGroup(n){
+  if(/sport ?tv|desporto|canal 11|fifa|infast|fuel/i.test(n)) return "Desporto";
+  if(/not[ií]cias|cnn|euronews|artv|parlamento/i.test(n)) return "Notícias";
+  if(/madeira|a[cç]ores|[aá]frica|mundo|internacional|porto canal|algarve/i.test(n)) return "Regionais e internacionais";
+  if(/rakuten|alta defini|replay|ficç|ficc|reality|mem[oó]ria|axn|travel/i.test(n)) return "Entretenimento";
+  return "Generalistas";
+}
+const freeKey = n => /artv|parlamento/i.test(n) ? "artv" : norm(n).replace(/\b(hd|fhd|uhd|4k|\d{3,4}p|tv)\b|[^a-z0-9+]/g, "");
+/* Sport TV da lista IPTV do utilizador (os canais pagos não têm emissão aberta oficial) */
+function freeSportMerge(){
+  try{
+    const live = (channels || []).filter(c => c.kind === "live" && /^(\|?pt\|?\s*)?sport ?tv ?([1-7]|\+)/i.test(cleanTag(c.name)) && !/(uhd|4k|fhd|8k)/i.test(c.name));
+    const have = new Set(freeChans.filter(c => c.iptv).map(c => c.url));
+    if(live.length && live.every(c => have.has(c.url))) return false;
+    const pick = new Map();
+    for(const c of live){ const nm = cleanTag(c.name).replace(/^\|?pt\|?\s*/i, "").replace(/\s*(hd|sd)\s*$/i, "").trim(), k = freeKey(nm); if(!pick.has(k) || /hd/i.test(c.name)) pick.set(k, {...c, name:nm, free:true, iptv:true, group:"Desporto"}); }
+    freeChans = freeChans.filter(c => !c.iptv && !/^sport ?tv/i.test(c.name)).concat([...pick.values()])
+      .sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
+    return true;
+  }catch(e){ return false; }
+}
 async function loadFreeTv(force){
   if(!force){
-    const c = LS.get("freeTv", null);
-    if(c && Date.now() - c.t < 6*3600e3 && c.list?.length){ freeChans = c.list; return freeChans; }
+    const c = LS.get("freeTv2", null);
+    if(c && Date.now() - c.t < 6*3600e3 && c.list?.length){ freeChans = c.list; freeSportMerge(); return freeChans; }
   }
-  let txt = null;
-  for(const u of [FREE_SRC, HASPX() ? px(FREE_SRC) : null].filter(Boolean)){
-    try{ const r = await fetch(u); if(r.ok){ txt = await r.text(); if(txt.includes("#EXTINF")) break; txt = null; } }catch(e){}
+  const lists = [];
+  for(const src of FREE_SRCS){
+    for(const u of [src, HASPX() ? px(src) : null].filter(Boolean)){
+      try{ const r = await fetch(u); if(r.ok){ const txt = await r.text(); if(txt.includes("#EXTINF")){ lists.push(txt); break; } } }catch(e){}
+    }
   }
-  if(!txt){ const c = LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list.map(x => ({...x, ctry:x.ctry || ctryPrefix(x.name), name:cleanTag(x.name)})); return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
-  const seen = new Set();
-  freeChans = parseM3U(txt).map(c=>({...c, kind:"live", free:true, group:"Sinal aberto",
-      name:cleanTag(c.name).replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, " $1").trim()}))
-    .filter(c=>c.url && /^https?:/i.test(c.url) && !seen.has(c.url) && seen.add(c.url))
-    .sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
-  LS.set("freeTv", {t:Date.now(), list:freeChans.map(({name,logo,id,url,kind,free,group})=>({name,logo,id,url,kind,free,group}))});
+  if(!lists.length){ const c = LS.get("freeTv2", null) || LS.get("freeTv", null); if(c?.list?.length){ freeChans = c.list.map(x => ({...x, ctry:x.ctry || ctryPrefix(x.name), name:cleanTag(x.name)})); freeSportMerge(); return freeChans; } throw new Error("não consegui obter a lista pública de canais"); }
+  const seenU = new Set(), seenN = new Set(), out = [];
+  for(const txt of lists){
+    for(const c of parseM3U(txt)){
+      const name = cleanTag(c.name).replace(/\s*\[(Geo-blocked|Not 24\/7)\]/gi, m=>/geo/i.test(m) ? " 🌍" : "").replace(/\s*\((\d{3,4}p)\)/g, "").replace(/\s*\((tv)\)/i, "").trim();
+      const grp = String(c.group || "");
+      if(!c.url || !/^https?:/i.test(c.url) || FREE_BAD_URL.test(c.url) || FREE_BAD_NAME.test(name) || /r[aá]dios|religios|gaming/i.test(grp)) continue;
+      if(/internacionais/i.test(grp) && !/rtp|sic|tvi/i.test(name)) continue;
+      const k = freeKey(name.replace(/ 🌍/, ""));
+      if(seenU.has(c.url) || seenN.has(k)) continue;   /* o mesmo canal só uma vez (a 1.ª lista tem prioridade) */
+      seenU.add(c.url); seenN.add(k);
+      out.push({...c, name, kind:"live", free:true, group:freeGroup(name)});
+    }
+  }
+  freeChans = out.sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
+  LS.set("freeTv2", {t:Date.now(), list:freeChans.map(({name,logo,id,url,kind,free,group})=>({name,logo,id,url,kind,free,group}))});
+  freeSportMerge();
   return freeChans;
 }
 
@@ -3427,7 +3472,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v559";
+const APP_VERSION = "v560";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -3674,6 +3719,7 @@ function renderTvList(pre){
   const q = norm($("tvSearch").value||""), g=$("tvGroup").value;
   const scoped = Array.isArray(pre); window.__tvScoped = scoped;
   if(!scoped && tvScope && q.length >= 2){ return renderTvScoped(q); }
+  if(tvKind==="free") freeSportMerge();
   let list = tvKind==="free" ? freeChans : tvKind==="intl" ? intlChans : channels.filter(c => tvKind==="fav" ? favs.has(c.url) : c.kind===tvKind);
   if(tvKind==="free" || tvKind==="intl"){ $("freeTools").hidden = false; if($("hideDead").checked) list = list.filter(c=>hState(c)!=="dead"); list = [...list].sort((a,b)=>(hState(a)==="ok"?0:1)-(hState(b)==="ok"?0:1)); } else $("freeTools").hidden = true;
   if(tvKind==="fav") list = [...channels, ...freeChans].filter((c,i,a)=>favs.has(c.url) && a.findIndex(x=>x.url===c.url)===i);
@@ -7948,11 +7994,22 @@ async function loadRadios(q=""){
     renderRadios(radioList, q ? "Nenhuma rádio encontrada." : "");
   }catch(e){ $("radioGrid").innerHTML = `<p class="small" style="margin:0">${esc(e.message)}. Se continuar, configura o proxy em Definições.</p>`; }
 }
+/* v560: menos espaço: até 24 rádios em duas filas deslizantes; «Ver todas» mostra a lista completa numa caixa com altura limitada */
+let radioAll = !!LS.get("radioAll", false);
+function radioLayout(n){
+  const g = $("radioGrid"), b = $("radioMore"), c = $("radioCount"); if(!g) return;
+  g.classList.toggle("compact", !radioAll); g.classList.toggle("all", radioAll);
+  if(b){ b.hidden = n <= 8; b.textContent = radioAll ? "▴ Mostrar menos" : "▾ Ver todas (" + n + ")"; }
+  if(c) c.textContent = n ? (radioAll ? n + " rádios" : "Desliza para ver mais") : "";
+}
 function renderRadios(list, empty){
+  renderRadios.last = list; radioLayout(list.length);
+  if(!radioAll && list.length > 24){ const cur = radioCur ? list.findIndex(s => s.id === radioCur.id) : -1; const keep = list.slice(0, 24); if(cur >= 24) keep.unshift(list[cur]); list = keep; }
   $("radioGrid").innerHTML = list.map((s,i)=>`<button class="rcard ${radioCur && radioCur.id===s.id ? "on" : ""}" data-ri="${i}">${s.logo ? `<img src="${esc(s.logo)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : '<span class="ph"></span>'}<span class="t"><b>${esc(s.name)}</b><span>${esc(s.tags || " ")}</span></span></button>`).join("")
     || `<p class="muted small" style="margin:0">${esc(empty || "Sem rádios.")}</p>`;
   $("radioGrid").querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>playRadio(list[+b.dataset.ri]));
 }
+$("radioMore").onclick = () => { radioAll = !radioAll; LS.set("radioAll", radioAll); renderRadios(renderRadios.last || (radioTab === "fav" ? radioFavs : radioList)); if(!radioAll) $("radioPanel").scrollIntoView({block:"nearest"}); };
 function radioStop(){
   podStop();
   const a = $("radioAud"); if(radioHls){ radioHls.destroy(); radioHls = null; }
