@@ -1632,6 +1632,9 @@ body.layout-atv .rail{display:none}
         <b class="small">Procurar música</b>
         <div class="drow"><input type="search" id="djQ" placeholder="Artista ou música…" style="flex:1;min-width:160px;min-height:46px"><select class="fx" id="djQs"><option value="audius">Audius (completas)</option><option value="itunes">iTunes (30 s)</option><option value="youtube">YouTube Music</option></select><button class="dbtn" id="djQgo">Procurar</button></div>
         <div class="djlist" id="djRes"></div>
+        <b class="small">Biblioteca (faixas já analisadas)</b>
+        <div class="drow"><input type="number" id="djBmin" placeholder="BPM mín" min="50" max="220" style="width:110px;min-height:46px"><input type="number" id="djBmax" placeholder="BPM máx" min="50" max="220" style="width:110px;min-height:46px"><button class="dbtn" id="djBall">Todas</button><button class="dbtn" id="djBcomp">Compatíveis com o outro deck</button></div>
+        <div class="djlist" id="djLib"></div>
         <p class="small muted" style="margin:0">YouTube Music toca num leitor do YouTube: dá play, posição, tempo e crossfader, mas não EQ, efeitos, prato nem BPM (o YouTube não deixa ler o som). O Spotify não permite misturar noutras apps.</p>
         <b class="small">Batidas da app (originais, livres)</b><div class="djlist" id="djLoops"></div>
         <b class="small">A minha pasta MEGA de música</b><div class="drow"><button class="dbtn" id="djMega">📂 Abrir pasta</button><button class="dbtn" id="djMegaL">🔗 Link</button></div><div class="djlist" id="djMegaList"></div>
@@ -3603,7 +3606,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v586";
+const APP_VERSION = "v587";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -21310,12 +21313,16 @@ html.nightUi #ambient{filter:brightness(.75)}
     }catch(e){ rec = null; toast("Este browser não deixa gravar: " + e.message, true); } };
   /* ---------- carregar música ---------- */
   let srcDeck = 0;
-  const openSrc = i => { srcDeck = i; $d("#djSrcT").textContent = "Carregar no deck " + "AB"[i]; $d("#djSrc").hidden = false; };
+  const openSrc = i => { srcDeck = i; $d("#djSrcT").textContent = "Carregar no deck " + "AB"[i]; $d("#djSrc").hidden = false; if(window.__libRender) window.__libRender(); };
   $d("#djSrcX").onclick = () => $d("#djSrc").hidden = true;
   $d("#djLoops").innerHTML = LOOPS.map((l, i) => '<button data-l="' + i + '">' + l.n + '<small>' + l.bpm + ' BPM · 16 compassos</small></button>').join("");
   const decode = async ab => { ensure(); return await new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if(p && p.then) p.then(res, rej); }); };
-  const loadInto = async (i, getBuf, name, known) => { $d("#djSrc").hidden = true; const d = D[i]; d.r("tit").textContent = "A carregar " + name + "…";
-    try{ const buf = await getBuf(); await d.load(buf, name, known); }catch(e){ d.r("tit").textContent = d.name || "Sem música"; toast("Não consegui abrir «" + name + "»: " + (e && e.message || e), true); } };
+  /* v587: biblioteca: faixas com link direto ficam guardadas com o BPM analisado, para voltar a carregar e filtrar */
+  const libGet = () => { try{ return LS.get("djLib", {}) || {}; }catch(e){ return {}; } };
+  const libAdd = (name, u, bpm) => { if(!u || !bpm) return; const L = libGet(); L[name] = {u, b: Math.round(bpm * 10) / 10, t: Date.now()}; const ks = Object.keys(L); if(ks.length > 200){ ks.sort((a, b) => L[a].t - L[b].t).slice(0, ks.length - 200).forEach(k => delete L[k]); } LS.set("djLib", L); };
+  const fetchBuf = async u => { let r = null; for(const x of [u, typeof px === "function" && typeof HASPX === "function" && HASPX() ? px(u) : null].filter(Boolean)){ try{ r = await fetch(x); if(r.ok) break; }catch(e){ r = null; } } if(!r || !r.ok) throw new Error("o servidor não deixa ler o ficheiro"); return decode(await r.arrayBuffer()); };
+  const loadInto = async (i, getBuf, name, known, url) => { $d("#djSrc").hidden = true; const d = D[i]; d.r("tit").textContent = "A carregar " + name + "…";
+    try{ const buf = await getBuf(); await d.load(buf, name, known); libAdd(name, url, d.bpm); }catch(e){ d.r("tit").textContent = d.name || "Sem música"; toast("Não consegui abrir «" + name + "»: " + (e && e.message || e), true); } };
   $d("#djLoops").addEventListener("click", e => { const b = e.target.closest("[data-l]"); if(!b) return; ensure(); const L = LOOPS[+b.dataset.l]; loadInto(srcDeck, () => makeLoop(L), L.n + " " + L.bpm, L.bpm); });
   $d("#djFile").onchange = e => { const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value = ""; loadInto(srcDeck, async () => decode(await f.arrayBuffer()), f.name.replace(/\.[a-z0-9]+$/i, "")); };
   $d("#djUrl").onclick = () => { const u = prompt("Link direto para um ficheiro de som (.mp3, .m4a, .ogg, .wav)"); if(!u || !/^https?:\/\//i.test(u)) return;
@@ -21339,7 +21346,19 @@ html.nightUi #ambient{filter:brightness(.75)}
   $d("#djQgo").onclick = doSearch; $d("#djQ").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); doSearch(); } });
   $d("#djRes").addEventListener("click", e => { const b = e.target.closest("[data-sr]"); if(!b) return; const r = djRes[+b.dataset.sr]; ensure();
     if(r.yt){ $d("#djSrc").hidden = true; D[srcDeck].loadYT(r); return; }
-    loadInto(srcDeck, async () => { let res = null; for(const u of [r.url, typeof px === "function" && typeof HASPX === "function" && HASPX() ? px(r.url) : null].filter(Boolean)){ try{ res = await fetch(u); if(res.ok) break; }catch(x){ res = null; } } if(!res || !res.ok) throw new Error("o servidor da música não deixa ler o som"); return decode(await res.arrayBuffer()); }, (r.artist ? r.artist + " — " : "") + r.title); });
+    loadInto(srcDeck, async () => { let res = null; for(const u of [r.url, typeof px === "function" && typeof HASPX === "function" && HASPX() ? px(r.url) : null].filter(Boolean)){ try{ res = await fetch(u); if(res.ok) break; }catch(x){ res = null; } } if(!res || !res.ok) throw new Error("o servidor da música não deixa ler o som"); return decode(await res.arrayBuffer()); }, (r.artist ? r.artist + " — " : "") + r.title, 0, r.url); });
+  /* v587: lista da biblioteca com filtro de BPM e modo «compatíveis» (±6 % do BPM do outro deck) */
+  let libComp = false;
+  const renderLib = () => { const box = $d("#djLib"); if(!box) return; const L = libGet(), lo = +$d("#djBmin").value || 0, hi = +$d("#djBmax").value || 9999;
+    let tgt = 0; if(libComp){ const o = D[1 - srcDeck]; tgt = o && o.bpm ? o.bpm * (1 + o.pitch) : (D[srcDeck] && D[srcDeck].bpm) || 0; }
+    const ks = Object.keys(L).filter(k => { const b = L[k].b; if(b < lo || b > hi) return false; if(libComp && tgt && Math.abs(b - tgt) / tgt > .06) return false; return true; }).sort((a, b) => L[b].t - L[a].t);
+    box.innerHTML = ks.length ? ks.map(k => '<button data-lb="' + esc(k) + '">' + esc(k) + '<small>' + L[k].b.toFixed(1).replace(".", ",") + ' BPM</small></button>').join("") : '<span class="small muted">Ainda não há faixas com link analisadas' + (libComp ? ' compatíveis' : '') + '.</span>';
+    $d("#djBcomp").classList.toggle("on", libComp); $d("#djBall").classList.toggle("on", !libComp); };
+  window.__libRender = renderLib;
+  $d("#djBall").onclick = () => { libComp = false; renderLib(); };
+  $d("#djBcomp").onclick = () => { libComp = true; renderLib(); };
+  $d("#djBmin").addEventListener("input", renderLib); $d("#djBmax").addEventListener("input", renderLib);
+  $d("#djLib").addEventListener("click", e => { const b = e.target.closest("[data-lb]"); if(!b) return; const k = b.dataset.lb, L = libGet(), it = L[k]; if(!it) return; ensure(); loadInto(srcDeck, () => fetchBuf(it.u), k, it.b, it.u); });
   /* pasta MEGA de música (link guardado só neste aparelho) */
   const megaLib = () => window.mega ? Promise.resolve(window.mega) : new Promise((res, rej) => { const s = document.createElement("script"); s.src = "emu/megajs.min.js"; s.onload = () => res(window.mega); s.onerror = () => rej(new Error("não carreguei o leitor do MEGA")); document.head.appendChild(s); });
   let megaTracks = null;
