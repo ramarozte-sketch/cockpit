@@ -91,19 +91,19 @@
   };
 
   // Agenda um compasso inteiro a partir de t0 num destino (contexto normal ou offline)
-  function scheduleBar(c, d, t0, secPerStep, pattern){
+  // Agenda só o passo s, no instante t
+  function scheduleStep(c, d, t, pattern, s){
     for(const tr of TRACKS){
-      const row = pattern.grid[tr.id];
-      for(let s = 0; s < pattern.steps; s++){
-        if(!row[s]) continue;
-        const t = t0 + s * secPerStep, v = VOICES[tr.type];
-        if(!v) continue;
-        if(tr.type === "bass" || tr.type === "stab") v(c, d, t, pattern.notes[tr.id]);
-        else if(tr.type === "samp") v(c, d, t, 0, tr.id);
-        else v(c, d, t);
-      }
+      if(!pattern.grid[tr.id][s]) continue;
+      const v = VOICES[tr.type];
+      if(!v) continue;
+      if(tr.type === "bass" || tr.type === "stab") v(c, d, t, pattern.notes[tr.id]);
+      else if(tr.type === "samp") v(c, d, t, 0, tr.id);
+      else v(c, d, t);
     }
   }
+  // Agenda um compasso inteiro (usado na exportação)
+  function scheduleBar(c, d, t0, sps, pattern){ for(let s = 0; s < pattern.steps; s++) scheduleStep(c, d, t0 + s * sps, pattern, s); }
 
   const secPerStep = () => 60 / bpm / 4;
 
@@ -111,7 +111,7 @@
     const c = audio();
     while(nextT < c.currentTime + .12){
       const st = cur;
-      scheduleBar(c, master, nextT, secPerStep(), {grid, notes, steps});
+      scheduleStep(c, master, nextT, {grid, notes}, st);
       // aplica só a célula atual (para o efeito visual) e avança
       const tStep = nextT, sIdx = st;
       setTimeout(() => showNow(sIdx), Math.max(0, (tStep - c.currentTime) * 1000));
