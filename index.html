@@ -1530,11 +1530,12 @@ body.layout-atv .rail{display:none}
         #v-dj .djgrid{display:grid;grid-template-columns:minmax(0,1fr) 210px minmax(0,1fr);gap:10px;align-items:start}
         /* disposição vertical: pratos lado a lado em cima, mesa por baixo a toda a largura */
         #v-dj.lay-v .djgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-        #v-dj.lay-v .djmix{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);align-items:center}
-        #v-dj.lay-v .djmix .faders{height:150px}#v-dj.lay-v .djmix .vf input,#v-dj.lay-v .vu{height:110px}
+        #v-dj.lay-v .djmix{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:auto minmax(0,1.6fr) minmax(0,.8fr);align-items:center}
+        #v-dj.lay-v .djmix .faders{height:110px !important}#v-dj.lay-v .djmix .vf input,#v-dj.lay-v .vu{height:80px !important}
+
         #v-dj.lay-v .deck.B{grid-column:2;grid-row:1}
         #v-dj.lay-v .knobs{grid-template-columns:repeat(3,minmax(0,1fr))}
-        #v-dj.lay-v canvas.jog{width:min(200px,80%)}
+        #v-dj.lay-v .dmain canvas.jog{width:min(100%,clamp(110px,22vh,190px)) !important}
         #v-dj .deck{background:linear-gradient(160deg,#16233d,#0b1220);border:1px solid var(--dl);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
         #v-dj .deck.A{box-shadow:inset 0 0 0 1px #5cf2ff33}#v-dj .deck.B{box-shadow:inset 0 0 0 1px #ff5ca833}
         #v-dj .dhead{display:flex;align-items:center;gap:8px;min-width:0}
@@ -1544,7 +1545,36 @@ body.layout-atv .rail{display:none}
         #v-dj .dtit small{opacity:.65;font-variant-numeric:tabular-nums}
         #v-dj .dbpm{font:700 22px system-ui;font-variant-numeric:tabular-nums;text-align:right;line-height:1}
         #v-dj .dbpm small{display:block;font:600 11px system-ui;opacity:.6}
-        #v-dj .jogw{display:flex;justify-content:center}
+        #v-dj .jogw{display:flex;justify-content:center;align-items:center;min-width:0}
+        /* v570: compacto para o ecrã do Tesla */
+        #v-dj .deck{padding:10px !important;gap:6px !important}
+        #v-dj .dhead{gap:6px}
+        #v-dj .dbtn{min-height:42px;min-width:42px;padding:0 10px;font-size:14px}
+        #v-dj .dbtn.big{min-width:0;font-size:18px}
+        #v-dj .dbtn.sm{min-height:36px;min-width:36px;padding:0 8px;font-size:13px}
+        #v-dj canvas.wf{height:46px !important}
+        #v-dj .dmain{display:grid;grid-template-columns:minmax(0,1fr) minmax(96px,34%);gap:8px;align-items:center}
+        #v-dj .dtr{display:grid;grid-template-columns:1fr;gap:6px}
+        #v-dj .dtr .dbtn{width:100%}
+        #v-dj .dmain canvas.jog{width:min(100%,clamp(120px,27vh,210px)) !important}
+        #v-dj .dtabs{display:flex;gap:4px;border-bottom:1px solid var(--dl)}
+        #v-dj .dtab{flex:1;min-height:36px;border:0;border-radius:10px 10px 0 0;background:transparent;color:inherit;opacity:.6;font:700 13px system-ui;cursor:pointer}
+        #v-dj .dtab.on{opacity:1;background:#ffffff12;box-shadow:inset 0 -2px 0 var(--acc)}
+        #v-dj .dpan{display:flex;flex-direction:column;gap:6px;min-height:90px}
+        #v-dj .dpan[hidden]{display:none}
+        #v-dj .dpan .drow{flex-wrap:nowrap;gap:4px}
+        #v-dj .dpan .dbtn{flex:1 1 0;min-width:0;padding:0 4px}
+        #v-dj .dpan .spacer{flex:.3 1 0 !important}
+        #v-dj .djgrid{grid-template-columns:minmax(0,1fr) 190px minmax(0,1fr)}
+        #v-dj .djtop{margin-bottom:6px !important}
+        #v-dj .djtop h1{font-size:24px}
+        #v-dj #djHint{display:none}
+        #v-dj .djmix{padding:10px !important;gap:8px !important}
+        #v-dj .djmix>p{display:none}
+        #v-dj .faders{height:150px !important}
+        #v-dj .vf input,#v-dj .vu{height:110px !important}
+        #v-dj canvas.spec{height:48px !important}
+        #v-dj .djfit{transform-origin:0 0}
         #v-dj canvas.jog{width:min(220px,62%);aspect-ratio:1/1;touch-action:none;cursor:grab;border-radius:50%;filter:drop-shadow(0 10px 20px #000a)}
         #v-dj canvas.jog.hold{cursor:grabbing}
         #v-dj canvas.wf{width:100%;height:70px;border-radius:10px;background:#050a12;cursor:pointer;touch-action:none}
@@ -1575,7 +1605,7 @@ body.layout-atv .rail{display:none}
         #v-dj .djlist button{min-height:52px;text-align:left;padding:8px 10px;border-radius:12px;border:1px solid var(--dl);background:#ffffff0a;color:inherit;font:600 14px system-ui;cursor:pointer}
         #v-dj .djlist small{display:block;opacity:.6;font-weight:500}
       </style>
-      <div class="djtop"><h1>DJ</h1><span class="small muted" id="djHint">Carrega uma música em cada deck e mistura com o crossfader.</span><span class="spacer"></span>
+      <div class="djfit"><div class="djtop"><h1>DJ</h1><span class="small muted" id="djHint">Carrega uma música em cada deck e mistura com o crossfader.</span><span class="spacer"></span>
         <button class="dbtn" data-lay="h" title="Disposição horizontal">⇆ Horizontal</button><button class="dbtn" data-lay="v" title="Disposição vertical">⇅ Vertical</button>
         <button class="dbtn" id="djRec">⏺ Gravar mistura</button></div>
       <div class="djgrid">
@@ -1596,7 +1626,7 @@ body.layout-atv .rail{display:none}
           <p class="small muted" style="margin:0">Prato: arrasta no centro para scratch; na borda acerta o ritmo. Sync acerta o tempo deste deck pelo outro. Toca na onda para saltar; os pontos 1–4 guardam sítios da música (toque longo apaga).</p>
         </div>
         <div class="deck B" data-d="1"></div>
-      </div>
+      </div></div>
       <div class="djsrc" id="djSrc" hidden><div class="box">
         <div class="row"><b id="djSrcT">Carregar no deck</b><span class="spacer"></span><button class="dbtn" id="djSrcX">✕</button></div>
         <b class="small">Procurar música</b>
@@ -2447,6 +2477,7 @@ function show(view){
   if(view==="tempo" && typeof tempoEnter === "function") tempoEnter();
   if(view==="dash" && typeof dashEnter === "function") dashEnter();
   if(view==="engine" && typeof engUi === "function") engUi();
+  if(view==="dj") setTimeout(() => window.__djFit && window.__djFit(), 60);
   if(view==="tv" && typeof tvLockUi === "function") tvLockUi();
   if(view==="media" && typeof mediaLockUi === "function") mediaLockUi();
   if(view==="nav" && typeof nvEnsureMap === "function") nvEnsureMap().then(()=>{ if(!nv.r) nvRenderSugg([]); });
@@ -3572,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v569";
+const APP_VERSION = "v570";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8612,7 +8643,7 @@ function openApp(id){
   if(id === "saver"){ show("saverCfg"); return true; }
   if(id === "ipma"){ show("tempo"); return true; }
   if(id === "engine"){ show("engine"); return true; }
-  if(id === "dj"){ show("dj"); return true; }
+  if(id === "dj"){ show("dj"); setTimeout(() => window.__djFit && window.__djFit(), 50); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
@@ -20926,16 +20957,20 @@ html.nightUi #ambient{filter:brightness(.75)}
     constructor(i){ this.i = i; this.el = V.querySelector('.deck[data-d="' + i + '"]'); this.buf = null; this.src = null; this.playing = false; this.pos = 0; this.t0 = 0; this.p0 = 0; this.rate = 1; this.pitch = 0; this.bend = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0; this.bpm = 0; this.beat0 = 0; this.name = ""; this.vol = .85; this.render(); }
     render(){
       const L = "AB"[this.i];
-      this.el.innerHTML = '<div class="dhead"><span class="dlet">' + L + '</span><div class="dtit"><b data-r="tit">Sem música</b><small data-r="time">0:00 / 0:00</small></div><div class="dbpm"><span data-r="bpm">—</span><small>BPM</small></div></div>' +
-        '<div class="drow" style="gap:4px"><button class="dbtn" data-a="tap" title="Toca 4 vezes no ritmo">TAP</button><button class="dbtn" data-a="half">½</button><button class="dbtn" data-a="dbl">×2</button><span class="small muted" data-r="tapH" style="margin-left:4px"></span></div>' +
-        '<canvas class="wf" data-r="wf" width="800" height="140"></canvas><div class="ytbox" data-r="ytbox" hidden></div>' +
-        '<div class="jogw"><canvas class="jog" data-r="jog" width="440" height="440" aria-label="Prato do deck ' + L + ': arrasta no centro para scratch, na borda para acertar o ritmo"></canvas></div>' +
-        '<div class="drow"><button class="dbtn" data-a="load">⏏ Carregar</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn big" data-a="play">▶</button><button class="dbtn" data-a="sync">SYNC</button></div>' +
-        '<div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4">Loop 4</button><button class="dbtn" data-lp="8">8</button><button class="dbtn" data-a="lhalf" title="Loop a metade">½</button><button class="dbtn" data-a="ldbl" title="Loop a dobrar">×2</button></div>' +
-        '<div class="drow"><button class="dbtn" data-a="jb" title="Saltar 4 batidas para trás">⏮ 4</button><button class="dbtn" data-a="jf" title="Saltar 4 batidas para a frente">4 ⏭</button><span class="small muted" style="margin:0 2px">Roll</span><button class="dbtn" data-roll=".25">¼</button><button class="dbtn" data-roll=".5">½</button><button class="dbtn" data-roll="1">1</button></div>' +
-        '<div class="pitch"><button class="dbtn" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn" data-a="bup">+</button></div>' +
-        '<div class="knobs">' + [["gain", "Ganho", -12, 12, 0], ["hi", "Agudos", -26, 6, 0], ["mid", "Médios", -26, 6, 0], ["lo", "Graves", -26, 6, 0], ["flt", "Filtro", -100, 100, 0]].map(k => '<label class="kn"><span>' + k[1] + '</span><input type="range" min="' + k[2] + '" max="' + k[3] + '" value="' + k[4] + '" data-k="' + k[0] + '"><output data-o="' + k[0] + '">0</output></label>').join("") + '</div>' +
-        '<div class="fxrow"><select class="fx" data-r="fx" aria-label="Efeito"><option value="echo">Eco ½ batida</option><option value="rev">Reverb</option><option value="fla">Flanger</option><option value="crush">Bitcrusher</option></select><label class="kn"><span>Efeito</span><input type="range" min="0" max="100" value="0" data-k="echo"><output data-o="echo">0</output></label><button class="dbtn" data-a="kill" title="Cortar os graves">✂ Graves</button></div>';
+      /* v570: disposição compacta para o ecrã do Tesla: prato ao lado dos comandos principais; EQ, efeitos e loops em separadores */
+      this.el.innerHTML = '<div class="dhead"><span class="dlet">' + L + '</span><div class="dtit"><b data-r="tit">Sem música</b><small data-r="time">0:00 / 0:00</small></div>' +
+          '<button class="dbtn sm" data-a="tap" title="Toca 4 vezes no ritmo">TAP</button><button class="dbtn sm" data-a="half">½</button><button class="dbtn sm" data-a="dbl">×2</button><div class="dbpm"><span data-r="bpm">—</span><small>BPM</small></div></div>' +
+        '<span class="small muted" data-r="tapH" style="display:none"></span>' +
+        '<canvas class="wf" data-r="wf" width="800" height="110"></canvas><div class="ytbox" data-r="ytbox" hidden></div>' +
+        '<div class="dmain"><div class="jogw"><canvas class="jog" data-r="jog" width="440" height="440" aria-label="Prato do deck ' + L + ': arrasta no centro para scratch, na borda para acertar o ritmo"></canvas></div>' +
+          '<div class="dtr"><button class="dbtn big" data-a="play">▶</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn" data-a="sync">SYNC</button><button class="dbtn" data-a="load">⏏ Carregar</button></div></div>' +
+        '<div class="pitch"><button class="dbtn sm" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn sm" data-a="bup">+</button></div>' +
+        '<div class="dtabs"><button class="dtab on" data-tab="loop">Pontos e loops</button><button class="dtab" data-tab="eq">EQ</button><button class="dtab" data-tab="fx">Efeitos</button></div>' +
+        '<div class="dpan" data-pan="loop"><div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4" title="Loop de 4 batidas">↻4</button><button class="dbtn" data-lp="8" title="Loop de 8 batidas">↻8</button><button class="dbtn" data-a="lhalf" title="Loop a metade">½</button><button class="dbtn" data-a="ldbl" title="Loop a dobrar">×2</button></div>' +
+          '<div class="drow"><button class="dbtn" data-a="jb" title="Saltar 4 batidas para trás">⏮ 4</button><button class="dbtn" data-a="jf" title="Saltar 4 batidas para a frente">4 ⏭</button><span class="spacer" style="flex:1"></span><span class="small muted" style="margin:0 2px">Roll</span><button class="dbtn" data-roll=".25">¼</button><button class="dbtn" data-roll=".5">½</button><button class="dbtn" data-roll="1">1</button></div></div>' +
+        '<div class="dpan" data-pan="eq" hidden><div class="knobs">' + [["gain", "Ganho", -12, 12, 0], ["hi", "Agudos", -26, 6, 0], ["mid", "Médios", -26, 6, 0], ["lo", "Graves", -26, 6, 0], ["flt", "Filtro", -100, 100, 0]].map(k => '<label class="kn"><span>' + k[1] + '</span><input type="range" min="' + k[2] + '" max="' + k[3] + '" value="' + k[4] + '" data-k="' + k[0] + '"><output data-o="' + k[0] + '">0</output></label>').join("") + '</div></div>' +
+        '<div class="dpan" data-pan="fx" hidden><div class="fxrow"><select class="fx" data-r="fx" aria-label="Efeito"><option value="echo">Eco ½ batida</option><option value="rev">Reverb</option><option value="fla">Flanger</option><option value="crush">Bitcrusher</option></select><label class="kn"><span>Efeito</span><input type="range" min="0" max="100" value="0" data-k="echo"><output data-o="echo">0</output></label><button class="dbtn" data-a="kill" title="Cortar os graves">✂ Graves</button></div></div>';
+      this.el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { this.el.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b)); this.el.querySelectorAll("[data-pan]").forEach(p => p.hidden = p.dataset.pan !== b.dataset.tab); if(window.__djFit) window.__djFit(); });
       this.r = k => this.el.querySelector('[data-r="' + k + '"]');
       this.el.addEventListener("click", e => this.onClick(e));
       this.el.querySelectorAll("[data-k]").forEach(x => x.oninput = () => this.knob(x.dataset.k, +x.value));
@@ -21071,8 +21106,8 @@ html.nightUi #ambient{filter:brightness(.75)}
       else if(a === "lhalf" || a === "ldbl"){ if(!this.loop || this.loop === 99) return; const L = (this.loopEnd - this.loopStart) * (a === "lhalf" ? .5 : 2); if(L < .05 || this.loopStart + L > this.buf.duration) return; this.loopEnd = this.loopStart + L; this.loop = Math.max(1, Math.round(this.loop * (a === "lhalf" ? .5 : 2))); const p = this.curPos(); if(this.playing) this.startAt(p > this.loopEnd ? this.loopStart : p); this.paintLoop(); }
       else if(a === "half" || a === "dbl"){ if(!this.bpm) return; this.bpm = Math.round(this.bpm * (a === "half" ? .5 : 2) * 10) / 10; this.showBpm(); this.dly.delayTime.value = Math.min(2, 30 / this.bpm); }
       else if(a === "tap"){ const now = performance.now(); this.taps = (this.taps || []).filter(x => now - x < 3000); this.taps.push(now);
-        if(this.taps.length >= 4){ const iv = (this.taps[this.taps.length - 1] - this.taps[0]) / (this.taps.length - 1); this.bpm = Math.round(60000 / iv / (1 + this.pitch) * 10) / 10; this.showBpm(); this.dly.delayTime.value = Math.min(2, 30 / this.bpm); if(this.playing) this.beat0 = this.curPos() % (60 / this.bpm); this.r("tapH").textContent = "tempo acertado à mão"; }
-        else this.r("tapH").textContent = "toca mais " + (4 - this.taps.length) + "×"; }
+        if(this.taps.length >= 4){ const iv = (this.taps[this.taps.length - 1] - this.taps[0]) / (this.taps.length - 1); this.bpm = Math.round(60000 / iv / (1 + this.pitch) * 10) / 10; this.showBpm(); this.dly.delayTime.value = Math.min(2, 30 / this.bpm); if(this.playing) this.beat0 = this.curPos() % (60 / this.bpm); this.r("tapH").textContent = "tempo acertado à mão"; toast("Deck " + "AB"[this.i] + ": tempo acertado à mão (" + this.bpm + " BPM)."); }
+        else { this.r("tapH").textContent = "toca mais " + (4 - this.taps.length) + "×"; this.el.querySelector('[data-a="tap"]').textContent = "TAP " + this.taps.length; setTimeout(() => { const b = this.el.querySelector('[data-a="tap"]'); if(b) b.textContent = "TAP"; }, 3000); } }
       else if(a === "bup" || a === "bdn"){ this.rebase(); this.bend = a === "bup" ? .04 : -.04; this.rebase(); setTimeout(() => { this.rebase(); this.bend = 0; this.rebase(); }, 350); }
       else if(a === "kill"){ const k = this.el.querySelector('[data-k="lo"]'); k.value = +k.value <= -26 ? 0 : -26; this.knob("lo", +k.value); }
       else if(b.dataset.hc != null){ const i = +b.dataset.hc; if(!this.buf) return; if(this.hot[i] == null){ this.hot[i] = this.curPos(); this.paintHot(); } else { if(this.playing) this.startAt(this.hot[i]); else { this.pos = this.hot[i]; this.startAt(this.pos); } } }
@@ -21117,7 +21152,13 @@ html.nightUi #ambient{filter:brightness(.75)}
     const beats = 16, secs = (A.bpm ? 60 / (A.bpm * (1 + A.pitch)) : .5) * beats, v0 = +x.value, v1 = to ? 100 : 0, t0 = performance.now(); $d("#djAuto").classList.add("on");
     const step = () => { const k = Math.min(1, (performance.now() - t0) / 1000 / secs); x.value = v0 + (v1 - v0) * k; D.forEach(d => d.applyX()); if(k < 1) autoT = requestAnimationFrame(step); else { autoT = null; $d("#djAuto").classList.remove("on"); if(A.playing) A.play(); } };
     autoT = requestAnimationFrame(step); toast("Auto-mistura para o deck " + "AB"[to] + " em " + beats + " batidas."); };
-  const setLay = m => { LS.set("djLay", m); const v = m === "v" || (m === "auto" && innerWidth < 1000); V.classList.toggle("lay-v", v); V.classList.toggle("lay-h", !v); V.querySelectorAll("[data-lay]").forEach(b => b.classList.toggle("on", b.dataset.lay === (v ? "v" : "h"))); };
+  /* v570: cabe sempre no ecrã (Tesla em ecrã inteiro ou meia janela): se a altura não chega, reduz tudo por igual */
+  const fit = () => { const inner = $d(".djfit"); if(!inner || V.hidden) return; inner.style.transform = ""; inner.style.width = ""; V.style.height = "";
+    const top = V.getBoundingClientRect().top, avail = innerHeight - Math.max(0, top) - 12; let h = inner.scrollHeight, s = Math.min(1, avail / h);
+    if(s < 1){ for(let k = 0; k < 3; k++){ inner.style.width = (100 / s) + "%"; h = inner.scrollHeight; s = Math.max(.55, Math.min(1, avail / h)); } inner.style.transform = "scale(" + s + ")"; V.style.height = Math.ceil(h * s) + "px"; V.style.overflow = "hidden"; } else { V.style.overflow = ""; } };
+  window.__djFit = () => requestAnimationFrame(fit);
+  addEventListener("resize", () => window.__djFit());
+  const setLay = m => { LS.set("djLay", m); const v = m === "v" || (m === "auto" && (innerWidth < 1050 || innerWidth / innerHeight < 1.25)); V.classList.toggle("lay-v", v); V.classList.toggle("lay-h", !v); V.querySelectorAll("[data-lay]").forEach(b => b.classList.toggle("on", b.dataset.lay === (v ? "v" : "h"))); window.__djFit(); };
   V.querySelectorAll("[data-lay]").forEach(b => b.onclick = () => setLay(b.dataset.lay));
   setLay(LS.get("djLay", "auto")); addEventListener("resize", () => { if(LS.get("djLay", "auto") === "auto") setLay("auto"); });
   /* gravação da mistura (WebM/Opus), descarrega no fim */
