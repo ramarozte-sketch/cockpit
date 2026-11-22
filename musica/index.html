@@ -20,7 +20,8 @@
   input[type=number],input[type=range],select{min-height:40px;border:1px solid var(--line);border-radius:10px;background:#0b0f14;color:var(--txt);padding:0 8px;font:15px system-ui}
   input[type=range]{padding:0;accent-color:var(--acc)}
   .small{font-size:12px;color:var(--mut)}
-  .grid{overflow-x:auto}
+  .grid{overflow-x:auto;user-select:none;-webkit-user-select:none}
+  .cell{touch-action:none}
   .row{display:grid;grid-template-columns:260px repeat(16,minmax(30px,1fr));gap:4px;align-items:center;margin-bottom:4px;min-width:820px}
   .lbl{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--mut);flex-wrap:wrap}
   .lbl b{color:var(--txt);font-size:14px;width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -184,6 +185,23 @@
     playing = true; cur = 0; chainPos = 0; nextT = c.currentTime + .05; timer = setInterval(tick, 25); $("#play").classList.add("on"); }
   function stop(){ playing = false; clearInterval(timer); timer = null; showNow(-1); $("#play").classList.remove("on"); }
 
+  // Arrasto para pintar: liga ou desliga os passos por onde o dedo passa
+  let drag = null;
+  function applyPaint(el){
+    if(!drag || !el || !el.dataset || !el.dataset.t) return;
+    const tr = TRACKS.find(x => x.id === el.dataset.t), s = +el.dataset.s, p = pats[pat];
+    if(!tr || s >= steps) return;
+    const v = drag.on ? (isNoteTrack(tr) ? p.notes[tr.id] : 1) : 0;
+    if(!!p.grid[tr.id][s] === !!v) return;
+    p.grid[tr.id][s] = v;
+    el.classList.toggle("hit", !!v); el.classList.toggle("note", !!v && isNoteTrack(tr));
+    el.textContent = v && isNoteTrack(tr) && v > 1 ? noteName(v).replace(/-?\d+$/, "") : "";
+  }
+  document.addEventListener("pointermove", e => { if(!drag) return; const el = document.elementFromPoint(e.clientX, e.clientY); applyPaint(el && el.closest ? el.closest(".cell") : null); });
+  const endDrag = () => { if(drag){ drag = null; render(); } };
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
+
   function render(){
     const g = $("#grid"); g.innerHTML = ""; $("#steps").textContent = "Passos: " + steps; $("#steps").classList.toggle("on", steps === 32);
     const p = pats[pat];
@@ -211,10 +229,13 @@
       for(let s = 0; s < steps; s++){
         const c = document.createElement("button"), val = p.grid[tr.id][s], on = !!val;
         c.className = "cell" + (s % 4 === 0 ? " beat" : "") + (on ? " hit" : "") + (on && isNoteTrack(tr) ? " note" : "");
-        c.dataset.s = s;
+        c.dataset.s = s; c.dataset.t = tr.id;
         if(on && isNoteTrack(tr) && val > 1){ c.textContent = noteName(val).replace(/-?\d+$/, ""); c.style.fontSize = "11px"; }
         // Clique liga/desliga; Shift+clique sobe um semitom a nota deste passo (nos baixos e sintetizadores)
-        c.onclick = e => { if(e.shiftKey && on && isNoteTrack(tr)){ p.grid[tr.id][s] = val >= 72 ? 24 : val + 1; } else { p.grid[tr.id][s] = on ? 0 : (isNoteTrack(tr) ? p.notes[tr.id] : 1); } render(); audio(); };
+        // Toque/arrasto: o primeiro passo decide se se liga ou desliga, e o arrasto pinta os seguintes
+        c.onpointerdown = e => { if(e.button && e.button !== 0) return; e.preventDefault(); audio();
+          if(e.shiftKey && on && isNoteTrack(tr)){ p.grid[tr.id][s] = val >= 72 ? 24 : val + 1; render(); return; }
+          drag = {on: !on}; applyPaint(c); };
         row.appendChild(c);
       }
       g.appendChild(row);
