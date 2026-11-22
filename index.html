@@ -1400,6 +1400,9 @@ body.layout-atv .rail{display:none}
         <button class="apptile" data-app="saver">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l3-6h12l3 6z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></span>
           <b>Protetor</b><span>Modelo 3D do carro em rotação</span></button>
+        <button class="apptile" data-app="dj">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><circle cx="7" cy="12" r="1"/><circle cx="17" cy="12" r="1"/><path d="M11 6h2M12 6v12"/></svg></span>
+          <b>DJ</b><span>Dois decks, mesa de mistura e gravação</span></button>
         <button class="apptile" data-app="engine">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v5M6 8h3l1-2h5v2h2l2 2v6h-3l-1 2H8l-2-2H6"/><path d="M21 12v3"/></svg></span>
           <b>Motor</b><span>Som de motor com os dados do carro</span></button>
@@ -1498,6 +1501,74 @@ body.layout-atv .rail{display:none}
     </section>
 
     <!-- MOTOR -->
+    <section class="view" id="v-dj" hidden>
+      <style>
+        #v-dj{--dA:#5cf2ff;--dB:#ff5ca8;--dk:#0e1626;--dl:#ffffff14}
+        #v-dj .djtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+        #v-dj .djtop h1{margin:0}
+        #v-dj .djgrid{display:grid;grid-template-columns:minmax(0,1fr) 210px minmax(0,1fr);gap:10px;align-items:start}
+        @media (max-width:980px){#v-dj .djgrid{grid-template-columns:1fr}#v-dj .djmix{order:3}}
+        #v-dj .deck{background:linear-gradient(160deg,#16233d,#0b1220);border:1px solid var(--dl);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+        #v-dj .deck.A{box-shadow:inset 0 0 0 1px #5cf2ff33}#v-dj .deck.B{box-shadow:inset 0 0 0 1px #ff5ca833}
+        #v-dj .dhead{display:flex;align-items:center;gap:8px;min-width:0}
+        #v-dj .dlet{font:800 22px system-ui;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#03121a;flex:none}
+        #v-dj .A .dlet{background:var(--dA)}#v-dj .B .dlet{background:var(--dB)}
+        #v-dj .dtit{flex:1;min-width:0}#v-dj .dtit b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #v-dj .dtit small{opacity:.65;font-variant-numeric:tabular-nums}
+        #v-dj .dbpm{font:700 22px system-ui;font-variant-numeric:tabular-nums;text-align:right;line-height:1}
+        #v-dj .dbpm small{display:block;font:600 11px system-ui;opacity:.6}
+        #v-dj canvas.wf{width:100%;height:70px;border-radius:10px;background:#050a12;cursor:pointer;touch-action:none}
+        #v-dj .drow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+        #v-dj .dbtn{min-height:46px;min-width:46px;padding:0 12px;border-radius:12px;border:1px solid var(--dl);background:#ffffff0d;color:inherit;font:700 15px system-ui;cursor:pointer;touch-action:manipulation}
+        #v-dj .dbtn.big{min-width:64px;font-size:18px}
+        #v-dj .dbtn.on{background:var(--acc);color:#03121a;border-color:transparent}
+        #v-dj .A{--acc:var(--dA)}#v-dj .B{--acc:var(--dB)}
+        #v-dj .hc{min-width:52px}#v-dj .hc.set{background:#ffffff22;border-color:var(--acc);color:var(--acc)}
+        #v-dj .knobs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+        #v-dj .kn{display:flex;flex-direction:column;align-items:center;gap:2px;font:600 11px system-ui;opacity:.9}
+        #v-dj .kn input{width:100%;accent-color:var(--acc)}
+        #v-dj .kn output{font-variant-numeric:tabular-nums;opacity:.7}
+        #v-dj .pitch{display:flex;align-items:center;gap:8px;font:600 12px system-ui}
+        #v-dj .pitch input{flex:1;accent-color:var(--acc)}
+        #v-dj .djmix{background:linear-gradient(180deg,#141d31,#0a0f1b);border:1px solid var(--dl);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:10px;align-items:stretch}
+        #v-dj .faders{display:flex;justify-content:space-around;align-items:flex-end;gap:8px;height:190px}
+        #v-dj .vf{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;font:700 12px system-ui}
+        #v-dj .vf input{writing-mode:vertical-lr;direction:rtl;height:140px;width:34px}
+        #v-dj .vu{width:10px;height:140px;border-radius:5px;background:#ffffff12;position:relative;overflow:hidden}
+        #v-dj .vu i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(0deg,#3ddc97,#ffcc33 70%,#ff4d6d)}
+        #v-dj .xf{display:flex;align-items:center;gap:8px;font:800 14px system-ui}
+        #v-dj .xf input{flex:1;height:34px}
+        #v-dj .djsrc{position:fixed;inset:0;background:#000b;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px}
+        #v-dj .djsrc[hidden]{display:none}
+        #v-dj .djsrc .box{background:#101a2b;border:1px solid var(--dl);border-radius:18px;padding:14px;width:min(560px,100%);max-height:86vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+        #v-dj .djlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+        #v-dj .djlist button{min-height:52px;text-align:left;padding:8px 10px;border-radius:12px;border:1px solid var(--dl);background:#ffffff0a;color:inherit;font:600 14px system-ui;cursor:pointer}
+        #v-dj .djlist small{display:block;opacity:.6;font-weight:500}
+      </style>
+      <div class="djtop"><h1>DJ</h1><span class="small muted" id="djHint">Carrega uma música em cada deck e mistura com o crossfader.</span><span class="spacer"></span>
+        <button class="dbtn" id="djRec">⏺ Gravar mistura</button></div>
+      <div class="djgrid">
+        <div class="deck A" data-d="0"></div>
+        <div class="djmix">
+          <div class="faders">
+            <div class="vf"><span style="color:var(--dA)">A</span><input type="range" min="0" max="100" value="85" data-ch="0" aria-label="Volume do deck A"></div>
+            <div class="vu"><i id="djVu0"></i></div><div class="vu"><i id="djVu1"></i></div>
+            <div class="vf"><span style="color:var(--dB)">B</span><input type="range" min="0" max="100" value="85" data-ch="1" aria-label="Volume do deck B"></div>
+          </div>
+          <div class="xf"><span style="color:var(--dA)">A</span><input type="range" id="djX" min="0" max="100" value="50" aria-label="Crossfader"><span style="color:var(--dB)">B</span></div>
+          <div class="drow" style="justify-content:center"><button class="dbtn" id="djXc">Centrar</button></div>
+          <div class="kn" style="opacity:1"><span>Master</span><input type="range" id="djMaster" min="0" max="120" value="90"><output id="djMasterV">90 %</output></div>
+          <p class="small muted" style="margin:0">Sync acerta o tempo deste deck pelo outro. Toca na onda para saltar; os pontos 1–4 guardam sítios da música (toque longo apaga).</p>
+        </div>
+        <div class="deck B" data-d="1"></div>
+      </div>
+      <div class="djsrc" id="djSrc" hidden><div class="box">
+        <div class="row"><b id="djSrcT">Carregar no deck</b><span class="spacer"></span><button class="dbtn" id="djSrcX">✕</button></div>
+        <b class="small">Batidas da app (originais, livres)</b><div class="djlist" id="djLoops"></div>
+        <b class="small">A minha pasta MEGA de música</b><div class="drow"><button class="dbtn" id="djMega">📂 Abrir pasta</button><button class="dbtn" id="djMegaL">🔗 Link</button></div><div class="djlist" id="djMegaList"></div>
+        <b class="small">Ficheiro ou link</b><div class="drow"><label class="dbtn" style="display:inline-flex;align-items:center">📁 Ficheiro deste aparelho<input type="file" id="djFile" accept="audio/*" hidden></label><button class="dbtn" id="djUrl">🔗 Link direto (.mp3)</button></div>
+      </div></div>
+    </section>
     <section class="view" id="v-engine" hidden>
       <div class="row"><h1>Motor</h1><span class="spacer"></span><button class="btn" id="engToggle">▶ Ligar motor</button></div>
       <div class="panel">
@@ -2314,7 +2385,7 @@ function show(view){
   if(view!=="tv" && document.querySelector(".app").classList.contains("cinema")) setCinema(false);
   if(currentView === "web" && view !== "web") $("webFrame").src = "about:blank";
   if(currentView === "games" && view !== "games" && typeof gmExit === "function") gmExit();
-  const order = ["atv","home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","news","tempo","dash","saverCfg","engine","web","notes","mail","net","settings","launcher"];
+  const order = ["atv","home","car","energy","voice","tv","media","apps","desktop","nav","chargers","games","pod","news","tempo","dash","saverCfg","engine","dj","web","notes","mail","net","settings","launcher"];
   const prev = currentView, changed = prev !== view;
   document.body.style.setProperty("--vdir", order.indexOf(view) >= order.indexOf(prev) ? 1 : -1);
   currentView = view;
@@ -2622,6 +2693,7 @@ const VOICE = [
   {d:{pt:"carregadores perto", en:"chargers nearby", fr:"bornes à proximité"}, re:[/\b(carregadores?|postos? de carregamento|superchargers?|chargers?|bornes?)\b/], run:()=>openApp("chargers")},
   {d:{pt:"podcast Governo Sombra", en:"podcast news", fr:"podcast actualités"}, re:[/\bpodcasts?\b\s*(.*)/], run:(m)=>{ openPodcasts(m[1]); return true; }},
   {d:{pt:"som do motor", en:"engine sound", fr:"son du moteur"}, re:[/\b(som|sound|son)\b.*\b(motor|engine|moteur)\b|\b(motor|engine|moteur)\b.*\b(som|sound|son)\b/], run:()=>{ show("engine"); return true; }},
+  {d:{pt:"abre o DJ", en:"open DJ", fr:"ouvre le DJ"}, re:[/\b(dj|mesa de mistura|misturar musica|mixar)\b/], run:()=>{ show("dj"); return true; }},
   {d:{pt:"abre os jogos", en:"open games", fr:"ouvre les jeux"}, re:[/\b(jogos?|games?|jeux)\b/], run:()=>openApp("games")},
   {d:{pt:"abre o Google Maps", en:"open Google Maps", fr:"ouvre Google Maps"}, re:[/google maps|\bmapas?\b|\bmaps\b/], run:()=>openApp("google_maps")},
   {d:{pt:"abre a NOS TV", en:"open NOS TV", fr:"ouvre NOS TV"}, re:[/\bnos tv\b|\bnostv\b/], run:()=>openApp("nos_tv")},
@@ -3461,7 +3533,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v562";
+const APP_VERSION = "v563";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8171,7 +8243,8 @@ const APPS = {
   spotify: {name:"Spotify", url:"https://open.spotify.com/", stream:true},
   news: {name:"Notícias", url:""},
   saver: {name:"Protetor", url:""},
-  engine: {name:"Motor", url:""}
+  engine: {name:"Motor", url:""},
+  dj: {name:"DJ", url:""}
 };
 if(cfg.appsIn === undefined) cfg.appsIn = true;
 const NOS_LOGIN = "https://login.nos.pt/authentication/login";
@@ -8500,6 +8573,7 @@ function openApp(id){
   if(id === "saver"){ show("saverCfg"); return true; }
   if(id === "ipma"){ show("tempo"); return true; }
   if(id === "engine"){ show("engine"); return true; }
+  if(id === "dj"){ show("dj"); return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
@@ -18957,6 +19031,18 @@ html.half #visKar .k1{font-size:19px}
     };
     const stopMic = () => { try{ if(S.mic){ S.mic.st.getTracks().forEach(t => t.stop()); S.mic = null; } }catch(e){} };
 
+    /* v563: tempo (BPM) por autocorrelação da força das entradas de som */
+    /* núcleo: x = força das entradas a R Hz → BPM ou 0 */
+    function bpmAC(x, R){
+      const N = x.length; let e0 = 0; for(let i = 0; i < N; i++) e0 += x[i] * x[i]; if(!e0) return [0, 0];
+      const L0 = Math.floor(R * 60 / 185), L1 = Math.ceil(R * 60 / 65), s = new Float32Array(L1 + 2);
+      for(let L = L0; L <= L1 + 1; L++){ let v = 0; for(let i = L; i < N; i++) v += x[i] * x[i - L]; s[L] = v / (N - L); }
+      let bl = 0, best = 0; for(let L = L0 + 1; L <= L1; L++){ if(s[L] < s[L - 1] || s[L] < s[L + 1]) continue; const bp = 60 * R / L, w = Math.exp(-0.5 * Math.pow(Math.log2(bp / 120) / 1.0, 2)); if(s[L] * w > best){ best = s[L] * w; bl = L; } }
+      if(!bl) return [0, 0];
+      const a = s[bl - 1], b = s[bl], c = s[bl + 1], den = a - 2 * b + c, off = den ? Math.max(-.5, Math.min(.5, .5 * (a - c) / den)) : 0;
+      let bp = 60 * R / (bl + off); while(bp < 78) bp *= 2; while(bp > 165) bp /= 2;   /* intervalo habitual dos DJs */
+      return [bp, s[bl] / (e0 / N)];
+    }
     /* --- níveis: graves, médios, agudos e batida --- */
     const levels = (now) => {
       let an = null;
@@ -18978,18 +19064,35 @@ html.half #visKar .k1{font-size:19px}
         b = avg(1, 8); m = avg(8, 60); t = avg(60, 200); spec = d;
         /* v293: o microfone apanha as colunas baixinho (e o carro tira-lhe o som que ele próprio toca): ganho automático para a batida ser detetada na mesma */
         if(S.mic && an === S.mic.an){ S.pk = Math.max((S.pk || 0.05) * 0.997, b, m, t); const k = Math.min(6, 0.45 / Math.max(S.pk, 0.04)); b = Math.min(1, b * k); m = Math.min(1, m * k); t = Math.min(1, t * k); }
-      } else {   /* ritmo simulado: 118 batidas por minuto, para nunca ficar parado */
+      } else if(S.src !== "auto"){   /* v563: sem som (rádio parada ou sem acesso ao som): tudo parado, sem batida inventada */
+        b = 0; m = 0; t = 0; if(!S.zeroSpec) S.zeroSpec = new Uint8Array(512); spec = S.zeroSpec;
+        if(!S.wave) S.wave = new Uint8Array(1024); S.wave.fill(128);
+      } else {   /* ritmo simulado (só quando escolhido): 118 batidas por minuto */
         const ph = (now / 1000) * (118 / 60), k = ph % 1; b = Math.max(0, 1 - k * 2.6) * 0.85 + 0.12; m = 0.35 + 0.25 * Math.sin(ph * Math.PI); t = 0.25 + 0.2 * Math.sin(ph * 4.1);
         spec = null; if(!S.fake) S.fake = new Uint8Array(512); for(let i = 0; i < 512; i++){ const f = i / 512; S.fake[i] = 255 * Math.max(0, (b * (1 - f) * 0.9 + m * Math.sin(f * 9 + ph) * 0.3 + t * f * 0.4) * (0.75 + 0.25 * Math.sin(i * 0.7 + now / 300))); } spec = S.fake;
         if(!S.wave) S.wave = new Uint8Array(1024); for(let i = 0; i < 1024; i++) S.wave[i] = 128 + 90 * b * Math.sin(i / 1024 * Math.PI * 6 + now / 120) * Math.sin(i / 1024 * Math.PI);
+      }
+      /* v563: BPM a sério: força das «entradas» de som nos graves/médios (fluxo espectral) dos últimos 8 s e autocorrelação
+         entre 70 e 180 BPM (com leve preferência perto de 120); só aparece com confiança e desaparece em silêncio */
+      if(an){
+        const d = S.data, lim = Math.min(d.length, 48); if(!S.prevD || S.prevD.length !== lim) S.prevD = new Uint8Array(lim);
+        let fl = 0, en = 0; for(let i = 1; i < lim; i++){ const df = d[i] - S.prevD[i]; if(df > 0) fl += df; en += d[i]; S.prevD[i] = d[i]; }
+        (S.onH = S.onH || []).push([now, fl]); while(S.onH.length && now - S.onH[0][0] > 8000) S.onH.shift();
+        if(en < lim * 6){ S.quiet = (S.quiet || 0) + 1; if(S.quiet > 90){ S.bpm = 0; S.onH = []; S.ivs = []; } } else S.quiet = 0;
+        if(S.onH.length > 120 && now - S.onH[0][0] > 5000 && (!S.acAt || now - S.acAt > 1000)){
+          S.acAt = now; const R = 100, t0 = S.onH[0][0], N = Math.floor((now - t0) / 1000 * R), x = new Float32Array(N); let j = 0;
+          for(let i = 0; i < N; i++){ const tt = t0 + i * 1000 / R; while(j < S.onH.length - 2 && S.onH[j + 1][0] < tt) j++; const A1 = S.onH[j], B1 = S.onH[j + 1] || A1, k = B1[0] > A1[0] ? Math.max(0, Math.min(1, (tt - A1[0]) / (B1[0] - A1[0]))) : 0; x[i] = A1[1] + (B1[1] - A1[1]) * k; }
+          let mu = 0; for(let i = 0; i < N; i++) mu += x[i]; mu /= N; for(let i = 0; i < N; i++) x[i] = Math.max(0, x[i] - mu);
+          const [bp, conf] = bpmAC(x, R); if(bp && conf > 0.18) S.bpm = Math.round(S.bpm ? S.bpm * 0.5 + bp * 0.5 : bp);
+        }
       }
       S.avgB = S.avgB * 0.94 + b * 0.06;
       if(b > S.avgB * 1.35 && b > 0.18 && now - S.lastBeat > 260){
         const iv = now - S.lastBeat; if(iv > 280 && iv < 1500){ (S.ivs = S.ivs || []).push(iv); if(S.ivs.length > 12) S.ivs.shift(); }
         S.lastBeat = now; S.beat = 1; S.beatN = (S.beatN || 0) + 1; } else S.beat *= 0.9;
       /* batidas por minuto: mediana dos últimos intervalos, dobrada/meia para ficar entre 70 e 180 */
-      if(S.ivs && S.ivs.length >= 5 && (!S.bpmAt || now - S.bpmAt > 1000)){ S.bpmAt = now; const so = S.ivs.slice().sort((x, y) => x - y); let bpm = 60000 / so[so.length >> 1]; while(bpm < 70) bpm *= 2; while(bpm > 180) bpm /= 2; S.bpm = Math.round(S.bpm ? S.bpm * 0.6 + bpm * 0.4 : bpm); }
-      if(!an){ S.bpm = 118; }
+      if(!an && S.src === "auto" && S.ivs && S.ivs.length >= 5 && (!S.bpmAt || now - S.bpmAt > 1000)){ S.bpmAt = now; const so = S.ivs.slice().sort((x, y) => x - y); let bpm = 60000 / so[so.length >> 1]; while(bpm < 70) bpm *= 2; while(bpm > 180) bpm /= 2; S.bpm = Math.round(S.bpm ? S.bpm * 0.6 + bpm * 0.4 : bpm); }
+      if(!an){ S.bpm = S.src === "auto" ? 118 : 0; S.onH = []; }
       return {b, m, t, spec};
     };
 
@@ -19194,7 +19297,7 @@ html.half #visKar .k1{font-size:19px}
             const yg = yc.getContext("2d"), st = S.on ? S.sty : "robo"; cv = yc; g = yg; g.fillStyle = "#05070d"; g.fillRect(0, 0, yc.width, yc.height);
             try{ (DRAW[st] || drawRobo)(L, now); }catch(e){} cv = cv0; g = g0; } } }catch(e){ cv = cv0; g = g0; }
       const hn = S.hint || (S.src === "auto" ? "Ritmo simulado (sem ouvir o som)." : ""); if(hn !== lastHint){ lastHint = hn; $v("visHint").textContent = hn; }
-      try{ const bt = S.bpm ? "♩ " + S.bpm + " BPM" : ""; if(bt !== S.bpmTxt){ S.bpmTxt = bt; $v("visBpm").textContent = bt; } }catch(e){}
+      try{ const bt = S.bpm ? "♩ " + S.bpm + " BPM" + (S.src === "auto" ? " (simulado)" : "") : ""; if(bt !== S.bpmTxt){ S.bpmTxt = bt; $v("visBpm").textContent = bt; } }catch(e){}
       try{ const WA = window.__wamp, ly = WA && WA.lyricNow ? WA.lyricNow() : null, k1 = ly ? ly.cur : "", k2 = ly ? ly.next : "";
         if(k1 !== S.k1 || k2 !== S.k2){ S.k1 = k1; S.k2 = k2; const K = $v("visKar"); K.querySelector(".k1").textContent = k1; K.querySelector(".k2").textContent = k2; K.classList.toggle("on", !!(k1 || k2)); K.classList.remove("pop"); void K.offsetWidth; if(k1) K.classList.add("pop"); } }catch(e){}
       if(wrap.classList.contains("party")){ try{ const WA = window.__wamp; let t1 = "", t2 = "";
@@ -20598,6 +20701,219 @@ html.nightUi #ambient{filter:brightness(.75)}
 })();
 </script>
 <script>
+</script>
+<script>
+/* ======================= v563: DJ — dois decks, mesa de mistura e gravação ======================= */
+(function(){
+  const V = document.getElementById("v-dj"); if(!V) return;
+  const $d = s => V.querySelector(s);
+  let ac = null, master = null, mAn = null, recDest = null;
+  const ensure = () => {
+    if(ac) { if(ac.state === "suspended") ac.resume(); return ac; }
+    const AC = window.AudioContext || window.webkitAudioContext; ac = new AC();
+    master = ac.createGain(); master.gain.value = .9;
+    const lim = ac.createDynamicsCompressor(); lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .002; lim.release.value = .1;
+    mAn = ac.createAnalyser(); mAn.fftSize = 1024;
+    master.connect(lim); lim.connect(mAn); mAn.connect(ac.destination);
+    recDest = ac.createMediaStreamDestination(); lim.connect(recDest);
+    D.forEach(dk => dk.build());
+    return ac;
+  };
+  /* ---------- tempo de um ficheiro (mesma ideia da animação: entradas de som + autocorrelação) ---------- */
+  function trackBpm(buf){
+    try{
+      /* entradas de som em 3 bandas (graves, médios, agudos), somadas; depois pontuação de cada tempo pela repetição
+         na batida, em 2, 4, 8 e 16 batidas (compassos), com leve preferência por 80–130 BPM */
+      const sr = buf.sampleRate, ch = buf.getChannelData(0), hop = Math.round(sr / 100), tot = Math.floor(ch.length / hop), N = Math.min(tot, 6000), st = Math.floor((tot - N) / 2);
+      const envs = [new Float32Array(N), new Float32Array(N), new Float32Array(N)], prev = [0, 0, 0];
+      let l1 = 0, l2 = 0; const a1 = Math.exp(-2 * Math.PI * 200 / sr), a2 = Math.exp(-2 * Math.PI * 2000 / sr);
+      for(let i = 0; i < N; i++){ const e = [0, 0, 0], o = (st + i) * hop;
+        for(let k = 0; k < hop; k++){ const s = ch[o + k]; l1 = a1 * l1 + (1 - a1) * s; l2 = a2 * l2 + (1 - a2) * s; e[0] += l1 * l1; e[1] += (l2 - l1) * (l2 - l1); e[2] += (s - l2) * (s - l2); }
+        for(let b = 0; b < 3; b++){ const v = Math.log(1 + 1000 * Math.sqrt(e[b] / hop)), d = v - prev[b]; envs[b][i] = d > 0 ? d : 0; prev[b] = v; } }
+      const env = new Float32Array(N); for(const E of envs){ let mx = 0; for(let i = 0; i < N; i++) if(E[i] > mx) mx = E[i]; if(mx) for(let i = 0; i < N; i++) env[i] += E[i] / mx; }
+      let mu = 0; for(let i = 0; i < N; i++) mu += env[i]; mu /= N; for(let i = 0; i < N; i++) env[i] = Math.max(0, env[i] - mu);
+      const R = 100, memo = {}, A = L => { const k = Math.round(L); if(k >= N - 10) return 0; if(memo[k] != null) return memo[k]; let v = 0; for(let i = k; i < N; i++) v += env[i] * env[i - k]; return memo[k] = v / (N - k); };
+      let best = 0, bb = 0;
+      for(let bpm = 70; bpm <= 180; bpm += .25){ const L = R * 60 / bpm, sc = A(L) + .8 * A(2 * L) + A(4 * L) + .6 * A(8 * L) + .5 * A(16 * L), w = Math.exp(-.5 * Math.pow(Math.log2(bpm / 105), 2)); if(sc * w > best){ best = sc * w; bb = bpm; } }
+      return Math.round(bb * 10) / 10;
+    }catch(e){ return 0; }
+  }
+  /* primeira batida forte (para o loop e o sync começarem no sítio certo) */
+  function firstBeat(buf){ const ch = buf.getChannelData(0), sr = buf.sampleRate, lim = Math.min(ch.length, sr * 20); let mx = 0; for(let i = 0; i < lim; i += 64) mx = Math.max(mx, Math.abs(ch[i])); for(let i = 0; i < lim; i += 64) if(Math.abs(ch[i]) > mx * .5) return i / sr; return 0; }
+  /* ---------- batidas originais geradas na app ---------- */
+  const LOOPS = [{n:"House", bpm:124, k:"house"}, {n:"Techno", bpm:128, k:"techno"}, {n:"Hip-hop", bpm:90, k:"hiphop"}, {n:"Funk", bpm:110, k:"funk"}, {n:"Drum & bass", bpm:172, k:"dnb"}, {n:"Reggaeton", bpm:96, k:"regg"}];
+  async function makeLoop(L){
+    const sr = 44100, beat = 60 / L.bpm, bars = 16, len = bars * 4 * beat, oc = new OfflineAudioContext(2, Math.ceil(sr * len), sr), out = oc.createGain(); out.gain.value = .8; out.connect(oc.destination);
+    const noise = oc.createBuffer(1, sr, sr); { const d = noise.getChannelData(0); for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const kick = t => { const o = oc.createOscillator(), g = oc.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12); g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(.001, t + .35); o.connect(g); g.connect(out); o.start(t); o.stop(t + .4); };
+    const nz = (t, d, f, v, type) => { const s = oc.createBufferSource(), b = oc.createBiquadFilter(), g = oc.createGain(); s.buffer = noise; b.type = type || "highpass"; b.frequency.value = f; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(b); b.connect(g); g.connect(out); s.start(t, Math.random() * .5); s.stop(t + d + .02); };
+    const snare = t => { nz(t, .18, 1500, .5, "bandpass"); const o = oc.createOscillator(), g = oc.createGain(); o.frequency.value = 190; g.gain.setValueAtTime(.35, t); g.gain.exponentialRampToValueAtTime(.001, t + .12); o.connect(g); g.connect(out); o.start(t); o.stop(t + .15); };
+    const hat = (t, open) => nz(t, open ? .22 : .05, 7000, open ? .22 : .16);
+    const clap = t => { for(const d of [0, .012, .024]) nz(t + d, .1, 1200, .35, "bandpass"); };
+    const roots = {house:[45, 45, 48, 43], techno:[40, 40, 40, 43], hiphop:[38, 41, 36, 43], funk:[40, 43, 45, 43], dnb:[38, 38, 41, 36], regg:[45, 41, 48, 43]}[L.k];
+    const bass = (t, m, d) => { const o = oc.createOscillator(), f = oc.createBiquadFilter(), g = oc.createGain(); o.type = "sawtooth"; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); f.type = "lowpass"; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(180, t + d); g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + d + .02); };
+    const stab = (t, m) => { for(const iv of [0, 3, 7]){ const o = oc.createOscillator(), g = oc.createGain(), f = oc.createBiquadFilter(); o.type = "square"; o.frequency.value = 440 * Math.pow(2, (m + 24 + iv - 69) / 12); f.type = "lowpass"; f.frequency.value = 2200; g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + .3); } };
+    for(let bar = 0; bar < bars; bar++){
+      const r = roots[bar % 4], b0 = bar * 4 * beat, intro = bar < 2;
+      for(let q = 0; q < 16; q++){
+        const t = b0 + q * beat / 4, k = L.k;
+        if(k === "house" || k === "techno"){ if(q % 4 === 0) kick(t); if(!intro && q % 4 === 2) hat(t, k === "house"); if(!intro && (q === 4 || q === 12)) clap(t); if(k === "techno" && q % 2 === 1 && !intro) hat(t, false); if(!intro && (q === 2 || q === 6 || q === 10 || q === 14)) bass(t, r, beat * .45); if(k === "house" && !intro && (q === 3 || q === 11)) stab(t, r); }
+        else if(k === "hiphop"){ if(q === 0 || q === 7 || q === 10) kick(t); if(q === 4 || q === 12) snare(t); if(q % 2 === 0) hat(t, false); if(!intro && (q === 0 || q === 10)) bass(t, r, beat * 1.2); }
+        else if(k === "funk"){ if(q === 0 || q === 6 || q === 10) kick(t); if(q === 4 || q === 12) snare(t); hat(t, q === 14); if(!intro && q % 3 === 0) bass(t, r + (q % 6 ? 12 : 0), beat * .3); if(!intro && (q === 2 || q === 9)) stab(t, r); }
+        else if(k === "dnb"){ if(q === 0 || q === 10) kick(t); if(q === 4 || q === 12) snare(t); if(q % 2 === 0) hat(t, false); if(!intro && (q === 0 || q === 8)) bass(t, r, beat * 1.6); }
+        else if(k === "regg"){ if(q % 4 === 0) kick(t); if(q === 3 || q === 6 || q === 11 || q === 14) snare(t); if(q % 2 === 0) hat(t, false); if(!intro && (q === 0 || q === 8)) bass(t, r, beat * 1.4); }
+      }
+    }
+    return oc.startRendering();
+  }
+  /* ---------- deck ---------- */
+  class Deck {
+    constructor(i){ this.i = i; this.el = V.querySelector('.deck[data-d="' + i + '"]'); this.buf = null; this.src = null; this.playing = false; this.pos = 0; this.t0 = 0; this.p0 = 0; this.rate = 1; this.pitch = 0; this.bend = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0; this.bpm = 0; this.beat0 = 0; this.name = ""; this.vol = .85; this.render(); }
+    render(){
+      const L = "AB"[this.i];
+      this.el.innerHTML = '<div class="dhead"><span class="dlet">' + L + '</span><div class="dtit"><b data-r="tit">Sem música</b><small data-r="time">0:00 / 0:00</small></div><div class="dbpm"><span data-r="bpm">—</span><small>BPM</small></div></div>' +
+        '<div class="drow" style="gap:4px"><button class="dbtn" data-a="tap" title="Toca 4 vezes no ritmo">TAP</button><button class="dbtn" data-a="half">½</button><button class="dbtn" data-a="dbl">×2</button><span class="small muted" data-r="tapH" style="margin-left:4px"></span></div>' +
+        '<canvas class="wf" data-r="wf" width="800" height="140"></canvas>' +
+        '<div class="drow"><button class="dbtn" data-a="load">⏏ Carregar</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn big" data-a="play">▶</button><button class="dbtn" data-a="sync">SYNC</button></div>' +
+        '<div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4">Loop 4</button><button class="dbtn" data-lp="8">8</button></div>' +
+        '<div class="pitch"><button class="dbtn" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn" data-a="bup">+</button></div>' +
+        '<div class="knobs">' + [["gain", "Ganho", -12, 12, 0], ["hi", "Agudos", -26, 6, 0], ["mid", "Médios", -26, 6, 0], ["lo", "Graves", -26, 6, 0], ["flt", "Filtro", -100, 100, 0]].map(k => '<label class="kn"><span>' + k[1] + '</span><input type="range" min="' + k[2] + '" max="' + k[3] + '" value="' + k[4] + '" data-k="' + k[0] + '"><output data-o="' + k[0] + '">0</output></label>').join("") + '</div>' +
+        '<div class="drow"><label class="kn" style="flex:1"><span>Eco (meia batida)</span><input type="range" min="0" max="80" value="0" data-k="echo"><output data-o="echo">0</output></label><button class="dbtn" data-a="kill" title="Cortar os graves">✂ Graves</button></div>';
+      this.r = k => this.el.querySelector('[data-r="' + k + '"]');
+      this.el.addEventListener("click", e => this.onClick(e));
+      this.el.querySelectorAll("[data-k]").forEach(x => x.oninput = () => this.knob(x.dataset.k, +x.value));
+      this.r("pitch").oninput = e => { this.setPitch(+e.target.value / 1000); };
+      this.r("pitch").ondblclick = () => { this.r("pitch").value = 0; this.setPitch(0); };
+      /* pontos: toque longo apaga */
+      this.el.querySelectorAll("[data-hc]").forEach(b => { let tm = null; b.addEventListener("pointerdown", () => { tm = setTimeout(() => { tm = "long"; this.hot[+b.dataset.hc] = null; this.paintHot(); }, 700); }); b.addEventListener("pointerup", () => { if(tm !== "long") clearTimeout(tm); }); });
+      /* onda: toca para saltar */
+      const wf = this.r("wf"); wf.addEventListener("pointerdown", e => { if(!this.buf) return; const rc = wf.getBoundingClientRect(); this.seek((e.clientX - rc.left) / rc.width * this.buf.duration); });
+    }
+    build(){
+      const c = ac; this.gain = c.createGain(); this.hi = c.createBiquadFilter(); this.mid = c.createBiquadFilter(); this.lo = c.createBiquadFilter(); this.flt = c.createBiquadFilter();
+      this.hi.type = "highshelf"; this.hi.frequency.value = 4000; this.mid.type = "peaking"; this.mid.frequency.value = 1000; this.mid.Q.value = .8; this.lo.type = "lowshelf"; this.lo.frequency.value = 220;
+      this.flt.type = "allpass"; this.ch = c.createGain(); this.xf = c.createGain(); this.an = c.createAnalyser(); this.an.fftSize = 512;
+      this.dly = c.createDelay(2); this.fb = c.createGain(); this.wet = c.createGain(); this.wet.gain.value = 0; this.fb.gain.value = .45;
+      this.gain.connect(this.lo); this.lo.connect(this.mid); this.mid.connect(this.hi); this.hi.connect(this.flt); this.flt.connect(this.ch);
+      this.flt.connect(this.dly); this.dly.connect(this.fb); this.fb.connect(this.dly); this.dly.connect(this.wet); this.wet.connect(this.ch);
+      this.ch.connect(this.xf); this.xf.connect(master); this.ch.connect(this.an); this.ch.gain.value = this.vol; this.applyX();
+    }
+    async load(buf, name, known){
+      this.stop(); this.buf = buf; this.name = name; this.pos = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0;
+      this.r("tit").textContent = name; this.r("bpm").textContent = "…"; this.drawWave(); this.paintHot(); this.paintLoop();
+      await new Promise(r => setTimeout(r, 20));
+      this.bpm = known || trackBpm(buf); this.beat0 = known ? 0 : firstBeat(buf); this.showBpm();
+      this.dly.delayTime.value = this.bpm ? Math.min(2, 30 / this.bpm) : .25;
+    }
+    curPos(){ if(!this.playing) return this.pos; const p = this.p0 + (ac.currentTime - this.t0) * this.rateNow(); if(this.loop && this.loopEnd > this.loopStart){ const L = this.loopEnd - this.loopStart; if(p > this.loopEnd) return this.loopStart + ((p - this.loopStart) % L); } return Math.min(p, this.buf ? this.buf.duration : 0); }
+    rateNow(){ return (1 + this.pitch) * (1 + this.bend); }
+    startAt(p){ if(!this.buf) return; ensure(); this.killSrc(); const s = ac.createBufferSource(); s.buffer = this.buf; s.playbackRate.value = this.rateNow();
+      if(this.loop){ s.loop = true; s.loopStart = this.loopStart; s.loopEnd = this.loopEnd; }
+      s.connect(this.gain); s.start(0, Math.max(0, Math.min(p, this.buf.duration - .01))); s.onended = () => { if(this.src === s && !s.loop){ this.playing = false; this.pos = 0; this.paintPlay(); } };
+      this.src = s; this.t0 = ac.currentTime; this.p0 = p; this.playing = true; this.paintPlay();
+      try{ if(typeof radioStop === "function" && typeof radioCur !== "undefined" && radioCur) radioStop(); }catch(e){} }
+    killSrc(){ if(this.src){ try{ this.src.onended = null; this.src.stop(); }catch(e){} this.src = null; } }
+    play(){ if(!this.buf){ openSrc(this.i); return; } if(this.playing){ this.pos = this.curPos(); this.killSrc(); this.playing = false; this.paintPlay(); } else this.startAt(this.pos); }
+    stop(){ if(this.playing){ this.killSrc(); this.playing = false; } this.paintPlay(); }
+    seek(p){ p = Math.max(0, Math.min(p, this.buf ? this.buf.duration - .05 : 0)); if(this.loop && (p < this.loopStart || p > this.loopEnd)) { this.loop = 0; this.paintLoop(); } if(this.playing) this.startAt(p); else this.pos = p; }
+    rebase(){ if(this.playing){ const p = this.curPos(); this.p0 = p; this.t0 = ac.currentTime; this.src.playbackRate.setValueAtTime(this.rateNow(), ac.currentTime); } }
+    setPitch(v){ this.rebase(); this.pitch = v; this.rebase(); this.r("pv").textContent = (v >= 0 ? "+" : "") + (v * 100).toFixed(1).replace(".", ",") + " %"; this.showBpm(); }
+    showBpm(){ this.r("bpm").textContent = this.bpm ? (this.bpm * (1 + this.pitch)).toFixed(1).replace(".", ",") : "—"; }
+    knob(k, v){ ensure(); const o = this.el.querySelector('[data-o="' + k + '"]');
+      if(k === "gain"){ this.gain.gain.value = Math.pow(10, v / 20); o.textContent = (v > 0 ? "+" : "") + v + " dB"; }
+      else if(k === "hi" || k === "mid" || k === "lo"){ this[k].gain.value = v; o.textContent = (v > 0 ? "+" : "") + v; if(k === "lo") this.el.querySelector('[data-a="kill"]').classList.toggle("on", v <= -26); }
+      else if(k === "flt"){ const f = this.flt; if(Math.abs(v) < 4){ f.type = "allpass"; o.textContent = "—"; } else if(v < 0){ f.type = "lowpass"; f.frequency.value = 20000 * Math.pow(150 / 20000, -v / 100); f.Q.value = 1.2; o.textContent = "LP"; } else { f.type = "highpass"; f.frequency.value = 20 * Math.pow(6000 / 20, v / 100); f.Q.value = 1.2; o.textContent = "HP"; } }
+      else if(k === "echo"){ this.wet.gain.value = v / 100; o.textContent = v ? v + " %" : "0"; }
+    }
+    applyX(){ if(!ac) return; const x = +$d("#djX").value / 100, g = this.i === 0 ? Math.cos(x * Math.PI / 2) : Math.sin(x * Math.PI / 2); this.xf.gain.setTargetAtTime(g, ac.currentTime, .01); }
+    sync(){ const o = D[1 - this.i]; if(!this.bpm || !o.bpm){ toast("Para sincronizar, os dois decks precisam de ter o tempo (BPM) detetado.", true); return; }
+      const target = o.bpm * (1 + o.pitch); let p = target / this.bpm - 1; if(p > .16 || p < -.16){ /* meio/dobro do tempo */ const half = target / 2 / this.bpm - 1, dbl = target * 2 / this.bpm - 1; p = Math.abs(half) < Math.abs(dbl) ? half : dbl; }
+      p = Math.max(-.16, Math.min(.16, p)); this.r("pitch").min = -160; this.r("pitch").max = 160; this.r("pitch").value = Math.round(p * 1000); this.setPitch(p);
+      /* fase: alinha a batida deste deck com a do outro */
+      if(this.playing && o.playing){ const bl = 60 / this.bpm, ob = 60 / o.bpm; const ph = ((o.curPos() - o.beat0) / ob) % 1, mine = ((this.curPos() - this.beat0) / bl) % 1; let d = (ph - mine); if(d > .5) d -= 1; if(d < -.5) d += 1; this.startAt(this.curPos() + d * bl); }
+      this.el.querySelector('[data-a="sync"]').classList.add("on"); setTimeout(() => this.el.querySelector('[data-a="sync"]').classList.remove("on"), 600); }
+    setLoop(beats){ if(!this.buf) return; if(this.loop === beats){ this.loop = 0; const p = this.curPos(); if(this.playing) this.startAt(p); this.paintLoop(); return; }
+      const bl = this.bpm ? 60 / this.bpm : .5, p = this.curPos(), n = Math.floor((p - this.beat0) / bl); this.loopStart = Math.max(0, this.beat0 + n * bl); this.loopEnd = Math.min(this.buf.duration, this.loopStart + beats * bl); this.loop = beats;
+      if(this.playing) this.startAt(p < this.loopEnd ? Math.max(p, this.loopStart) : this.loopStart); this.paintLoop(); }
+    onClick(e){ const b = e.target.closest("button"); if(!b) return; ensure();
+      const a = b.dataset.a;
+      if(a === "load") openSrc(this.i);
+      else if(a === "play") this.play();
+      else if(a === "cue"){ if(!this.buf) return; if(this.playing){ this.stop(); this.pos = this.cue; } else if(Math.abs(this.pos - this.cue) < .05){ this.startAt(this.cue); } else { this.cue = this.pos; toast("Ponto CUE guardado (" + fmt(this.cue) + ")."); } }
+      else if(a === "sync") this.sync();
+      else if(a === "half" || a === "dbl"){ if(!this.bpm) return; this.bpm = Math.round(this.bpm * (a === "half" ? .5 : 2) * 10) / 10; this.showBpm(); this.dly.delayTime.value = Math.min(2, 30 / this.bpm); }
+      else if(a === "tap"){ const now = performance.now(); this.taps = (this.taps || []).filter(x => now - x < 3000); this.taps.push(now);
+        if(this.taps.length >= 4){ const iv = (this.taps[this.taps.length - 1] - this.taps[0]) / (this.taps.length - 1); this.bpm = Math.round(60000 / iv / (1 + this.pitch) * 10) / 10; this.showBpm(); this.dly.delayTime.value = Math.min(2, 30 / this.bpm); if(this.playing) this.beat0 = this.curPos() % (60 / this.bpm); this.r("tapH").textContent = "tempo acertado à mão"; }
+        else this.r("tapH").textContent = "toca mais " + (4 - this.taps.length) + "×"; }
+      else if(a === "bup" || a === "bdn"){ this.rebase(); this.bend = a === "bup" ? .04 : -.04; this.rebase(); setTimeout(() => { this.rebase(); this.bend = 0; this.rebase(); }, 350); }
+      else if(a === "kill"){ const k = this.el.querySelector('[data-k="lo"]'); k.value = +k.value <= -26 ? 0 : -26; this.knob("lo", +k.value); }
+      else if(b.dataset.hc != null){ const i = +b.dataset.hc; if(!this.buf) return; if(this.hot[i] == null){ this.hot[i] = this.curPos(); this.paintHot(); } else { if(this.playing) this.startAt(this.hot[i]); else { this.pos = this.hot[i]; this.startAt(this.pos); } } }
+      else if(b.dataset.lp) this.setLoop(+b.dataset.lp);
+    }
+    paintPlay(){ const b = this.el.querySelector('[data-a="play"]'); b.textContent = this.playing ? "❚❚" : "▶"; b.classList.toggle("on", this.playing); }
+    paintHot(){ this.el.querySelectorAll("[data-hc]").forEach(b => b.classList.toggle("set", this.hot[+b.dataset.hc] != null)); }
+    paintLoop(){ this.el.querySelectorAll("[data-lp]").forEach(b => b.classList.toggle("on", +b.dataset.lp === this.loop)); }
+    drawWave(){ const cv = this.r("wf"), x = cv.getContext("2d"), w = cv.width, h = cv.height; x.clearRect(0, 0, w, h); if(!this.buf) return;
+      const d = this.buf.getChannelData(0), st = Math.floor(d.length / w), col = this.i ? "#ff5ca8" : "#5cf2ff"; this.peaks = new Float32Array(w);
+      for(let i = 0; i < w; i++){ let m = 0; for(let k = i * st, e = k + st; k < e; k += 16){ const v = Math.abs(d[k]); if(v > m) m = v; } this.peaks[i] = m; }
+      this.wfImg = null; }
+    frame(){ const cv = this.r("wf"), x = cv.getContext("2d"), w = cv.width, h = cv.height; if(!this.buf || !this.peaks) return;
+      const col = this.i ? "#ff5ca8" : "#5cf2ff", p = this.curPos() / this.buf.duration;
+      x.clearRect(0, 0, w, h);
+      for(let i = 0; i < w; i++){ const v = this.peaks[i] * h * .46; x.fillStyle = i / w < p ? col : col + "55"; x.fillRect(i, h / 2 - v, 1, v * 2 || 1); }
+      if(this.loop){ x.fillStyle = "#ffffff22"; x.fillRect(this.loopStart / this.buf.duration * w, 0, (this.loopEnd - this.loopStart) / this.buf.duration * w, h); }
+      x.fillStyle = "#ffcc33"; x.fillRect(this.cue / this.buf.duration * w - 1, 0, 2, h);
+      this.hot.forEach((t, i) => { if(t == null) return; x.fillStyle = "#fff"; x.font = "bold 22px system-ui"; x.fillText(i + 1, t / this.buf.duration * w + 3, 22); x.fillRect(t / this.buf.duration * w, 0, 2, 26); });
+      x.fillStyle = "#fff"; x.fillRect(p * w - 1.5, 0, 3, h);
+      this.r("time").textContent = fmt(this.curPos()) + " / " + fmt(this.buf.duration) + (this.playing ? "" : " · parado");
+    }
+  }
+  const fmt = s => { s = Math.max(0, s || 0); return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0"); };
+  const D = [new Deck(0), new Deck(1)];
+  /* ---------- mesa ---------- */
+  $d("#djX").oninput = () => D.forEach(d => d.applyX());
+  $d("#djXc").onclick = () => { $d("#djX").value = 50; D.forEach(d => d.applyX()); };
+  V.querySelectorAll("[data-ch]").forEach(x => x.oninput = () => { const d = D[+x.dataset.ch]; d.vol = Math.pow(+x.value / 100, 1.5); if(d.ch) d.ch.gain.setTargetAtTime(d.vol, ac.currentTime, .01); });
+  $d("#djMaster").oninput = e => { ensure(); master.gain.value = +e.target.value / 100; $d("#djMasterV").textContent = e.target.value + " %"; };
+  /* gravação da mistura (WebM/Opus), descarrega no fim */
+  let rec = null, chunks = [];
+  $d("#djRec").onclick = () => { ensure();
+    if(rec){ rec.stop(); return; }
+    try{ chunks = []; rec = new MediaRecorder(recDest.stream); rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+      rec.onstop = () => { const b = new Blob(chunks, {type:rec.mimeType || "audio/webm"}), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mistura-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".webm"; document.body.appendChild(a); a.click(); a.remove(); rec = null; $d("#djRec").textContent = "⏺ Gravar mistura"; $d("#djRec").classList.remove("on"); toast("Mistura gravada e descarregada."); };
+      rec.start(1000); $d("#djRec").textContent = "⏹ Parar gravação"; $d("#djRec").classList.add("on"); toast("A gravar a mistura…");
+    }catch(e){ rec = null; toast("Este browser não deixa gravar: " + e.message, true); } };
+  /* ---------- carregar música ---------- */
+  let srcDeck = 0;
+  const openSrc = i => { srcDeck = i; $d("#djSrcT").textContent = "Carregar no deck " + "AB"[i]; $d("#djSrc").hidden = false; };
+  $d("#djSrcX").onclick = () => $d("#djSrc").hidden = true;
+  $d("#djLoops").innerHTML = LOOPS.map((l, i) => '<button data-l="' + i + '">' + l.n + '<small>' + l.bpm + ' BPM · 16 compassos</small></button>').join("");
+  const decode = async ab => { ensure(); return await new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if(p && p.then) p.then(res, rej); }); };
+  const loadInto = async (i, getBuf, name, known) => { $d("#djSrc").hidden = true; const d = D[i]; d.r("tit").textContent = "A carregar " + name + "…";
+    try{ const buf = await getBuf(); await d.load(buf, name, known); }catch(e){ d.r("tit").textContent = d.name || "Sem música"; toast("Não consegui abrir «" + name + "»: " + (e && e.message || e), true); } };
+  $d("#djLoops").addEventListener("click", e => { const b = e.target.closest("[data-l]"); if(!b) return; ensure(); const L = LOOPS[+b.dataset.l]; loadInto(srcDeck, () => makeLoop(L), L.n + " " + L.bpm, L.bpm); });
+  $d("#djFile").onchange = e => { const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value = ""; loadInto(srcDeck, async () => decode(await f.arrayBuffer()), f.name.replace(/\.[a-z0-9]+$/i, "")); };
+  $d("#djUrl").onclick = () => { const u = prompt("Link direto para um ficheiro de som (.mp3, .m4a, .ogg, .wav)"); if(!u || !/^https?:\/\//i.test(u)) return;
+    loadInto(srcDeck, async () => { let r = null; for(const x of [u, typeof px === "function" && typeof HASPX === "function" && HASPX() ? px(u) : null].filter(Boolean)){ try{ r = await fetch(x); if(r.ok) break; }catch(e){ r = null; } } if(!r || !r.ok) throw new Error("o servidor não deixa ler o ficheiro"); return decode(await r.arrayBuffer()); }, decodeURIComponent(u.split("?")[0].split("/").pop()).replace(/\.[a-z0-9]+$/i, "")); };
+  /* pasta MEGA de música (link guardado só neste aparelho) */
+  const megaLib = () => window.mega ? Promise.resolve(window.mega) : new Promise((res, rej) => { const s = document.createElement("script"); s.src = "emu/megajs.min.js"; s.onload = () => res(window.mega); s.onerror = () => rej(new Error("não carreguei o leitor do MEGA")); document.head.appendChild(s); });
+  let megaTracks = null;
+  const megaAsk = () => { const u = prompt("Link da tua pasta MEGA com música (https://mega.nz/folder/…#chave). Fica guardado só neste aparelho.", LS.get("djMega", "") || ""); if(u == null) return false; if(!/^https:\/\/mega\.(nz|co\.nz)\/(folder|file)\//i.test(u.trim()) || !u.includes("#")){ toast("Esse link não parece uma pasta MEGA (tem de ter #chave no fim).", true); return false; } LS.set("djMega", u.trim()); megaTracks = null; return true; };
+  const megaLoad = async () => { let u = LS.get("djMega", ""); if(!u){ if(!megaAsk()) return; u = LS.get("djMega", ""); }
+    const box = $d("#djMegaList"); box.innerHTML = '<span class="small muted">A ler a pasta…</span>';
+    try{ if(!megaTracks){ const M = await megaLib(), root = M.File.fromURL(u); await root.loadAttributes(); const out = [], walk = n => { if(n.directory || n.children){ (n.children || []).forEach(walk); return; } if(/\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i.test(n.name)) out.push(n); }; walk(root); megaTracks = out.sort((a, b) => a.name.localeCompare(b.name)); }
+      box.innerHTML = megaTracks.length ? megaTracks.map((f, i) => '<button data-mt="' + i + '">' + esc(f.name.replace(/\.[a-z0-9]+$/i, "")) + '<small>' + Math.round(f.size / 1048576 * 10) / 10 + ' MB</small></button>').join("") : '<span class="small muted">Não encontrei músicas (.mp3, .m4a, .ogg, .wav, .flac) nesta pasta.</span>';
+    }catch(e){ box.innerHTML = '<span class="small muted">Não consegui ler a pasta: ' + esc(e && e.message || String(e)) + '</span>'; } };
+  $d("#djMega").onclick = megaLoad; $d("#djMegaL").onclick = () => { if(megaAsk()) megaLoad(); };
+  $d("#djMegaList").addEventListener("click", e => { const b = e.target.closest("[data-mt]"); if(!b) return; const f = megaTracks[+b.dataset.mt]; ensure(); loadInto(srcDeck, async () => { const x = await f.downloadBuffer(); return decode(x.buffer ? x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength) : x); }, f.name.replace(/\.[a-z0-9]+$/i, "")); });
+  /* ---------- desenho ---------- */
+  const vuData = new Uint8Array(512);
+  const loop = () => { requestAnimationFrame(loop); if(V.hidden) return;
+    D.forEach((d, i) => { d.frame(); const el = document.getElementById("djVu" + i); if(!el) return; let lv = 0; if(d.an && d.playing){ d.an.getByteTimeDomainData(vuData); let s = 0; for(let k = 0; k < vuData.length; k++){ const v = (vuData[k] - 128) / 128; s += v * v; } lv = Math.min(1, Math.sqrt(s / vuData.length) * 3.2); } d.vu = Math.max(lv, (d.vu || 0) * .9); el.style.height = Math.round(d.vu * 100) + "%"; });
+  };
+  requestAnimationFrame(loop);
+  window.__dj = {D, makeLoop, trackBpm, ensure};
+})();
 </script>
 </body>
 </html>
