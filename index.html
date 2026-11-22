@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v574";
+const APP_VERSION = "v575";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20593,6 +20593,8 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(megaBios){ try{ toast("A trazer a BIOS do Neo Geo da pasta MEGA…"); let x = await megaBios.downloadBuffer(); x = x.buffer ? x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength) : x; await romPut("bios:neogeo", x); return x; }catch(e){ toast("Não consegui trazer a BIOS do MEGA: " + (e && e.message || e), true); } }
       return null; };
     const playRom = async gm => { const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
+      /* v575: o FBNeo/MAME do browser não lê .7z (só .zip) */
+      if((gm.s === "neogeo" || gm.s === "mame") && /\.7z$/i.test(gm.fname || gm.u || "")){ toast("Os jogos Neo Geo/arcada têm de estar em .zip (este browser não lê .7z). Converte-o para .zip com o mesmo nome.", true); return; }
       let biosUrl = "", biosBuf = null; if(gm.s === "neogeo"){ const bb = await neoBios(); biosBuf = bb; if(!bb){ toast("Para o Neo Geo falta a BIOS «neogeo.zip». Põe-na na tua pasta MEGA ou envia-a do telemóvel (como uma ROM).", true); return; } biosUrl = URL.createObjectURL(new Blob([bb])); }
       const viaPx = gm.px && typeof px === "function" && cfg.proxy, url = viaPx ? px(gm.u) : gm.u;
       /* v572: o FBNeo (Neo Geo) e o MAME reconhecem o jogo pelo NOME do ficheiro (ex.: kof2002.zip); com um endereço blob: o nome perdia-se
