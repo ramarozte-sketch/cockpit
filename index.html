@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v584";
+const APP_VERSION = "v585";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -21082,6 +21082,8 @@ html.nightUi #ambient{filter:brightness(.75)}
     return oc.startRendering();
   }
   /* ---------- deck ---------- */
+  /* v585: nivelamento: ganho que leva o volume médio da faixa a um nível comum (RMS sobre amostras espaçadas) */
+  function levelGain(buf){ try{ const d = buf.getChannelData(0), st = Math.max(1, Math.floor(d.length / 400000)); let s2 = 0, n = 0; for(let i = 0; i < d.length; i += st){ s2 += d[i] * d[i]; n++; } const rms = Math.sqrt(s2 / Math.max(1, n)); if(!(rms > 1e-5)) return 1; return Math.min(2, Math.max(.25, .12 / rms)); }catch(e){ return 1; } }
   class Deck {
     constructor(i){ this.i = i; this.el = V.querySelector('.deck[data-d="' + i + '"]'); this.buf = null; this.src = null; this.playing = false; this.pos = 0; this.t0 = 0; this.p0 = 0; this.rate = 1; this.pitch = 0; this.bend = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0; this.bpm = 0; this.beat0 = 0; this.name = ""; this.vol = .85; this.render(); }
     render(){
@@ -21092,7 +21094,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         '<span class="small muted" data-r="tapH" style="display:none"></span>' +
         '<canvas class="wf" data-r="wf" width="800" height="110"></canvas><div class="ytbox" data-r="ytbox" hidden></div>' +
         '<div class="dmain"><div class="jogw"><canvas class="jog" data-r="jog" width="440" height="440" aria-label="Prato do deck ' + L + ': arrasta no centro para scratch, na borda para acertar o ritmo"></canvas></div>' +
-          '<div class="dtr"><button class="dbtn big" data-a="play">▶</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn" data-a="sync">SYNC</button><button class="dbtn" data-a="load">⏏ Carregar</button></div></div>' +
+          '<div class="dtr"><button class="dbtn big" data-a="play">▶</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn" data-a="sync">SYNC</button><button class="dbtn on" data-a="nivel" title="Nivelar o volume de cada faixa">Nivelar</button><button class="dbtn" data-a="load">⏏ Carregar</button></div></div>' +
         '<div class="pitch"><button class="dbtn sm" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn sm" data-a="bup">+</button></div>' +
         '<div class="dtabs"><button class="dtab on" data-tab="loop">Pontos e loops</button><button class="dtab" data-tab="eq">EQ</button><button class="dtab" data-tab="fx">Efeitos</button></div>' +
         '<div class="dpan" data-pan="loop"><div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4" title="Loop de 4 batidas"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>4</button><button class="dbtn" data-lp="8" title="Loop de 8 batidas"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>8</button><button class="dbtn" data-a="lhalf" title="Loop a metade">½</button><button class="dbtn" data-a="ldbl" title="Loop a dobrar">×2</button></div>' +
@@ -21171,11 +21173,12 @@ html.nightUi #ambient{filter:brightness(.75)}
       this.r("tit").textContent = name; this.r("bpm").textContent = "…"; this.drawWave(); this.paintHot(); this.paintLoop();
       await new Promise(r => setTimeout(r, 20));
       this.bpm = known || trackBpm(buf); this.beat0 = known ? 0 : firstBeat(buf); this.showBpm();
+      this.lvl = levelGain(buf); this.applyLvl();
       this.dly.delayTime.value = this.bpm ? Math.min(2, 30 / this.bpm) : .25;
     }
     /* v566: deck em modo YouTube Music (leitor oficial do YouTube: play, posição, tempo e volume pelo crossfader) */
     async loadYT(t){
-      this.ytOff(); this.stop(); this.buf = null; this.peaks = null; this.name = (t.artist ? t.artist + " — " : "") + t.title; this.bpm = 0; this.pitch = 0; this.r("pitch").value = 0; this.showBpm();
+      this.ytOff(); this.stop(); this.buf = null; this.peaks = null; this.name = (t.artist ? t.artist + " — " : "") + t.title; this.lvl = 1; this.applyLvl(); this.bpm = 0; this.pitch = 0; this.r("pitch").value = 0; this.showBpm();
       this.r("tit").textContent = this.name; this.el.classList.add("yt"); const box = this.r("ytbox"); box.hidden = false; this.r("wf").hidden = true; box.innerHTML = '<div></div>';
       await ytApi();
       this.ytDur = t.dur || 0;
@@ -21202,8 +21205,10 @@ html.nightUi #ambient{filter:brightness(.75)}
     setPitch(v){ if(this.ytp){ const R = [.75, 1, 1.25], want = 1 + v, near = R.reduce((a, b) => Math.abs(b - want) < Math.abs(a - want) ? b : a); try{ this.ytp.setPlaybackRate(near); }catch(e){} this.pitch = near - 1; this.r("pv").textContent = (this.pitch >= 0 ? "+" : "") + Math.round(this.pitch * 100) + " % (YouTube)"; this.showBpm(); return; }
       this.rebase(); this.pitch = v; this.rebase(); this.r("pv").textContent = (v >= 0 ? "+" : "") + (v * 100).toFixed(1).replace(".", ",") + " %"; this.showBpm(); }
     showBpm(){ this.r("bpm").textContent = this.bpm ? (this.bpm * (1 + this.pitch)).toFixed(1).replace(".", ",") : "—"; }
+    lvlNow(){ return this.nivelOn !== false && this.lvl ? this.lvl : 1; }
+    applyLvl(){ if(!this.gain) return; const kn = this.el.querySelector('[data-k="gain"]'), db = kn ? +kn.value : 0; this.gain.gain.setTargetAtTime(Math.pow(10, db / 20) * this.lvlNow(), ac.currentTime, .05); }
     knob(k, v){ ensure(); const o = this.el.querySelector('[data-o="' + k + '"]');
-      if(k === "gain"){ this.gain.gain.value = Math.pow(10, v / 20); o.textContent = (v > 0 ? "+" : "") + v + " dB"; }
+      if(k === "gain"){ this.gain.gain.value = Math.pow(10, v / 20) * this.lvlNow(); o.textContent = (v > 0 ? "+" : "") + v + " dB"; }
       else if(k === "hi" || k === "mid" || k === "lo"){ this[k].gain.value = v; o.textContent = (v > 0 ? "+" : "") + v; if(k === "lo") this.el.querySelector('[data-a="kill"]').classList.toggle("on", v <= -26); const kb = this.el.querySelector('[data-a="kill-' + k + '"]'); if(kb) kb.classList.toggle("on", v <= -26); }
       else if(k === "flt"){ const f = this.flt; if(Math.abs(v) < 4){ f.type = "allpass"; o.textContent = "—"; } else if(v < 0){ f.type = "lowpass"; f.frequency.value = 20000 * Math.pow(150 / 20000, -v / 100); f.Q.value = 1.2; o.textContent = "LP"; } else { f.type = "highpass"; f.frequency.value = 20 * Math.pow(6000 / 20, v / 100); f.Q.value = 1.2; o.textContent = "HP"; } }
       else if(k === "echo"){ this.fxAmt = v / 100; this.applyFx(); o.textContent = v ? v + " %" : "0"; }
@@ -21230,6 +21235,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(a === "load") openSrc(this.i);
       else if(a === "play") this.play();
       else if(a === "cue"){ if(!this.buf) return; if(this.playing){ this.stop(); this.pos = this.cue; } else if(Math.abs(this.pos - this.cue) < .05){ this.startAt(this.cue); } else { this.cue = this.pos; toast("Ponto CUE guardado (" + fmt(this.cue) + ")."); } }
+      else if(a === "nivel"){ this.nivelOn = this.nivelOn === false; this.el.querySelector('[data-a="nivel"]').classList.toggle("on", this.nivelOn !== false); this.applyLvl(); }
       else if(a === "sync") this.sync();
       else if(a === "jb" || a === "jf"){ if(!this.buf) return; const bl = this.bpm ? 60 / this.bpm : .5; if(this.ytp){ this.ytp.seekTo(Math.max(0, this.curPos() + (a === "jf" ? 4 : -4) * bl), true); return; } this.seek(this.curPos() + (a === "jf" ? 4 : -4) * bl); }
       else if(a === "lhalf" || a === "ldbl"){ if(!this.loop || this.loop === 99) return; const L = (this.loopEnd - this.loopStart) * (a === "lhalf" ? .5 : 2); if(L < .05 || this.loopStart + L > this.buf.duration) return; this.loopEnd = this.loopStart + L; this.loop = Math.max(1, Math.round(this.loop * (a === "lhalf" ? .5 : 2))); const p = this.curPos(); if(this.playing) this.startAt(p > this.loopEnd ? this.loopStart : p); this.paintLoop(); }
