@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criador de música · Cockpit</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#2a313c;--txt:#e6edf3;--mut:#8b949e;--acc:#5cf2ff;--on:#ff5ca8}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 system-ui,sans-serif;padding:12px;min-height:100vh}
+  h1{font-size:20px;margin:0 0 10px;color:var(--acc)}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+  button{min-height:44px;min-width:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:#21262d;color:var(--txt);font:600 15px system-ui;cursor:pointer}
+  button.on{background:var(--on);border-color:var(--on);color:#fff}
+  button.play{background:var(--acc);color:#001;border-color:var(--acc)}
+  input[type=number],select{min-height:44px;border:1px solid var(--line);border-radius:10px;background:#0b0f14;color:var(--txt);padding:0 8px;font:15px system-ui}
+  .grid{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;overflow-x:auto}
+  .row{display:grid;grid-template-columns:150px repeat(16,minmax(30px,1fr));gap:4px;align-items:center;margin-bottom:4px}
+  .lbl{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--mut)}
+  .lbl b{color:var(--txt);font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell{height:44px;border-radius:8px;background:#21262d;border:1px solid var(--line);padding:0}
+  .cell.beat{background:#2b323c}
+  .cell.hit{background:var(--acc);border-color:var(--acc)}
+  .cell.hit.note{background:var(--on);border-color:var(--on)}
+  .cell.now{outline:2px solid #fff;outline-offset:-2px}
+  .small{font-size:12px;color:var(--mut)}
+  .mini{min-height:36px;min-width:36px;padding:0 8px;font-size:13px}
+  #msg{margin-top:8px;min-height:20px;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<h1>Criador de música</h1>
+
+<div class="bar">
+  <button id="play" class="play">▶ Tocar</button>
+  <button id="stop">■ Parar</button>
+  <label class="small">BPM <input type="number" id="bpm" min="60" max="200" value="128" style="width:90px"></label>
+  <button id="clear">Limpar</button>
+  <button id="save">Guardar</button>
+  <button id="load">Carregar</button>
+  <button id="wav">Exportar WAV</button>
+</div>
+
+<div class="grid" id="grid"></div>
+<div class="small" style="margin-top:8px">Toca numa célula para a ligar. Linhas de baixo e de sintetizador usam a nota escolhida à direita. A linha «Amostra» toca um ficheiro teu (botão ⏏).</div>
+<div id="msg"></div>
+
+<script>
+(() => {
+  const TRACKS = [
+    {id:"kick", name:"Bombo", type:"kick"},
+    {id:"snare", name:"Caixa", type:"snare"},
+    {id:"clap", name:"Palmas", type:"clap"},
+    {id:"hatc", name:"Hi-hat", type:"hatc"},
+    {id:"hato", name:"Hi-hat aberto", type:"hato"},
+    {id:"perc", name:"Percussão", type:"perc"},
+    {id:"bass", name:"Baixo", type:"bass", note:36},
+    {id:"stab", name:"Sintetizador", type:"stab", note:48},
+    {id:"samp", name:"Amostra", type:"samp"}
+  ];
+  const NOTE = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const noteName = m => NOTE[m % 12] + (Math.floor(m / 12) - 1);
+
+  let ctx = null, master = null, noiseBuf = null;
+  const userSamples = {};   // id -> AudioBuffer (não guardado no armazenamento)
+  let steps = 16, bpm = 128, grid = {}, notes = {};
+  let playing = false, cur = 0, nextT = 0, timer = null;
+
+  const $ = s => document.querySelector(s);
+  const msg = t => { $("#msg").textContent = t; };
+
+  function blankGrid(){ grid = {}; notes = {}; TRACKS.forEach(t => { grid[t.id] = new Array(64).fill(0); notes[t.id] = t.note || 0; }); }
+  blankGrid();
+
+  function audio(){ if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = .8; master.connect(ctx.destination); } if(ctx.state === "suspended") ctx.resume(); return ctx; }
+  function makeNoise(c){ const b = c.createBuffer(1, c.sampleRate, c.sampleRate), d = b.getChannelData(0); for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
+  function env(g, t, a, peak, dur){ g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+
+  // Vozes sintetizadas (sem ficheiros externos)
+  const VOICES = {
+    kick(c, d, t){ const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .15); o.connect(g); g.connect(d); env(g, t, .003, .9, .45); o.start(t); o.stop(t + .5); },
+    snare(c, d, t){ const n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = 1800; n.connect(f); f.connect(g); g.connect(d); env(g, t, .002, .6, .2); n.start(t, Math.random() * .5, .25);
+      const o = c.createOscillator(), og = c.createGain(); o.frequency.value = 185; o.connect(og); og.connect(d); env(og, t, .002, .35, .12); o.start(t); o.stop(t + .15); },
+    clap(c, d, t){ for(let k = 0; k < 3; k++){ const s = t + k * .012, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = 1200; f.Q.value = 1.2; n.connect(f); f.connect(g); g.connect(d); env(g, s, .001, .55, .16); n.start(s, Math.random() * .5, .2); } },
+    hatc(c, d, t){ const n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = noiseBuf; f.type = "highpass"; f.frequency.value = 7000; n.connect(f); f.connect(g); g.connect(d); env(g, t, .001, .35, .05); n.start(t, Math.random() * .5, .08); },
+    hato(c, d, t){ const n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); n.buffer = noiseBuf; f.type = "highpass"; f.frequency.value = 6500; n.connect(f); f.connect(g); g.connect(d); env(g, t, .001, .3, .3); n.start(t, Math.random() * .5, .35); },
+    perc(c, d, t){ const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(520, t); o.frequency.exponentialRampToValueAtTime(260, t + .08); o.connect(g); g.connect(d); env(g, t, .002, .5, .18); o.start(t); o.stop(t + .2); },
+    bass(c, d, t, m){ const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = "sawtooth"; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); f.type = "lowpass"; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(180, t + .25); o.connect(f); f.connect(g); g.connect(d); env(g, t, .004, .45, .3); o.start(t); o.stop(t + .35); },
+    stab(c, d, t, m){ const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = "square"; o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); f.type = "lowpass"; f.frequency.value = 2200; f.Q.value = 3; o.connect(f); f.connect(g); g.connect(d); env(g, t, .004, .25, .22); o.start(t); o.stop(t + .25); },
+    samp(c, d, t, _m, id){ const b = userSamples[id]; if(!b) return; const s = c.createBufferSource(), g = c.createGain(); s.buffer = b; s.connect(g); g.connect(d); g.gain.value = .9; s.start(t); }
+  };
+
+  // Agenda um compasso inteiro a partir de t0 num destino (contexto normal ou offline)
+  function scheduleBar(c, d, t0, secPerStep, pattern){
+    for(const tr of TRACKS){
+      const row = pattern.grid[tr.id];
+      for(let s = 0; s < pattern.steps; s++){
+        if(!row[s]) continue;
+        const t = t0 + s * secPerStep, v = VOICES[tr.type];
+        if(!v) continue;
+        if(tr.type === "bass" || tr.type === "stab") v(c, d, t, pattern.notes[tr.id]);
+        else if(tr.type === "samp") v(c, d, t, 0, tr.id);
+        else v(c, d, t);
+      }
+    }
+  }
+
+  const secPerStep = () => 60 / bpm / 4;
+
+  function tick(){
+    const c = audio();
+    while(nextT < c.currentTime + .12){
+      const st = cur;
+      scheduleBar(c, master, nextT, secPerStep(), {grid, notes, steps});
+      // aplica só a célula atual (para o efeito visual) e avança
+      const tStep = nextT, sIdx = st;
+      setTimeout(() => showNow(sIdx), Math.max(0, (tStep - c.currentTime) * 1000));
+      nextT += secPerStep();
+      cur = (cur + 1) % steps;
+    }
+  }
+
+  function showNow(s){ document.querySelectorAll(".cell").forEach(b => b.classList.toggle("now", +b.dataset.s === s)); }
+
+  function start(){
+    const c = audio(); if(playing) return;
+    if(!noiseBuf) noiseBuf = makeNoise(c);
+    playing = true; cur = 0; nextT = c.currentTime + .05;
+    timer = setInterval(tick, 25); $("#play").classList.add("on");
+  }
+  function stop(){ playing = false; clearInterval(timer); timer = null; showNow(-1); $("#play").classList.remove("on"); }
+
+  function render(){
+    const g = $("#grid"); g.innerHTML = "";
+    TRACKS.forEach(tr => {
+      const row = document.createElement("div"); row.className = "row";
+      const lab = document.createElement("div"); lab.className = "lbl";
+      lab.innerHTML = '<b></b>';
+      lab.querySelector("b").textContent = tr.name;
+      if(tr.type === "bass" || tr.type === "stab"){
+        const sel = document.createElement("select"); sel.className = "mini"; sel.title = "Nota";
+        for(let m = 24; m <= 72; m++){ const o = document.createElement("option"); o.value = m; o.textContent = noteName(m); if(m === notes[tr.id]) o.selected = true; sel.appendChild(o); }
+        sel.onchange = () => { notes[tr.id] = +sel.value; };
+        lab.appendChild(sel);
+      }
+      if(tr.type === "samp"){
+        const b = document.createElement("button"); b.className = "mini"; b.textContent = "⏏"; b.title = "Carregar ficheiro de som";
+        b.onclick = () => pickSample(tr.id);
+        lab.appendChild(b);
+      }
+      row.appendChild(lab);
+      for(let s = 0; s < 16; s++){
+        const c = document.createElement("button");
+        c.className = "cell" + (s % 4 === 0 ? " beat" : "") + (grid[tr.id][s] ? " hit" : "") + (grid[tr.id][s] && (tr.type === "bass" || tr.type === "stab") ? " note" : "");
+        c.dataset.t = tr.id; c.dataset.s = s;
+        c.onclick = () => { grid[tr.id][s] = grid[tr.id][s] ? 0 : 1; c.classList.toggle("hit", !!grid[tr.id][s]); c.classList.toggle("note", !!grid[tr.id][s] && (tr.type === "bass" || tr.type === "stab")); audio(); };
+        row.appendChild(c);
+      }
+      g.appendChild(row);
+    });
+  }
+
+  function pickSample(id){
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "audio/*";
+    inp.onchange = async () => { const f = inp.files && inp.files[0]; if(!f) return; try{ const c = audio(); userSamples[id] = await c.decodeAudioData(await f.arrayBuffer()); msg("Amostra carregada: " + f.name); }catch(e){ msg("Não consegui ler esse ficheiro."); } };
+    inp.click();
+  }
+
+  // Guardar e carregar (só padrões: sem os ficheiros de som)
+  function saveP(){ const data = {bpm, steps, grid, notes}; localStorage.setItem("ckmusic", JSON.stringify(data)); msg("Padrão guardado neste aparelho."); }
+  function loadP(){ try{ const d = JSON.parse(localStorage.getItem("ckmusic") || "null"); if(!d){ msg("Ainda não há nada guardado."); return; } bpm = d.bpm || 128; steps = d.steps || 16; grid = d.grid; notes = d.notes; $("#bpm").value = bpm; $("#len").value = String(steps); render(); msg("Padrão carregado."); }catch(e){ msg("Não consegui carregar."); } }
+
+  // Exportar um ciclo de 4 compassos em WAV
+  async function exportWav(){
+    const bars = 4, sr = 44100, spb = 60 / bpm * 4, secs = spb * bars + .6;
+    const off = new OfflineAudioContext(2, Math.ceil(secs * sr), sr);
+    const om = off.createGain(); om.gain.value = .8; om.connect(off.destination);
+    const savedNoise = noiseBuf; noiseBuf = makeNoise(off);
+    for(let b = 0; b < bars; b++) scheduleBar(off, om, b * spb, secPerStep(), {grid, notes, steps});
+    noiseBuf = savedNoise;
+    const buf = await off.startRendering();
+    const blob = wavBlob(buf); const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "criacao-" + bpm + "bpm.wav"; document.body.appendChild(a); a.click(); a.remove();
+    msg("WAV exportado (4 compassos).");
+  }
+  function wavBlob(buf){
+    const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate, data = new DataView(new ArrayBuffer(44 + n * ch * 2));
+    const w = (o, s) => { for(let i = 0; i < s.length; i++) data.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); data.setUint32(4, 36 + n * ch * 2, true); w(8, "WAVE"); w(12, "fmt "); data.setUint32(16, 16, true); data.setUint16(20, 1, true); data.setUint16(22, ch, true);
+    data.setUint32(24, sr, true); data.setUint32(28, sr * ch * 2, true); data.setUint16(32, ch * 2, true); data.setUint16(34, 16, true); w(36, "data"); data.setUint32(40, n * ch * 2, true);
+    let o = 44; const chans = []; for(let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+    for(let i = 0; i < n; i++) for(let c = 0; c < ch; c++){ const v = Math.max(-1, Math.min(1, chans[c][i])); data.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+    return new Blob([data], {type: "audio/wav"});
+  }
+
+  // Controlos
+  $("#play").onclick = () => playing ? stop() : start();
+  $("#stop").onclick = stop;
+  $("#bpm").onchange = e => { bpm = Math.max(60, Math.min(200, +e.target.value || 128)); e.target.value = bpm; };
+  $("#clear").onclick = () => { blankGrid(); render(); };
+  $("#save").onclick = saveP;
+  $("#load").onclick = loadP;
+  $("#wav").onclick = () => exportWav().catch(() => msg("Não consegui exportar."));
+  document.addEventListener("keydown", e => { if(e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "SELECT"){ e.preventDefault(); playing ? stop() : start(); } });
+
+  render();
+})();
+</script>
+</body>
+</html>
