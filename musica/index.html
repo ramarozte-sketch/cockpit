@@ -175,15 +175,18 @@
     while(nextT < c.currentTime + .12){
       const st = cur, t = stepTime(nextT, st, sps);
       scheduleStep(c, buses, t, pats[activePattern()], st);
-      setTimeout(() => showNow(st), Math.max(0, (t - c.currentTime) * 1000));
+      stepQ.push({t, s: st}); if(stepQ.length > 128) stepQ.splice(0, stepQ.length - 128);
       nextT += sps; cur = (cur + 1) % steps;
       if(cur === 0) chainPos++;
     }
   }
-  function showNow(s){ document.querySelectorAll(".cell").forEach(b => b.classList.toggle("now", +b.dataset.s === s)); }
+  // O cursor segue o relógio de áudio (não os temporizadores), por isso não pisca
+  let stepQ = [], rafId = null, lastNow = -1;
+  function showNow(s){ if(s === lastNow) return; lastNow = s; document.querySelectorAll(".cell.now").forEach(b => b.classList.remove("now")); if(s >= 0) document.querySelectorAll('.cell[data-s="' + s + '"]').forEach(b => b.classList.add("now")); }
+  function uiLoop(){ rafId = requestAnimationFrame(uiLoop); if(!ctx) return; const now = ctx.currentTime; let s = -1; while(stepQ.length && stepQ[0].t <= now) s = stepQ.shift().s; if(s >= 0) showNow(s); }
   function start(){ const c = audio(); if(playing) return; if(!noiseBuf) noiseBuf = makeNoise(c);
-    playing = true; cur = 0; chainPos = 0; nextT = c.currentTime + .05; timer = setInterval(tick, 25); $("#play").classList.add("on"); }
-  function stop(){ playing = false; clearInterval(timer); timer = null; showNow(-1); $("#play").classList.remove("on"); }
+    playing = true; cur = 0; chainPos = 0; nextT = c.currentTime + .05; stepQ = []; lastNow = -1; timer = setInterval(tick, 25); if(!rafId) rafId = requestAnimationFrame(uiLoop); $("#play").classList.add("on"); }
+  function stop(){ playing = false; clearInterval(timer); timer = null; stepQ = []; if(rafId){ cancelAnimationFrame(rafId); rafId = null; } lastNow = -1; showNow(-1); $("#play").classList.remove("on"); }
 
   // Arrasto para pintar: liga ou desliga os passos por onde o dedo passa
   let drag = null;
