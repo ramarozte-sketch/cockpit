@@ -3321,7 +3321,7 @@ $("orgImpFile").onchange = async e => {
    1) lista «CanaisTVPT» (thomraider12, atualizada todos os dias, com os endereços oficiais de RTP, SIC, TVI e CNN Portugal)
    2) lista pública iptv-org, só para o que faltar
    Ficam de fora as rádios, os canais estrangeiros e religiosos, e as retransmissões não oficiais de canais pagos
-   (servidores dyndns, IPs soltos, vavoo). A Sport TV vem da tua lista IPTV, se a tiveres carregada (grupo «Desporto»). */
+   (servidores dyndns, IPs soltos, vavoo). */
 const FREE_SRCS = ["https://raw.githubusercontent.com/thomraider12/canaistvpt/main/pt.m3u", "https://iptv-org.github.io/iptv/countries/pt.m3u"];
 const FREE_SRC = FREE_SRCS[1];
 let freeChans = [];
@@ -3337,19 +3337,8 @@ function freeGroup(n){
   return "Generalistas";
 }
 const freeKey = n => /artv|parlamento/i.test(n) ? "artv" : norm(n).replace(/\b(hd|fhd|uhd|4k|\d{3,4}p|tv)\b|[^a-z0-9+]/g, "");
-/* Sport TV da lista IPTV do utilizador (os canais pagos não têm emissão aberta oficial) */
-function freeSportMerge(){
-  try{
-    const live = (channels || []).filter(c => c.kind === "live" && /^(\|?pt\|?\s*)?sport ?tv ?([1-7]|\+)/i.test(cleanTag(c.name)) && !/(uhd|4k|fhd|8k)/i.test(c.name));
-    const have = new Set(freeChans.filter(c => c.iptv).map(c => c.url));
-    if(live.length && live.every(c => have.has(c.url))) return false;
-    const pick = new Map();
-    for(const c of live){ const nm = cleanTag(c.name).replace(/^\|?pt\|?\s*/i, "").replace(/\s*(hd|sd)\s*$/i, "").trim(), k = freeKey(nm); if(!pick.has(k) || /hd/i.test(c.name)) pick.set(k, {...c, name:nm, free:true, iptv:true, group:"Desporto"}); }
-    freeChans = freeChans.filter(c => !c.iptv && !/^sport ?tv/i.test(c.name)).concat([...pick.values()])
-      .sort((a,b)=>freeRank(a.name) - freeRank(b.name) || a.name.localeCompare(b.name));
-    return true;
-  }catch(e){ return false; }
-}
+/* v561: a lista aberta nunca leva canais da lista IPTV do utilizador (os endereços têm o utilizador e a palavra-passe) */
+function freeSportMerge(){ const n = freeChans.length; freeChans = freeChans.filter(c => !c.iptv && !/\/\/[^/]*\/(live\/)?[^/]+\/[^/]+\/\d+/.test(c.url || "")); return freeChans.length !== n; }
 async function loadFreeTv(force){
   if(!force){
     const c = LS.get("freeTv2", null);
@@ -3472,7 +3461,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v560";
+const APP_VERSION = "v561";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
