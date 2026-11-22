@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v575";
+const APP_VERSION = "v576";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20812,6 +20812,8 @@ html.nightUi #ambient{filter:brightness(.75)}
     requestAnimationFrame(loop);
     /* v291: botões vindos do comando no telemóvel (joystick). Jogo do Cockpit → teclas dos jogos; emulador → teclas do EmulatorJS (dentro da janela); fora disso → navegação */
     /* v573: teclas por omissão do EmulatorJS 4.x: Select é «v» (antes «Shift», que não faz nada: nos jogos de arcada/Neo Geo o Select mete a moeda, por isso não se conseguia começar) */
+    /* índice do botão no comando → entrada RetroArch do EmulatorJS (B, Y, Select, Start, ↑, ↓, ←, →, A, X, L, R) */
+    const EMU_RI = {1:0, 3:1, 8:2, 9:3, 12:4, 13:5, 14:6, 15:7, 0:8, 2:9, 4:10, 5:11};
     const EMUK = {0:["z","KeyZ",90], 1:["x","KeyX",88], 2:["a","KeyA",65], 3:["s","KeyS",83], 4:["q","KeyQ",81], 5:["e","KeyE",69], 8:["v","KeyV",86], 9:["Enter","Enter",13], 12:["ArrowUp","ArrowUp",38], 13:["ArrowDown","ArrowDown",40], 14:["ArrowLeft","ArrowLeft",37], 15:["ArrowRight","ArrowRight",39]};
     const emuKey = (type, m) => { try{ const f = document.querySelector("#emuWin iframe"), d = f && f.contentDocument; if(!d) return; const ev = new f.contentWindow.KeyboardEvent(type, {key:m[0], code:m[1], keyCode:m[2], which:m[2], bubbles:true, cancelable:true}); (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(ev); }catch(e){} };
     /* v299: jogos só com rato/toque: o joystick move um cursor no ecrã e o botão A carrega no sítio do cursor */
@@ -20830,7 +20832,10 @@ html.nightUi #ambient{filter:brightness(.75)}
       else if(i === 0 && on !== VC.down){ VC.down = on; vcShow(); vcPtr(on ? "pointerdown" : "pointerup"); } };
     window.__padPress = (pi, i, on) => {
       try{
-        if(inEmu()){ const m = EMUK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); return; }
+        /* v576: no emulador, cada telemóvel/comando é o seu jogador: o botão vai direto à entrada do jogador certo (antes eram teclas do teclado, que só servem o jogador 1) */
+        if(inEmu()){ const ri = EMU_RI[i]; let done = false;
+          try{ const f = document.querySelector("#emuWin iframe"), E = f && f.contentWindow && f.contentWindow.EJS_emulator, gm = E && E.gameManager; if(ri != null && gm && gm.simulateInput){ gm.simulateInput(pi === 1 ? 1 : 0, ri, on ? 1 : 0); done = true; } }catch(e){}
+          if(!done){ const m = EMUK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); } return; }
         if(pi === 0 && inGame()) vcPad(i, on);
         const map = pi === 1 ? P2 : P1;
         if(inGame()){ const m = map[i]; if(m) key(on ? "keydown" : "keyup", m[0], m[1]); return; }
