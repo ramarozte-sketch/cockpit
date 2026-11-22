@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v578";
+const APP_VERSION = "v579";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20340,14 +20340,32 @@ html.nightUi #ambient{filter:brightness(.75)}
           "#rpAbxy button{border-radius:50%;font-size:24px;box-shadow:0 6px 0 #0b0f19,inset 0 2px 0 #ffffff33;border:1px solid #ffffff22}" +
           "#rpAbxy button[data-b='0']{background:radial-gradient(circle at 35% 30%,#5be39a,#169c57)}#rpAbxy button[data-b='1']{background:radial-gradient(circle at 35% 30%,#ff7a8a,#c22a42)}" +
           "#rpAbxy button[data-b='2']{background:radial-gradient(circle at 35% 30%,#6db8ff,#1f5fc4)}#rpAbxy button[data-b='3']{background:radial-gradient(circle at 35% 30%,#ffe066,#c99a0a);color:#3a2a00}" +
+          /* v579: três estilos de comando (só o aspeto e os nomes; a função de cada posição não muda) */
+          "#rmPad.st-ps #rpAbxy button{background:radial-gradient(circle at 35% 30%,#2b3247,#141927)!important;font-size:30px;font-weight:400}" +
+          "#rmPad.st-ps #rpAbxy button[data-b='3']{color:#4fe3c1}#rmPad.st-ps #rpAbxy button[data-b='1']{color:#ff6b7d}#rmPad.st-ps #rpAbxy button[data-b='0']{color:#7aa8ff}#rmPad.st-ps #rpAbxy button[data-b='2']{color:#f59ad6}" +
+          "#rmPad.st-ps #rpDpad{gap:6px}#rmPad.st-ps #rpDpad button{border-radius:10px!important;clip-path:none}#rmPad.st-ps #rpDpad .c{background:transparent!important;border:0!important}" +
+          "#rmPad.st-ps .sh button{border-radius:22px 22px 10px 10px}#rmPad.st-ps .mid button{width:16vmin;border-radius:10px}" +
+          "#rmPad.st-nt #rpAbxy button{background:radial-gradient(circle at 35% 30%,#4a4f63,#262a38)!important;color:#fff!important}" +
+          "#rmPad.st-nt .sh button{border-radius:10px 10px 18px 18px;background:linear-gradient(180deg,#3b4050,#22262f)}" +
+          "#rmPad.st-nt .mid{flex-direction:row}#rmPad.st-nt .mid button{width:11vmin;height:11vmin;border-radius:50%;font-size:22px;font-weight:900}" +
+          "#rmPad.st-nt #rpDpad button{background:linear-gradient(180deg,#3a3f50,#20242f)}" +
           "@media (orientation:portrait){#rmPad .ctl{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:3vh}#rmPad .mid{flex-direction:row}}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
-        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
+        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpStyle" title="Estilo do comando">🎨 Estilo</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
           '<div class="ctl"><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
         document.body.appendChild(P); P.classList.toggle("p2", myPlayer === 1);
+        /* v579: estilos parecidos com os comandos mais conhecidos (posições iguais; só mudam os nomes, cores e formas) */
+        const STY = {xb:{n:"Letras coloridas", lab:{0:"A", 1:"B", 2:"X", 3:"Y", 4:"LB", 5:"RB", 8:"View", 9:"Menu"}},
+          ps:{n:"Formas", lab:{0:"✕", 1:"○", 2:"□", 3:"△", 4:"L1", 5:"R1", 8:"Select", 9:"Start"}},
+          nt:{n:"Letras trocadas", lab:{0:"B", 1:"A", 2:"Y", 3:"X", 4:"L", 5:"R", 8:"−", 9:"+"}}};
+        const ORD = ["xb", "ps", "nt"];
+        const applySty = k => { if(!STY[k]) k = "xb"; ORD.forEach(x => P.classList.toggle("st-" + x, x === k)); Object.entries(STY[k].lab).forEach(([b, l]) => { const el = P.querySelector('button[data-b="' + b + '"]'); if(el) el.textContent = l; }); const sb = document.getElementById("rpStyle"); if(sb) sb.textContent = "🎨 " + STY[k].n; try{ localStorage.setItem("ck_padStyle", k); }catch(e){} };
+        let curSty = "xb"; try{ curSty = localStorage.getItem("ck_padStyle") || "xb"; }catch(e){}
+        applySty(curSty);
+        document.getElementById("rpStyle").onclick = () => { curSty = ORD[(ORD.indexOf(curSty) + 1) % ORD.length]; applySty(curSty); };
         const held = new Set();
         const press = (b, on) => { b = +b; if(on === held.has(b)) return; on ? held.add(b) : held.delete(b); send({t:"pad", p:myPlayer, b, on}); const el = P.querySelector('[data-b="' + b + '"]'); if(el) el.classList.toggle("on", on); if(on){ try{ navigator.vibrate && navigator.vibrate(12); }catch(e){} } };
         const releaseAll = () => { [...held].forEach(b => press(b, false)); };
