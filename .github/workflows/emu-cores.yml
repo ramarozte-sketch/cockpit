@@ -19,7 +19,7 @@ jobs:
           mkdir -p cores/reports
           curl -fsSL -o emulator.min.js  $B/emulator.min.js  || true
           curl -fsSL -o emulator.min.css $B/emulator.min.css || true
-          for c in fceumm snes9x gambatte mgba genesis_plus_gx mednafen_pce stella fbneo; do
+          for c in fceumm snes9x gambatte mgba genesis_plus_gx mednafen_pce stella2014 fbneo melonds pcsx_rearmed mupen64plus_next picodrive handy mednafen_ngp mednafen_wswan prosystem mame2003_plus; do
             for v in "" "-legacy"; do curl -fsSL -o cores/$c$v-wasm.data $B/cores/$c$v-wasm.data || rm -f cores/$c$v-wasm.data; done
             curl -fsSL -o cores/reports/$c.json $B/cores/reports/$c.json || rm -f cores/reports/$c.json
           done
