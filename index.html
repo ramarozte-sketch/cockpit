@@ -1628,7 +1628,7 @@ body.layout-atv .rail{display:none}
         <div class="deck B" data-d="1"></div>
       </div></div>
       <div class="djsrc" id="djSrc" hidden><div class="box">
-        <div class="row"><b id="djSrcT">Carregar no deck</b><span class="spacer"></span><button class="dbtn" id="djSrcX">✕</button></div>
+        <div class="row"><b id="djSrcT">Carregar no deck</b><span class="spacer"></span><button class="dbtn" id="djSrcX"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></button></div>
         <b class="small">Procurar música</b>
         <div class="drow"><input type="search" id="djQ" placeholder="Artista ou música…" style="flex:1;min-width:160px;min-height:46px"><select class="fx" id="djQs"><option value="audius">Audius (completas)</option><option value="itunes">iTunes (30 s)</option><option value="youtube">YouTube Music</option></select><button class="dbtn" id="djQgo">Procurar</button></div>
         <div class="djlist" id="djRes"></div>
@@ -1677,9 +1677,9 @@ body.layout-atv .rail{display:none}
       <div id="rdMap" style="position:absolute;inset:0"></div>
       <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:500;font-size:22px;filter:drop-shadow(0 0 4px #000)">🔺</div>
       <div id="rdNext" style="position:absolute;left:6px;top:6px;z-index:500;background:#000a;color:#fff;border-radius:10px;padding:3px 8px;font-size:13px"></div>
-      <button id="rdHide" class="btn" style="position:absolute;right:4px;top:4px;z-index:500;min-height:30px;padding:0 8px">✕</button>
+      <button id="rdHide" class="btn" style="position:absolute;right:4px;top:4px;z-index:500;min-height:30px;padding:0 8px"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></button>
     </div>
-    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3">✕ Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
+    <div id="saver" hidden style="position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 40%,#1e2a3a 0%,#06080d 75%);overflow:hidden"><button class="btn" id="saverX" style="position:absolute;top:12px;right:12px;z-index:3"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg> Fechar</button><div id="saverEmbed" hidden style="position:absolute;inset:0;z-index:1"></div><div id="saverCredit" hidden style="position:absolute;right:10px;bottom:6px;z-index:3;font-size:12px;color:#cfd8e6;text-shadow:0 1px 4px #000;pointer-events:auto"></div><div id="saverInfo" style="position:absolute;inset:0;z-index:2;color:#e8f0ff;text-shadow:0 2px 8px #000;pointer-events:none"></div><div style="position:absolute;left:12px;top:12px;z-index:3;display:flex;gap:6px"><button class="btn" id="saverSmall">A−</button><button class="btn" id="saverBig">A＋</button></div></div>
     <section class="view" id="v-saverCfg" hidden>
       <div class="row"><h1>Protetor de ecrã</h1><span class="spacer"></span><button class="btn primary" id="svPreview">▶ Ecrã inteiro</button></div>
       <div class="panel">
@@ -2311,7 +2311,7 @@ function offerHttpDirect(why){
     if(location.protocol !== "https:" || !/^http:/i.test(cfg.xs || cfg.m3u || "") || document.getElementById("httpDirBar")) return;
     const b = document.createElement("div"); b.id = "httpDirBar";
     b.style.cssText = "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99999;background:#1b2436;color:#fff;border:1px solid #7cc4ff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;max-width:92vw;font:600 15px/1.3 system-ui,sans-serif;box-shadow:0 8px 30px #0008";
-    b.innerHTML = '<span>O servidor IPTV ' + (why ? "(" + esc(why) + ") " : "") + 'só funciona sem proxy na versão <b>http</b> do Cockpit. Abrir lá, com as tuas definições?</span><button class="btn primary" id="httpDirGo">Abrir sem proxy</button><button class="btn" id="httpDirNo">✕</button>';
+    b.innerHTML = '<span>O servidor IPTV ' + (why ? "(" + esc(why) + ") " : "") + 'só funciona sem proxy na versão <b>http</b> do Cockpit. Abrir lá, com as tuas definições?</span><button class="btn primary" id="httpDirGo">Abrir sem proxy</button><button class="btn" id="httpDirNo"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></button>';
     document.body.appendChild(b);
     document.getElementById("httpDirGo").onclick = goHttpDirect;
     document.getElementById("httpDirNo").onclick = () => b.remove();
@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v581";
+const APP_VERSION = "v582";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7205,7 +7205,7 @@ function openUrl(url){ if(mediaBlocked() && isVideoSite(url)){ toast("Vídeo só
 function openYoutube(q){ openUrl("https://www.youtube.com/results?search_query="+encodeURIComponent(q)); }
 $("ytForm").onsubmit = e => { e.preventDefault(); const q=$("ytQ").value.trim(); if(q) ytSearchOrOpen(q); };
 function renderFavs(){
-  $("favList").innerHTML = mfavs.map((f,i)=>`<div class="item"><button class="item" style="padding:0;min-height:0" data-open="${i}"><span class="t"><b>${esc(f.name)}</b><span>${esc(f.url)}</span></span></button><button class="star" data-del="${i}" aria-label="Remover">✕</button></div>`).join("");
+  $("favList").innerHTML = mfavs.map((f,i)=>`<div class="item"><button class="item" style="padding:0;min-height:0" data-open="${i}"><span class="t"><b>${esc(f.name)}</b><span>${esc(f.url)}</span></span></button><button class="star" data-del="${i}" aria-label="Remover"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></button></div>`).join("");
   $("favList").querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openUrl(mfavs[+b.dataset.open].url));
   $("favList").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ mfavs.splice(+b.dataset.del,1); LS.set("mfavs",mfavs); renderFavs(); });
 }
@@ -9973,7 +9973,7 @@ function gmFit(){
 }
 function gmFullSet(on){
   const v = $("v-games"); if(on === gmIsFull()) return;
-  v.classList.toggle("gmfull", on); $("gmFull").textContent = on ? "✕ Sair do ecrã total" : "⛶ Ecrã total";
+  v.classList.toggle("gmfull", on); $("gmFull").innerHTML = on ? "<svg viewBox='0 0 24 24' width='14' height='14' aria-hidden='true' style='vertical-align:-2px'><path d='M6 6l12 12M18 6L6 18' stroke='currentColor' stroke-width='2.6' stroke-linecap='round' fill='none'/></svg> Sair do ecrã total" : "⛶ Ecrã total";
   try{ if(on){ const rq = v.requestFullscreen || v.webkitRequestFullscreen; if(rq) Promise.resolve(rq.call(v)).catch(() => {}); }
        else if(document.fullscreenElement || document.webkitFullscreenElement){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); } }catch(e){}
   setTimeout(gmFit, 60); setTimeout(gmFit, 400);
@@ -15436,7 +15436,7 @@ function renderMaint(){
   try{ const tb = sec.querySelector("#tMirror"); if(tb){ tb.onclick = toggleMirror; syncMirrorBtns(); } }catch(e){}
   $("v-tv").parentNode.insertBefore(sec, $("v-tv"));
   const srch = document.createElement("div"); srch.id = "ahSrch"; srch.hidden = true;
-  srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX">✕ Fechar</button></div><div class="top" id="ahSrK"><button class="ahBtn" data-sk="all">🔎 Tudo</button><button class="ahBtn" data-sk="live">📺 Canais</button><button class="ahBtn" data-sk="movie">🎬 Filmes</button><button class="ahBtn" data-sk="series">🍿 Séries</button></div><div class="small" id="ahSrN" style="opacity:.7"></div><div class="res" id="ahSrRes"></div></div>';
+  srch.innerHTML = '<div class="box"><div class="top"><input id="ahSrIn" type="text" placeholder="Pesquisar canais, filmes, séries…" autocomplete="off"><button class="ahBtn" id="ahSrX"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg> Fechar</button></div><div class="top" id="ahSrK"><button class="ahBtn" data-sk="all">🔎 Tudo</button><button class="ahBtn" data-sk="live">📺 Canais</button><button class="ahBtn" data-sk="movie">🎬 Filmes</button><button class="ahBtn" data-sk="series">🍿 Séries</button></div><div class="small" id="ahSrN" style="opacity:.7"></div><div class="res" id="ahSrRes"></div></div>';
   document.body.appendChild(srch);
 
   /* botão para voltar ao Início a partir da lista */
@@ -16012,7 +16012,7 @@ body.pfull.ctlOn #fsCh{opacity:1;pointer-events:auto;transform:none}
   if(window.ANDROID) return;
   try{
   const vt = $("v-tv"), st = $("stage");
-  const ex = document.createElement("button"); ex.id = "vExit"; ex.type = "button"; ex.textContent = "✕ Sair"; document.body.appendChild(ex);
+  const ex = document.createElement("button"); ex.id = "vExit"; ex.type = "button"; ex.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg> Sair'; document.body.appendChild(ex);
   let hT = 0;
   let lastAt = 0;
   /* v251: em meia janela no Tesla os controlos ficam 8 s (antes 5 s) */
@@ -20358,7 +20358,7 @@ html.nightUi #ambient{filter:brightness(.75)}
           "@media (orientation:portrait){#rmPad .ctl{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:3vh}#rmPad .mid{flex-direction:row}}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
-        P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpStyle" title="Estilo do comando">🎨 Estilo</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
+        P.innerHTML = '<div class="top"><button id="rpClose"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg> Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpStyle" title="Estilo do comando">🎨 Estilo</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
           '<div class="ctl"><div id="rpBody"><svg aria-hidden="true"></svg></div><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
@@ -20727,7 +20727,7 @@ html.nightUi #ambient{filter:brightness(.75)}
     };
     const megaPaint = (msg) => {
       const mb = box.querySelector("#megaBox"); if(!mb) return; mb.hidden = false;
-      const head = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📂 A minha pasta MEGA</h3><span class="spacer" style="flex:1"></span><button class="btn" data-mg="ref">↻ Atualizar</button><button class="btn" data-mg="link">🔗 Mudar link</button><button class="btn" data-mg="close">✕</button></div>';
+      const head = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📂 A minha pasta MEGA</h3><span class="spacer" style="flex:1"></span><button class="btn" data-mg="ref">↻ Atualizar</button><button class="btn" data-mg="link">🔗 Mudar link</button><button class="btn" data-mg="close"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg></button></div>';
       if(msg){ mb.innerHTML = head + '<p class="small muted">' + esc(msg) + '</p>'; }
       else if(!megaFiles || !megaFiles.length){ mb.innerHTML = head + '<p class="small muted">Não encontrei ROMs nesta pasta (.md, .gen, .bin, .nes, .sfc, .smc, .gb, .gbc, .gba, .sms, .gg, .pce, .a26, .zip, .7z…).</p>'; }
       else mb.innerHTML = head + '<p class="small muted" style="margin:6px 0">' + megaFiles.length + ' jogos · na 1.ª vez cada jogo é descarregado; depois abre logo.</p><div class="eg">' +
@@ -21095,7 +21095,7 @@ html.nightUi #ambient{filter:brightness(.75)}
           '<div class="dtr"><button class="dbtn big" data-a="play">▶</button><button class="dbtn big" data-a="cue">CUE</button><button class="dbtn" data-a="sync">SYNC</button><button class="dbtn" data-a="load">⏏ Carregar</button></div></div>' +
         '<div class="pitch"><button class="dbtn sm" data-a="bdn">−</button><span>Tempo</span><input type="range" min="-80" max="80" value="0" data-r="pitch" aria-label="Tempo do deck ' + L + '"><output data-r="pv">0,0 %</output><button class="dbtn sm" data-a="bup">+</button></div>' +
         '<div class="dtabs"><button class="dtab on" data-tab="loop">Pontos e loops</button><button class="dtab" data-tab="eq">EQ</button><button class="dtab" data-tab="fx">Efeitos</button></div>' +
-        '<div class="dpan" data-pan="loop"><div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4" title="Loop de 4 batidas">↻4</button><button class="dbtn" data-lp="8" title="Loop de 8 batidas">↻8</button><button class="dbtn" data-a="lhalf" title="Loop a metade">½</button><button class="dbtn" data-a="ldbl" title="Loop a dobrar">×2</button></div>' +
+        '<div class="dpan" data-pan="loop"><div class="drow">' + [1, 2, 3, 4].map(n => '<button class="dbtn hc" data-hc="' + (n - 1) + '">' + n + '</button>').join("") + '<span class="spacer" style="flex:1"></span><button class="dbtn" data-lp="4" title="Loop de 4 batidas"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>4</button><button class="dbtn" data-lp="8" title="Loop de 8 batidas"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>8</button><button class="dbtn" data-a="lhalf" title="Loop a metade">½</button><button class="dbtn" data-a="ldbl" title="Loop a dobrar">×2</button></div>' +
           '<div class="drow"><button class="dbtn" data-a="jb" title="Saltar 4 batidas para trás">⏮ 4</button><button class="dbtn" data-a="jf" title="Saltar 4 batidas para a frente">4 ⏭</button><span class="spacer" style="flex:1"></span><span class="small muted" style="margin:0 2px">Roll</span><button class="dbtn" data-roll=".25">¼</button><button class="dbtn" data-roll=".5">½</button><button class="dbtn" data-roll="1">1</button></div></div>' +
         '<div class="dpan" data-pan="eq" hidden><div class="knobs">' + [["gain", "Ganho", -12, 12, 0], ["hi", "Agudos", -26, 6, 0], ["mid", "Médios", -26, 6, 0], ["lo", "Graves", -26, 6, 0], ["flt", "Filtro", -100, 100, 0]].map(k => '<label class="kn"><span>' + k[1] + '</span><input type="range" min="' + k[2] + '" max="' + k[3] + '" value="' + k[4] + '" data-k="' + k[0] + '"><output data-o="' + k[0] + '">0</output></label>').join("") + '</div></div>' +
         '<div class="dpan" data-pan="fx" hidden><div class="fxrow"><select class="fx" data-r="fx" aria-label="Efeito"><option value="echo">Eco ½ batida</option><option value="rev">Reverb</option><option value="fla">Flanger</option><option value="crush">Bitcrusher</option></select><label class="kn"><span>Efeito</span><input type="range" min="0" max="100" value="0" data-k="echo"><output data-o="echo">0</output></label><button class="dbtn" data-a="kill" title="Cortar os graves">✂ Graves</button></div></div>';
