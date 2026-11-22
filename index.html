@@ -3461,7 +3461,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v561";
+const APP_VERSION = "v562";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20350,7 +20350,7 @@ html.nightUi #ambient{filter:brightness(.75)}
       const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000}#game{width:100%;height:100%}</style></head><body><div id="game"></div><script>' +
         'window.EJS_player="#game";window.EJS_core=' + JSON.stringify(gm.s) + ';window.EJS_gameUrl=' + JSON.stringify(url) + ';window.EJS_gameName=' + JSON.stringify(gm.n) + ';window.EJS_pathtodata=' + JSON.stringify(emuData) + ';window.EJS_startOnLoaded=true;window.EJS_language="pt-PT";' +
         'window.EJS_onLoadError=function(){parent.postMessage({emuErr:1},"*")};<\/script><script src="' + emuData + 'loader.js"><\/script></body></html>';
-      cur = {n:gm.n, u:gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply(); document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
+      cur = {n:gm.n, u:gm.key || gm.u}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply(); document.getElementById("emuT").textContent = gm.n + " · " + (SYS[gm.s] || gm.s) + (lb ? " · local" : " · internet"); win.classList.add("on");
     };
     window.addEventListener("message", e => { if(e.data && e.data.emuErr) toast("O emulador não conseguiu carregar a ROM. Confirma o endereço (tem de ser um link direto para o ficheiro) ou liga «pelo proxy».", true); });
     const addGame = () => {
@@ -20361,13 +20361,51 @@ html.nightUi #ambient{filter:brightness(.75)}
       const viaPx = /drive\.google\.com/.test(u) ? true : confirm("Abrir pelo proxy do Cockpit? (escolhe OK se o link direto não funcionar, por exemplo Google Drive)");
       const g = games(); g.push({n, u, s:sy, px:viaPx}); LS.set("emuGames", g); paint(); toast("«" + n + "» guardado. Toca para jogar.");
     };
-    const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), ...games().map((g, gi) => ({i:"🎮", n:g.n, d:(SYS[g.s] || g.s) + (g.px ? " · pelo proxy" : ""), rom:g, gi})), {i:"➕", n:"Jogo por endereço", d:"Junta uma ROM tua a partir de um link (GitHub, Dropbox, Drive…)", addRom:true}, L.find(x => x.add)];
+    /* v562: ROMs da pasta MEGA do utilizador. O link fica só neste aparelho (nunca no código do site);
+       os ficheiros são descarregados e desencriptados no browser (megajs) e guardados no IndexedDB para não voltar a descarregar. */
+    const romDb = () => new Promise((res, rej) => { const r = indexedDB.open("ckroms", 1); r.onupgradeneeded = () => r.result.createObjectStore("r"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const romGet = async k => { try{ const d = await romDb(); return await new Promise(res => { const q = d.transaction("r").objectStore("r").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); }catch(e){ return null; } };
+    const romPut = async (k, v) => { try{ const d = await romDb(); await new Promise(res => { const tx = d.transaction("r", "readwrite"); tx.objectStore("r").put(v, k); tx.oncomplete = tx.onerror = tx.onabort = () => res(); }); }catch(e){} };
+    const megaLib = () => window.mega ? Promise.resolve(window.mega) : new Promise((res, rej) => { const s = document.createElement("script"); s.src = "emu/megajs.min.js"; s.onload = () => res(window.mega); s.onerror = () => rej(new Error("não carreguei o leitor do MEGA")); document.head.appendChild(s); });
+    let megaFiles = null;
+    const megaList = async url => {
+      const M = await megaLib(), root = M.File.fromURL(url); await root.loadAttributes();
+      const out = [], walk = (n, path) => { if(n.directory || n.children){ (n.children || []).forEach(c => walk(c, path ? path + " / " + n.name : (n === root ? "" : n.name))); return; } const s = sysOf(n.name); if(s) out.push({n:n.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_]+/g, " "), f:n, s, size:n.size, dir:path, k:"mega:" + (n.nodeId || n.downloadId || n.name) + ":" + n.size}); };
+      walk(root, ""); return out.sort((a, b) => (a.dir || "").localeCompare(b.dir || "") || a.n.localeCompare(b.n));
+    };
+    const megaPaint = (msg) => {
+      const mb = box.querySelector("#megaBox"); if(!mb) return; mb.hidden = false;
+      const head = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📂 A minha pasta MEGA</h3><span class="spacer" style="flex:1"></span><button class="btn" data-mg="ref">↻ Atualizar</button><button class="btn" data-mg="link">🔗 Mudar link</button><button class="btn" data-mg="close">✕</button></div>';
+      if(msg){ mb.innerHTML = head + '<p class="small muted">' + esc(msg) + '</p>'; }
+      else if(!megaFiles || !megaFiles.length){ mb.innerHTML = head + '<p class="small muted">Não encontrei ROMs nesta pasta (.md, .gen, .bin, .nes, .sfc, .smc, .gb, .gbc, .gba, .sms, .gg, .pce, .a26…).</p>'; }
+      else mb.innerHTML = head + '<p class="small muted" style="margin:6px 0">' + megaFiles.length + ' jogos · na 1.ª vez cada jogo é descarregado; depois abre logo.</p><div class="eg">' +
+        megaFiles.map((g, i) => '<button class="et" data-mi="' + i + '"><i>' + (g.s === "segaMD" ? "🔵" : g.s === "snes" || g.s === "nes" ? "🔴" : g.s.startsWith("gb") ? "🟢" : "🎮") + '</i><b>' + esc(g.n) + '</b><small>' + esc((SYS[g.s] || g.s) + (g.dir ? " · " + g.dir : "") + " · " + Math.round(g.size / 1024) + " KB") + '</small></button>').join("") + '</div>';
+      mb.querySelectorAll("[data-mi]").forEach(b => b.onclick = () => megaPlay(megaFiles[+b.dataset.mi], b));
+      mb.querySelectorAll("[data-mg]").forEach(b => b.onclick = () => { const a = b.dataset.mg; if(a === "close"){ mb.hidden = true; } else if(a === "ref"){ megaFiles = null; megaOpen(false); } else megaOpen(true); });
+    };
+    const megaOpen = async (ask) => {
+      let url = LS.get("emuMega", "");
+      if(ask || !url){ const u = prompt("Link da tua pasta MEGA com ROMs (https://mega.nz/folder/…#chave). Fica guardado só neste aparelho.", url || ""); if(u == null) return; if(!/^https:\/\/mega\.(nz|co\.nz)\/(folder|file)\//i.test(u.trim()) || !u.includes("#")){ toast("Esse link não parece uma pasta MEGA (tem de ter #chave no fim).", true); return; } url = u.trim(); LS.set("emuMega", url); megaFiles = null; paint(); }
+      if(megaFiles){ megaPaint(); return; }
+      megaPaint("A ler a pasta MEGA…");
+      try{ megaFiles = await megaList(url); megaPaint(); }catch(e){ megaPaint("Não consegui ler a pasta: " + (e && e.message || e) + ". Confirma que o link tem a chave (#…)."); }
+    };
+    const megaPlay = async (g, btn) => {
+      try{
+        let buf = await romGet(g.k);
+        if(!buf){ const sm = btn && btn.querySelector("small"), old = sm ? sm.textContent : ""; if(sm) sm.textContent = "A descarregar…"; buf = await g.f.downloadBuffer(); if(sm) sm.textContent = old; buf = buf.buffer ? buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) : buf; await romPut(g.k, buf); }
+        const u = URL.createObjectURL(new Blob([buf]));
+        playRom({n:g.n, u, s:g.s, px:false, key:g.k});
+      }catch(e){ toast("Não consegui abrir «" + g.n + "»: " + (e && e.message || e), true); }
+    };
+    const paint = () => { const all = [...L.filter(x => !x.add), ...extra(), ...games().map((g, gi) => ({i:"🎮", n:g.n, d:(SYS[g.s] || g.s) + (g.px ? " · pelo proxy" : ""), rom:g, gi})), {i:"📂", n:"A minha pasta MEGA", d:LS.get("emuMega", "") ? "As tuas ROMs da pasta MEGA" : "Liga a tua pasta MEGA com ROMs", mega:true}, {i:"➕", n:"Jogo por endereço", d:"Junta uma ROM tua a partir de um link (GitHub, Dropbox, Drive…)", addRom:true}, L.find(x => x.add)];
       box.innerHTML = '<div class="row"><h2 style="margin:0">🕹️ Emuladores e jogos web</h2><span class="spacer" style="flex:1"></span><label class="row small" style="gap:8px"><input type="checkbox" id="emuIn"> Abrir dentro do Cockpit</label></div>' +
         '<p class="small muted" style="margin:6px 0 0">Os emuladores não trazem jogos: usa só ROMs tuas, de jogos que tenhas, ou jogos homebrew livres.</p><div class="eg">' +
-        all.map((x, k) => '<button class="et" data-k="' + k + '"><i>' + x.i + '</i><b>' + x.n + '</b><small>' + x.d + '</small></button>').join("") + '</div>';
+        all.map((x, k) => '<button class="et" data-k="' + k + '"><i>' + x.i + '</i><b>' + x.n + '</b><small>' + x.d + '</small></button>').join("") + '</div><div id="megaBox" hidden></div>';
       box.querySelector("#emuIn").checked = LS.get("emuIn", true) !== false;
       box.querySelectorAll(".et").forEach(b => b.onclick = () => { const x = all[+b.dataset.k];
         if(x.addRom){ addGame(); return; }
+        if(x.mega){ megaOpen(false); return; }
         if(x.rom){ playRom(x.rom); return; }
         if(x.add){ const u = prompt("Endereço do emulador ou jogo (https://…)"); if(!u || !/^https?:\/\//i.test(u)) return; const n = prompt("Nome", "Jogo") || "Jogo"; const e = extra(); e.push({i:"⭐", n, d:u.replace(/^https?:\/\//, "").slice(0, 40), u}); LS.set("emuExtra", e); paint(); return; }
         open(x); }); };
