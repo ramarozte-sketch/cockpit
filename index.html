@@ -3606,7 +3606,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v587";
+const APP_VERSION = "v588";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -21085,6 +21085,20 @@ html.nightUi #ambient{filter:brightness(.75)}
     return oc.startRendering();
   }
   /* ---------- deck ---------- */
+  /* v588: tonalidade: cromagrama por Goertzel (2.º a 5.º oitavas) em 48 segmentos, comparado com os perfis de Krumhansl; devolve notação Camelot */
+  function keyOf(buf){ try{ const d = buf.getChannelData(0), sr = buf.sampleRate, N = 8192, SEG = 48, total = d.length; if(total < N) return null;
+      const NM = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"], CM = [8,3,10,5,12,7,2,9,4,11,6,1], Cn = [5,12,7,2,9,4,11,6,1,8,3,10];
+      const MAJ = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88], MIN = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+      const freqs = []; for(let oct = 2; oct <= 5; oct++) for(let pc = 0; pc < 12; pc++){ freqs.push({pc, c: 2 * Math.cos(2 * Math.PI * 440 * Math.pow(2, (12 * (oct + 1) + pc - 69) / 12) / sr)}); }
+      const win = new Float64Array(N); for(let i = 0; i < N; i++) win[i] = .5 - .5 * Math.cos(2 * Math.PI * i / (N - 1));
+      const hop = Math.max(N, Math.floor((total - N) / SEG)), chroma = new Float64Array(12);
+      for(let sg = 0; sg < SEG; sg++){ const st = sg * hop; if(st + N > total) break;
+        for(const f of freqs){ let s1 = 0, s2 = 0; for(let i = 0; i < N; i++){ const x = d[st + i] * win[i]; const s0 = x + f.c * s1 - s2; s2 = s1; s1 = s0; } chroma[f.pc] += Math.max(0, s1 * s1 + s2 * s2 - f.c * s1 * s2); } }
+      if(!(chroma.reduce((a, b) => a + b, 0) > 0)) return null;
+      const corr = (a, b) => { let ma = 0, mb = 0; for(let i = 0; i < 12; i++){ ma += a[i]; mb += b[i]; } ma /= 12; mb /= 12; let num = 0, da = 0, db = 0; for(let i = 0; i < 12; i++){ const x = a[i] - ma, y = b[i] - mb; num += x * y; da += x * x; db += y * y; } return num / Math.sqrt(da * db || 1); };
+      let best = {r: -2};
+      for(let t = 0; t < 12; t++){ for(const [prof, maj] of [[MAJ, true], [MIN, false]]){ const rot = []; for(let i = 0; i < 12; i++) rot.push(prof[(i - t + 12) % 12]); const r = corr(chroma, rot); if(r > best.r) best = {r, t, maj}; } }
+      return {name: best.maj ? NM[best.t] : NM[best.t] + "m", cam: best.maj ? CM[best.t] + "B" : Cn[best.t] + "A", r: best.r}; }catch(e){ return null; } }
   /* v585: nivelamento: ganho que leva o volume médio da faixa a um nível comum (RMS sobre amostras espaçadas) */
   function levelGain(buf){ try{ const d = buf.getChannelData(0), st = Math.max(1, Math.floor(d.length / 400000)); let s2 = 0, n = 0; for(let i = 0; i < d.length; i += st){ s2 += d[i] * d[i]; n++; } const rms = Math.sqrt(s2 / Math.max(1, n)); if(!(rms > 1e-5)) return 1; return Math.min(2, Math.max(.25, .12 / rms)); }catch(e){ return 1; } }
   class Deck {
@@ -21175,13 +21189,14 @@ html.nightUi #ambient{filter:brightness(.75)}
       this.ytOff(); this.stop(); this.buf = buf; this.rev = null; this.name = name; this.pos = 0; this.cue = 0; this.hot = [null, null, null, null]; this.loop = 0;
       this.r("tit").textContent = name; this.r("bpm").textContent = "…"; this.drawWave(); this.paintHot(); this.paintLoop();
       await new Promise(r => setTimeout(r, 20));
+      this.key = keyOf(buf);
       this.bpm = known || trackBpm(buf); this.beat0 = known ? 0 : firstBeat(buf); this.showBpm();
       this.lvl = levelGain(buf); this.applyLvl();
       this.dly.delayTime.value = this.bpm ? Math.min(2, 30 / this.bpm) : .25;
     }
     /* v566: deck em modo YouTube Music (leitor oficial do YouTube: play, posição, tempo e volume pelo crossfader) */
     async loadYT(t){
-      this.ytOff(); this.stop(); this.buf = null; this.peaks = null; this.name = (t.artist ? t.artist + " — " : "") + t.title; this.lvl = 1; this.applyLvl(); this.bpm = 0; this.pitch = 0; this.r("pitch").value = 0; this.showBpm();
+      this.ytOff(); this.stop(); this.buf = null; this.peaks = null; this.name = (t.artist ? t.artist + " — " : "") + t.title; this.lvl = 1; this.applyLvl(); this.key = null; this.bpm = 0; this.pitch = 0; this.r("pitch").value = 0; this.showBpm();
       this.r("tit").textContent = this.name; this.el.classList.add("yt"); const box = this.r("ytbox"); box.hidden = false; this.r("wf").hidden = true; box.innerHTML = '<div></div>';
       await ytApi();
       this.ytDur = t.dur || 0;
@@ -21207,7 +21222,9 @@ html.nightUi #ambient{filter:brightness(.75)}
     rebase(){ if(this.playing){ const p = this.curPos(); this.p0 = p; this.t0 = ac.currentTime; this.src.playbackRate.setValueAtTime(this.rateNow(), ac.currentTime); } }
     setPitch(v){ if(this.ytp){ const R = [.75, 1, 1.25], want = 1 + v, near = R.reduce((a, b) => Math.abs(b - want) < Math.abs(a - want) ? b : a); try{ this.ytp.setPlaybackRate(near); }catch(e){} this.pitch = near - 1; this.r("pv").textContent = (this.pitch >= 0 ? "+" : "") + Math.round(this.pitch * 100) + " % (YouTube)"; this.showBpm(); return; }
       this.rebase(); this.pitch = v; this.rebase(); this.r("pv").textContent = (v >= 0 ? "+" : "") + (v * 100).toFixed(1).replace(".", ",") + " %"; this.showBpm(); }
-    showBpm(){ this.r("bpm").textContent = this.bpm ? (this.bpm * (1 + this.pitch)).toFixed(1).replace(".", ",") : "—"; }
+    showBpm(){ this.r("bpm").textContent = this.bpm ? (this.bpm * (1 + this.pitch)).toFixed(1).replace(".", ",") : "—";
+      let kb = this.el.querySelector('[data-kbadge]'); if(!kb){ kb = document.createElement("span"); kb.dataset.kbadge = "1"; kb.className = "small"; kb.style.cssText = "margin-left:6px;opacity:.85;white-space:nowrap"; this.r("bpm").parentElement.appendChild(kb); }
+      kb.textContent = this.key ? this.key.cam + " · " + this.key.name : ""; }
     lvlNow(){ return this.nivelOn !== false && this.lvl ? this.lvl : 1; }
     applyLvl(){ if(!this.gain) return; const kn = this.el.querySelector('[data-k="gain"]'), db = kn ? +kn.value : 0; this.gain.gain.setTargetAtTime(Math.pow(10, db / 20) * this.lvlNow(), ac.currentTime, .05); }
     knob(k, v){ ensure(); const o = this.el.querySelector('[data-o="' + k + '"]');
@@ -21319,10 +21336,10 @@ html.nightUi #ambient{filter:brightness(.75)}
   const decode = async ab => { ensure(); return await new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if(p && p.then) p.then(res, rej); }); };
   /* v587: biblioteca: faixas com link direto ficam guardadas com o BPM analisado, para voltar a carregar e filtrar */
   const libGet = () => { try{ return LS.get("djLib", {}) || {}; }catch(e){ return {}; } };
-  const libAdd = (name, u, bpm) => { if(!u || !bpm) return; const L = libGet(); L[name] = {u, b: Math.round(bpm * 10) / 10, t: Date.now()}; const ks = Object.keys(L); if(ks.length > 200){ ks.sort((a, b) => L[a].t - L[b].t).slice(0, ks.length - 200).forEach(k => delete L[k]); } LS.set("djLib", L); };
+  const libAdd = (name, u, bpm, cam) => { if(!u || !bpm) return; const L = libGet(); L[name] = {u, b: Math.round(bpm * 10) / 10, c: cam || "", t: Date.now()}; const ks = Object.keys(L); if(ks.length > 200){ ks.sort((a, b) => L[a].t - L[b].t).slice(0, ks.length - 200).forEach(k => delete L[k]); } LS.set("djLib", L); };
   const fetchBuf = async u => { let r = null; for(const x of [u, typeof px === "function" && typeof HASPX === "function" && HASPX() ? px(u) : null].filter(Boolean)){ try{ r = await fetch(x); if(r.ok) break; }catch(e){ r = null; } } if(!r || !r.ok) throw new Error("o servidor não deixa ler o ficheiro"); return decode(await r.arrayBuffer()); };
   const loadInto = async (i, getBuf, name, known, url) => { $d("#djSrc").hidden = true; const d = D[i]; d.r("tit").textContent = "A carregar " + name + "…";
-    try{ const buf = await getBuf(); await d.load(buf, name, known); libAdd(name, url, d.bpm); }catch(e){ d.r("tit").textContent = d.name || "Sem música"; toast("Não consegui abrir «" + name + "»: " + (e && e.message || e), true); } };
+    try{ const buf = await getBuf(); await d.load(buf, name, known); libAdd(name, url, d.bpm, d.key && d.key.cam); }catch(e){ d.r("tit").textContent = d.name || "Sem música"; toast("Não consegui abrir «" + name + "»: " + (e && e.message || e), true); } };
   $d("#djLoops").addEventListener("click", e => { const b = e.target.closest("[data-l]"); if(!b) return; ensure(); const L = LOOPS[+b.dataset.l]; loadInto(srcDeck, () => makeLoop(L), L.n + " " + L.bpm, L.bpm); });
   $d("#djFile").onchange = e => { const f = e.target.files && e.target.files[0]; if(!f) return; e.target.value = ""; loadInto(srcDeck, async () => decode(await f.arrayBuffer()), f.name.replace(/\.[a-z0-9]+$/i, "")); };
   $d("#djUrl").onclick = () => { const u = prompt("Link direto para um ficheiro de som (.mp3, .m4a, .ogg, .wav)"); if(!u || !/^https?:\/\//i.test(u)) return;
@@ -21351,8 +21368,10 @@ html.nightUi #ambient{filter:brightness(.75)}
   let libComp = false;
   const renderLib = () => { const box = $d("#djLib"); if(!box) return; const L = libGet(), lo = +$d("#djBmin").value || 0, hi = +$d("#djBmax").value || 9999;
     let tgt = 0; if(libComp){ const o = D[1 - srcDeck]; tgt = o && o.bpm ? o.bpm * (1 + o.pitch) : (D[srcDeck] && D[srcDeck].bpm) || 0; }
-    const ks = Object.keys(L).filter(k => { const b = L[k].b; if(b < lo || b > hi) return false; if(libComp && tgt && Math.abs(b - tgt) / tgt > .06) return false; return true; }).sort((a, b) => L[b].t - L[a].t);
-    box.innerHTML = ks.length ? ks.map(k => '<button data-lb="' + esc(k) + '">' + esc(k) + '<small>' + L[k].b.toFixed(1).replace(".", ",") + ' BPM</small></button>').join("") : '<span class="small muted">Ainda não há faixas com link analisadas' + (libComp ? ' compatíveis' : '') + '.</span>';
+    const oc = libComp ? (D[1 - srcDeck] && D[1 - srcDeck].key ? D[1 - srcDeck].key.cam : "") : "";
+    const camOk = (a, b) => { if(!a || !b) return true; const na = parseInt(a, 10), nb = parseInt(b, 10), df = Math.abs(na - nb); return a.slice(-1) === b.slice(-1) ? Math.min(df, 12 - df) <= 1 : df === 0; };
+    const ks = Object.keys(L).filter(k => { const b = L[k].b; if(b < lo || b > hi) return false; if(libComp && tgt && Math.abs(b - tgt) / tgt > .06) return false; if(libComp && !camOk(oc, L[k].c)) return false; return true; }).sort((a, b) => L[b].t - L[a].t);
+    box.innerHTML = ks.length ? ks.map(k => '<button data-lb="' + esc(k) + '">' + esc(k) + '<small>' + L[k].b.toFixed(1).replace(".", ",") + ' BPM' + (L[k].c ? ' · ' + L[k].c : '') + '</small></button>').join("") : '<span class="small muted">Ainda não há faixas com link analisadas' + (libComp ? ' compatíveis' : '') + '.</span>';
     $d("#djBcomp").classList.toggle("on", libComp); $d("#djBall").classList.toggle("on", !libComp); };
   window.__libRender = renderLib;
   $d("#djBall").onclick = () => { libComp = false; renderLib(); };
