@@ -1403,6 +1403,9 @@ body.layout-atv .rail{display:none}
         <button class="apptile" data-app="dj">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><circle cx="7" cy="12" r="1"/><circle cx="17" cy="12" r="1"/><path d="M11 6h2M12 6v12"/></svg></span>
           <b>DJ</b><span>Dois decks, mesa de mistura e gravação</span></button>
+        <button class="apptile" data-app="musica">
+          <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span>
+          <b>Criador de música</b><span>Padrões, canção e gravação, com sons próprios</span></button>
         <button class="apptile" data-app="engine">
           <span class="appicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v5M6 8h3l1-2h5v2h2l2 2v6h-3l-1 2H8l-2-2H6"/><path d="M21 12v3"/></svg></span>
           <b>Motor</b><span>Som de motor com os dados do carro</span></button>
@@ -3606,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v588";
+const APP_VERSION = "v589";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8647,6 +8650,7 @@ function openApp(id){
   if(id === "ipma"){ show("tempo"); return true; }
   if(id === "engine"){ show("engine"); return true; }
   if(id === "dj"){ show("dj"); setTimeout(() => window.__djFit && window.__djFit(), 50); return true; }
+  if(id === "musica"){ location.href = "musica/"; return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
