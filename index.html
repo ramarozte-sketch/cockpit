@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v576";
+const APP_VERSION = "v577";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -20303,23 +20303,39 @@ html.nightUi #ambient{filter:brightness(.75)}
         try{ document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); }catch(e){}
         if(P){ P.style.display = "flex"; return; }
         const css = document.createElement("style");
-        css.textContent = "#rmPad{position:fixed;inset:0;z-index:100000;background:#0b1220;color:#fff;display:flex;flex-direction:column;font-family:system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none}" +
-          "#rmPad .top{display:flex;gap:10px;align-items:center;padding:8px 14px}#rmPad .top button{min-height:44px;padding:0 16px;border-radius:12px;border:0;background:#1f2a40;color:#fff;font:700 16px system-ui}#rmPad .top span{flex:1;text-align:right;color:#9fb3cc;font:600 13px system-ui}" +
-          "#rmPad .ctl{flex:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 3vw 3vh;gap:2vw}" +
-          "#rmPad .l,#rmPad .r{display:flex;flex-direction:column;align-items:center;gap:2vh}#rmPad .sh{display:flex;gap:3vw}" +
-          "#rmPad .sh button{width:22vmin;height:9vmin;border-radius:14px}" +
-          "#rmPad button{border:0;background:#1f2a40;color:#fff;font:800 20px system-ui;touch-action:none;box-shadow:inset 0 -3px 0 #0006}#rmPad button.on{background:#7cc4ff;color:#001}" +
-          "#rpDpad{display:grid;grid-template:repeat(3,22vmin)/repeat(3,22vmin);gap:2px}#rpDpad button{border-radius:14px;font-size:26px}#rpDpad .c{background:#14203a;border-radius:14px}" +
-          "#rpStick{width:52vmin;height:52vmin;border-radius:50%;background:radial-gradient(#1f2a40,#111a2e);border:3px solid #33456a;position:relative;touch-action:none;display:none}#rpStick i{position:absolute;left:50%;top:50%;width:22vmin;height:22vmin;margin:-11vmin 0 0 -11vmin;border-radius:50%;background:#7cc4ff;opacity:.9}" +
-          "#rmPad .mid{display:flex;flex-direction:column;gap:3vh;align-items:center}#rmPad .mid button{width:24vmin;height:10vmin;border-radius:14px;font-size:16px}" +
-          "#rpAbxy{display:grid;grid-template:repeat(3,19vmin)/repeat(3,19vmin);gap:1px}#rpAbxy button{border-radius:50%;font-size:24px}";
+        /* v577: visual moderno: vidro escuro, néon na cor do jogador (J1 ciano, J2 rosa), cruzeta em cruz, A/B/X/Y coloridos em losango, botões que afundam ao toque */
+        css.textContent = "#rmPad{--acc:#5cf2ff;position:fixed;inset:0;z-index:100000;color:#eaf6ff;display:flex;flex-direction:column;font-family:system-ui,sans-serif;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none;" +
+            "background:radial-gradient(ellipse at 15% 60%,color-mix(in srgb,var(--acc) 18%,transparent),transparent 45%),radial-gradient(ellipse at 85% 60%,#8a7dff22,transparent 45%),linear-gradient(#ffffff08 1px,transparent 1px) 0 0/100% 26px,linear-gradient(90deg,#ffffff08 1px,transparent 1px) 0 0/26px 100%,#05080f}" +
+          "#rmPad.p2{--acc:#ff5ca8}" +
+          "#rmPad .top{display:flex;gap:8px;align-items:center;padding:8px 12px;background:#ffffff08;border-bottom:1px solid #ffffff12}" +
+          "#rmPad .top button{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid #ffffff1f;background:#ffffff0d;color:#eaf6ff;font:700 14px system-ui;box-shadow:none}" +
+          "#rmPad .top #rpPl{background:var(--acc);color:#03121a;border-color:transparent;font-weight:900;min-width:52px;box-shadow:0 0 16px var(--acc)}" +
+          "#rmPad .top span{flex:1;text-align:right;color:#9fb3cc;font:600 12px system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+          "#rmPad .ctl{flex:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 4vw 4vh;gap:3vw}" +
+          "#rmPad .l,#rmPad .r{display:flex;flex-direction:column;align-items:center;gap:3vh}#rmPad .sh{display:flex;gap:3vw}" +
+          "#rmPad button{border:0;color:#fff;font:800 20px system-ui;touch-action:none;transition:transform .06s,box-shadow .12s,background .12s}" +
+          "#rmPad .sh button{width:26vmin;height:10vmin;border-radius:12px 12px 22px 22px;background:linear-gradient(180deg,#2a3550,#161e30);border:1px solid #ffffff1a;box-shadow:0 6px 0 #0b0f19,0 10px 18px #0008;font-size:16px;letter-spacing:1px}" +
+          "#rmPad button.on{transform:translateY(4px) scale(.96)!important;box-shadow:0 0 0 2px var(--acc),0 0 22px var(--acc)!important;filter:brightness(1.25)}" +
+          "#rpDpad{display:grid;grid-template:repeat(3,21vmin)/repeat(3,21vmin);gap:0;filter:drop-shadow(0 10px 16px #000a)}" +
+          "#rpDpad button{background:linear-gradient(180deg,#2c3854,#171f33);font-size:24px;color:#cfe;border:1px solid #ffffff14}" +
+          "#rpDpad button[data-b='12']{border-radius:16px 16px 4px 4px}#rpDpad button[data-b='13']{border-radius:4px 4px 16px 16px}#rpDpad button[data-b='14']{border-radius:16px 4px 4px 16px}#rpDpad button[data-b='15']{border-radius:4px 16px 16px 4px}" +
+          "#rpDpad .c{background:#1c2540;border-radius:0}#rpDpad .c:not([style]){background:radial-gradient(circle,#26324f 30%,#1a2238 32%);border:1px solid #ffffff10}" +
+          "#rpStick{width:54vmin;height:54vmin;border-radius:50%;background:radial-gradient(circle,#ffffff10 0 30%,transparent 31%),radial-gradient(circle,#1b2540,#0d1322);border:2px solid color-mix(in srgb,var(--acc) 45%,transparent);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 25%,transparent),inset 0 0 30px #000a;position:relative;touch-action:none;display:none}" +
+          "#rpStick i{position:absolute;left:50%;top:50%;width:24vmin;height:24vmin;margin:-12vmin 0 0 -12vmin;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--acc) 45%,color-mix(in srgb,var(--acc) 60%,#000));box-shadow:0 8px 20px #000a,0 0 24px var(--acc);opacity:.95}" +
+          "#rmPad .mid{display:flex;flex-direction:column;gap:2.6vh;align-items:center}" +
+          "#rmPad .mid button{width:22vmin;height:9vmin;border-radius:999px;font-size:14px;letter-spacing:1px;background:#ffffff10;border:1px solid #ffffff22;box-shadow:0 4px 0 #0b0f19}" +
+          "#rpAbxy{display:grid;grid-template:repeat(3,18vmin)/repeat(3,18vmin);gap:2px;filter:drop-shadow(0 10px 16px #000a)}" +
+          "#rpAbxy button{border-radius:50%;font-size:24px;box-shadow:0 6px 0 #0b0f19,inset 0 2px 0 #ffffff33;border:1px solid #ffffff22}" +
+          "#rpAbxy button[data-b='0']{background:radial-gradient(circle at 35% 30%,#5be39a,#169c57)}#rpAbxy button[data-b='1']{background:radial-gradient(circle at 35% 30%,#ff7a8a,#c22a42)}" +
+          "#rpAbxy button[data-b='2']{background:radial-gradient(circle at 35% 30%,#6db8ff,#1f5fc4)}#rpAbxy button[data-b='3']{background:radial-gradient(circle at 35% 30%,#ffe066,#c99a0a);color:#3a2a00}" +
+          "@media (orientation:portrait){#rmPad .ctl{grid-template-columns:1fr;grid-template-rows:auto auto auto;justify-items:center;gap:3vh}#rmPad .mid{flex-direction:row}}";
         document.head.appendChild(css);
         P = document.createElement("div"); P.id = "rmPad";
         P.innerHTML = '<div class="top"><button id="rpClose">✕ Sair</button><button id="rpPl">J' + (myPlayer + 1) + '</button><button id="rpMode">Cruzeta</button><button id="rpFull">⛶ Ecrã</button><button id="rpVp" title="Esconder ou mostrar o comando no ecrã do carro">🎮 Carro</button><span id="rpSt">Jogos e emuladores do Cockpit</span></div>' +
           '<div class="ctl"><div class="l"><div class="sh"><button data-b="4">LB</button></div><div id="rpDpad"><i class="c" style="visibility:hidden"></i><button data-b="12">▲</button><i class="c" style="visibility:hidden"></i><button data-b="14">◀</button><i class="c"></i><button data-b="15">▶</button><i class="c" style="visibility:hidden"></i><button data-b="13">▼</button><i class="c" style="visibility:hidden"></i></div><div id="rpStick"><i></i></div></div>' +
           '<div class="mid"><button data-b="8">Select</button><button data-b="9">Start</button></div>' +
           '<div class="r"><div class="sh"><button data-b="5">RB</button></div><div id="rpAbxy"><i style="visibility:hidden"></i><button data-b="3">Y</button><i style="visibility:hidden"></i><button data-b="2">X</button><i style="visibility:hidden"></i><button data-b="1">B</button><i style="visibility:hidden"></i><button data-b="0">A</button><i style="visibility:hidden"></i></div></div></div>';
-        document.body.appendChild(P);
+        document.body.appendChild(P); P.classList.toggle("p2", myPlayer === 1);
         const held = new Set();
         const press = (b, on) => { b = +b; if(on === held.has(b)) return; on ? held.add(b) : held.delete(b); send({t:"pad", p:myPlayer, b, on}); const el = P.querySelector('[data-b="' + b + '"]'); if(el) el.classList.toggle("on", on); if(on){ try{ navigator.vibrate && navigator.vibrate(12); }catch(e){} } };
         const releaseAll = () => { [...held].forEach(b => press(b, false)); };
@@ -20340,7 +20356,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         document.getElementById("rpFull").onclick = () => send({t:"cmd", c:"gfull"});
         /* v574: esconde/mostra o comando virtual no ecrã do carro */
         document.getElementById("rpVp").onclick = () => send({t:"cmd", c:"vpad"});
-        document.getElementById("rpPl").onclick = () => { releaseAll(); myPlayer = 1 - myPlayer; document.getElementById("rpPl").textContent = "J" + (myPlayer + 1); };
+        document.getElementById("rpPl").onclick = () => { releaseAll(); myPlayer = 1 - myPlayer; document.getElementById("rpPl").textContent = "J" + (myPlayer + 1); P.classList.toggle("p2", myPlayer === 1); };
         document.getElementById("rpClose").onclick = () => { releaseAll(); P.style.display = "none"; try{ document.exitFullscreen && document.fullscreenElement && document.exitFullscreen(); screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); }catch(e){} };
         document.addEventListener("visibilitychange", () => { if(document.hidden) releaseAll(); });
       };
@@ -20383,7 +20399,7 @@ html.nightUi #ambient{filter:brightness(.75)}
         if(o.t === "state"){ [0, 1].forEach(i => { const S = o.slots[i] || {}, el = $r("rmS" + i); el.classList.toggle("on", o.target === i); el.innerHTML = (S.logo ? '<img src="' + esc3(S.logo) + '" alt="" onerror="this.remove()">' : "") + "<b>" + (i ? "Ecrã 2" : "Ecrã 1") + (o.audio === i ? " 🔊" : "") + "</b><small>" + esc3(S.name || "—") + (S.now ? " · " + esc3(S.now) : "") + "</small>"; });
           $r("rmSt").textContent = "✅ Ligado ao carro" + (o.other ? " · " + o.other : "") + (o.mirror ? " · imagem em andamento ligada" : ""); }
         else if(o.t === "results"){ $r("rmRes").innerHTML = o.list.length ? o.list.map(x => '<button data-u="' + esc3(x.u) + '" data-k="' + esc3(x.k) + '">' + (x.logo ? '<img src="' + esc3(x.logo) + '" alt="" onerror="this.remove()">' : "") + '<span>' + esc3(x.n) + '</span></button>').join("") : '<div class="st">Nada encontrado.</div>'; }
-        else if(o.t === "player"){ myPlayer = o.n === 1 ? 1 : 0; const pb = document.getElementById("rpPl"); if(pb) pb.textContent = "J" + (myPlayer + 1); }
+        else if(o.t === "player"){ myPlayer = o.n === 1 ? 1 : 0; const pb = document.getElementById("rpPl"); if(pb) pb.textContent = "J" + (myPlayer + 1); const pp = document.getElementById("rmPad"); if(pp) pp.classList.toggle("p2", myPlayer === 1); }
         else if(o.t === "toast"){ $r("rmSt").textContent = o.m; }
         else if(o.t === "vpad"){ const vb = document.getElementById("rpVp"); if(vb) vb.textContent = o.on ? "🎮 Carro: visível" : "🎮 Carro: escondido"; }
         else if(o.t === "romget"){ if(window.__rmLibReq) window.__rmLibReq(o.id); } };
@@ -20551,7 +20567,7 @@ html.nightUi #ambient{filter:brightness(.75)}
   try{
     const V = document.getElementById("v-games"), hub = document.getElementById("gmHub"); if(!V) return;
     const L = [
-      {i:"🕹️", n:"EmulatorJS", d:"NES, SNES, GB/GBA, Mega Drive, Neo Geo, PlayStation, N64, DS… Carregas as tuas ROMs.", u:"https://demo.emulatorjs.org/"},
+      {i:"🕹️", n:"EmulatorJS", d:"NES, SNES, GB/GBA, Mega Drive, Neo Geo, PlayStation, N64, DS, MS-DOS… Carregas os teus jogos.", u:"https://demo.emulatorjs.org/"},
       {i:"👾", n:"Emulador Joe Heyming", d:"Vários sistemas clássicos no browser. Carregas as tuas ROMs.", u:"https://joeheyming.github.io/emulator/"},
       {i:"⬡", n:"Hextris", d:"Jogo de puzzle hexagonal, código aberto.", u:"https://hextris.github.io/hextris/"},
       {i:"🧱", n:"Tetris (React)", d:"Tetris clássico de código aberto, com teclado ou toque.", u:"https://chvin.github.io/react-tetris/"},
@@ -20563,8 +20579,8 @@ html.nightUi #ambient{filter:brightness(.75)}
     const box = document.createElement("div"); box.className = "panel"; box.id = "emuPanel";
     /* v268: jogos (ROMs tuas) abertos a partir de um endereço, no EmulatorJS dentro do Cockpit */
     const games = () => LS.get("emuGames", []) || [];
-    const SYS = {nes:"NES", snes:"Super Nintendo", gb:"Game Boy", gba:"Game Boy Advance", segaMD:"Mega Drive", sms:"Master System", gg:"Game Gear", n64:"Nintendo 64", psx:"PlayStation", nds:"Nintendo DS", atari2600:"Atari 2600", pce:"PC Engine", neogeo:"Neo Geo", sega32x:"Sega 32X", segaCD:"Mega CD", lynx:"Atari Lynx", ngp:"Neo Geo Pocket", ws:"WonderSwan", atari7800:"Atari 7800", mame:"Arcade (MAME)"};
-    const EXT = {nes:"nes", sfc:"snes", smc:"snes", gb:"gb", gbc:"gb", gba:"gba", md:"segaMD", gen:"segaMD", smd:"segaMD", bin:"segaMD", sms:"sms", gg:"gg", n64:"n64", z64:"n64", v64:"n64", cue:"psx", pbp:"psx", chd:"psx", nds:"nds", a26:"atari2600", pce:"pce", "32x":"sega32x", lnx:"lynx", ngp:"ngp", ngc:"ngp", ws:"ws", wsc:"ws", a78:"atari7800"};
+    const SYS = {nes:"NES", snes:"Super Nintendo", gb:"Game Boy", gba:"Game Boy Advance", segaMD:"Mega Drive", sms:"Master System", gg:"Game Gear", n64:"Nintendo 64", psx:"PlayStation", nds:"Nintendo DS", atari2600:"Atari 2600", pce:"PC Engine", neogeo:"Neo Geo", sega32x:"Sega 32X", segaCD:"Mega CD", lynx:"Atari Lynx", ngp:"Neo Geo Pocket", ws:"WonderSwan", atari7800:"Atari 7800", mame:"Arcade (MAME)", dos:"MS-DOS"};
+    const EXT = {nes:"nes", sfc:"snes", smc:"snes", gb:"gb", gbc:"gb", gba:"gba", md:"segaMD", gen:"segaMD", smd:"segaMD", bin:"segaMD", sms:"sms", gg:"gg", n64:"n64", z64:"n64", v64:"n64", cue:"psx", pbp:"psx", chd:"psx", nds:"nds", a26:"atari2600", pce:"pce", "32x":"sega32x", lnx:"lynx", ngp:"ngp", ngc:"ngp", ws:"ws", wsc:"ws", a78:"atari7800", jsdos:"dos"};
     const fixUrl = u => { u = String(u || "").trim();
       let m = u.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/(.+)$/); if(m) return "https://raw.githubusercontent.com/" + m[1] + "/" + m[2] + "/" + m[3];
       m = u.match(/drive\.google\.com\/file\/d\/([^\/?]+)/); if(m) return "https://drive.google.com/uc?export=download&id=" + m[1];
@@ -20573,11 +20589,12 @@ html.nightUi #ambient{filter:brightness(.75)}
     const sysOf = u => { const e = (String(u).split("?")[0].match(/\.([a-z0-9]+)$/i) || [])[1]; if(e && /^(zip|7z)$/i.test(e)) return "zip"; return e && EXT[e.toLowerCase()] || ""; };
     /* v568: jogos em .zip/.7z: o EmulatorJS descomprime-os sozinho; o sistema vem do nome do ficheiro lá dentro (zip),
        ou do nome do jogo/pasta (ex.: «Mega Drive»), ou pergunta-se uma vez */
-    const zipSys = buf => { try{ const b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-        for(let i = Math.max(0, b.length - 66000); i < b.length - 46; i++){ if(dv.getUint32(i, true) !== 0x02014b50) continue; const nl = dv.getUint16(i + 28, true), nm = new TextDecoder().decode(b.subarray(i + 46, i + 46 + nl)); if(/(^|[-_.])(p1|p2|s1|m1|v1|v2|c1|c2)$|-[pscmv]\d\.[a-z0-9]+$/i.test(nm)) return "neogeo"; const s = sysOf(nm); if(s && s !== "zip") return s; i += 45 + nl; }
+    const zipSys = buf => { let dosHit = false; try{ const b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        for(let i = Math.max(0, b.length - 66000); i < b.length - 46; i++){ if(dv.getUint32(i, true) !== 0x02014b50) continue; const nl = dv.getUint16(i + 28, true), nm = new TextDecoder().decode(b.subarray(i + 46, i + 46 + nl)); if(/(^|[-_.])(p1|p2|s1|m1|v1|v2|c1|c2)$|-[pscmv]\d\.[a-z0-9]+$/i.test(nm)) return "neogeo"; if(/\.(exe|com|bat)$/i.test(nm)) dosHit = true; const s = sysOf(nm); if(s && s !== "zip") return s; i += 45 + nl; }
+        if(dosHit) return "dos";
         for(let i = 0; i + 30 < Math.min(b.length, 4096); i++){ if(dv.getUint32(i, true) !== 0x04034b50) continue; const nl = dv.getUint16(i + 26, true), s = sysOf(new TextDecoder().decode(b.subarray(i + 30, i + 30 + nl))); if(s && s !== "zip") return s; break; }
       }catch(e){} return ""; };
-    const guessSys = txt => { const n = String(txt || "").toLowerCase(); return /neo ?geo pocket|\bngp\b/.test(n) ? "ngp" : /neo ?-?geo|\bmvs\b/.test(n) ? "neogeo" : /\bnds\b|nintendo ds/.test(n) ? "nds" : /playstation|\bpsx\b|\bps1\b/.test(n) ? "psx" : /\b32x\b/.test(n) ? "sega32x" : /mega ?cd|sega ?cd/.test(n) ? "segaCD" : /\bmame\b|arcade/.test(n) ? "mame" : /wonderswan/.test(n) ? "ws" : /\blynx\b/.test(n) ? "lynx" : /mega ?drive|genesis|\bmd\b|sega 16/.test(n) ? "segaMD" : /super ?nintendo|snes|super famicom/.test(n) ? "snes" : /\bgba\b|game ?boy advance/.test(n) ? "gba" : /game ?boy|\bgbc?\b/.test(n) ? "gb" : /master ?system|\bsms\b/.test(n) ? "sms" : /game ?gear/.test(n) ? "gg" : /pc ?engine|turbografx/.test(n) ? "pce" : /atari/.test(n) ? "atari2600" : /\bnes\b|famicom|nintendo 8/.test(n) ? "nes" : /\bn64\b|nintendo 64/.test(n) ? "n64" : ""; };
+    const guessSys = txt => { const n = String(txt || "").toLowerCase(); return /\bms-?dos\b|\bdos\b/.test(n) ? "dos" : /neo ?geo pocket|\bngp\b/.test(n) ? "ngp" : /neo ?-?geo|\bmvs\b/.test(n) ? "neogeo" : /\bnds\b|nintendo ds/.test(n) ? "nds" : /playstation|\bpsx\b|\bps1\b/.test(n) ? "psx" : /\b32x\b/.test(n) ? "sega32x" : /mega ?cd|sega ?cd/.test(n) ? "segaCD" : /\bmame\b|arcade/.test(n) ? "mame" : /wonderswan/.test(n) ? "ws" : /\blynx\b/.test(n) ? "lynx" : /mega ?drive|genesis|\bmd\b|sega 16/.test(n) ? "segaMD" : /super ?nintendo|snes|super famicom/.test(n) ? "snes" : /\bgba\b|game ?boy advance/.test(n) ? "gba" : /game ?boy|\bgbc?\b/.test(n) ? "gb" : /master ?system|\bsms\b/.test(n) ? "sms" : /game ?gear/.test(n) ? "gg" : /pc ?engine|turbografx/.test(n) ? "pce" : /atari/.test(n) ? "atari2600" : /\bnes\b|famicom|nintendo 8/.test(n) ? "nes" : /\bn64\b|nintendo 64/.test(n) ? "n64" : ""; };
     const askSys = name => { const k = Object.keys(SYS).filter(x => CORE[x]); const r = prompt("De que consola é «" + name + "»? Escreve o número:\n" + k.map((x, i) => (i + 1) + " " + SYS[x]).join("\n"), "1"); const ix = (+r || 0) - 1; return k[ix] || ""; };
     const realSys = (s, name, buf, dir) => s !== "zip" ? s : (buf && zipSys(buf)) || guessSys(name + " " + (dir || "")) || askSys(name);
     /* v269: o emulador e os núcleos ficam no próprio site do Cockpit (pasta emu/); se faltar algum, usa o CDN do EmulatorJS */
@@ -20592,7 +20609,30 @@ html.nightUi #ambient{filter:brightness(.75)}
       if(!megaBios && LS.get("emuMega", "")){ try{ megaFiles = await megaList(LS.get("emuMega", "")); }catch(e){} }   /* relê a pasta: a BIOS pode ter sido posta depois */
       if(megaBios){ try{ toast("A trazer a BIOS do Neo Geo da pasta MEGA…"); let x = await megaBios.downloadBuffer(); x = x.buffer ? x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength) : x; await romPut("bios:neogeo", x); return x; }catch(e){ toast("Não consegui trazer a BIOS do MEGA: " + (e && e.message || e), true); } }
       return null; };
-    const playRom = async gm => { const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
+    /* v577: MS-DOS com js-dos 6.22 (alojado em emu/dos, sem precisar de threads). O jogo é um .zip da pasta do jogo (teu);
+       o programa a arrancar escolhe-se uma vez e fica guardado. O comando simula o teclado (setas, espaço, Ctrl, Alt, Enter, Esc). */
+    const zipNames = buf => { const out = []; try{ const b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength); for(let i = Math.max(0, b.length - 1048576); i < b.length - 46; i++){ if(dv.getUint32(i, true) !== 0x02014b50) continue; const nl = dv.getUint16(i + 28, true); out.push(new TextDecoder().decode(b.subarray(i + 46, i + 46 + nl))); i += 45 + nl; } }catch(e){} return out; };
+    const playDos = async gm => {
+      if(!gm.buf){ try{ const r = await fetch(gm.px && typeof px === "function" && cfg.proxy ? px(gm.u) : gm.u); if(!r.ok) throw 0; gm = {...gm, buf:await r.arrayBuffer()}; }catch(e){ toast("Não consegui descarregar o jogo de MS-DOS.", true); return; } }
+      const k = "dosExe:" + (gm.key || gm.u || gm.n); let exe = LS.get(k, "");
+      const progs = zipNames(gm.buf).filter(n => /\.(exe|com|bat)$/i.test(n) && !/(^|\/)(setup|install|instal|dos4gw|uninst|config|setsound|sound)\.(exe|com|bat)$/i.test(n));
+      if(!exe || !progs.includes(exe)){
+        if(!progs.length){ toast("Não encontrei nenhum programa (.exe, .com ou .bat) dentro do .zip.", true); return; }
+        if(progs.length === 1) exe = progs[0];
+        else { const r = prompt("Que programa arranca o jogo? Escreve o número:\n" + progs.map((x, i) => (i + 1) + " " + x).join("\n"), "1"); const ix = (+r || 0) - 1; if(!progs[ix]) return; exe = progs[ix]; }
+        LS.set(k, exe);
+      }
+      const dir = exe.includes("/") ? exe.slice(0, exe.lastIndexOf("/")) : "", file = exe.split("/").pop();
+      window.__emuG = {buf:gm.buf, name:gm.fname || "jogo.zip"}; window.__emuDos = true;
+      const base = new URL("emu/dos/", location.href).href;
+      const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#c{width:100%;height:100%;display:block;object-fit:contain;image-rendering:pixelated}</style></head><body><canvas id="c"></canvas><script src="' + base + 'js-dos.js"><\/script><script>' +
+        'Dos(document.getElementById("c"),{wdosboxUrl:' + JSON.stringify(base + "wdosbox.js") + ',cycles:"auto",autolock:false}).ready(function(fs,main){var u=URL.createObjectURL(new Blob([parent.__emuG.buf]));fs.extract(u).then(function(){' +
+        'main(["-c",' + JSON.stringify(dir ? "cd " + dir.replace(/\//g, "\\") : "cd \\") + ',"-c",' + JSON.stringify(file) + ']);});});<\/script></body></html>';
+      cur = {n:gm.n, u:gm.key || gm.u, rom:gm}; const f = document.getElementById("emuF"); f.removeAttribute("src"); f.srcdoc = html; zApply();
+      document.getElementById("emuT").textContent = gm.n + " · MS-DOS · " + file; win.classList.add("on");
+      setTimeout(() => { try{ f.focus(); }catch(e){} }, 800);
+    };
+    const playRom = async gm => { if(gm.s === "dos") return playDos(gm); window.__emuDos = false; const lb = await localOk(gm.s); emuData = lb || "https://cdn.emulatorjs.org/stable/data/";
       /* v575: o FBNeo/MAME do browser não lê .7z (só .zip) */
       if((gm.s === "neogeo" || gm.s === "mame") && /\.7z$/i.test(gm.fname || gm.u || "")){ toast("Os jogos Neo Geo/arcada têm de estar em .zip (este browser não lê .7z). Converte-o para .zip com o mesmo nome.", true); return; }
       let biosUrl = "", biosBuf = null; if(gm.s === "neogeo"){ const bb = await neoBios(); biosBuf = bb; if(!bb){ toast("Para o Neo Geo falta a BIOS «neogeo.zip». Põe-na na tua pasta MEGA ou envia-a do telemóvel (como uma ROM).", true); return; } biosUrl = URL.createObjectURL(new Blob([bb])); }
@@ -20813,9 +20853,11 @@ html.nightUi #ambient{filter:brightness(.75)}
     /* v291: botões vindos do comando no telemóvel (joystick). Jogo do Cockpit → teclas dos jogos; emulador → teclas do EmulatorJS (dentro da janela); fora disso → navegação */
     /* v573: teclas por omissão do EmulatorJS 4.x: Select é «v» (antes «Shift», que não faz nada: nos jogos de arcada/Neo Geo o Select mete a moeda, por isso não se conseguia começar) */
     /* índice do botão no comando → entrada RetroArch do EmulatorJS (B, Y, Select, Start, ↑, ↓, ←, →, A, X, L, R) */
+    /* v577: MS-DOS: cruzeta = setas; A = espaço; B = Ctrl; X = Alt; Y = Shift; Start = Enter; Select = Esc; L = Y; R = N */
+    const DOSK = {0:[" ","Space",32], 1:["Control","ControlLeft",17], 2:["Alt","AltLeft",18], 3:["Shift","ShiftLeft",16], 9:["Enter","Enter",13], 8:["Escape","Escape",27], 4:["y","KeyY",89], 5:["n","KeyN",78], 12:["ArrowUp","ArrowUp",38], 13:["ArrowDown","ArrowDown",40], 14:["ArrowLeft","ArrowLeft",37], 15:["ArrowRight","ArrowRight",39]};
     const EMU_RI = {1:0, 3:1, 8:2, 9:3, 12:4, 13:5, 14:6, 15:7, 0:8, 2:9, 4:10, 5:11};
     const EMUK = {0:["z","KeyZ",90], 1:["x","KeyX",88], 2:["a","KeyA",65], 3:["s","KeyS",83], 4:["q","KeyQ",81], 5:["e","KeyE",69], 8:["v","KeyV",86], 9:["Enter","Enter",13], 12:["ArrowUp","ArrowUp",38], 13:["ArrowDown","ArrowDown",40], 14:["ArrowLeft","ArrowLeft",37], 15:["ArrowRight","ArrowRight",39]};
-    const emuKey = (type, m) => { try{ const f = document.querySelector("#emuWin iframe"), d = f && f.contentDocument; if(!d) return; const ev = new f.contentWindow.KeyboardEvent(type, {key:m[0], code:m[1], keyCode:m[2], which:m[2], bubbles:true, cancelable:true}); (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(ev); }catch(e){} };
+    const emuKey = (type, m) => { try{ const f = document.querySelector("#emuWin iframe"), d = f && f.contentDocument; if(!d) return; const ev = new f.contentWindow.KeyboardEvent(type, {key:m[0], code:m[1], keyCode:m[2], which:m[2], bubbles:true, cancelable:true}); (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(ev); if(type === "keydown" && m[0].length === 1) (d.activeElement && d.activeElement !== d.body ? d.activeElement : d).dispatchEvent(new f.contentWindow.KeyboardEvent("keypress", {key:m[0], code:m[1], keyCode:m[2], which:m[2], charCode:m[0].charCodeAt(0), bubbles:true, cancelable:true})); }catch(e){} };
     /* v299: jogos só com rato/toque: o joystick move um cursor no ecrã e o botão A carrega no sítio do cursor */
     const VC = {x:innerWidth/2, y:innerHeight/2, dx:0, dy:0, t:null, el:null, down:false};
     const vcShow = () => { if(!VC.el){ VC.el = document.createElement("div"); VC.el.style.cssText = "position:fixed;z-index:99998;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #7cc4ff;background:#7cc4ff55;box-shadow:0 0 0 2px #0008;pointer-events:none;display:none"; document.body.appendChild(VC.el); } VC.el.style.display = inGame() ? "block" : "none"; VC.el.style.left = VC.x + "px"; VC.el.style.top = VC.y + "px"; return VC.el; };
@@ -20833,6 +20875,7 @@ html.nightUi #ambient{filter:brightness(.75)}
     window.__padPress = (pi, i, on) => {
       try{
         /* v576: no emulador, cada telemóvel/comando é o seu jogador: o botão vai direto à entrada do jogador certo (antes eram teclas do teclado, que só servem o jogador 1) */
+        if(inEmu() && window.__emuDos){ const m = DOSK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); return; }
         if(inEmu()){ const ri = EMU_RI[i]; let done = false;
           try{ const f = document.querySelector("#emuWin iframe"), E = f && f.contentWindow && f.contentWindow.EJS_emulator, gm = E && E.gameManager; if(ri != null && gm && gm.simulateInput){ gm.simulateInput(pi === 1 ? 1 : 0, ri, on ? 1 : 0); done = true; } }catch(e){}
           if(!done){ const m = EMUK[i]; if(m) emuKey(on ? "keydown" : "keyup", m); } return; }
