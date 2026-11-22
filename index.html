@@ -3603,7 +3603,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v585";
+const APP_VERSION = "v586";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -21262,6 +21262,9 @@ html.nightUi #ambient{filter:brightness(.75)}
       x.clearRect(0, 0, w, h);
       for(let i = 0; i < w; i++){ const v = this.peaks[i] * h * .46; x.fillStyle = i / w < p ? col : col + "55"; x.fillRect(i, h / 2 - v, 1, v * 2 || 1); }
       if(this.loop){ x.fillStyle = "#ffffff22"; x.fillRect(this.loopStart / this.buf.duration * w, 0, (this.loopEnd - this.loopStart) / this.buf.duration * w, h); }
+      /* v586: grelha de batidas: linhas fortes a cada 4 batidas (compasso) e fracas a cada batida, se couberem no ecrã */
+      if(this.bpm && this.beat0 != null){ const bl = 60 / this.bpm, pps = w / this.buf.duration, dur = this.buf.duration; const beatPx = bl * pps;
+        for(let t = this.beat0 % (4 * bl), n = 0; t < dur; t += bl, n++){ const bx = t * pps; if(n % 4 === 0){ x.fillStyle = "#ffffff55"; x.fillRect(bx, 0, 1, h); } else if(beatPx >= 4){ x.fillStyle = "#ffffff1c"; x.fillRect(bx, 0, 1, h); } } }
       x.fillStyle = "#ffcc33"; x.fillRect(this.cue / this.buf.duration * w - 1, 0, 2, h);
       this.hot.forEach((t, i) => { if(t == null) return; x.fillStyle = "#fff"; x.font = "bold 22px system-ui"; x.fillText(i + 1, t / this.buf.duration * w + 3, 22); x.fillRect(t / this.buf.duration * w, 0, 2, 26); });
       x.fillStyle = "#fff"; x.fillRect(p * w - 1.5, 0, 3, h);
