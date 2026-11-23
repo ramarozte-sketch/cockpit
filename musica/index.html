@@ -172,8 +172,11 @@
 
   function tick(){
     const c = audio(), sps = 60 / bpm / 4;
-    while(nextT < c.currentTime + .12){
-      const st = cur, t = stepTime(nextT, st, sps);
+    // se o navegador atrasou o temporizador, não toca os passos perdidos de uma vez: salta-os e continua no sítio certo
+    if(nextT < c.currentTime - .05){ const miss = Math.ceil((c.currentTime - nextT) / sps); for(let i = 0; i < miss; i++){ nextT += sps; cur = (cur + 1) % steps; if(cur === 0) chainPos++; } }
+    while(nextT < c.currentTime + .2){
+      // nextT já é a hora deste passo; o swing só atrasa os passos ímpares
+      const st = cur, t = nextT + (st % 2 === 1 ? swing / 100 * sps * .5 : 0);
       scheduleStep(c, buses, t, pats[activePattern()], st);
       stepQ.push({t, s: st}); if(stepQ.length > 128) stepQ.splice(0, stepQ.length - 128);
       nextT += sps; cur = (cur + 1) % steps;
@@ -206,6 +209,7 @@
   document.addEventListener("pointercancel", endDrag);
 
   function render(){
+    lastNow = -1;
     const g = $("#grid"); g.innerHTML = ""; $("#steps").textContent = "Passos: " + steps; $("#steps").classList.toggle("on", steps === 32);
     const p = pats[pat];
     TRACKS.forEach(tr => {
