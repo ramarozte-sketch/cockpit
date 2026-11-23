@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste de abertura de canais</title>
+<style>
+body{font-family:sans-serif;background:#111;color:#eee;padding:12px;margin:0}
+input{width:100%;margin:4px 0;padding:8px;box-sizing:border-box;background:#222;color:#eee;border:1px solid #444;border-radius:6px}
+button{padding:12px 16px;margin:8px 0;background:#3a8fc1;color:#fff;border:0;border-radius:6px;font-size:16px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+td,th{border-bottom:1px solid #333;padding:4px;text-align:left}
+.n{color:#9aa}
+</style></head><body>
+<h3>Teste de abertura de canais</h3>
+<p class="n">Mede só os tempos de transferência (não reproduz). Os dados ficam apenas nesta página e não são guardados. Cada canal gasta cerca de 5 MB.</p>
+<input id="srv" placeholder="Servidor, ex.: http://servidor:80">
+<input id="usr" placeholder="Utilizador">
+<input id="pwd" type="password" placeholder="Palavra-passe">
+<input id="ids" value="156940,156941,156945" placeholder="IDs dos canais, separados por vírgulas">
+<button id="go">Testar</button>
+<div id="out"></div>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = v => v == null ? "–" : Math.round(v) + " ms";
+
+// Lê o fluxo .ts e mede o tempo até 512 KB e até 1 MB
+async function timeTs(url){
+  const t0 = performance.now();
+  const r = await fetch(url, {cache: "no-store"});
+  const ttfb = performance.now() - t0;
+  const rd = r.body.getReader();
+  let got = 0, t512 = null, t1m = null;
+  while(true){
+    const {done, value} = await rd.read();
+    if(done) break;
+    got += value.byteLength;
+    if(t512 === null && got >= 512*1024) t512 = performance.now() - t0;
+    if(t1m === null && got >= 1024*1024){ t1m = performance.now() - t0; break; }
+  }
+  rd.cancel();
+  return {ttfb, t512, t1m};
+}
+
+// Lê a lista HLS, descarrega um pedaço perto do fim (como a app, "direto mais perto da emissão") e mede
+async function timeHls(url){
+  const t0 = performance.now();
+  const txt = await (await fetch(url, {cache: "no-store"})).text();
+  const tMan = performance.now() - t0;
+  const base = new URL(url);
+  const segs = txt.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#")).map(l => new URL(l, base).href);
+  if(!segs.length) throw new Error("lista sem pedaços");
+  const seg = segs[Math.max(0, segs.length - 2)];
+  const t1 = performance.now();
+  const b = await (await fetch(seg, {cache: "no-store"})).arrayBuffer();
+  return {tMan, tSeg: performance.now() - t1, kB: Math.round(b.byteLength / 1024)};
+}
+
+$("go").onclick = async () => {
+  const srv = $("srv").value.trim().replace(/\/+$/, "");
+  const usr = encodeURIComponent($("usr").value.trim());
+  const pwd = encodeURIComponent($("pwd").value);
+  const ids = $("ids").value.split(",").map(s => s.trim()).filter(Boolean);
+  if(!srv || !usr || !pwd || !ids.length){ $("out").textContent = "Preenche servidor, utilizador, palavra-passe e IDs."; return; }
+  let html = "<table><tr><th>Canal</th><th>.ts 1.ª ligação</th><th>.ts 512 KB</th><th>.ts 1 MB</th><th>HLS lista</th><th>HLS 1.º pedaço</th><th>HLS total</th></tr>";
+  for(const id of ids){
+    let tsCells = ["–","–","–"], hlsCells = ["–","–","–"];
+    try{
+      const a = await timeTs(`${srv}/live/${usr}/${pwd}/${id}.ts`);
+      tsCells = [fmt(a.ttfb), fmt(a.t512), fmt(a.t1m)];
+    }catch(e){ tsCells = ["erro: " + e.message, "", ""]; }
+    try{
+      const h = await timeHls(`${srv}/live/${usr}/${pwd}/${id}.m3u8`);
+      hlsCells = [fmt(h.tMan), fmt(h.tSeg) + " (" + h.kB + " KB)", fmt(h.tMan + h.tSeg)];
+    }catch(e){ hlsCells = ["erro: " + e.message, "", ""]; }
+    html += `<tr><td>${id}</td><td>${tsCells[0]}</td><td>${tsCells[1]}</td><td>${tsCells[2]}</td><td>${hlsCells[0]}</td><td>${hlsCells[1]}</td><td>${hlsCells[2]}</td></tr>`;
+    $("out").innerHTML = html + "</table>";
+  }
+  $("out").innerHTML = html + "</table><p class='n'>Envia esta tabela ao Claude.</p>";
+};
+</script></body></html>
