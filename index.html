@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v600";
+const APP_VERSION = "v601";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4711,7 +4711,7 @@ function __avcNonRef(u){
    cada canal em andamento) e são preparados de antemão quando o modo em andamento está ligado */
 const SVD_POOL = [];
 /* v223: o descodificador (2 MB) é descarregado em segundo plano logo após abrir a página: o 1.º canal em 4G lento esperava ~45 s por ele (log de 06/11) */
-try{ if(!WC_NATIVE) addEventListener("load", () => setTimeout(() => { try{ fetch("h264soft.js?v=" + APP_VERSION).then(r => r.arrayBuffer()).catch(() => {}); }catch(e){} }, 1200)); }catch(e){}
+try{ if(!WC_NATIVE) addEventListener("load", () => setTimeout(() => { try{ fetch("h264soft.js?v=" + APP_VERSION).then(r => r.arrayBuffer()).catch(() => {}); fetch("h264soft.wasm?v=" + APP_VERSION).then(r => r.arrayBuffer()).catch(() => {}); }catch(e){} }, 1200)); }catch(e){}
 let SVD_EP = 1;
 function svdWarmHevc(){
   try{ const u = new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href; for(const w of SVD_POOL) try{ w.postMessage({cmd:"warm", wasm:u}); }catch(e){} }catch(e){}
