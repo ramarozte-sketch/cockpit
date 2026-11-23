@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v594";
+const APP_VERSION = "v595";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5270,14 +5270,19 @@ function present(slot){
     if(DI){
       /* v594: marcas de tempo irregulares: mostra as imagens por ordem a um ritmo certo (o intervalo médio do canal),
          sem se afastar mais de 0,3–0,4 s do som; se ficar muito para trás, salta para apanhar o som */
-      const P = DI.irrP; let k = 0;
-      while(k < q.length - 1 && q[k].timestamp < masterUs - 400000) k++;
-      if(q[k].timestamp <= masterUs + 300000){
-        const base = st.rtNext == null ? masterUs : st.rtNext;
-        if(masterUs >= base || k > 0){ idx = k; st.rtNext = Math.max(base + P, masterUs - P); }
+      /* v595: nestes canais o som também vem com buracos e o relógio do som pára (até 0,5 s) e depois salta: a imagem segue um relógio próprio,
+         que anda ao ritmo real e só se aproxima devagar do som (1,5 % por desenho); se se afastar mais de 1,5 s, alinha de vez */
+      const nowP = performance.now(); let C = st.irC;
+      if(!C || Math.abs(masterUs - (C.v + (nowP - C.t) * 1000)) > 1500000) C = st.irC = {v:masterUs, t:nowP};
+      else { const est = C.v + (nowP - C.t) * 1000; C.v = est + (masterUs - est) * .015; C.t = nowP; }
+      const mu = C.v, P = DI.irrP; let k = 0;
+      while(k < q.length - 1 && q[k].timestamp < mu - 400000) k++;
+      if(q[k].timestamp <= mu + 300000){
+        const base = st.rtNext == null ? mu : st.rtNext;
+        if(mu >= base || k > 0){ idx = k; st.rtNext = Math.max(base + P, mu - P); }
       } else st.rtNext = null;
     } else {
-      st.rtNext = null;
+      st.rtNext = null; st.irC = null;
       for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
     }
     if(idx>=0){
@@ -6757,11 +6762,11 @@ window.__avBad = (slot, ratio) => {
   try{
     const c = lastPlayed[slot]; if(!c || c.kind !== "live") return;
     AVBAD.add(c.url); try{ localStorage.setItem("ck_avbad", JSON.stringify([...AVBAD].slice(-300))); }catch(e){}
-    const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/^[\s\W_]*(PT|PRT|PORTUGAL)\b[\s:|\-]*/i, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/^[\s\W_]*(PT|PRT|PORTUGAL)\b[\s:|\-]*/i, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase().replace(/^elevensports?/, "eleven").replace(/^sporttvmais/, "sporttv+");
     const ctryOf = n => { const m = String(n || "").normalize("NFKD").match(/\|([A-Za-z]{2})\|/); return m ? m[1].toUpperCase() : ""; };
     const k0 = key(c.name); if(!k0) return;
     const T = window.__avBadT = window.__avBadT || {}, now = Date.now(), h = (T[k0] || []).filter(t => now - t < 120000);
-    const sib = h.length >= 3 ? null : (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !AVBAD.has(x.url) && key(x.name) === k0 && ctryOf(x.name) === ctryOf(c.name) && !(window.__parHide && window.__parHide(x)))[0];
+    const sib = h.length >= 3 ? null : (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !AVBAD.has(x.url) && key(x.name) === k0 && (ctryOf(x.name) || "PT") === (ctryOf(c.name) || "PT") && !(window.__parHide && window.__parHide(x)))[0];
     try{ window.__dbgEv && window.__dbgEv(slot, "som incompleto no fornecedor", {som_pct:Math.round(ratio * 100), outraVersao:sib ? sib.name : null}); }catch(e){}
     if(!sib){ toast(c.name + ": o fornecedor está a enviar só " + Math.round(ratio * 100) + " % do som deste canal, por isso o som falha. Não encontrei outra versão boa na lista.", true); return; }
     h.push(now); T[k0] = h;
