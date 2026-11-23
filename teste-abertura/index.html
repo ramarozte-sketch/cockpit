@@ -18,10 +18,9 @@ td,th{border-bottom:1px solid #333;padding:4px;text-align:left}
 <button id="go">Testar</button>
 <div id="out"></div>
 <h3>Abrir um canal diretamente</h3>
-<p class="n">Escolhe o canal: o vídeo abre aqui e o tempo até ao primeiro fotograma aparece em baixo. Em HLS usa o hls.js do Cockpit; em .ts abre o fluxo num separador novo.</p>
+<p class="n">Escolhe o canal: o vídeo abre aqui e o tempo até ao primeiro fotograma aparece em baixo. Usa o hls.js do Cockpit. O fluxo .ts não se reproduz diretamente no browser (o Opera transfere-o como ficheiro), por isso só é medido pelo botão Testar.</p>
 <input id="cid" value="156940" placeholder="ID do canal">
 <button id="hls">Abrir HLS</button>
-<button id="ts">Abrir .ts (novo separador)</button>
 <video id="v" controls playsinline muted style="width:100%;background:#000;margin-top:6px"></video>
 <div id="res" class="n"></div>
 <script src="../hls.min.js"></script>
@@ -113,9 +112,5 @@ $("hls").onclick = () => {
   } else {
     $("res").textContent = "Este browser não reproduz HLS.";
   }
-};
-$("ts").onclick = () => {
-  const c = creds(); if(!c){ $("res").textContent = "Preenche servidor, utilizador e palavra-passe."; return; }
-  window.open(`${c.srv}/live/${c.usr}/${c.pwd}/${$("cid").value.trim()}.ts`, "_blank");
 };
 </script></body></html>
