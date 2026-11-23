@@ -56,7 +56,10 @@ async function timeHls(url){
   if(!segs.length) throw new Error("lista sem pedaços");
   const seg = segs[Math.max(0, segs.length - 2)];
   const t1 = performance.now();
-  const b = await (await fetch(seg, {cache: "no-store"})).arrayBuffer();
+  const r = await fetch(seg, {cache: "no-store"});
+  if(!r.ok) throw new Error("pedaço HTTP " + r.status);
+  const b = await r.arrayBuffer();
+  if(b.byteLength < 1024) throw new Error("pedaço vazio (" + b.byteLength + " bytes)");
   return {tMan, tSeg: performance.now() - t1, kB: Math.round(b.byteLength / 1024)};
 }
 
