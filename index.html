@@ -2045,6 +2045,7 @@ body.layout-atv .rail{display:none}
           <label class="f" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" id="setDirect"> Ligação direta (sem proxy) para o vídeo</label>
           <p class="small muted" style="margin:0">O Tesla liga-se ao fornecedor sozinho (usa o IP do telemóvel). Só funciona se o fornecedor aceitar esse IP e permitir CORS.</p>
           <div class="row"><button class="btn primary" id="btnLoadIptv">Carregar lista</button><button class="btn primary" id="btnSaveProxy">Guardar proxy</button> <button class="btn" id="btnTestDirect">Testar ligação direta</button><label class="btn" style="display:inline-flex;align-items:center">Carregar ficheiro .m3u<input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" hidden></label></div>
+          <label class="row small"><input type="checkbox" id="tsTeste"> Abrir canais em direto por .ts (teste)</label>
           <div class="small muted" id="directTestOut" style="margin-top:6px;white-space:pre-wrap"></div>
           <p class="small muted" id="iptvStatus" style="margin:0"></p>
           <div id="updWrap" hidden style="margin-top:6px"><div class="small muted" id="updLbl"></div><progress id="updBar" max="100" value="0" style="width:100%;height:10px"></progress></div>
@@ -3609,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v601";
+const APP_VERSION = "v602";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4058,6 +4059,7 @@ function freeAltQuality(c, tried){
     return pa-pz || Math.abs(qc-qa)-Math.abs(qc-qz) || a.name.localeCompare(z.name);
   })[0] || null;
 }
+(()=>{ const cb = document.getElementById("tsTeste"); if(!cb) return; cb.checked = LS.get("tsTeste", "0") === "1"; cb.onchange = () => LS.set("tsTeste", cb.checked ? "1" : "0"); })();
 function playChannel(c, slot=tvTarget, auto=false){
   if(!c) return;
   if(tvBlocked(c)){ toast("Vídeo só com o carro parado.", true); tvLockUi(); return; }
@@ -4077,6 +4079,8 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(!auto && c.kind==="live" && (hevcBad.has(c.url) || hevcSess.has(c.url))){   /* o utilizador escolheu o canal: tenta outra vez por software (a marca era de uma tentativa anterior) */
     hevcBad.delete(c.url); hevcSess.delete(c.url); try{ localStorage.setItem("ck_hevcBad", JSON.stringify([...hevcBad].slice(-300))); }catch(e){}
   }
+  if(c.kind==="live" && !auto && LS.get("tsTeste", "0") === "1" && /\/live\/.+\.m3u8(\?|$)/i.test(c.url)){   /* v602: opção de teste — canais em direto por .ts */
+    playChannel(Object.assign({}, c, {url:c.url.replace(/\.m3u8(\?|$)/i, ".ts$1")}), slot, auto); return; }
   if(c.kind==="live" && HEVC_OK() && hevcTs.has(c.url) && /\/live\/.+\.m3u8(\?|$)/i.test(c.url)){
     playChannel(Object.assign({}, c, {url:c.url.replace(/\.m3u8(\?|$)/i, ".ts$1")}), slot, auto); return; }
   if(c.kind==="live" && !HEVC_OK() && (hevcSkip(c.url) || window.__hevcSw === false)){   /* sem HEVC neste browser e o software não aguentou (ou está desligado): vai logo à versão que ele descodifica */
