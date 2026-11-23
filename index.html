@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v592";
+const APP_VERSION = "v593";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4788,7 +4788,7 @@ class SoftVideoDecoder {
   }
   /* v230: imagem inteira (1920x1080) com a cor convertida na placa gráfica: o ecrã desentrelaça (Bob, 50 imagens/s) em vez de misturar os campos a 960x540 */
   /* v233: sem filtro de blocos nas imagens B quando o conjunto dos Workers mal chega ao ritmo da origem; volta ao normal quando há folga */
-  setFast(on){ this.fast = !!on; this.st.rapido = this.fast ? 1 : 0; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:this.fast}); }catch(e){} } }
+  setFast(on){ const lv = on === true ? 1 : (+on || 0); if(lv === (+this.fast || 0)) return; this.fast = lv; this._fastAt = performance.now(); this.st.rapido = lv; for(const W of this.W){ try{ W.w.postMessage({cmd:"fast", on:lv}); }catch(e){} } }
   setFull(on){ this.full = !!on; for(const W of this.W){ try{ W.w.postMessage({cmd:"shift", shift:this.full ? 0 : -1}); }catch(e){} } }
   configure(cfg){
     this.cfg = cfg; this.hevc = !!cfg.hevc; if(this.hevc) this.fast = true; this.q4 = false; this.close(); this.state = "configured";
@@ -4813,7 +4813,7 @@ class SoftVideoDecoder {
       else if(d.type === "error" && this.onerr) this.onerr(new Error("soft " + d.msg));
     };
     W.w.onerror = e => { if(this.onerr) this.onerr(new Error("worker: " + (e.message || "falhou"))); };
-    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (window.__mirShift1 || (cfg.codedWidth || 0) > 1280) ? 1 : 0, codec:this.hevc ? "hevc" : "h264", wasm:this.hevc ? new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href : null, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:!!this.fast, ep:W.ep});
+    W.w.postMessage({cmd:"open", extra:cfg.description || null, shift:this.full ? 0 : cfg.autoShift ? -1 : (window.__mirShift1 || (cfg.codedWidth || 0) > 1280) ? 1 : 0, codec:this.hevc ? "hevc" : "h264", wasm:this.hevc ? new URL("dec_hevc.wasm?v=" + APP_VERSION, location.href).href : null, bob:!!cfg.bob, gpu:LS.get("gpuColor", "0") === "1" && !window.__gpuBad, fast:(+this.fast || 0), ep:W.ep});
     return W;
   }
   decode(ch){
@@ -4918,8 +4918,13 @@ class SoftVideoDecoder {
           /* v481: 4K abaixo do ritmo do filme (com 15% de margem) em 5 medições seguidas (~10 s): avisa quem o abriu (passa à versão 1080p) */
           if(this.hevc && ok && this.onSlow && (this.cfg.codedWidth || 0) * (this.cfg.codedHeight || 0) > 2.5e6){ this._slowN = tot < sf * 1.15 ? (this._slowN || 0) + 1 : 0;
             if(this._slowN >= 5 && !this._slowFired){ this._slowFired = true; try{ this.onSlow({imagensPorSeg:Math.round(tot), precisas:Math.round(sf)}); }catch(e){} } }
-          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, ffAvisos:this.st.ffAvisos || 0, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: !!this.fast, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
-          if(ok && !this.fast && (tot < sf * 1.35 || grow >= 4)) this.setFast(true); else if(ok && this.fast && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(false); } }catch(e){}
+          if(this.hevc){ try{ window.__dbgEv && window.__dbgEv(0, "HEVC por software: estado", {quarto:!!this.q4, ffAvisos:this.st.ffAvisos || 0, workers:this.W.length, fpsPorWorker: this.W.map(W => Math.round(W.fps || 0)).join("/"), filaPorWorker: this.W.map(W => (W.q || []).length).join("/"), imagensPorSeg: Math.round(tot), precisas: Math.round(sf), rapido: +this.fast || 0, saltadas2s: grow, fila: this.W.reduce((m, W) => m + (W.q || []).length, 0)}); }catch(e){} }
+          const fl = +this.fast || 0, held = performance.now() - (this._fastAt || 0) > 4000;
+          /* v593: escada de atalhos: 1 = sem filtro nas imagens não-referência; 2 (só H.264) = sem filtro em todas menos as chave, se o nível 1 não chegar */
+          if(ok && !fl && (tot < sf * 1.35 || grow >= 4)) this.setFast(1);
+          else if(ok && fl === 1 && !this.hevc && held && (tot < sf * 1.1 || grow >= 4)) this.setFast(2);
+          else if(ok && fl === 2 && held && tot > sf * 1.6 && grow < 2) this.setFast(1);
+          else if(ok && fl === 1 && !this.hevc && tot > sf * 2.2 && grow < 2) this.setFast(0); } }catch(e){}
       if(f !== this.thin){ this.thin = f; if(this._thinAt === undefined || performance.now() - this._thinAt > 3000){ this._thinAt = performance.now(); } } }
     for(const W of this.W){
       if(!W.busy) continue;

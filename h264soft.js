@@ -50,13 +50,13 @@ function __ffwarn(u8){
   ffN++; const now = Date.now(); if(now - ffAt < 2000) return; ffAt = now;
   try{ postMessage({type: "warn", msg: s.trim().slice(0, 120), n: ffN, ts: ffTs, ep}); }catch(x){} ffN = 0;
 }
-let M = null, M264 = null, MH = null, hevc = false, shift = 0, bob = false, half = 20000, prevTs = null, ready = null, chain = Promise.resolve(), extra = null, opened = false, ep = 0, autoS = -1, useGpu = false, fastOn = false, xts = null;   /* xts: ts da imagem «extra» (a chave do GOP seguinte, enviada só para soltar a última do GOP): a sua própria imagem não se emite, o GOP seguinte já a emite */
+let M = null, M264 = null, MH = null, hevc = false, shift = 0, bob = false, half = 20000, prevTs = null, ready = null, chain = Promise.resolve(), extra = null, opened = false, ep = 0, autoS = -1, useGpu = false, fastOn = 0, xts = null;   /* xts: ts da imagem «extra» (a chave do GOP seguinte, enviada só para soltar a última do GOP): a sua própria imagem não se emite, o GOP seguinte já a emite */
 function open(){
   let p = 0, n = 0;
   if(extra && extra.byteLength){ n = extra.byteLength; p = M._malloc(n); M.HEAPU8.set(extra, p); }
   if(opened){ try{ M._dec_close(); }catch(x){} }
   const r = M._dec_open(p, n); if(p) M._free(p); opened = r === 0;
-  if(opened){ M._dec_set_matrix(hevc ? -1 : 0); if(fastOn) M._skip(1); }   /* H.265: matriz automática (BT.709 em HD) */   /* BT.601 (como o descodificador anterior): as cores ficam iguais */
+  if(opened){ M._dec_set_matrix(hevc ? -1 : 0); applyFast(); }   /* H.265: matriz automática (BT.709 em HD) */   /* BT.601 (como o descodificador anterior): as cores ficam iguais */
   return r;
 }
 function load(){
@@ -220,6 +220,21 @@ function send(u8, ts, key){
   const n = u8.byteLength, p = M._malloc(n);
   M.HEAPU8.set(u8, p); M._dec_send(p, n, ts, key ? 1 : 0); M._free(p);
 }
+/* v593: níveis do atalho em andamento. 1 = sem filtro de blocos nas imagens que não são referência (como antes);
+   2 = sem filtro de blocos em todas as imagens menos as chave (≈10–20 % mais rápido; pode ver-se algum bloco até à imagem chave seguinte).
+   O nível 2 escreve no AVCodecContext (skip_loop_filter); só o faz depois de confirmar que o endereço é o certo (o nível 1 tem de lá pôr 8). */
+const AVCTX_PTR = 169088, OFF_SKIPLF = 596;
+function avctxSkipAddr(){
+  try{ if(hevc || !M || M !== M264) return 0;
+    const v = new DataView(M.HEAPU8.buffer), av = v.getUint32(AVCTX_PTR, true); if(!av) return 0;
+    M._skip(1); const a = v.getInt32(av + OFF_SKIPLF, true); M._skip(0); const b = v.getInt32(av + OFF_SKIPLF, true);
+    return a === 8 && b === 0 ? av + OFF_SKIPLF : 0; }catch(x){ return 0; }
+}
+function applyFast(){
+  if(!opened) return;
+  if(fastOn >= 2){ const ad = avctxSkipAddr(); if(ad){ new DataView(M.HEAPU8.buffer).setInt32(ad, 32, true); return; } }
+  M._skip(fastOn ? 1 : 0);
+}
 async function handle(d){
   await load();
   if(d.cmd === "open"){
@@ -228,7 +243,7 @@ async function handle(d){
     opened = false;
     if(d.codec === "hevc"){ if(!MH){ const buf = await (await fetch(d.wasm)).arrayBuffer(); MH = await H264Mod(new Uint8Array(buf)); } M = MH; hevc = true; }
     else { M = M264; hevc = false; }
-    hdrPQ = false; c10s = 0; shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = !!d.fast; xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
+    hdrPQ = false; c10s = 0; shift = d.shift || 0; bob = !!d.bob; useGpu = d.gpu === true; fastOn = d.fast === true ? 1 : (+d.fast || 0); xts = null; prevTs = null; autoS = -1; extra = d.extra ? new Uint8Array(d.extra) : null; if(d.ep !== undefined) ep = d.ep;
     const r = open();
     postMessage({type: r === 0 ? "ready" : "error", msg: "open " + r + (useGpu ? " gpu:" + (gpuState()) : ""), ver: 2});
   } else if(d.cmd === "warm"){ /* so carrega o FFmpeg (compilar o WebAssembly demora): fica pronto para o proximo canal */
@@ -252,7 +267,7 @@ async function handle(d){
     try{ M._dec_close(); }catch(x){} open();
     xts = null;
     postMessage({type: "drained", n, ep: d.ep});
-  } else if(d.cmd === "fast"){ fastOn = !!d.on; if(opened) M._skip(fastOn ? 1 : 0);   /* v232: sem filtro de blocos nas imagens B (só quando o processador está apertado) */
+  } else if(d.cmd === "fast"){ fastOn = d.on === true ? 1 : (+d.on || 0); if(opened) applyFast();   /* v232: sem filtro de blocos nas imagens B (só quando o processador está apertado) */
   } else if(d.cmd === "shift"){ shift = d.shift | 0; autoS = -1;   /* v230: muda o tamanho de saída a meio (0 = inteiro, -1 = automático) */
   } else if(d.cmd === "c10s"){ c10s = d.s | 0;
   } else if(d.cmd === "gpu"){ useGpu = !!d.on;
