@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v593";
+const APP_VERSION = "v594";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4779,6 +4779,41 @@ function __annexInfo(u){
   }
   return {nr:sl > 0 && nr, idr, ref:sl > 0 && !nr};
 }
+/* v594: cobertura do som num pedaço TS: segundos de som AAC (ADTS) presentes / segundos que o pedaço abrange */
+function __aacCover(d){
+  try{
+    const R = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350], pes = [];
+    let apid = -1, cur = null;
+    const close = () => { if(cur && cur.parts.length){ let L = 0; for(const x of cur.parts) L += x.length; const b = new Uint8Array(L); let k = 0; for(const x of cur.parts){ b.set(x, k); k += x.length; } pes.push({pts:cur.pts, b}); } cur = null; };
+    for(let o = 0; o + 188 <= d.length; o += 188){
+      if(d[o] !== 0x47) continue;
+      const pid = ((d[o + 1] & 0x1f) << 8) | d[o + 2], pusi = d[o + 1] & 0x40, afc = (d[o + 3] >> 4) & 3; if(!(afc & 1)) continue;
+      let p = o + 4; if(afc & 2) p += 1 + d[o + 4]; if(p >= o + 188) continue;
+      if(pusi && d[p] === 0 && d[p + 1] === 0 && d[p + 2] === 1 && d[p + 3] >= 0xC0 && d[p + 3] <= 0xDF && (apid < 0 || apid === pid)){
+        if(apid === pid) close(); apid = pid;
+        if(!(d[p + 7] & 0x80)) continue;
+        const q = p + 9, pts = ((d[q] >> 1) & 7) * 1073741824 + d[q + 1] * 4194304 + (d[q + 2] >> 1) * 32768 + d[q + 3] * 128 + (d[q + 4] >> 1);
+        cur = {pts, parts:[d.subarray(p + 9 + d[p + 8], o + 188)]};
+      } else if(pid === apid && cur) cur.parts.push(d.subarray(p, o + 188));
+    }
+    close(); if(pes.length < 3) return null;
+    let have = 0, first = null, end = 0;
+    for(const e of pes){ const b = e.b; let i = 0, dur = 0;
+      while(i + 7 <= b.length && b[i] === 0xFF && (b[i + 1] & 0xF6) === 0xF0){ const sr = R[(b[i + 2] >> 2) & 15], len = ((b[i + 3] & 3) << 11) | (b[i + 4] << 3) | (b[i + 5] >> 5); if(!sr || len < 7) break; dur += 1024 * ((b[i + 6] & 3) + 1) / sr; i += len; }
+      const t = e.pts / 90000; if(first == null) first = t; have += dur; end = Math.max(end, t + dur); }
+    const span = end - first; if(!(span > 1 && span < 60)) return null;
+    return {have, span, ratio:have / span};
+  }catch(e){ return null; }
+}
+/* v594: marcas de tempo irregulares do vídeo (à entrada do descodificador): devolve {irr, P} com P = intervalo médio em µs */
+function __tsIrr(win){
+  if(win.length < 40) return null;
+  let tot = 0, n = 0; const ds = [];
+  for(let i = 1; i < win.length; i++){ const d = win[i] - win[i - 1]; if(d > 0 && d < 1e6){ tot += d; n++; ds.push(d); } }
+  if(n < 30) return null; const avg = tot / n; let bad = 0;
+  for(const d of ds) if(Math.abs(d - avg) > avg * .4) bad++;
+  return {frac:bad / n, P:avg};
+}
 class SoftVideoDecoder {
   constructor({output, error, backlog}){
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
@@ -4825,6 +4860,15 @@ class SoftVideoDecoder {
     const c = {data, ts:ch.timestamp, key, nr:!key && (ai ? ai.nr : __avcNonRef(data)), ref:ai ? ai.ref || key : !key ? !__avcNonRef(data) : true, open:key && !!ai && !ai.idr};
     const p = this.pending;
     p.push(c); if(p.length > 4000) p.shift();
+    /* v594: canais com marcas de tempo irregulares (imagens em rajadas de 20 ms e buracos de 80–250 ms, ex.: Eleven 2, Sport TV 3/5, RTP 3 do fornecedor):
+       liga-se só depois de 2 medições seguidas acima de 30 %, desliga-se com 2 abaixo de 10 %. Os canais normais medem 0–5 %. */
+    if(!this.film && typeof c.ts === "number"){ const w = this._tw || (this._tw = []); let k = w.length; while(k > 0 && w[k - 1] > c.ts) k--;
+      if(w[k - 1] !== c.ts){ w.splice(k, 0, c.ts); if(w.length > 64) w.shift(); }
+      this._twN = (this._twN || 0) + 1;
+      if(this._twN % 32 === 0){ const r = __tsIrr(w); if(r){ this.irrFrac = r.frac;
+          if(r.frac > .3){ this._irrOn = (this._irrOn || 0) + 1; this._irrOff = 0; if(this._irrOn >= 2 && !this.irr){ this.irr = true; this.st.tempoIrregular = 1; } }
+          else if(r.frac < .1){ this._irrOff = (this._irrOff || 0) + 1; this._irrOn = 0; if(this._irrOff >= 2) this.irr = false; }
+          if(this.irr) this.irrP = r.P; } } }
   }
   /* v214: quantas imagens prontas se aceitam antes de parar de descodificar à frente (tem de ficar abaixo do tecto da fila, senão as das Workers em curso perdem-se) */
   /* v216: Bob por software (1080i → 2 quadros de 960×540 por imagem, 50/s): liga/desliga em todos os Workers */
@@ -4838,7 +4882,7 @@ class SoftVideoDecoder {
   }
   info(){
     const fps = this.W.map(W => Math.round(W.fps || 0));
-    return Object.assign({workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, gpu:window.__gpuMsg || (LS.get("gpuColor", "0") === "1" ? "ligada, sem resposta do descodificador" : "desligada"), origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000), limiteFila:this.bkLimit()}, this.st);
+    return Object.assign({tempoIrregular:this.irr ? Math.round((this.irrFrac || 0) * 100) + " %" : 0, workers:this.W.length, versaoWorker:this.W.map(W => W.ver || 0).join(","), fpsPorWorker:fps, gpu:window.__gpuMsg || (LS.get("gpuColor", "0") === "1" ? "ligada, sem resposta do descodificador" : "desligada"), origemFps:this._dts ? Math.round(1e6 / this._dts) : null, antecedencia_ms:Math.round(this.lead / 1000), limiteFila:this.bkLimit()}, this.st);
   }
   /* descodificador antigo (sem "drain" nem paralelo): fica só um Worker, que segue os GOPs um atrás do outro */
   _legacy(){ if(this.legacy) return; this.legacy = true; this.st.antigo = true;
@@ -4933,7 +4977,7 @@ class SoftVideoDecoder {
       while(q.length && W.inflight < 3){
         const c = q[0];
         const lat = W.fps ? (W.inflight + 1) * 1e6 / W.fps : 40000;   /* quando esta imagem ficaria pronta */
-        if(c.nr && !c.pre && c.ts < masterUs + lat - 30000 && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }   /* v233: 30 ms de tolerância (antes largava imagens B por pouco) */
+        if(c.nr && !c.pre && c.ts < masterUs + lat - 30000 - (this.irr ? 350000 : 0) && q.length > 1){ q.shift(); this.st.bSaltadas++; continue; }   /* v233: 30 ms de tolerância (antes largava imagens B por pouco) */
         /* v210: o conjunto dos Workers mal chega ao ritmo da origem (ex.: 1080i50 com ~20 imagens/s cada): em vez de deixar as imagens B atrasadas caírem em rajadas (saltos de 100-200 ms),
            larga uma B sim, outra não, de forma regular, antes de gastar tempo a descodificá-la */
         if(this.thin && c.nr && !c.pre && q.length > 1 && ((this._tn = (this._tn || 0) + 1) & 1)){ q.shift(); this.st.bFinas++; continue; }
@@ -5222,7 +5266,20 @@ function present(slot){
   if(q.length && audioOk && st.masterUs!=null){
     const masterUs = st.masterUs;
     let idx=-1;
-    for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
+    const DI = st.decoder && st.decoder.irr && st.decoder.irrP > 0 ? st.decoder : null;
+    if(DI){
+      /* v594: marcas de tempo irregulares: mostra as imagens por ordem a um ritmo certo (o intervalo médio do canal),
+         sem se afastar mais de 0,3–0,4 s do som; se ficar muito para trás, salta para apanhar o som */
+      const P = DI.irrP; let k = 0;
+      while(k < q.length - 1 && q[k].timestamp < masterUs - 400000) k++;
+      if(q[k].timestamp <= masterUs + 300000){
+        const base = st.rtNext == null ? masterUs : st.rtNext;
+        if(masterUs >= base || k > 0){ idx = k; st.rtNext = Math.max(base + P, masterUs - P); }
+      } else st.rtNext = null;
+    } else {
+      st.rtNext = null;
+      for(let i=0;i<q.length;i++){ if(q[i].timestamp <= masterUs) idx=i; else break; }
+    }
     if(idx>=0){
       for(let i=0;i<idx;i++){ try{ q[i].close(); }catch(e){} }   // salta frames atrasados para apanhar o áudio
       const f=q[idx]; mirDraw(slot, f.bmp||f, f.displayWidth||f.codedWidth, f.displayHeight||f.codedHeight); st.lastFrame=performance.now();
@@ -5350,6 +5407,7 @@ function tsMirFeed(slot, bytes){
   const tap = window.__tsTaps[slot]; const st = MIR[slot];
   if(!st || !st.tsd){ if(tap){ (tap.pre = tap.pre || []).push(bytes); tap.preN = (tap.preN || 0) + bytes.length; while(tap.preN > 6e6 && tap.pre.length > 1) tap.preN -= tap.pre.shift().length; } return; }
   st.segs = (st.segs || 0) + 1; st.tsBytes = (st.tsBytes || 0) + bytes.length;
+  /* v594: som incompleto no sinal do fornecedor (ex.: metade dos pacotes AAC em falta): 2 pedaços seguidos abaixo de 75 % → outra versão do canal */
   for(const x of st.tsd.push(bytes)){
     let data = x.data;
     if(st.soft){   /* FFmpeg/WASM: H.264 e (v238) H.265 */
@@ -5476,6 +5534,14 @@ function hevcFeed(slot, st, u, frag){
 }
 /* H.264 em .ts → descodificador por software (Annex B). Guarda o SPS/PPS e repõe-no nas imagens-chave que não o trazem
    (cada GOP é descodificado num Worker que pode ter acabado de reabrir o descodificador). */
+/* v594: som incompleto no sinal do fornecedor (ex.: metade dos pacotes AAC em falta): 2 pedaços seguidos abaixo de 75 % → outra versão do canal.
+   Só mede os 6 primeiros pedaços de cada canal (fora do caminho da imagem, com o processo principal livre). */
+function avCheck(slot, st, u){
+  try{ if(st.film || st.avDone || (st.avN || 0) >= 6 || !u || u.length < 200000) return; st.avN = (st.avN || 0) + 1;
+    setTimeout(() => { try{ if(MIR[slot] !== st || st.avDone) return; const cv = __aacCover(u); if(!cv || !(cv.span > 3)) return; st.aCov = cv.ratio;
+      if(cv.ratio < .75){ st.aBad = (st.aBad || 0) + 1; if(st.aBad >= 2){ st.avDone = true; window.__avBad && window.__avBad(slot, cv.ratio); } } else { st.aBad = 0; if(st.avN >= 3) st.avDone = true; } }catch(e){} }, 50);
+  }catch(e){}
+}
 function avcFeed(slot, st, u, frag){
   const inf = st.av; let first = true, off = 0, cur = null, eof = false; const L = [];
   /* a montagem das imagens (PES) também é feita aos poucos: __tsPes de uma vez custava ~20 ms (60 ms no carro) */
@@ -5540,7 +5606,7 @@ function mirrorFeed(slot, d){
   try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
     if(!WC_NATIVE && u0[0] === 0x47 && st.decoder && st.decoder.pump && !st.hevc && window.__mirFast !== false){
       const inf = st.av = __tsVideoInfo(u0);   /* por pedaço: as funções de leitura ficam presas aos bytes deste pedaço */
-      if(inf.vpid >= 0 && inf.type === 0x1b){ st.fastTs = true; avcFeed(slot, st, u0, st.curFrag); return; } } }catch(e){ st.err = "H.264 direto: " + e.message; }
+      if(inf.vpid >= 0 && inf.type === 0x1b){ st.fastTs = true; avCheck(slot, st, u0); avcFeed(slot, st, u0, st.curFrag); return; } } }catch(e){ st.err = "H.264 direto: " + e.message; }
   /* HEVC em .ts: o mux.js não o converte; lê-se diretamente (só com WebCodecs nativo) */
   try{ const u0 = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
     if(u0[0] === 0x47 && WC_NATIVE && st.decoder && st.decoder.pump && (st.hevc || (!st.gotInit && __tsVideoInfo(u0).type === 0x24))){ st.hevc = true; hevcFeed(slot, st, u0, st.curFrag); return; } }catch(e){ st.err = "HEVC: " + e.message; }
@@ -6685,6 +6751,24 @@ function wcDestroy(slot){
   try{ if(st.file) st.file.flush(); }catch(e){}
   MIR[slot] = null;
 }
+/* v594: canal com o som incompleto no fornecedor: experimenta outra versão do mesmo canal (mesmo nome sem PT:/|PT|/UHD/FHD/HD), que ainda não se saiba estar estragada */
+const AVBAD = (() => { try{ return new Set(JSON.parse(localStorage.getItem("ck_avbad") || "[]")); }catch(e){ return new Set(); } })();
+window.__avBad = (slot, ratio) => {
+  try{
+    const c = lastPlayed[slot]; if(!c || c.kind !== "live") return;
+    AVBAD.add(c.url); try{ localStorage.setItem("ck_avbad", JSON.stringify([...AVBAD].slice(-300))); }catch(e){}
+    const key = n => String(n || "").normalize("NFKD").replace(/\|[A-Z]{2}\|/g, "").replace(/^[\s\W_]*(PT|PRT|PORTUGAL)\b[\s:|\-]*/i, "").replace(/\b(UHD|FHD|HD|SD|4K|HEVC|H265|H\.265)\b/gi, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    const ctryOf = n => { const m = String(n || "").normalize("NFKD").match(/\|([A-Za-z]{2})\|/); return m ? m[1].toUpperCase() : ""; };
+    const k0 = key(c.name); if(!k0) return;
+    const T = window.__avBadT = window.__avBadT || {}, now = Date.now(), h = (T[k0] || []).filter(t => now - t < 120000);
+    const sib = h.length >= 3 ? null : (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !AVBAD.has(x.url) && key(x.name) === k0 && ctryOf(x.name) === ctryOf(c.name) && !(window.__parHide && window.__parHide(x)))[0];
+    try{ window.__dbgEv && window.__dbgEv(slot, "som incompleto no fornecedor", {som_pct:Math.round(ratio * 100), outraVersao:sib ? sib.name : null}); }catch(e){}
+    if(!sib){ toast(c.name + ": o fornecedor está a enviar só " + Math.round(ratio * 100) + " % do som deste canal, por isso o som falha. Não encontrei outra versão boa na lista.", true); return; }
+    h.push(now); T[k0] = h;
+    toast(c.name + ": o fornecedor está a enviar o som incompleto. A experimentar " + sib.name + "…");
+    setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(sib, slot, true); }catch(e){} }, 400);
+  }catch(e){}
+};
 /* v236: versão H.264 do mesmo canal (ex. «RTP 1 UHD» → «RTP1»): mesmo nome sem UHD/FHD/HD/SD/4K, outro endereço */
 const I1080 = (() => { try{ return new Set(JSON.parse(localStorage.getItem("ck_i1080") || "[]")); }catch(e){ return new Set(); } })();
 window.__i1080 = slot => {
