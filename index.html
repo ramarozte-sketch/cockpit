@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v599";
+const APP_VERSION = "v600";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -17319,8 +17319,8 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- ligar aos leitores --- */
   const _pc = window.playChannel;
   window.playChannel = function(c, slot, auto){ try{ const sl = slot == null ? tvTarget : slot;
-    /* v393: troca rápida de canais: só arranca a última escolha, com pelo menos 3 s desde o arranque anterior */
-    const wait = 3000 - (Date.now() - (window.__lastStartAt || 0));
+    /* v393: troca rápida de canais: só arranca a última escolha, com pelo menos 1,5 s desde o arranque anterior (v600) */
+    const wait = 1500 - (Date.now() - (window.__lastStartAt || 0));   /* v600: 1,5 s (antes 3 s); a espera pelo fecho da ligação anterior continua à parte */
     if(!auto && wait > 0){ const tk = window.__pcTok = (window.__pcTok || 0) + 1; setTimeout(() => { if(tk === window.__pcTok) window.playChannel(c, slot, auto); }, wait); return; }
     if(!auto) window.__lastStartAt = Date.now();
     if(auto && DBG.cur[sl]) ev(sl, "alternativa", {para:c && c.name, url:red(c && c.url)}); else start(c, sl); }catch(e){} return _pc.apply(this, arguments); };
