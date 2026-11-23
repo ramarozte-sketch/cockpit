@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v598";
+const APP_VERSION = "v599";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16752,6 +16752,12 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
     document.body.classList.remove("ahStageIn"); window.__ahStageIn = false; ctl(false);
   };
   window.__ahStageHome = () => { if(currentView === "tvinicio" && hasCh() && on()) toHero(); };
+  /* v599: o canal escolhido pode só arrancar até 3 s depois (proteção contra trocas rápidas): o nome no destaque atualiza quando arranca de facto */
+  { const _pcH = window.playChannel; if(typeof _pcH === "function") window.playChannel = function(){ const r = _pcH.apply(this, arguments);
+      try{ if(currentView === "tvinicio" && on()) [80, 900].forEach(ms => setTimeout(() => { try{ if(currentView === "tvinicio"){ window.__ah.render(false); toHero(); } }catch(x){} }, ms)); }catch(x){}
+      return r; }; }
+  { let lastU = ""; setInterval(() => { try{ if(currentView !== "tvinicio" || !on()) return; const c = lastPlayed && (lastPlayed[0] || lastPlayed[1]); const u = c ? c.url : "";
+      if(u && u !== lastU){ lastU = u; window.__ah.render(false); toHero(); } }catch(x){} }, 1000); }
   const _sh = window.show;
   window.show = function(v){
     if(v === "tv" && currentView === "tvinicio" && Date.now() < stayUntil) return;   /* o canal foi escolhido no Início: fica no Início */
