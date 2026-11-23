@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v590";
+const APP_VERSION = "v591";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -8636,6 +8636,8 @@ function dashEnter(){
 }
 function openApp(id){
   if(id === "notes" || id === "mail"){ show(id); return true; }
+  /* v591: o criador de música é uma página própria (não está na lista APPS) */
+  if(id === "musica"){ location.href = new URL("musica/index.html", location.href).href; return true; }
   const a = APPS[id]; if(!a) return false;
   if(a.stream && !cfg.passenger && gamesLocked()){ toast("Vídeo só com o carro parado.", true); return true; }
   if(["netflix","primevideo","disney","spotify"].includes(id)){
@@ -8650,7 +8652,6 @@ function openApp(id){
   if(id === "ipma"){ show("tempo"); return true; }
   if(id === "engine"){ show("engine"); return true; }
   if(id === "dj"){ show("dj"); setTimeout(() => window.__djFit && window.__djFit(), 50); return true; }
-  if(id === "musica"){ location.href = "musica/"; return true; }
   if(id === "chargers"){ chgWhere = "car"; show("chargers"); return true; }
   if(id === "nav"){ openNav(""); return true; }
   // A NOS TV precisa de login: dentro do Cockpit (iframe) o browser bloqueia os cookies de sessão, por isso abre sempre como página própria.
