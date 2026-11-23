@@ -3609,7 +3609,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v595";
+const APP_VERSION = "v596";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6766,6 +6766,13 @@ window.__avBad = (slot, ratio) => {
     const ctryOf = n => { const m = String(n || "").normalize("NFKD").match(/\|([A-Za-z]{2})\|/); return m ? m[1].toUpperCase() : ""; };
     const k0 = key(c.name); if(!k0) return;
     const T = window.__avBadT = window.__avBadT || {}, now = Date.now(), h = (T[k0] || []).filter(t => now - t < 120000);
+    /* v596: a mesma emissão em .ts direto (as apps Xtream usam este formato; o reempacotamento HLS do fornecedor é que perde o som) — tenta primeiro, se a conta permitir .ts */
+    try{ const fm = LS.get("xfmts", []) || [], tu = /\/live\/[^?#]+\.m3u8(\?|$)/i.test(c.url || "") ? c.url.replace(/\.m3u8(\?|$)/i, ".ts$1") : "";
+      if(tu && !AVBAD.has(tu) && (!fm.length || fm.includes("ts")) && h.length < 3){ h.push(now); T[k0] = h; AVBAD.add(tu); try{ localStorage.setItem("ck_avbad", JSON.stringify([...AVBAD].slice(-300))); }catch(e){}
+        try{ window.__dbgEv && window.__dbgEv(slot, "som incompleto no fornecedor", {som_pct:Math.round(ratio * 100), tenta:"mesmo canal em .ts"}); }catch(e){}
+        toast(c.name + ": o som chega incompleto pelo HLS do fornecedor. A experimentar o mesmo canal em .ts…");
+        const c2 = Object.assign({}, c, {url:tu, ext:"ts", __tsOf:c.url});
+        setTimeout(() => { try{ if(lastPlayed[slot] === c) playChannel(c2, slot, true); }catch(e){} }, 400); return; } }catch(e){}
     const sib = h.length >= 3 ? null : (channels || []).filter(x => x && x.url && x.url !== c.url && x.kind === "live" && !AVBAD.has(x.url) && key(x.name) === k0 && (ctryOf(x.name) || "PT") === (ctryOf(c.name) || "PT") && !(window.__parHide && window.__parHide(x)))[0];
     try{ window.__dbgEv && window.__dbgEv(slot, "som incompleto no fornecedor", {som_pct:Math.round(ratio * 100), outraVersao:sib ? sib.name : null}); }catch(e){}
     if(!sib){ toast(c.name + ": o fornecedor está a enviar só " + Math.round(ratio * 100) + " % do som deste canal, por isso o som falha. Não encontrei outra versão boa na lista.", true); return; }
