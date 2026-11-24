@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v605";
+const APP_VERSION = "v606";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7010,10 +7010,14 @@ function loadMpegts(){
 }
 async function playTs(v, url, slot, onFail){
   /* v334: trava o ciclo de reaberturas: no máximo 3 tentativas em 30 s por ecrã; a seguir espera 6 s entre cada uma e, ao fim de 6, desiste (o fornecedor está a recusar) */
+  /* v606: só conta como reabertura quando é o MESMO canal a ser pedido de novo; trocar de canal não entra no limite (antes cada troca rápida ficava 6 s à espera) */
+  const lastU = (window.__tsLastU = window.__tsLastU || {}); const sameCh = lastU[slot] === url; lastU[slot] = url;
   const TL = (window.__tsRetry = window.__tsRetry || {}); const now = Date.now(); const R = (TL[slot] = (TL[slot] || []).filter(t => now - t < 30000));
-  if(R.length >= 6){ try{ window.__dbgEv && window.__dbgEv(slot, "TS: demasiadas tentativas (fornecedor a recusar)", {tentativas:R.length}); }catch(e){} if(onFail) onFail(); return false; }
-  if(R.length >= 3){ await new Promise(r => setTimeout(r, 6000)); }
-  R.push(Date.now());
+  if(sameCh){
+    if(R.length >= 6){ try{ window.__dbgEv && window.__dbgEv(slot, "TS: demasiadas tentativas (fornecedor a recusar)", {tentativas:R.length}); }catch(e){} if(onFail) onFail(); return false; }
+    if(R.length >= 3){ await new Promise(r => setTimeout(r, 6000)); }
+    R.push(Date.now());
+  }
   if(!(await loadMpegts()) || !mpegts.isSupported()) return false;
   /* imagem em andamento: o fluxo é duplicado para o leitor da imagem (precisa do mpegts.js fora do Worker) */
   const tapOn = typeof mirrorOn !== "undefined" && mirrorOn && WC_OK && !window.ANDROID;
