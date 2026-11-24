@@ -140,6 +140,12 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 .act.busy{opacity:.55}
 .act.armed{border-color:var(--warn);color:var(--warn)}
 .act.on{border-color:var(--accent)}
+.carSum{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr);gap:18px;align-items:center}
+.carStats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.carGroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0 10px}
+.carGrp{display:flex;flex-direction:column;gap:12px}.carGrp h2{margin:0}
+.carGrp .actions{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.carGrp .act{min-height:84px}
+@media (max-width:900px){.carSum,.carGroups{grid-template-columns:1fr}}
 
 /* TV */
 .tvwrap{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:18px;min-height:0}
@@ -1047,33 +1053,37 @@ body.layout-atv .rail{display:none}
       <div class="row"><h1 id="carName">O meu Tesla</h1><span class="spacer"></span>
         <button class="btn" id="btnRefresh">Atualizar</button><button class="btn" id="btnWake">Acordar carro</button></div>
       <div class="banner" id="demoBanner" hidden>Modo demonstração: os dados são de exemplo e os comandos não chegam ao carro. Cola o teu token Tessie em Definições para ligar o teu Tesla.</div>
-      <div class="grid2">
-        <div class="panel">
-          <h2>Bateria</h2>
+      <!-- v611: estado em cima, ações agrupadas por utilização (acesso, clima, carregamento, localizar e segurança) -->
+      <div class="panel carSum">
+        <div class="carBat">
           <div class="gauge"><div class="big" id="batPct">--</div><div class="muted" style="padding-bottom:10px">% · <span id="batKm">--</span> km</div></div>
           <div class="bar"><i id="batBar" style="width:0"></i></div>
-          <div class="stats">
-            <div class="stat"><span>Estado</span><b id="stCharge">--</b></div>
-            <div class="stat"><span>Limite</span><b id="stLimit">--</b></div>
-            <div class="stat"><span>Interior</span><b id="stIn">--</b></div>
-            <div class="stat"><span>Exterior</span><b id="stOut">--</b></div>
-            <div class="stat"><span>Portas</span><b id="stLock">--</b></div>
-            <div class="stat"><span>Sentinela</span><b id="stSentry">--</b></div>
-          </div>
-          <label class="f">Temperatura do habitáculo: <b id="tempVal">21 °C</b><input type="range" id="tempRange" min="15" max="28" step="0.5" value="21"></label>
-          <button class="btn" id="btnTemp">Definir temperatura</button>
-          <label class="f">Limite de carga: <b id="limVal">80 %</b><input type="range" id="limRange" min="50" max="100" step="1" value="80"></label>
-          <button class="btn" id="btnLimit">Definir limite</button>
-          <h2>Localização</h2>
-          <p class="small" id="locText" style="margin:0">Toca em “Localizar” para ver onde está o carro.</p>
-          <div class="row"><button class="btn" id="btnLocate">Localizar</button><a class="btn" id="locMap" target="_blank" rel="noopener" hidden style="text-decoration:none;display:inline-flex;align-items:center">Abrir no mapa</a></div>
         </div>
-        <div class="panel">
-          <h2>Comandos</h2>
-          <div class="actions" id="actions"></div>
-          <p class="small muted" style="margin:0">Destrancar pede um segundo toque para confirmar. Os comandos acordam o carro se estiver a dormir, o que pode demorar até 30 segundos.</p>
+        <div class="stats carStats">
+          <div class="stat"><span>Portas</span><b id="stLock">--</b></div>
+          <div class="stat"><span>Carga</span><b id="stCharge">--</b></div>
+          <div class="stat"><span>Interior</span><b id="stIn">--</b></div>
+          <div class="stat"><span>Exterior</span><b id="stOut">--</b></div>
+          <div class="stat"><span>Sentinela</span><b id="stSentry">--</b></div>
+          <div class="stat"><span>Limite</span><b id="stLimit">--</b></div>
         </div>
       </div>
+      <div class="carGroups">
+        <div class="panel carGrp"><h2>🔐 Acesso</h2><div class="actions" data-g="acesso"></div>
+          <p class="small muted" style="margin:0">Destrancar pede um segundo toque para confirmar.</p></div>
+        <div class="panel carGrp"><h2>🌡️ Clima</h2><div class="actions" data-g="clima"></div>
+          <label class="f">Temperatura do habitáculo: <b id="tempVal">21 °C</b><input type="range" id="tempRange" min="15" max="28" step="0.5" value="21"></label>
+          <button class="btn" id="btnTemp">Definir temperatura</button></div>
+        <div class="panel carGrp"><h2>⚡ Carregamento</h2><div class="actions" data-g="carga"></div>
+          <label class="f">Limite de carga: <b id="limVal">80 %</b><input type="range" id="limRange" min="50" max="100" step="1" value="80"></label>
+          <button class="btn" id="btnLimit">Definir limite</button></div>
+        <div class="panel carGrp"><h2>📍 Localizar e segurança</h2>
+          <p class="small" id="locText" style="margin:0">Toca em “Localizar” para ver onde está o carro.</p>
+          <div class="row"><button class="btn" id="btnLocate">Localizar</button><a class="btn" id="locMap" target="_blank" rel="noopener" hidden style="text-decoration:none;display:inline-flex;align-items:center">Abrir no mapa</a></div>
+          <div class="actions" data-g="seg"></div></div>
+      </div>
+      <div id="actions" hidden></div>
+      <p class="small muted" style="margin:0 0 14px">Os comandos acordam o carro se estiver a dormir, o que pode demorar até 30 segundos.</p>
       <div class="panel">
         <div class="row"><h2>Saúde do carro</h2><span class="spacer"></span><button class="btn" id="hRefresh">Verificar</button></div>
         <div class="grid2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)">
@@ -2659,25 +2669,28 @@ function renderCar(){
 }
 const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ACTIONS = [
-  {id:"lock", label:"Trancar", c:"lock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', state:"lock"},
-  {id:"unlock", label:"Destrancar", c:"unlock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>', confirm:true},
-  {id:"trunk", label:"Mala traseira", c:"activate_rear_trunk", icon:'<path d="M4 15h16v4H4zM6 15l2-6h8l2 6"/><path d="M12 9V4"/>'},
-  {id:"frunk", label:"Mala dianteira", c:"activate_front_trunk", icon:'<path d="M4 9h16v4H4zM6 13l2 6h8l2-6"/><path d="M12 9V4"/>'},
-  {id:"vent", label:"Ventilar vidros", c:"vent_windows", icon:'<path d="M4 20V8l8-4 8 4v12zM8 12h8M8 16h8"/>'},
-  {id:"closew", label:"Fechar vidros", c:"close_windows", icon:'<path d="M4 20V8l8-4 8 4v12z"/><path d="M9 14l2 2 4-4"/>'},
-  {id:"climate", label:"Clima", toggle:["start_climate","stop_climate"], state:"climate", icon:'<path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/>'},
-  {id:"defrost", label:"Descongelar", c:"start_max_defrost", icon:'<path d="M3 10c3-2 6 2 9 0s6 2 9 0M3 15c3-2 6 2 9 0s6 2 9 0"/>'},
-  {id:"charge", label:"Carregamento", toggle:["start_charging","stop_charging"], state:"charge", icon:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'},
-  {id:"port", label:"Porta de carga", c:"open_charge_port", icon:'<circle cx="12" cy="12" r="8"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><circle cx="12" cy="15" r="1"/>'},
-  {id:"homelink", label:"HomeLink", c:"trigger_homelink", icon:'<path d="M3 11l9-7 9 7v9H3z"/><path d="M8 20v-6h8v6"/>'},
-  {id:"sentry", label:"Sentinela", toggle:["enable_sentry","disable_sentry"], state:"sentry", icon:'<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/>'},
-  {id:"flash", label:"Piscar luzes", c:"flash", icon:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/>'},
-  {id:"honk", label:"Buzina", c:"honk", icon:'<path d="M3 10v4h4l5 4V6L7 10zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>'},
-  {id:"boombox", label:"Som localizar", c:"remote_boombox", params:{sound:2000}, icon:'<circle cx="12" cy="12" r="2"/><path d="M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8"/>'}
+  {id:"lock", g:"acesso", label:"Trancar", c:"lock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', state:"lock"},
+  {id:"unlock", g:"acesso", label:"Destrancar", c:"unlock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>', confirm:true},
+  {id:"trunk", g:"acesso", label:"Mala traseira", c:"activate_rear_trunk", icon:'<path d="M4 15h16v4H4zM6 15l2-6h8l2 6"/><path d="M12 9V4"/>'},
+  {id:"frunk", g:"acesso", label:"Mala dianteira", c:"activate_front_trunk", icon:'<path d="M4 9h16v4H4zM6 13l2 6h8l2-6"/><path d="M12 9V4"/>'},
+  {id:"vent", g:"acesso", label:"Ventilar vidros", c:"vent_windows", icon:'<path d="M4 20V8l8-4 8 4v12zM8 12h8M8 16h8"/>'},
+  {id:"closew", g:"acesso", label:"Fechar vidros", c:"close_windows", icon:'<path d="M4 20V8l8-4 8 4v12z"/><path d="M9 14l2 2 4-4"/>'},
+  {id:"climate", g:"clima", label:"Clima", toggle:["start_climate","stop_climate"], state:"climate", icon:'<path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/>'},
+  {id:"defrost", g:"clima", label:"Descongelar", c:"start_max_defrost", icon:'<path d="M3 10c3-2 6 2 9 0s6 2 9 0M3 15c3-2 6 2 9 0s6 2 9 0"/>'},
+  {id:"charge", g:"carga", label:"Carregamento", toggle:["start_charging","stop_charging"], state:"charge", icon:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'},
+  {id:"port", g:"carga", label:"Porta de carga", c:"open_charge_port", icon:'<circle cx="12" cy="12" r="8"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><circle cx="12" cy="15" r="1"/>'},
+  {id:"homelink", g:"acesso", label:"HomeLink", c:"trigger_homelink", icon:'<path d="M3 11l9-7 9 7v9H3z"/><path d="M8 20v-6h8v6"/>'},
+  {id:"sentry", g:"seg", label:"Sentinela", toggle:["enable_sentry","disable_sentry"], state:"sentry", icon:'<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/>'},
+  {id:"flash", g:"seg", label:"Piscar luzes", c:"flash", icon:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/>'},
+  {id:"honk", g:"seg", label:"Buzina", c:"honk", icon:'<path d="M3 10v4h4l5 4V6L7 10zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>'},
+  {id:"boombox", g:"seg", label:"Som localizar", c:"remote_boombox", params:{sound:2000}, icon:'<circle cx="12" cy="12" r="2"/><path d="M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8"/>'}
 ];
 function buildActions(){
-  $("actions").innerHTML = ACTIONS.map(a => `<button class="act" data-id="${a.id}" ${a.state?`data-state="${a.state}"`:""}>${I(a.icon)}<b>${a.label}</b></button>`).join("");
-  $("actions").querySelectorAll(".act").forEach(b => b.onclick = () => runAction(b.dataset.id, b));
+  const html = a => `<button class="act" data-id="${a.id}" ${a.state?`data-state="${a.state}"`:""}>${I(a.icon)}<b>${a.label}</b></button>`;
+  const boxes = document.querySelectorAll("#v-car .actions[data-g]");   /* v611: cada comando vai para o seu grupo */
+  if(boxes.length) boxes.forEach(bx => { bx.innerHTML = ACTIONS.filter(a => (a.g || "seg") === bx.dataset.g).map(html).join(""); });
+  else $("actions").innerHTML = ACTIONS.map(html).join("");
+  document.querySelectorAll("#v-car .actions .act").forEach(b => b.onclick = () => runAction(b.dataset.id, b));
 }
 async function runAction(id, btn){
   const a = ACTIONS.find(x=>x.id===id); if(!a) return false;
@@ -3610,7 +3623,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v610";
+const APP_VERSION = "v611";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
