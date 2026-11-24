@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v607";
+const APP_VERSION = "v608";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -17383,7 +17383,7 @@ body.ahStuck #v-tvinicio .ahFsHint{display:none}
   /* --- relatório --- */
   const report = async () => {
     /* v315: o tipo vem da estimativa do browser (não é o meio: Wi-Fi ou dados); o débito medido pelos pedidos de vídeo é o que conta */
-    let nc = {}; try{ const n = navigator.connection; if(n) nc = {meio:n.type || "o browser não indica", classeVelocidade:n.effectiveType, nota:"classeVelocidade é a estimativa de velocidade do browser (4g = rápida), não o meio", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
+    let nc = {}; try{ const n = navigator.connection; if(n) nc = {meio:(n.type ? "o browser indica: " + n.type + " (nem sempre correto)" : "o browser não indica"), classeVelocidade:n.effectiveType, nota:"classeVelocidade é a estimativa de velocidade do browser (4g = rápida); o tipo de rede do browser pode não corresponder ao Wi-Fi real", mbps:n.downlink, rtt:n.rtt, medido_mbps: +((+LS.get("bwEst", 0) || 0) / 1e6).toFixed(2)}; }catch(e){}
     const env = {hevcCaps:window.__hevcCaps || "por medir", lista:window.__listErr || null, versao:APP_VERSION, quando:now(), browser:navigator.userAgent, tesla:!!window.__TESLA, toque:navigator.maxTouchPoints || 0, pagina:location.protocol + "//" + location.host,
       ecra:innerWidth + "x" + innerHeight + " @" + (window.devicePixelRatio || 1), comandos:(() => { try{ return {api:!!navigator.getGamepads, seguro:!!window.isSecureContext, ligados:[...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map(g => g.id + " [" + g.mapping + "] b" + g.buttons.length + " e" + g.axes.length), hid:!!navigator.hid, usb:!!navigator.usb, bluetooth:!!navigator.bluetooth, visto:window.__gpSeen || null}; }catch(e){ return String(e); } })(), codecs:window.__codecs ? window.__codecs() : "", rede:nc,
       andamento:(DRIVE.state === "moving" ? "sim " + (DRIVE.why || "") : "não"), xtream:host(cfg.xs), m3u:host(cfg.m3u), guia:host(cfg.epg), proxy1:host(cfg.proxy), proxy2:host(cfg.proxy2),
