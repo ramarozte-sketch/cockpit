@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v604";
+const APP_VERSION = "v605";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15603,9 +15603,13 @@ function renderMaint(){
     try{ AH.n = channels.length + freeChans.length; }catch(e){}
     if(force || AH.rr !== rows){
       const keep = {}; sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); if(h && s) keep[AH.kind + "|" + h.textContent] = s.scrollLeft; });
-      $("ahRows").innerHTML = rows; AH.rr = rows;
+      /* v605: se os cartões já estavam visíveis na mesma categoria, a atualização (p. ex. ao trocar de canal) não repete a animação de entrada */
+      const wasIn = AH.animKind === AH.kind && sec.querySelectorAll("#ahRows .ahCard.in").length > 0;
+      $("ahRows").innerHTML = rows; AH.rr = rows; AH.animKind = AH.kind;
       sec.querySelectorAll(".ahRow").forEach(r => { const h = r.querySelector("h3 span"), s = r.querySelector(".ahScroll"); const v = h && keep[AH.kind + "|" + h.textContent]; if(s && v) s.scrollLeft = v; });
-      armAnim(); cvScan();
+      if(wasIn){ try{ if(io) io.disconnect(); }catch(e){} io = null; sec.classList.remove("ahArm"); sec.querySelectorAll("#ahRows .ahCard").forEach(c => c.classList.add("in")); }
+      else armAnim();
+      cvScan();
     }
   }
   AH.render = render;
