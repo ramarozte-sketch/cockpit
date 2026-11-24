@@ -2663,7 +2663,7 @@ function renderCar(){
   if(cl.driver_temp_setting){ $("tempRange").value = cl.driver_temp_setting; $("tempVal").textContent = cl.driver_temp_setting+" °C"; }
   if(cs.charge_limit_soc){ $("limRange").value = cs.charge_limit_soc; $("limVal").textContent = cs.charge_limit_soc+" %"; }
   document.querySelectorAll(".act[data-state]").forEach(b => {
-    const on = {climate:cl.is_climate_on, sentry:vs.sentry_mode, lock:vs.locked, charge:cs.charging_state==="Charging"}[b.dataset.state];
+    const on = {climate:cl.is_climate_on, sentry:vs.sentry_mode, lock:vs.locked, charge:cs.charging_state==="Charging", wheel:cl.steering_wheel_heater}[b.dataset.state];
     b.classList.toggle("on", !!on);
   });
 }
@@ -2676,7 +2676,10 @@ const ACTIONS = [
   {id:"vent", g:"acesso", label:"Ventilar vidros", c:"vent_windows", icon:'<path d="M4 20V8l8-4 8 4v12zM8 12h8M8 16h8"/>'},
   {id:"closew", g:"acesso", label:"Fechar vidros", c:"close_windows", icon:'<path d="M4 20V8l8-4 8 4v12z"/><path d="M9 14l2 2 4-4"/>'},
   {id:"climate", g:"clima", label:"Clima", toggle:["start_climate","stop_climate"], state:"climate", icon:'<path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/>'},
-  {id:"defrost", g:"clima", label:"Descongelar", c:"start_max_defrost", icon:'<path d="M3 10c3-2 6 2 9 0s6 2 9 0M3 15c3-2 6 2 9 0s6 2 9 0"/>'},
+  {id:"defrost", g:"clima", label:"Desembaciar", c:"start_max_defrost", icon:'<path d="M3 10c3-2 6 2 9 0s6 2 9 0M3 15c3-2 6 2 9 0s6 2 9 0"/>'},
+  {id:"wheel", g:"clima", label:"Volante", toggle:["start_steering_wheel_heater","stop_steering_wheel_heater"], state:"wheel", icon:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 14v7M3.5 9.5l6.5 2.5M20.5 9.5l-6.5 2.5"/>'},
+  {id:"seatD", g:"clima", label:"Banco condutor", c:"set_seat_heat", params:{seat:0, level:3}, icon:'<path d="M7 4v9h9v7M7 13c-2 0-3 1-3 3v3"/><path d="M15 4c2 0 3 1 3 3"/>'},
+  {id:"seatP", g:"clima", label:"Banco passageiro", c:"set_seat_heat", params:{seat:1, level:3}, icon:'<path d="M17 4v9H8v7M17 13c2 0 3 1 3 3v3"/><path d="M9 4c-2 0-3 1-3 3"/>'},
   {id:"charge", g:"carga", label:"Carregamento", toggle:["start_charging","stop_charging"], state:"charge", icon:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'},
   {id:"port", g:"carga", label:"Porta de carga", c:"open_charge_port", icon:'<circle cx="12" cy="12" r="8"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/><circle cx="12" cy="15" r="1"/>'},
   {id:"homelink", g:"acesso", label:"HomeLink", c:"trigger_homelink", icon:'<path d="M3 11l9-7 9 7v9H3z"/><path d="M8 20v-6h8v6"/>'},
@@ -2703,7 +2706,7 @@ async function runAction(id, btn){
   }
   let name = a.c;
   if(a.toggle){
-    const st = car ? {climate:car.climate_state?.is_climate_on, sentry:car.vehicle_state?.sentry_mode, charge:car.charge_state?.charging_state==="Charging"}[a.state] : false;
+    const st = car ? {climate:car.climate_state?.is_climate_on, sentry:car.vehicle_state?.sentry_mode, charge:car.charge_state?.charging_state==="Charging", wheel:car.climate_state?.steering_wheel_heater}[a.state] : false;
     name = st ? a.toggle[1] : a.toggle[0];
   }
   return doCmd(name, a.params||{}, a.label, btn);
@@ -3623,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v615";
+const APP_VERSION = "v616";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
