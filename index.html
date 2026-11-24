@@ -2669,8 +2669,8 @@ function renderCar(){
 }
 const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ACTIONS = [
-  {id:"lock", g:"acesso", label:"Trancar", c:"lock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', state:"lock"},
-  {id:"unlock", g:"acesso", label:"Destrancar", c:"unlock", icon:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>', confirm:true},
+  {id:"lock", g:"acesso", label:"Trancar", c:"lock", icon:'<rect x="6" y="10.5" width="12" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>', state:"lock"},
+  {id:"unlock", g:"acesso", label:"Destrancar", c:"unlock", icon:'<rect x="6" y="10.5" width="12" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/>', confirm:true},
   {id:"trunk", g:"acesso", label:"Mala traseira", c:"activate_rear_trunk", icon:'<path d="M4 16V12.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2V16"/><path d="M3 16h18M9 10.5V8.5h6v2"/>'},
   {id:"frunk", g:"acesso", label:"Mala dianteira", c:"activate_front_trunk", icon:'<path d="M4 16V12.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2V16"/><path d="M3 16h18M9 10.5V8.5h6v2"/>'},
   {id:"vent", g:"acesso", label:"Ventilar vidros", c:"vent_windows", icon:'<path d="M4 9.5h16M4 14.5h10a2.5 2.5 0 1 0-2.5-2.5"/>'},
@@ -3626,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v617";
+const APP_VERSION = "v618";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
