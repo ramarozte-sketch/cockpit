@@ -3623,7 +3623,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v614";
+const APP_VERSION = "v615";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4074,8 +4074,8 @@ function freeAltQuality(c, tried){
 }
 (()=>{ const cb = document.getElementById("tsTeste"); if(!cb) return; cb.checked = LS.get("tsTeste", "1") !== "0"; cb.onchange = () => LS.set("tsTeste", cb.checked ? "1" : "0"); })();
 /* v614: estado da rede: aviso ao cair e aviso ao regressar */
-window.addEventListener("offline", () => { try{ toast("Sem ligação à internet. A pausar as tentativas de abrir canais.", true); }catch(e){} });
-window.addEventListener("online", () => { try{ toast("Ligação restabelecida."); }catch(e){} });
+window.addEventListener("offline", () => { try{ if(window.__dbgEv) window.__dbgEv(tvTarget, "rede: sem ligação (evento offline)", {navigatorOnLine:navigator.onLine}); }catch(e){} try{ toast("Sem ligação à internet. A pausar as tentativas de abrir canais.", true); }catch(e){} });
+window.addEventListener("online", () => { try{ if(window.__dbgEv) window.__dbgEv(tvTarget, "rede: ligação restabelecida (evento online)", {navigatorOnLine:navigator.onLine}); }catch(e){} try{ toast("Ligação restabelecida."); }catch(e){} });
 function playChannel(c, slot=tvTarget, auto=false){
   /* v614: sem rede não se tenta abrir canais (nem as reaberturas automáticas): avisa uma vez e espera pelo regresso da ligação */
   if(navigator.onLine === false){ try{ toast("Sem ligação à internet. Os canais voltam quando o Wi-Fi ou os dados regressarem.", true); }catch(e){} return; }
