@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v609";
+const APP_VERSION = "v610";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -6829,10 +6829,13 @@ function watchStall(slot, v, fix){
   clearInterval(stallTimers[slot]);
   let lastT = -1, still = 0, stalls = 0, ticks = 0, firstLogged = false;
   const t0 = performance.now();
+  /* v610: o instante do primeiro fotograma é o do evento «playing» (antes era amostrado a cada 3 s, por isso aparecia sempre ~3000 ms) */
+  const onPlaying = () => { v.removeEventListener("playing", onPlaying); if(firstLogged) return; firstLogged = true; window.__dbgEv && window.__dbgEv(slot, "reprodução: primeiro fotograma", {ms: Math.round(performance.now() - t0), via:"playing"}); };
+  v.addEventListener("playing", onPlaying);
   stallTimers[slot] = setInterval(()=>{
     ticks++;
     try{
-      if(!firstLogged && v.readyState >= 2 && !v.paused){ firstLogged = true; window.__dbgEv && window.__dbgEv(slot, "reprodução: primeiro fotograma", {ms: Math.round(performance.now() - t0)}); }
+      if(!firstLogged && v.readyState >= 2 && !v.paused){ firstLogged = true; window.__dbgEv && window.__dbgEv(slot, "reprodução: primeiro fotograma (amostra)", {ms: Math.round(performance.now() - t0)}); }
       if(firstLogged && ticks % 20 === 0){ const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
         window.__dbgEv && window.__dbgEv(slot, "reprodução (60 s)", {congelamentos: stalls, fotogramas: q ? q.totalVideoFrames : null, perdidos: q ? q.droppedVideoFrames : null, nivel: hlsInst[slot] ? hlsInst[slot].currentLevel : null}); }
     }catch(e){}
