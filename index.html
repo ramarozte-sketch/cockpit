@@ -176,8 +176,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:36px}
 /* v386: legendas externas desenhadas por cima do slot (também com a imagem em andamento, que cobre o vídeo) */
 .subov{position:absolute;left:0;right:0;bottom:8%;text-align:center;color:#fff;font-size:clamp(15px,3.4vw,34px);line-height:1.25;text-shadow:0 2px 4px #000,0 0 8px #000;pointer-events:none;z-index:6;padding:0 6%}
 /* v454: um só estilo para o botão Andamento (TV, Início e Ecrã total). Parado: azul com letras amarelas. Ativo: amarelo com letras azuis */
-#btnMirror.mirBtn,#hMirror.mirBtn,#tMirror.mirBtn{min-height:48px;padding:0 16px;font-size:20px;line-height:1.1;white-space:nowrap;background:#1d5fa8;color:#ffd23f;border-color:#1d5fa8;opacity:1!important}
-#btnMirror.mirBtn.on,#hMirror.mirBtn.on,#tMirror.mirBtn.on{background:#ffd23f;color:#0b3d78;border-color:#ffd23f}
+#btnMirror.mirBtn,#hMirror.mirBtn,#tMirror.mirBtn{min-height:48px;padding:0 16px;font-size:20px;line-height:1.1;white-space:nowrap;opacity:1!important}
+#btnMirror.mirBtn.on,#hMirror.mirBtn.on,#tMirror.mirBtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}  /* v607: ativo = azul do tema, como os outros botões selecionados */
 .rot{position:absolute;right:10px;top:8px;z-index:3;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--f-display);padding:6px 10px;min-height:36px}
 .slot .lbl{position:absolute;left:10px;top:8px;font:600 12px var(--f-display);letter-spacing:.08em;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:6px;z-index:3}
 .slot.active .lbl{background:var(--accent);color:var(--accent-ink)}
@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v606";
+const APP_VERSION = "v607";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -15572,6 +15572,7 @@ function renderMaint(){
 
   function render(force){
     if(currentView !== "tvinicio") return;
+    try{ syncMirrorBtns(); }catch(e){}   /* v607: o botão Andamento do Início segue sempre o estado atual */
     sec.classList.remove(...TPL.map(t => "ah-" + t[0])); sec.classList.add("ah-" + (cfg.tvHomeTpl || "equilibrado"));
     AH.flat = [];
     const cur = (lastPlayed && (lastPlayed[0] || lastPlayed[1])) || recents()[0] || null;
@@ -18877,8 +18878,7 @@ html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chPrev.btn{order:1;wi
 html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn{order:1;font-size:0!important;word-spacing:0;justify-content:center!important;padding:0!important;width:72px;min-width:72px!important}
 html.half body.pfull #v-tv.cinema .cinebar:not(#cinebar2) #chNext.btn::after{content:"▶";font-size:22px}
 /* v484: botão Andamento no ecrã total com as mesmas cores dos outros sítios (azul desligado, amarelo ligado); a regra cinzenta da barra sobrepunha-se */
-body.pfull #v-tv.cinema .cinebar #btnMirror.mirBtn{background:#1d5fa8!important;color:#ffd23f!important;border-color:#1d5fa8!important}
-body.pfull #v-tv.cinema .cinebar #btnMirror.mirBtn.on{background:#ffd23f!important;color:#0b3d78!important;border-color:#ffd23f!important}
+body.pfull #v-tv.cinema .cinebar #btnMirror.mirBtn.on{background:var(--accent)!important;color:var(--accent-ink)!important;border-color:var(--accent)!important}
 /* cabeçalho: botão do ecrã inteiro do Tesla só com o ícone */
 html.half #teslaFs{font-size:0;padding:0 14px;min-height:48px;display:inline-flex;align-items:center}
 html.half #teslaFs::after{content:"⛶";font-size:24px}
