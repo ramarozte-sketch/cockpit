@@ -3610,7 +3610,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v603";
+const APP_VERSION = "v604";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -16826,7 +16826,8 @@ body.ahStageIn .ahHeroArt:hover .ahFsHint,.ahFsHint.on{opacity:1}
     try{ if(window.__ahPrevStop){ const pv = document.querySelector(".ahPrev"); if(pv){ busy = true; } window.__ahPrevStop(); } }catch(e){}
     /* espera o que falta desde o último fecho (900 ms no mínimo; 3 s entre ligações de ficheiro) */
     const since = Date.now() - (window.__connCloseAt || 0);
-    const wait = (busy || since < 3000) && !c.free ? Math.max(busy ? 900 : 0, 3000 - since) : 0;
+    /* v604: em direto só fica o mínimo de 900 ms após fechar a ligação anterior (o playChannel já espera 1,5 s desde o último arranque); a espera de 3 s fica só para ficheiros */
+    const wait = c.kind === "live" && !c.free ? (busy ? 900 : 0) : (busy || since < 3000) && !c.free ? Math.max(busy ? 900 : 0, 3000 - since) : 0;
     const go = () => { if(my === tk) window.playChannel(c, slot); };
     wait ? setTimeout(go, wait) : go();
   };
