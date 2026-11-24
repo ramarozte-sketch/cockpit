@@ -3623,7 +3623,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v612";
+const APP_VERSION = "v613";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7047,8 +7047,8 @@ async function playTs(v, url, slot, onFail){
   p.__url = url; p.attachMediaElement(v); p.load(); tsInst[slot]=p;
   /* v609: ligação parada antes da primeira imagem (log de 09:07: 29 s sem imagem e sem erro): ao fim de 10 s sem dados no leitor, reabre uma única vez */
   setTimeout(() => { try{ if(tsInst[slot] !== p) return; const bf = v.buffered; if(bf && bf.length && bf.end(bf.length - 1) > 0.5) return;
-    window.__dbgEv && window.__dbgEv(slot, "TS: sem dados em 10 s: reabre uma vez", {rs:v.readyState}); p.unload(); p.load(); v.play().catch(() => {}); }catch(e){} }, 10000);
-  try{ window.__tsBytes = 0; p.on(mpegts.Events.ERROR, (t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: erro do leitor", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "")}); }catch(e){} });
+    window.__dbgEv && window.__dbgEv(slot, "TS: sem dados em 10 s: reabre uma vez", {rs:v.readyState}); try{ toast("Sem dados do canal. A tentar de novo…"); }catch(x){} p.unload(); p.load(); v.play().catch(() => {}); }catch(e){} }, 10000);
+  try{ window.__tsBytes = 0; p.on(mpegts.Events.ERROR, (t, d) => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: erro do leitor", {tipo:String(t), det:String(d && (d.msg || d.code || d) || "")}); }catch(e){} try{ if(/Network|EarlyEof/i.test(String(t) + " " + String(d))) toast("A ligação ao fornecedor caiu. A recuperar…", true); }catch(x){} });
     setTimeout(() => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: bytes ao espelho (10 s)", {bytes:window.__tsBytes || 0, mirror:!!tapOn, hevcMse:!!HEVC_OK()}); }catch(e){} }, 10000); }catch(e){}
   if(tapOn) setTimeout(() => { try{ if(tsInst[slot] === p && mirrorOn) startMirror(slot); }catch(e){} }, 0);
   if(window.__TESLA){ try{ watchStall(slot, v, () => { try{ if(tsInst[slot] !== p) return; p.unload(); p.load(); v.play().catch(()=>{}); }catch(e){} }); }catch(e){} }
