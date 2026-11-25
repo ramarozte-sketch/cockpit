@@ -3626,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v618";
+const APP_VERSION = "v619";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4805,7 +4805,8 @@ function __annexInfo(u){
   return {nr:sl > 0 && nr, idr, ref:sl > 0 && !nr};
 }
 class SoftVideoDecoder {
-  constructor({output, error, backlog}){
+  constructor({output, error, backlog, liveTs}){
+    this.liveTs = !!liveTs; /* v619: diretos .ts ao vivo: mais antecedência para absorver as pausas da origem */
     this.output = output; this.onerr = error; this.backlog = backlog || (() => 0); this.state = "unconfigured"; this.pending = []; this.W = []; this.owner = null;
     this.lead = 1200000; this.srcFps = 0; this.gopN = 0; this.st = {gopsSaltados:0, bSaltadas:0, drenadas:0, bFinas:0}; this.thin = false; this._tn = 0;
     const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
@@ -4879,7 +4880,7 @@ class SoftVideoDecoder {
     /* v190: folga de 0,5 s (era 0,3 s) e mínimo de 0,6 s — absorve as quebras de ritmo do processador do carro */
     /* nunca pede mais antecedência do que a fila deixa ter (limite de imagens prontas): senão os Workers param à espera e as imagens chegam tarde */
     /* v239: um Worker mais lento que a origem (H.265: ~25 imagens/s para 50) só enche a fila ao ritmo dele, não ao da origem: a antecedência pode ser maior (antes ficava em 1,1 s e os GOPs de 2 s chegavam tarde → saltos) */
-    const room = Math.max(600000, Math.round((this.bkLimit() - 4) / Math.min(fs, fw) * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000;
+    const room = Math.max(600000, Math.round((this.bkLimit() - 4) / Math.min(fs, fw) * 1e6)), minLead = this.px && this.px <= 2.6e6 ? 1000000 : 600000; if(this.liveTs) minLead = 1700000;
     return Math.max(minLead, Math.min(this.film ? 10000000 : 4500000, room, Math.round((n / fw - n / fs) * 1e6 + 600000)));
   }
   pump(masterUs){
@@ -5428,7 +5429,7 @@ function tsMirInit(slot){
   if(!WC_NATIVE || (window.__useSoft && window.__useSoft())){   /* v195: o mesmo FFmpeg/WASM em paralelo (Annex B, sem WebCodecs) */
     st.soft = true; window.__motorUsado = "h264soft";
     st.decoder = new SoftVideoDecoder({output: frame => { if(MIR[slot] !== st){ try{ frame.close(); }catch(e){} return; } st.frames = (st.frames || 0) + 1; if(st.frames === 1){ try{ window.__dbgEv && window.__dbgEv(slot, "primeira imagem em andamento", {ms:Math.round(performance.now() - st.t0)}); }catch(e){} } mirPushFrame(st, frame); startPresent(slot); },
-      error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).length});
+      error: e => { st.err = "decoder: " + e.message; }, backlog: () => (st.q || []).lengthliveTs: true});
     const pre = tap.pre || []; tap.pre = []; tap.preN = 0; for(const b of pre) tsMirFeed(slot, b);
     return;
   }
