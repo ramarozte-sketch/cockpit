@@ -3626,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v624";
+const APP_VERSION = "v625";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -5163,7 +5163,8 @@ function present(slot){
   if(st.ctAt && !st.wall){
     const stale = pn - st.ctAt; st.ctMaxStale = Math.max(st.ctMaxStale || 0, stale);
     /* v323 (só registo): quando o relógio do vídeo para mais de 1 s, regista o estado do <video> nesse momento */
-    if(stale > 1000 && !st.staleLogged && v){ st.staleLogged = true; try{ const b = v.buffered, be = b.length ? b.end(b.length - 1) : null;
+    if(stale > 1000 && !st.staleLogged && v && !v.__cushion){   /* v625: não regista durante a espera da reserva no arranque (pausa de propósito) */
+      st.staleLogged = true; try{ const b = v.buffered, be = b.length ? b.end(b.length - 1) : null;
       window.__dbgEv && window.__dbgEv(slot, "relógio do vídeo parado", {ms:Math.round(stale), readyState:v.readyState, networkState:v.networkState, bufferFim_s:be == null ? null : +be.toFixed(2), agora_s:+v.currentTime.toFixed(2), pausado:v.paused, procura:v.seeking, escondido:document.hidden}); }catch(e){} }
     else if(stale < 300) st.staleLogged = false;
     /* v393: relógio parado com o filme a tocar: relança o <video> (no máximo a cada 4 s) */
@@ -7080,12 +7081,12 @@ async function playTs(v, url, slot, onFail){
    O servidor entrega em tempo real; a tocar colado ao direto o som parava ~1 s várias vezes nos primeiros segundos
    e a imagem em andamento parava com ele (log 25/11 18:52). Não mexe no descodificador. */
 function tsCushionStart(v, slot, alive, alvo = 2.5, maxMs = 3500){
-  const t0 = performance.now();
+  const t0 = performance.now(); v.__cushion = true;
   const ahead = () => { try{ const bf = v.buffered; return bf && bf.length ? bf.end(bf.length - 1) - v.currentTime : 0; }catch(e){ return 0; } };
-  const go = why => { try{ window.__dbgEv && window.__dbgEv(slot, "TS: reserva no arranque", {s:+ahead().toFixed(1), ms:Math.round(performance.now() - t0), motivo:why}); }catch(e){} try{ const r = v.play(); if(r && r.catch) r.catch(() => {}); }catch(e){} };
+  const go = why => { v.__cushion = false; try{ window.__dbgEv && window.__dbgEv(slot, "TS: reserva no arranque", {s:+ahead().toFixed(1), ms:Math.round(performance.now() - t0), motivo:why}); }catch(e){} try{ const r = v.play(); if(r && r.catch) r.catch(() => {}); }catch(e){} };
   const iv = setInterval(() => {
-    if(!alive()){ clearInterval(iv); return; }
-    if(!v.paused){ clearInterval(iv); return; }   /* outra parte já pôs a tocar: não interfere */
+    if(!alive()){ clearInterval(iv); v.__cushion = false; return; }
+    if(!v.paused){ clearInterval(iv); v.__cushion = false; return; }   /* outra parte já pôs a tocar: não interfere */
     if(ahead() >= alvo){ clearInterval(iv); go("reserva"); }
     else if(performance.now() - t0 >= maxMs){ clearInterval(iv); go("tempo"); }
   }, 100);
