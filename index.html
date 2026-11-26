@@ -3626,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v625";
+const APP_VERSION = "v626";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -7073,7 +7073,11 @@ async function playTs(v, url, slot, onFail){
         if(tmo){ v.removeEventListener("waiting", wf); } } }, 250); };
     v.addEventListener("waiting", wf); }catch(e){} }
   let failed = false;
-  p.on(mpegts.Events.ERROR, ()=>{ if(failed) return; failed = true; onFail(); });
+  p.on(mpegts.Events.ERROR, (t, d, info)=>{ if(failed) return; failed = true;
+    /* v626: 458 = o fornecedor está a limitar a conta (ligação ainda aberta noutro sítio). Tentar outra rota usa a mesma conta e só prolonga o bloqueio: pára e avisa */
+    const is458 = (info && +info.code === 458) || /458/.test(String(info && (info.msg || info.code) || "") + " " + String(d || ""));
+    if(is458){ window.__last458 = window.__auto458 = Date.now(); try{ window.__dbgEv && window.__dbgEv(slot, "TS: fornecedor a limitar (458): sem outras rotas", {}); }catch(e){} try{ p.unload(); }catch(e){} try{ toast("O fornecedor está a limitar a conta (458). Fecha o IPTV noutros aparelhos e tenta daqui a 20 s.", true); }catch(e){} return; }
+    onFail(); });
   if(window.__TESLA) tsCushionStart(v, slot, () => tsInst[slot] === p); else v.play().catch(()=>{});
   return true;
 }
