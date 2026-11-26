@@ -2066,7 +2066,7 @@ body.layout-atv .rail{display:none}
       <div class="panel setcard">
           <h2>Reprodução</h2>
           <p class="small muted setsub" style="margin:0">Qualidade, ecrã total e comportamento do vídeo.</p>
-          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (poupar dados)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
+          <label class="f">Qualidade máxima do vídeo<select id="setMaxRes"><option value="1080">1080p (recomendado para o ecrã do carro)</option><option value="720">720p (liga mais fraca)</option><option value="480">480p (usa a versão SD do canal, se existir)</option><option value="2160">4K (sem limite; só se o carro descodificar)</option></select></label>
           <p class="small muted" style="margin:0">Os canais 4K passam logo à versão FHD do mesmo canal (se existir), as versões HEVC/H.265 que o Tesla não descodifica são ignoradas, e a qualidade desce sozinha se houver muitos fotogramas perdidos. Os ficheiros de filmes diretos (mp4/mkv) não têm várias qualidades: o browser toca o que o servidor enviar.</p>
           <label class="f">Lista de canais à esquerda (um clique no vídeo)<select id="setFsl"><option value="all">Ligada (a lista de onde abriste o canal)</option><option value="off">Desligada</option></select></label>
           <p class="small muted" style="margin:0">Mostra o logótipo e o nome dos canais, com scroll, para mudares de canal sem sair do ecrã total.</p>
@@ -3626,7 +3626,7 @@ function parseM3U(text){
 const PHONE = (typeof window !== "undefined" && window.PHONE_PROXY && window.PHONE_PROXY.base) ? window.PHONE_PROXY : null;
 const HASPX = () => !!(PHONE || cfg.proxy2 || cfg.proxy);
 // Modo "ligação direta": o vídeo vai do Tesla (IP do telemóvel/hotspot) ao fornecedor, sem passar por nenhum proxy.
-const APP_VERSION = "v626";
+const APP_VERSION = "v627";
 /* v340: o browser do Tesla ficava com uma cópia antiga em cache (registos em v330 depois de já ter corrido a v336).
    Ao abrir, pede a página ao servidor sem cache; se for mais recente, reabre com um endereço novo (uma vez por versão). */
 (function(){ try{
@@ -4044,6 +4044,12 @@ const hevcTsMark = u => { if(!u || hevcTs.has(u)) return; hevcTs.add(u); try{ lo
 const maintAt = new Map();   /* canais que o fornecedor serve com o vídeo «Maintenance…mp4» (momento do aviso) */
 const hevcSess = new Set();   /* só nesta sessão: o computador ficou perto do ritmo mas não chegou lá */
 const hevcSkip = u => !HEVC_OK() && (hevcBad.has(u) || hevcSess.has(u));
+/* v627: versão do mesmo canal dentro do limite de qualidade das Definições (480p → SD, 720p → HD, 1080p → FHD): a melhor que caiba */
+const capQual = () => { const r = resCap(); return r >= 2160 ? 4 : r >= 1080 ? 3 : r >= 720 ? 2 : 1; };
+function altUnderCap(c, cq){
+  const b = chBase(c.name); if(!b) return null;
+  return channels.filter(x => x.kind === c.kind && x.url !== c.url && !hevcSkip(x.url) && chQual(x.name) <= cq && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
+}
 function altQuality(c, tried){
   const b = chBase(c.name), q = chQual(c.name); if(!b) return null;
   return channels.filter(x => x.kind === c.kind && x.url !== c.url && !tried.has(x.url) && !hevcSkip(x.url) && chQual(x.name) < q && chBase(x.name) === b).sort((a, z) => chQual(z.name) - chQual(a.name))[0] || null;
@@ -4107,6 +4113,11 @@ function playChannel(c, slot=tvTarget, auto=false){
   if(c.kind==="live" && !HEVC_OK() && (hevcSkip(c.url) || window.__hevcSw === false)){   /* sem HEVC neste browser e o software não aguentou (ou está desligado): vai logo à versão que ele descodifica */
     const alt = altQuality(c, autoTried[slot]) || (window.__altFor && window.__altFor(c, autoTried[slot]));
     if(alt && alt.url !== c.url){ autoTried[slot].add(c.url); toast(`${c.name} é HEVC e este browser não o descodifica. A abrir ${alt.name}…`); playChannel(alt, slot, true); return; }
+  }
+  if(c.kind==="live" && chQual(c.name) > capQual()){   /* v627: canal acima do limite (ex.: 480p e canal HD) → versão mais leve do mesmo canal, se existir na lista */
+    const alt = altUnderCap(c, capQual());
+    if(alt){ try{ window.__dbgEv && window.__dbgEv(slot, "qualidade: versão mais leve do canal", {de:c.name, para:alt.name, limite:resCap()}); }catch(e){} toast(`${c.name}: a abrir ${alt.name} (limite de ${resCap()}p nas Definições).`); playChannel(alt, slot, true); return; }
+    try{ window.__dbgEv && window.__dbgEv(slot, "qualidade: sem versão mais leve deste canal", {canal:c.name, limite:resCap()}); }catch(e){}
   }
   if(c.kind==="live" && chQual(c.name)===4 && (resCap() < 2160 || (window.__TESLA && !(window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L150.90"'))))){ // 4K → versão FHD/HD do mesmo canal, se existir
     const alt = altQuality(c, new Set());
